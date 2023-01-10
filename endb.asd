@@ -1,7 +1,7 @@
 (defsystem "endb"
   :version "0.1.0"
   :author "Håkan Råberg <hakan.raberg@gmail.com>, Steven Deobald <steven@deobald.ca>"
-  :license "AGPL-3"
+  :license "AGPLv3"
   :homepage "https://www.endatabas.com/"
   :depends-on ()
   :components ((:module "src"
@@ -16,7 +16,7 @@
 (defsystem "endb/tests"
   :version "0.1.0"
   :author "Håkan Råberg <hakan.raberg@gmail.com>, Steven Deobald <steven@deobald.ca>"
-  :license "AGPL-3"
+  :license "AGPLv3"
   :depends-on ("endb" "fiveam")
   :components ((:module "tests"
                 :serial t
