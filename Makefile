@@ -30,4 +30,4 @@ test:
 clean:
 	rm -f endb $(FASL_FILES)
 
-.PHONY: repl run run-binary test
+.PHONY: repl run run-binary test clean
