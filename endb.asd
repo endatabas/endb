@@ -17,7 +17,7 @@
   :version "0.1.0"
   :author "Håkan Råberg <hakan.raberg@gmail.com>, Steven Deobald <steven@deobald.ca>"
   :license "AGPLv3"
-  :depends-on ("endb")
+  :depends-on ("endb" "cffi")
   :components ((:module "slt"
                 :serial t
                 :components ((:file "endb-slt"))))

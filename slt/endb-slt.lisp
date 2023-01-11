@@ -1,23 +1,28 @@
 (defpackage endb-slt
-  (:use cl sb-alien)
+  (:use cl)
   (:export slt-main))
 (in-package endb-slt)
 
-(define-alien-routine "sltmain" int
-  (argc int)
-  (argv (* (* char))))
+(cffi:define-foreign-library libsqllogictest
+  (t (:default "libsqllogictest")))
+
+(cffi:defcfun "sqllogictest_main" :int
+  (argc :int)
+  (argv (:pointer (:pointer :char))))
 
 (defun %slt-main (args)
   (let ((argc (length args)))
-    (with-alien ((argv (* (* char)) (make-alien (* char) (1+ argc))))
+    (cffi:with-foreign-object (argv :pointer (1+ argc))
       (unwind-protect
-           (progn (dotimes (n argc)
-                    (setf (deref argv n) (make-alien-string (elt args n))))
-                  (sltmain argc argv))
+           (progn
+             (dotimes (n argc)
+               (setf (cffi:mem-aref argv :pointer n)
+                     (cffi:foreign-string-alloc (elt args n))))
+             (sqllogictest-main argc argv))
         (dotimes (n argc)
-          (free-alien (deref argv n)))
-        (free-alien argv)))))
+          (cffi:foreign-string-free (cffi:mem-aref argv :pointer n)))))))
 
 (defun slt-main ()
-  (load-shared-object "libsqllogictest.so")
-  (%slt-main (cons "sqllogictest" (uiop:command-line-arguments))))
+  (setq cffi:*foreign-library-directories* (list (uiop:getcwd)))
+  (cffi:use-foreign-library libsqllogictest)
+  (uiop:quit (%slt-main (cons (uiop:argv0) (uiop:command-line-arguments)))))
