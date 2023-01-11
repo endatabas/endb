@@ -23,6 +23,12 @@ ln -s $PWD ~/quicklisp/local-projects
 
 ```
 
+Initialise submodules:
+
+```bash
+git submodule update --init --recursive
+```
+
 Run the tests and build the binary:
 
 ```bash
