@@ -21,6 +21,9 @@
   :components ((:module "slt"
                 :serial t
                 :components ((:file "endb-slt"))))
+  :build-operation "program-op"
+  :build-pathname "slt-runner"
+  :entry-point "endb-slt:slt-main"
   :description "SLT engine for Endatabas")
 
 (defsystem "endb/tests"

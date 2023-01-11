@@ -1,4 +1,4 @@
 endb
 .fasl
-libslt_endb.so
 test.db
+slt-runner
