@@ -1,21 +1,23 @@
 (defpackage endb-slt
-  (:use cl)
+  (:use cl sb-alien)
   (:export slt-main))
 (in-package endb-slt)
 
-(sb-alien:define-alien-routine "sltmain" sb-alien:int
-  (argc sb-alien:int)
-  (argv (* (* sb-alien:char))))
+(define-alien-routine "sltmain" int
+  (argc int)
+  (argv (* (* char))))
 
-(defun slt-main ()
-  (sb-alien:load-shared-object "libsqllogictest.so")
-  (let* ((args (cons "sqllogictest" (uiop:command-line-arguments)))
-         (argc (length args)))
-    (sb-alien:with-alien ((argv (* (* sb-alien:char)) (sb-alien:make-alien (* sb-alien:char) (1+ argc))))
+(defun %slt-main (args)
+  (let ((argc (length args)))
+    (with-alien ((argv (* (* char)) (make-alien (* char) (1+ argc))))
       (unwind-protect
            (progn (dotimes (n argc)
-                    (setf (sb-alien:deref argv n) (sb-alien:make-alien-string (elt args n))))
+                    (setf (deref argv n) (make-alien-string (elt args n))))
                   (sltmain argc argv))
         (dotimes (n argc)
-          (sb-alien:free-alien (sb-alien:deref argv n)))
-        (sb-alien:free-alien argv)))))
+          (free-alien (deref argv n)))
+        (free-alien argv)))))
+
+(defun slt-main ()
+  (load-shared-object "libsqllogictest.so")
+  (%slt-main (cons "sqllogictest" (uiop:command-line-arguments))))
