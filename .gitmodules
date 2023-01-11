@@ -1,3 +1,4 @@
 [submodule "sqllogictest"]
 	path = sqllogictest
 	url = https://github.com/gregrahn/sqllogictest
+        ignore = untracked

@@ -35,6 +35,22 @@ Run the tests and build the binary:
 make test endb
 ```
 
+## Sqllogictest
+
+See https://www.sqlite.org/sqllogictest/
+
+Install gcc which is needed to build the test runner:
+
+```bash
+sudo apt install gcc
+```
+
+Build and run sanity checks. We patch the build slightly to inject our own database engine:
+
+```bash
+make slt-sanity
+```
+
 ## Development Environment
 
 See https://lispcookbook.github.io/cl-cookbook/getting-started.html for details.
