@@ -1,4 +1,4 @@
 endb
-.fasl
+*.fasl
 test.db
 slt-runner
