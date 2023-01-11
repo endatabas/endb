@@ -9,14 +9,13 @@ endb:	Makefile *.asd $(SOURCES)
 	$(LISP) --noinform \
 		--non-interactive \
 		--eval '(ql:quickload :endb)' \
-		--eval '(asdf:make :endb)' \
-		--eval '(quit)'
+		--eval '(asdf:make :endb)'
 
 repl:
 	rlwrap $(LISP) --noinform --eval '(ql:quickload :endb)' --eval '(in-package :endb)'
 
 run:
-	rlwrap $(LISP) --noinform --non-interactive --eval '(ql:quickload :endb)' --eval '(endb:main)'
+	$(LISP) --noinform --non-interactive --eval '(ql:quickload :endb)' --eval '(endb:main)'
 
 run-binary: endb
 	@./$<
