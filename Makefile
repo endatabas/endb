@@ -5,7 +5,7 @@ FASL_FILES := $(shell find . -iname \*.fasl)
 
 default: test
 
-endb:	Makefile *.asd $(SOURCES)
+endb: Makefile *.asd $(SOURCES)
 	$(LISP) --noinform \
 		--non-interactive \
 		--eval '(ql:quickload :endb)' \
