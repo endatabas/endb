@@ -120,7 +120,24 @@
 (cffi:defcfun "sqllogictestRegisterEngine" :void
   (p (:pointer (:struct DbEngine))))
 
+(defun %register-cl-sqlite-engine ()
+  (when (not (boundp '*engine-name*))
+    (pushnew (uiop:getcwd) cffi:*foreign-library-directories*)
+    (cffi:use-foreign-library libsqllogictest)
+    (let ((engine (cffi:foreign-alloc 'DbEngine)))
+      (cffi:with-foreign-slots ((zName xConnect xGetEngineName xStatement xQuery xFreeResults xDisconnect) engine DBEngine)
+        (setf zName (cffi:foreign-string-alloc "CLSQLite")
+              xConnect (cffi:callback sqliteConnect)
+              xGetEngineName (cffi:callback sqliteGetEngineName)
+              xStatement (cffi:callback sqliteStatement)
+              xQuery (cffi:callback sqliteQuery)
+              xFreeResults (cffi:callback sqliteFreeResult)
+              xDisconnect (cffi:callback sqliteDisconnect))
+        (sqllogictestRegisterEngine engine)
+        (setq *engine-name* (cffi:foreign-string-alloc "SQLite"))))))
+
 (defun %slt-main (args)
+  (%register-cl-sqlite-engine)
   (let ((argc (length args)))
     (cffi:with-foreign-object (argv :pointer (1+ argc))
       (unwind-protect
@@ -134,33 +151,8 @@
         (dotimes (n argc)
           (cffi:foreign-string-free (cffi:mem-aref argv :pointer n)))))))
 
-(defun %register-cl-sqlite-engine (engine engine-name)
-  (cffi:with-foreign-slots ((zName xConnect xGetEngineName xStatement xQuery xFreeResults xDisconnect) engine DBEngine)
-    (setf zName engine-name
-          xConnect (cffi:callback sqliteConnect)
-          xGetEngineName (cffi:callback sqliteGetEngineName)
-          xStatement (cffi:callback sqliteStatement)
-          xQuery (cffi:callback sqliteQuery)
-          xFreeResults (cffi:callback sqliteFreeResult)
-          xDisconnect (cffi:callback sqliteDisconnect))
-    (sqllogictestRegisterEngine engine)))
-
-(defun %with-slt-init (f)
-  (pushnew (uiop:getcwd) cffi:*foreign-library-directories*)
-  (cffi:use-foreign-library libsqllogictest)
-  (cffi:with-foreign-strings ((engine-name "CLSQLite")
-                              (real-engine-name "SQLite"))
-    (cffi:with-foreign-object (engine 'DbEngine)
-      (setf *engine-name* real-engine-name)
-      (%register-cl-sqlite-engine engine engine-name)
-      (funcall f))))
-
 (defun slt-test (test &key (engine "CLSQLite"))
-  (%with-slt-init
-   (lambda ()
-     (%slt-main (list "slt-runner" "-engine" engine "-verify" test)))))
+  (%slt-main (list "slt-runner" "-engine" engine "-verify" test)))
 
 (defun slt-main ()
-  (%with-slt-init
-   (lambda ()
-     (uiop:quit (%slt-main (cons (uiop:argv0) (uiop:command-line-arguments)))))))
+  (uiop:quit (%slt-main (cons (uiop:argv0) (uiop:command-line-arguments)))))
