@@ -15,51 +15,95 @@
 
 (cffi:defctype DbEngine (:struct DbEngine))
 
+(defvar *connections* (make-hash-table))
+
 (cffi:defcallback sqliteConnect :int
     ((NotUsed :pointer)
-     (zCon :pointer)
+     (zCon :string)
      (ppConn (:pointer :pointer))
-     (zOpt :pointer))
-  (declare (ignore NotUsed zCon ppConn zOpt))
-  1)
+     (zOpt :string))
+  (declare (ignorable NotUsed ppConn zOpt))
+  (let* ((handle (sqlite:connect (or zCon ":memory:")))
+         (pConn (sqlite::handle handle)))
+    (setf (cffi:mem-ref ppConn :pointer) pConn)
+    (setf (gethash (cffi:pointer-address pConn) *connections*) handle)
+    0))
 
 (defvar *engine-name*)
 
 (cffi:defcallback sqliteGetEngineName :int
     ((pConn :pointer)
-     (zName :pointer))
+     (zName (:pointer :char)))
   (declare (ignorable pConn zName))
-  (when *engine-name*
-    (setf zName *engine-name*))
-  0)
+  (if *engine-name*
+      (progn
+        (setf zName *engine-name*)
+        0)
+      1))
 
 (cffi:defcallback sqliteStatement :int
-    ((p :pointer)
-     (zSql :pointer)
+    ((pConn :pointer)
+     (zSql :string)
      (bQuiet :int))
-  (declare (ignore p zSql bQuiet))
-  1)
+  (declare (ignore bQuiet))
+  (let ((handle (gethash (cffi:pointer-address pConn) *connections*)))
+    (if handle
+        (progn
+          (sqlite:execute-non-query handle zSql)
+          0)
+        1)))
 
 (cffi:defcallback sqliteQuery :int
     ((pConn :pointer)
-     (zSql (:pointer :pointer))
-     (zTypes (:pointer :pointer))
-     (pazResult (:pointer (:pointer :pointer)))
-     (pnResult :int))
-  (declare (ignore pConn zSql zTypes pazResult pnResult))
-  1)
+     (zSql :string)
+     (zTypes :string)
+     (pazResult (:pointer (:pointer (:pointer :char))))
+     (pnResult (:pointer :int)))
+  (declare (ignorable pazResult pnResult))
+  (let ((handle (gethash (cffi:pointer-address pConn) *connections*)))
+    (if handle
+        (let* ((result (sqlite:execute-to-list handle zSql))
+               (n-used (* (length result) (length zTypes)))
+               (az-result (cffi:foreign-alloc :pointer :count n-used)))
+          (loop for n from 0 to (length result)
+                for row in result
+                do (let ((offset (* n (length zTypes))))
+                     (loop for m from 0 to (length zTypes)
+                           for col in row
+                           do (setf (cffi:mem-aref az-result :pointer (+ m offset))
+                                    (cffi:foreign-string-alloc
+                                     (if col
+                                         (case (aref zTypes m)
+                                           (#\T (if (equal "" col)
+                                                    "(empty)"
+                                                    (format nil "~A" col)))
+                                           (#\I (format nil "~D" col))
+                                           (#\R (format nil "~,3F" col)))
+                                         "NULL"))))))
+          (setf (cffi:mem-ref pnResult :int) n-used)
+          (setf (cffi:mem-ref pazResult :pointer) az-result)
+          0)
+        1)))
 
 (cffi:defcallback sqliteFreeResult :int
-    ((p :pointer)
-     (azResult (:pointer :pointer))
+    ((pConn :pointer)
+     (azResult (:pointer (:pointer :char)))
      (nResult :int))
-  (declare (ignore p azResult nResult))
-  1)
+  (declare (ignore pConn))
+  (dotimes (n nResult)
+    (cffi:foreign-free (cffi:mem-aref azResult :pointer n)))
+  (cffi:foreign-free azResult)
+  0)
 
 (cffi:defcallback sqliteDisconnect :int
     ((pConn :pointer))
-  (declare (ignore pConn))
-  1)
+  (let ((handle (gethash (cffi:pointer-address pConn) *connections*)))
+    (if handle
+        (progn
+          (remhash (cffi:pointer-address pConn) *connections*)
+          (sqlite:disconnect handle)
+          0)
+        1)))
 
 (cffi:define-foreign-library libsqllogictest
   (t (:default "libsqllogictest")))
@@ -99,8 +143,9 @@
 (defun slt-main ()
   (push (uiop:getcwd) cffi:*foreign-library-directories*)
   (cffi:use-foreign-library libsqllogictest)
-  (cffi:with-foreign-string (engine-name "CL-SQLite")
-    (setf *engine-name* engine-name)
+  (cffi:with-foreign-strings ((engine-name "CLSQLite")
+                              (real-engine-name "SQLite"))
+    (setf *engine-name* real-engine-name)
     (cffi:with-foreign-object (engine 'DbEngine)
       (%register-cl-sqlite-engine engine engine-name)
       (uiop:quit (%slt-main (cons (uiop:argv0) (uiop:command-line-arguments)))))))
