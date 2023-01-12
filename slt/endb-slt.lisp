@@ -53,6 +53,19 @@
           0)
         1)))
 
+(defun %slt-format (value type)
+  (if value
+      (case type
+        (#\T (if (equal "" value)
+                 "(empty)"
+                 (substitute-if #\@ (lambda (c)
+                                      (or (char> c #\~)
+                                          (char< c #\ )))
+                                (format nil "~A" value))))
+        (#\I (format nil "~D" value))
+        (#\R (format nil "~,3F" value)))
+      "NULL"))
+
 (cffi:defcallback sqliteQuery :int
     ((pConn :pointer)
      (zSql :string)
@@ -65,21 +78,13 @@
         (let* ((result (sqlite:execute-to-list handle zSql))
                (n-used (* (length result) (length zTypes)))
                (az-result (cffi:foreign-alloc :pointer :count n-used)))
-          (loop for n from 0 to (length result)
+          (loop for row-offset from 0 by (length zTypes)
                 for row in result
-                do (let ((offset (* n (length zTypes))))
-                     (loop for m from 0 to (length zTypes)
-                           for col in row
-                           do (setf (cffi:mem-aref az-result :pointer (+ m offset))
-                                    (cffi:foreign-string-alloc
-                                     (if col
-                                         (case (aref zTypes m)
-                                           (#\T (if (equal "" col)
-                                                    "(empty)"
-                                                    (format nil "~A" col)))
-                                           (#\I (format nil "~D" col))
-                                           (#\R (format nil "~,3F" col)))
-                                         "NULL"))))))
+                do (loop for col-offset from row-offset
+                         for col in row
+                         for type across zTypes
+                         do (setf (cffi:mem-aref az-result :pointer col-offset)
+                                  (cffi:foreign-string-alloc (%slt-format col type)))))
           (setf (cffi:mem-ref pnResult :int) n-used)
           (setf (cffi:mem-ref pazResult :pointer) az-result)
           0)
