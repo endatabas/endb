@@ -145,12 +145,22 @@
           xDisconnect (cffi:callback sqliteDisconnect))
     (sqllogictestRegisterEngine engine)))
 
-(defun slt-main ()
-  (push (uiop:getcwd) cffi:*foreign-library-directories*)
+(defun %with-slt-init (f)
+  (pushnew (uiop:getcwd) cffi:*foreign-library-directories*)
   (cffi:use-foreign-library libsqllogictest)
   (cffi:with-foreign-strings ((engine-name "CLSQLite")
                               (real-engine-name "SQLite"))
-    (setf *engine-name* real-engine-name)
     (cffi:with-foreign-object (engine 'DbEngine)
+      (setf *engine-name* real-engine-name)
       (%register-cl-sqlite-engine engine engine-name)
-      (uiop:quit (%slt-main (cons (uiop:argv0) (uiop:command-line-arguments)))))))
+      (funcall f))))
+
+(defun slt-test (test &key (engine "CLSQLite"))
+  (%with-slt-init
+   (lambda ()
+     (%slt-main (list "slt-runner" "-engine" engine "-verify" test)))))
+
+(defun slt-main ()
+  (%with-slt-init
+   (lambda ()
+     (uiop:quit (%slt-main (cons (uiop:argv0) (uiop:command-line-arguments)))))))
