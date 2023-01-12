@@ -16,19 +16,19 @@
 (cffi:defctype DbEngine (:struct DbEngine))
 
 (cffi:defcallback sqliteConnect :int
-    ((p :pointer)
+    ((NotUsed :pointer)
      (zCon :pointer)
      (ppConn (:pointer :pointer))
      (zOpt :pointer))
-  (declare (ignore p zCon ppConn zOpt))
+  (declare (ignore NotUsed zCon ppConn zOpt))
   1)
 
 (defvar *engine-name*)
 
 (cffi:defcallback sqliteGetEngineName :int
-    ((p :pointer)
+    ((pConn :pointer)
      (zName :pointer))
-  (declare (ignorable p zName))
+  (declare (ignorable pConn zName))
   (when *engine-name*
     (setf zName *engine-name*))
   0)
@@ -41,12 +41,12 @@
   1)
 
 (cffi:defcallback sqliteQuery :int
-    ((p :pointer)
+    ((pConn :pointer)
      (zSql (:pointer :pointer))
      (zTypes (:pointer :pointer))
      (pazResult (:pointer (:pointer :pointer)))
      (pnResult :int))
-  (declare (ignore p zSql zTypes pazResult pnResult))
+  (declare (ignore pConn zSql zTypes pazResult pnResult))
   1)
 
 (cffi:defcallback sqliteFreeResult :int
@@ -57,8 +57,8 @@
   1)
 
 (cffi:defcallback sqliteDisconnect :int
-    ((p :pointer))
-  (declare (ignore p))
+    ((pConn :pointer))
+  (declare (ignore pConn))
   1)
 
 (cffi:define-foreign-library libsqllogictest
