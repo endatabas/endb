@@ -7,6 +7,3 @@
 
 (test test-sanity
       (is (= (+ 1 1) 2)))
-
-(test test-get-engine-name
-      (is (equal "endb" (get-engine-name))))

@@ -1,11 +1,7 @@
 (defpackage endb
   (:use cl)
-  (:export get-engine-name main))
+  (:export main))
 (in-package endb)
-
-(defun get-engine-name ()
-  (let ((endb-system (asdf:find-system :endb)))
-    (asdf:component-name endb-system)))
 
 (defun %main (args)
   (declare (ignore args))
