@@ -97,7 +97,7 @@
     (sqllogictestRegisterEngine engine)))
 
 (defun slt-main ()
-  (setq cffi:*foreign-library-directories* (list (uiop:getcwd)))
+  (push (uiop:getcwd) cffi:*foreign-library-directories*)
   (cffi:use-foreign-library libsqllogictest)
   (cffi:with-foreign-string (engine-name "CL-SQLite")
     (setf *engine-name* engine-name)
