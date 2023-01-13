@@ -1,6 +1,8 @@
 (defpackage endb-slt
   (:use cl)
-  (:export slt-main))
+  (:export slt-main)
+  (:import-from cffi)
+  (:import-from uiop))
 (in-package endb-slt)
 
 (cffi:defcstruct DbEngine
@@ -55,13 +57,13 @@
 
 (defun %slt-format (value type)
   (if value
-      (case type
+      (ecase type
         (#\T (if (equal "" value)
                  "(empty)"
                  (substitute-if #\@ (lambda (c)
                                       (or (char> c #\~)
                                           (char< c #\ )))
-                                (format nil "~A" value))))
+                                (princ-to-string value))))
         (#\I (format nil "~D" value))
         (#\R (format nil "~,3F" value)))
       "NULL"))

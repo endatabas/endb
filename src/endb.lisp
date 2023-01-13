@@ -1,6 +1,8 @@
 (defpackage endb
   (:use cl)
-  (:export main))
+  (:export main)
+  (:import-from asdf)
+  (:import-from uiop))
 (in-package endb)
 
 (defun %main (args)
