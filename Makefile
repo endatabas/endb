@@ -4,7 +4,7 @@ SOURCES := $(shell find src -iname \*.lisp)
 FASL_FILES := $(shell find . -iname \*.fasl)
 
 CC = gcc -g -Wall
-CC += -DSQLITE_NO_SYNC=1 -DSQLITE_THREADSAFE=0 -rdynamic
+CC += -DSQLITE_NO_SYNC=1 -DSQLITE_THREADSAFE=0 -DOMIT_ODBC=1 -rdynamic
 
 SLT_ENGINE = CLSQLite
 
@@ -31,7 +31,6 @@ test:
 
 libsqllogictest.so: Makefile sqllogictest/src/*.c sqllogictest/src/*.h
 	cd sqllogictest/src && \
-		echo 'void registerODBC3(void) {}' > slt_odbc3.c && \
 		sed -i s/int\ main/int\ sqllogictest_main/ sqllogictest.c && \
 		$(CC) -shared -fPIC -o $(CURDIR)/$@ sqllogictest.c md5.c sqlite3.c && \
 		git checkout .
