@@ -29,15 +29,15 @@
     (setf (gethash (cffi:pointer-address pConn) *connections*) handle)
     0))
 
-(defvar *engine-name*)
+(defvar *db-engine*)
 
 (cffi:defcallback sqliteGetEngineName :int
     ((pConn :pointer)
      (zName (:pointer :char)))
   (declare (ignorable pConn zName))
-  (if *engine-name*
+  (if *db-engine*
       (progn
-        (setf zName *engine-name*)
+        (setf zName (cffi:foreign-slot-value *db-engine* 'DbEngine 'zName))
         0)
       1))
 
@@ -124,9 +124,10 @@
   (when (not (boundp '*engine-name*))
     (pushnew (uiop:getcwd) cffi:*foreign-library-directories*)
     (cffi:use-foreign-library libsqllogictest)
-    (let ((engine (cffi:foreign-alloc 'DbEngine)))
+    (let* ((engine (cffi:foreign-alloc 'DbEngine))
+           (engine-name (cffi:foreign-string-alloc "CLSQLite")))
       (cffi:with-foreign-slots ((zName xConnect xGetEngineName xStatement xQuery xFreeResults xDisconnect) engine DBEngine)
-        (setf zName (cffi:foreign-string-alloc "CLSQLite")
+        (setf zName engine-name
               xConnect (cffi:callback sqliteConnect)
               xGetEngineName (cffi:callback sqliteGetEngineName)
               xStatement (cffi:callback sqliteStatement)
@@ -134,7 +135,7 @@
               xFreeResults (cffi:callback sqliteFreeResult)
               xDisconnect (cffi:callback sqliteDisconnect))
         (sqllogictestRegisterEngine engine)
-        (setq *engine-name* (cffi:foreign-string-alloc "SQLite"))))))
+        (setq *db-engine* engine)))))
 
 (defun %slt-main (args)
   (%register-cl-sqlite-engine)
@@ -155,4 +156,7 @@
   (%slt-main (list "slt-runner" "-engine" engine "-verify" test)))
 
 (defun slt-main ()
-  (uiop:quit (%slt-main (cons (uiop:argv0) (uiop:command-line-arguments)))))
+  (unwind-protect
+       (uiop:quit (%slt-main (cons (uiop:argv0) (uiop:command-line-arguments))))
+    (cffi:foreign-free (cffi:foreign-slot-value *db-engine* 'DbEngine 'zName))
+    (cffi:foreign-free *db-engine*)))
