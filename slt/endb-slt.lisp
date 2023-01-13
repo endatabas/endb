@@ -1,9 +1,9 @@
-(defpackage endb-slt
-  (:use cl)
-  (:export slt-main)
-  (:import-from cffi)
-  (:import-from uiop))
-(in-package endb-slt)
+(defpackage :endb-slt
+  (:use :cl)
+  (:export #:slt-main)
+  (:import-from :cffi)
+  (:import-from :uiop))
+(in-package :endb-slt)
 
 (cffi:defcstruct DbEngine
   (zName :pointer)

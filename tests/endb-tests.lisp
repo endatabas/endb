@@ -1,6 +1,6 @@
-(defpackage endb-tests
+(defpackage :endb-tests
   (:use :cl :fiveam :endb))
-(in-package endb-tests)
+(in-package :endb-tests)
 
 (def-suite endb-tests)
 (in-suite endb-tests)
