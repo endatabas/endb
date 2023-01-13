@@ -1,11 +1,11 @@
 LISP ?= sbcl --noinform
 
-SOURCES := $(shell find src -iname \*.lisp)
-FASL_FILES := $(shell find . -iname \*.fasl)
+SOURCES = $(shell find src -iname \*.lisp)
+FASL_FILES = $(shell find . -iname \*.fasl)
 
-CC = gcc -g -Wall
-CC += -DSQLITE_NO_SYNC=1 -DSQLITE_THREADSAFE=0 -DOMIT_ODBC=1 -rdynamic
+CFLAGS = -g -Wall
 
+SLT_SOURCES = sqllogictest.c md5.c sqlite3.c
 SLT_ENGINE = CLSQLite
 
 default: test
@@ -29,10 +29,11 @@ test:
 		--eval '(ql:quickload :endb/tests :silent t)' \
 		--eval '(uiop:quit (if (fiveam:run-all-tests) 0 1))'
 
-libsqllogictest.so: Makefile sqllogictest/src/*.c sqllogictest/src/*.h
+libsqllogictest.so: CFLAGS +=-DSQLITE_NO_SYNC=1 -DSQLITE_THREADSAFE=0 -DOMIT_ODBC=1 -shared -fPIC
+libsqllogictest.so: Makefile sqllogictest/src/*
 	cd sqllogictest/src && \
 		sed -i s/int\ main/int\ sqllogictest_main/ sqllogictest.c && \
-		$(CC) -shared -fPIC -o $(CURDIR)/$@ sqllogictest.c md5.c sqlite3.c && \
+		$(CC) $(CFLAGS) -o $(CURDIR)/$@ $(SLT_SOURCES) && \
 		git checkout .
 	touch $@
 
