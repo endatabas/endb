@@ -121,7 +121,7 @@
   (p (:pointer (:struct DbEngine))))
 
 (defun %register-cl-sqlite-engine ()
-  (when (not (boundp '*engine-name*))
+  (when (not (boundp '*db-engine*))
     (pushnew (uiop:getcwd) cffi:*foreign-library-directories*)
     (cffi:use-foreign-library libsqllogictest)
     (let* ((engine (cffi:foreign-alloc 'DbEngine))
