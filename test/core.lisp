@@ -6,4 +6,4 @@
 (in-suite endb-test/core)
 
 (test test-sanity
-      (is (= (+ 1 1) 2)))
+  (is (= (+ 1 1) 2)))

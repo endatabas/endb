@@ -21,10 +21,10 @@
 (defvar *connections* (make-hash-table))
 
 (cffi:defcallback sqliteConnect :int
-    ((NotUsed :pointer)
-     (zCon :string)
-     (ppConn (:pointer :pointer))
-     (zOpt :string))
+  ((NotUsed :pointer)
+   (zCon :string)
+   (ppConn (:pointer :pointer))
+   (zOpt :string))
   (declare (ignorable NotUsed ppConn zOpt))
   (let* ((handle (sqlite:connect (or zCon ":memory:")))
          (pConn (sqlite::handle handle)))
@@ -35,8 +35,8 @@
 (defvar *db-engine*)
 
 (cffi:defcallback sqliteGetEngineName :int
-    ((pConn :pointer)
-     (zName (:pointer :char)))
+  ((pConn :pointer)
+   (zName (:pointer :char)))
   (declare (ignorable pConn zName))
   (if *db-engine*
       (progn
@@ -45,9 +45,9 @@
       1))
 
 (cffi:defcallback sqliteStatement :int
-    ((pConn :pointer)
-     (zSql :string)
-     (bQuiet :int))
+  ((pConn :pointer)
+   (zSql :string)
+   (bQuiet :int))
   (declare (ignore bQuiet))
   (let ((handle (gethash (cffi:pointer-address pConn) *connections*)))
     (if handle
@@ -70,11 +70,11 @@
       "NULL"))
 
 (cffi:defcallback sqliteQuery :int
-    ((pConn :pointer)
-     (zSql :string)
-     (zTypes :string)
-     (pazResult (:pointer (:pointer (:pointer :char))))
-     (pnResult (:pointer :int)))
+  ((pConn :pointer)
+   (zSql :string)
+   (zTypes :string)
+   (pazResult (:pointer (:pointer (:pointer :char))))
+   (pnResult (:pointer :int)))
   (declare (ignorable pazResult pnResult))
   (let ((handle (gethash (cffi:pointer-address pConn) *connections*)))
     (if handle
@@ -94,9 +94,9 @@
         1)))
 
 (cffi:defcallback sqliteFreeResult :int
-    ((pConn :pointer)
-     (azResult (:pointer (:pointer :char)))
-     (nResult :int))
+  ((pConn :pointer)
+   (azResult (:pointer (:pointer :char)))
+   (nResult :int))
   (declare (ignore pConn))
   (dotimes (n nResult)
     (cffi:foreign-free (cffi:mem-aref azResult :pointer n)))
@@ -104,7 +104,7 @@
   0)
 
 (cffi:defcallback sqliteDisconnect :int
-    ((pConn :pointer))
+  ((pConn :pointer))
   (let ((handle (gethash (cffi:pointer-address pConn) *connections*)))
     (if handle
         (progn
