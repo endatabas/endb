@@ -1,9 +1,9 @@
-(defpackage :endb
+(defpackage :endb/main
   (:use :cl)
   (:export #:main)
   (:import-from :asdf)
   (:import-from :uiop))
-(in-package :endb)
+(in-package :endb/main)
 
 (defun %main (args)
   (declare (ignore args))

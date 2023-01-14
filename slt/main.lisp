@@ -1,9 +1,10 @@
-(defpackage :endb-slt
+(defpackage :endb-slt/main
   (:use :cl)
-  (:export #:slt-main)
+  (:export #:main)
   (:import-from :cffi)
+  (:import-from :sqlite)
   (:import-from :uiop))
-(in-package :endb-slt)
+(in-package :endb-slt/main)
 
 (cffi:defcstruct DbEngine
   (zName :pointer)
@@ -157,7 +158,7 @@
 (defun slt-test (test &key (engine "CLSQLite"))
   (%slt-main (list "slt-runner" "-engine" engine "-verify" test)))
 
-(defun slt-main ()
+(defun main ()
   (unwind-protect
        (uiop:quit (%slt-main (cons (uiop:argv0) (uiop:command-line-arguments))))
     (cffi:foreign-free (cffi:foreign-slot-value *db-engine* 'DbEngine 'zName))

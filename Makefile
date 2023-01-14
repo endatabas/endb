@@ -16,17 +16,17 @@ endb: Makefile *.asd $(SOURCES)
 		--eval '(asdf:make :endb)'
 
 repl:
-	rlwrap $(LISP) --eval '(ql:quickload :endb :silent t)' --eval '(in-package :endb)'
+	rlwrap $(LISP) --eval '(ql:quickload :endb :silent t)' --eval '(in-package :endb/main)'
 
 run:
-	$(LISP) --non-interactive --eval '(ql:quickload :endb :silent t)' --eval '(endb:main)'
+	$(LISP) --non-interactive --eval '(ql:quickload :endb :silent t)' --eval '(endb/main:main)'
 
 run-binary: endb
 	@./$<
 
 test:
 	$(LISP) --non-interactive \
-		--eval '(ql:quickload :endb/tests :silent t)' \
+		--eval '(ql:quickload :endb-test :silent t)' \
 		--eval '(uiop:quit (if (fiveam:run-all-tests) 0 1))'
 
 libsqllogictest.so: CFLAGS +=-DSQLITE_NO_SYNC=1 -DSQLITE_THREADSAFE=0 -DOMIT_ODBC=1 -shared -fPIC
@@ -37,10 +37,10 @@ libsqllogictest.so: Makefile sqllogictest/src/*
 		git checkout .
 	touch $@
 
-slt-runner: Makefile *.asd slt/endb-slt.lisp libsqllogictest.so
+slt-runner: Makefile *.asd slt/main.lisp libsqllogictest.so
 	$(LISP) --non-interactive \
-		--eval '(ql:quickload :endb/slt :silent t)' \
-		--eval '(asdf:make :endb/slt)'
+		--eval '(ql:quickload :endb-slt :silent t)' \
+		--eval '(asdf:make :endb-slt)'
 	touch $@
 
 slt-sanity: slt-runner
