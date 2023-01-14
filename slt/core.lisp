@@ -1,10 +1,10 @@
-(defpackage :endb-slt/main
+(defpackage :endb-slt/core
   (:use :cl)
   (:export #:main)
   (:import-from :cffi)
   (:import-from :sqlite)
   (:import-from :uiop))
-(in-package :endb-slt/main)
+(in-package :endb-slt/core)
 
 (cffi:defcstruct DbEngine
   (zName :pointer)

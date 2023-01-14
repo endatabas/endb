@@ -16,10 +16,10 @@ endb: Makefile *.asd $(SOURCES)
 		--eval '(asdf:make :endb)'
 
 repl:
-	rlwrap $(LISP) --eval '(ql:quickload :endb :silent t)' --eval '(in-package :endb/main)'
+	rlwrap $(LISP) --eval '(ql:quickload :endb :silent t)' --eval '(in-package :endb/core)'
 
 run:
-	$(LISP) --non-interactive --eval '(ql:quickload :endb :silent t)' --eval '(endb/main:main)'
+	$(LISP) --non-interactive --eval '(ql:quickload :endb :silent t)' --eval '(endb/core:main)'
 
 run-binary: endb
 	@./$<
@@ -37,7 +37,7 @@ libsqllogictest.so: Makefile sqllogictest/src/*
 		git checkout .
 	touch $@
 
-slt-runner: Makefile *.asd slt/main.lisp libsqllogictest.so
+slt-runner: Makefile *.asd slt/*.lisp libsqllogictest.so
 	$(LISP) --non-interactive \
 		--eval '(ql:quickload :endb-slt :silent t)' \
 		--eval '(asdf:make :endb-slt)'

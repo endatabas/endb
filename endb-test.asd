@@ -4,6 +4,6 @@
   :license "AGPLv3"
   :class :package-inferred-system
   :pathname "test"
-  :depends-on ("endb-test/main" "fiveam")
+  :depends-on ("endb-test/core" "fiveam")
   :description "Test system for Endatabas"
   :perform (test-op (op c) (symbol-call :fiveam :run-all-tests)))

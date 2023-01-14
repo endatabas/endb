@@ -4,8 +4,8 @@
   :license "AGPLv3"
   :class :package-inferred-system
   :pathname "slt"
-  :depends-on ("endb-slt/main" "cffi" "sqlite")
+  :depends-on ("endb-slt/core" "cffi" "sqlite")
   :build-operation "program-op"
-  :build-pathname "slt-runner"
-  :entry-point "endb-slt/main:main"
+  :build-pathname "../slt-runner"
+  :entry-point "endb-slt/core:main"
   :description "SLT engine for Endatabas")

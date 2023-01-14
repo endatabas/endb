@@ -4,10 +4,10 @@
   :license "AGPLv3"
   :homepage "https://www.endatabas.com/"
   :class :package-inferred-system
-  :depends-on ("endb/main")
+  :depends-on ("endb/core")
   :description "Endatabas"
   :pathname "src"
   :build-operation "program-op"
-  :build-pathname "endb"
-  :entry-point "endb/main:main"
+  :build-pathname "../endb"
+  :entry-point "endb/core:main"
   :in-order-to ((test-op (test-op "endb-test"))))
