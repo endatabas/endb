@@ -51,6 +51,28 @@ Build and run sanity checks. We patch the build slightly to inject our own datab
 make slt-sanity
 ```
 
+## Docker
+
+Install https://podman.io/ or Docker:
+
+```
+sudo apt install podman
+alias docker=podman
+```
+
+Build the image:
+
+```
+docker build -t endatabas/endb:latest .
+```
+
+Run the image:
+
+```
+docker run --rm -it endatabas/endb
+```
+
+
 ## Development Environment
 
 See https://lispcookbook.github.io/cl-cookbook/getting-started.html for details.

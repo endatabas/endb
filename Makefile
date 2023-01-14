@@ -37,7 +37,7 @@ target/libsqllogictest.so: target Makefile sqllogictest/src/*
 	cd sqllogictest/src && \
 		sed -i s/int\ main/int\ sqllogictest_main/ sqllogictest.c && \
 		$(CC) $(CFLAGS) -o $(CURDIR)/$@ $(SLT_SOURCES) && \
-		git checkout .
+		which git && git checkout . || true
 	touch $@
 
 target/slt: target Makefile *.asd slt/*.lisp target/libsqllogictest.so
