@@ -3,6 +3,7 @@
   (:export #:main)
   (:import-from :cffi)
   (:import-from :sqlite)
+  (:import-from :asdf)
   (:import-from :uiop))
 (in-package :endb-slt/core)
 
@@ -125,7 +126,9 @@
 
 (defun %register-cl-sqlite-engine ()
   (when (not (boundp '*db-engine*))
-    (pushnew (uiop:getcwd) cffi:*foreign-library-directories*)
+    (pushnew (or (uiop:pathname-directory-pathname (uiop:argv0))
+                 (asdf:system-relative-pathname :endb-slt "target/"))
+             cffi:*foreign-library-directories*)
     (cffi:use-foreign-library libsqllogictest)
     (let* ((engine (cffi:foreign-alloc 'DbEngine))
            (engine-name (cffi:foreign-string-alloc "CLSQLite")))

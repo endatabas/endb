@@ -10,7 +10,10 @@ SLT_ENGINE = CLSQLite
 
 default: test
 
-endb: Makefile *.asd $(SOURCES)
+target:
+	mkdir target
+
+target/endb: target Makefile *.asd $(SOURCES)
 	$(LISP) --non-interactive \
 		--eval '(ql:quickload :endb :silent t)' \
 		--eval '(asdf:make :endb)'
@@ -21,7 +24,7 @@ repl:
 run:
 	$(LISP) --non-interactive --eval '(ql:quickload :endb :silent t)' --eval '(endb/core:main)'
 
-run-binary: endb
+run-binary: target/endb
 	@./$<
 
 test:
@@ -29,25 +32,25 @@ test:
 		--eval '(ql:quickload :endb-test :silent t)' \
 		--eval '(uiop:quit (if (fiveam:run-all-tests) 0 1))'
 
-libsqllogictest.so: CFLAGS +=-DSQLITE_NO_SYNC=1 -DSQLITE_THREADSAFE=0 -DOMIT_ODBC=1 -shared -fPIC
-libsqllogictest.so: Makefile sqllogictest/src/*
+target/libsqllogictest.so: CFLAGS +=-DSQLITE_NO_SYNC=1 -DSQLITE_THREADSAFE=0 -DOMIT_ODBC=1 -shared -fPIC
+target/libsqllogictest.so: target Makefile sqllogictest/src/*
 	cd sqllogictest/src && \
 		sed -i s/int\ main/int\ sqllogictest_main/ sqllogictest.c && \
 		$(CC) $(CFLAGS) -o $(CURDIR)/$@ $(SLT_SOURCES) && \
 		git checkout .
 	touch $@
 
-slt-runner: Makefile *.asd slt/*.lisp libsqllogictest.so
+target/slt: target Makefile *.asd slt/*.lisp target/libsqllogictest.so
 	$(LISP) --non-interactive \
 		--eval '(ql:quickload :endb-slt :silent t)' \
 		--eval '(asdf:make :endb-slt)'
 	touch $@
 
-slt-sanity: slt-runner
+slt-sanity: target/slt
 	ls -1 sqllogictest/test/select* | xargs -i ./$< -engine $(SLT_ENGINE) -verify {}
 
 clean:
-	rm -f endb libsqllogictest.so slt-runner $(FASL_FILES)
+	rm -rf target $(FASL_FILES)
 	cd sqllogictest && git clean -f .
 
-.PHONY: repl run run-binary test slt-sanity clean
+.PHONY: repl run run-binary test slt-sanity qlot-repl clean

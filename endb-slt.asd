@@ -6,6 +6,6 @@
   :pathname "slt"
   :depends-on ("endb-slt/core" "cffi" "sqlite")
   :build-operation "program-op"
-  :build-pathname "../slt-runner"
+  :build-pathname "../target/slt"
   :entry-point "endb-slt/core:main"
   :description "SLT engine for Endatabas")

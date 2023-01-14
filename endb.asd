@@ -8,6 +8,6 @@
   :description "Endatabas"
   :pathname "src"
   :build-operation "program-op"
-  :build-pathname "../endb"
+  :build-pathname "../target/endb"
   :entry-point "endb/core:main"
   :in-order-to ((test-op (test-op "endb-test"))))

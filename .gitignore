@@ -1,5 +1,3 @@
-endb
 *.fasl
 test.db
-slt-runner
-libsqllogictest.so
+target
