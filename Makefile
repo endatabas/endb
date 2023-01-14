@@ -37,7 +37,7 @@ target/libsqllogictest.so: target Makefile sqllogictest/src/*
 	cd sqllogictest/src && \
 		sed -i s/int\ main/int\ sqllogictest_main/ sqllogictest.c && \
 		$(CC) $(CFLAGS) -o $(CURDIR)/$@ $(SLT_SOURCES) && \
-		which git && git checkout . || true
+		sed -i s/int\ sqllogictest_main/int\ main/ sqllogictest.c
 	touch $@
 
 target/slt: target Makefile *.asd slt/*.lisp target/libsqllogictest.so
@@ -57,6 +57,5 @@ run-docker: docker
 
 clean:
 	rm -rf target $(FASL_FILES)
-	cd sqllogictest && git clean -f .
 
 .PHONY: repl run run-binary test slt-sanity qlot-repl docker run-docker clean
