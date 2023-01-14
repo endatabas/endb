@@ -62,14 +62,14 @@ alias docker=podman
 
 Build the image:
 
-```
-docker build -t endatabas/endb:latest .
+```bash
+make docker
 ```
 
 Run the image:
 
 ```
-docker run --rm -it endatabas/endb
+make run-docker
 ```
 
 

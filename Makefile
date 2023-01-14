@@ -49,8 +49,14 @@ target/slt: target Makefile *.asd slt/*.lisp target/libsqllogictest.so
 slt-sanity: target/slt
 	ls -1 sqllogictest/test/select* | xargs -i ./$< -engine $(SLT_ENGINE) -verify {}
 
+docker:
+	docker build -t endatabas/endb:latest .
+
+run-docker: docker
+	docker run --rm -it endatabas/endb
+
 clean:
 	rm -rf target $(FASL_FILES)
 	cd sqllogictest && git clean -f .
 
-.PHONY: repl run run-binary test slt-sanity qlot-repl clean
+.PHONY: repl run run-binary test slt-sanity qlot-repl docker run-docker clean
