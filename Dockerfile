@@ -9,7 +9,7 @@ RUN sbcl --load /usr/share/common-lisp/source/quicklisp/quicklisp.lisp \
     --eval '(quicklisp-quickstart:install)' \
     --quit
 RUN echo '#-quicklisp (load #P"/root/quicklisp/setup.lisp")' > /root/.sbclrc
-RUN make clean test slt-sanity target/endb
+RUN make clean test slt-test target/endb
 
 FROM ubuntu
 

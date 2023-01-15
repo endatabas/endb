@@ -48,7 +48,7 @@ sudo apt install gcc
 Build and run sanity checks. We patch the build slightly to inject our own database engine:
 
 ```bash
-make slt-sanity
+make slt-test
 ```
 
 ## Docker

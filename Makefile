@@ -7,6 +7,7 @@ CFLAGS = -g -Wall
 
 SLT_SOURCES = sqllogictest.c md5.c sqlite3.c
 SLT_ENGINE = CLSQLite
+SLT_TESTS = $(shell ls -1 sqllogictest/test/select*)
 
 default: test
 
@@ -46,8 +47,8 @@ target/slt: target Makefile *.asd slt/*.lisp target/libsqllogictest.so
 		--eval '(asdf:make :endb-slt)'
 	touch $@
 
-slt-sanity: target/slt
-	ls -1 sqllogictest/test/select* | xargs -i ./$< -engine $(SLT_ENGINE) -verify {}
+slt-test: target/slt
+	for test in $(SLT_TESTS); do ./$< -engine $(SLT_ENGINE) -verify $$test; done
 
 docker:
 	docker build -t endatabas/endb:latest .
@@ -58,4 +59,4 @@ run-docker: docker
 clean:
 	rm -rf target $(FASL_FILES)
 
-.PHONY: repl run run-binary test slt-sanity qlot-repl docker run-docker clean
+.PHONY: repl run run-binary test slt-test qlot-repl docker run-docker clean
