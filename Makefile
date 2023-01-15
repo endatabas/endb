@@ -33,7 +33,7 @@ test:
 		--eval '(ql:quickload :endb-test :silent t)' \
 		--eval '(uiop:quit (if (fiveam:run-all-tests) 0 1))'
 
-target/libsqllogictest.so: CFLAGS +=-DSQLITE_NO_SYNC=1 -DSQLITE_THREADSAFE=0 -DOMIT_ODBC=1 -shared -fPIC
+target/libsqllogictest.so: CFLAGS += -DSQLITE_NO_SYNC=1 -DSQLITE_THREADSAFE=0 -DOMIT_ODBC=1 -shared -fPIC
 target/libsqllogictest.so: target Makefile sqllogictest/src/*
 	cd sqllogictest/src && \
 		sed -i s/int\ main/int\ sqllogictest_main/ sqllogictest.c && \
@@ -50,6 +50,9 @@ target/slt: target Makefile *.asd slt/*.lisp target/libsqllogictest.so
 slt-test: target/slt
 	for test in $(SLT_TESTS); do ./$< -engine $(SLT_ENGINE) -verify $$test; done
 
+slt-test-all: SLT_TESTS = $(shell find sqllogictest/test -iname *.test)
+slt-test-all: slt-test
+
 docker:
 	docker build -t endatabas/endb:latest .
 
@@ -59,4 +62,4 @@ run-docker: docker
 clean:
 	rm -rf target $(FASL_FILES)
 
-.PHONY: repl run run-binary test slt-test qlot-repl docker run-docker clean
+.PHONY: repl run run-binary test slt-test slt-test-all docker run-docker clean
