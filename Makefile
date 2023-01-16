@@ -41,7 +41,7 @@ target/libsqllogictest.so: target Makefile sqllogictest/src/*
 		sed -i s/int\ sqllogictest_main/int\ main/ sqllogictest.c
 	touch $@
 
-target/slt: target Makefile *.asd slt/*.lisp target/libsqllogictest.so
+target/slt: target Makefile *.asd $(SOURCES) slt/*.lisp target/libsqllogictest.so
 	$(LISP) --non-interactive \
 		--eval '(ql:quickload :endb-slt :silent t)' \
 		--eval '(asdf:make :endb-slt)'
