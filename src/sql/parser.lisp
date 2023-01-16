@@ -40,6 +40,7 @@
         (and expr ws (~ "IS") (? (and ws (~ "NOT"))) ws expr)
         ;; ws (~ "AND") ws expr
         (and expr ws (? (and (~ "NOT") ws)) (~ "BETWEEN") ws expr)
+        (and expr ws (? (and (~ "NOT") ws)) (~ "IN") (? ws) "(" (? ws) expr (* (and (? ws) "," (? ws) expr)) (? ws) ")")
         (and (? (and (~ "NOT") ws)) (~ "EXISTS") (? ws) "(" (? ws) select-stmt (? ws) ")")
         (and identifier (? ws) "(" (? ws) (or (and (? (and (~ "DISTINCT") ws)) expr (* (and (? ws) "," (? ws) expr)))
                                               "*") (? ws) ")")
@@ -52,6 +53,13 @@
 (defrule create-table-stmt
     (and (~ "CREATE") ws (~ "TABLE") ws identifier (? ws)
          "(" (? ws) column-def (* (and (? ws) "," (? ws) column-def)) (? ws) ")"))
+
+(defrule indexed-column
+    (and identifier (? (and ws (or (~ "ASC") (~ "DESC"))))))
+
+(defrule create-index-stmt
+    (and (~ "CREATE") ws (~ "INDEX") ws identifier ws (~ "ON") ws identifier (? ws)
+         "(" (? ws) indexed-column (* (and (? ws) "," (? ws) indexed-column)) (? ws) ")"))
 
 (defrule insert-stmt
     (and (~ "INSERT") ws (~ "INTO") ws identifier (? ws)
@@ -70,14 +78,20 @@
 (defrule ordering-term
     (and expr (? (and ws (or (~ "ASC") (~ "DESC"))))))
 
-(defrule select-stmt
+(defrule select-core
     (and (~ "SELECT") ws (and result-column (* (and (? ws) "," (? ws) result-column)))
          (? (and ws (~ "FROM") ws table-or-subquery (* (and (? ws) "," (? ws) table-or-subquery))))
-         (? (and ws (~ "WHERE") ws expr))
+         (? (and ws (~ "WHERE") ws expr))))
+
+(defrule select-stmt
+    (and select-core
+         (* (and ws (or (and (~ "UNION") (? (and ws (~ "ALL")))) (~ "INTERSECT") (~ "EXCEPT")) ws select-core))
          (? (and ws (~ "ORDER") ws (~ "BY") ws ordering-term (* (and (? ws) "," (? ws) ordering-term))))))
 
 (defrule sql-stmt
-    (and (or create-table-stmt
+    (and (? ws)
+         (or create-table-stmt
+             create-index-stmt
              insert-stmt
              select-stmt)
          (? ws)))

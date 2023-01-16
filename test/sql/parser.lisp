@@ -47,4 +47,42 @@
   b1 INTEGER,
   x1 VARCHAR(40)
 )"))
-  (is (parse-sql "INSERT INTO t1 VALUES(382,414,67,992,483,'table tn1 row 1')")))
+  (is (parse-sql "INSERT INTO t1 VALUES(382,414,67,992,483,'table tn1 row 1')"))
+  (is (parse-sql "CREATE INDEX t1i0 ON t1(a1,b1,c1,d1,e1,x1)"))
+  (is (parse-sql "CREATE INDEX t8all ON t8(e8 DESC, d8 ASC, c8 DESC, b8 ASC, a8 DESC)"))
+  (is (parse-sql "SELECT e1 FROM t1
+   WHERE a1 in (767,433,637,363,776,109,451)
+      OR c1 in (683,531,654,246,3,876,309,284)
+      OR (b1=738)
+EXCEPT
+  SELECT b8 FROM t8
+   WHERE NOT ((761=d8 AND b8=259 AND e8=44 AND 762=c8 AND 563=a8)
+           OR e8 in (866,579,106,933))
+EXCEPT
+  SELECT e6 FROM t6
+   WHERE NOT ((825=b6 OR d6=500)
+           OR (230=b6 AND e6=731 AND d6=355 AND 116=a6))
+UNION
+  SELECT b2 FROM t2
+   WHERE (d2=416)
+UNION
+  SELECT a4 FROM t4
+   WHERE c4 in (806,119,489,658,366,424,2,471)
+      OR (215=c4 OR c4=424 OR e4=405)
+UNION ALL
+  SELECT a9 FROM t9
+   WHERE (e9=195)
+      OR (c9=98 OR d9=145)
+UNION ALL
+  SELECT e5 FROM t5
+   WHERE (44=c5 AND a5=362 AND 193=b5)
+      OR (858=b5)
+UNION
+  SELECT d3 FROM t3
+   WHERE (b3=152)
+      OR (726=d3)
+UNION
+  SELECT e7 FROM t7
+   WHERE d7 in (687,507,603,52,118)
+      OR (d7=399 AND e7=408 AND 396=b7 AND a7=97 AND c7=813)
+      OR (e7=605 OR 837=b7 OR e7=918)")))
