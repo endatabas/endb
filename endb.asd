@@ -4,7 +4,7 @@
   :license "AGPLv3"
   :homepage "https://www.endatabas.com/"
   :class :package-inferred-system
-  :depends-on ("endb/core")
+  :depends-on ("endb/core" "esrap")
   :description "Endatabas"
   :pathname "src"
   :build-operation "program-op"
