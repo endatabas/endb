@@ -25,27 +25,49 @@
         string-literal
         (~ "NULL")))
 
-(defrule expr
-    (or (and expr (? ws) (or "*" "/" "%") (? ws) expr)
-        (and expr (? ws) (or "+" "-") (? ws) expr)
-        (and expr (? ws) (or "<>" "<=" ">=" "<"  ">" "=" ) (? ws) expr)
-        (and expr ws (~ "AND") ws expr)
-        (and expr ws (~ "OR") ws expr)
-        (and "(" (? ws) (or select-stmt expr) (? ws) ")")
+(defrule expr-boolean
+    (or (and expr-boolean ws (~ "OR") ws expr-boolean-term)
+        expr-boolean-term))
+
+(defrule expr-boolean-term
+    (or (and expr-boolean-term ws (~ "AND") ws expr-boolean-factor)
+        expr-boolean-factor))
+
+(defrule expr-boolean-factor
+    (and (? (and (~ "NOT") ws)) expr-compare))
+
+(defrule expr-compare
+    (or (and expr-compare (? ws) (or "<>" "<=" ">=" "<"  ">" "=" ) (? ws) expr-arithmetic)
+        (and expr-compare ws (~ "IS") (? (and ws (~ "NOT"))) ws expr-arithmetic)
+        (and expr-compare ws (? (and (~ "NOT") ws)) (~ "BETWEEN") ws (and expr-arithmetic ws (~ "AND") ws expr-arithmetic))
+        (and expr-compare ws (? (and (~ "NOT") ws)) (~ "IN") (? ws) "(" (? ws) expr (* (and (? ws) "," (? ws) expr)) (? ws) ")")
+        (and (? (and (~ "NOT") ws)) (~ "EXISTS") (? ws) "(" (? ws) select-stmt (? ws) ")")
+        expr-arithmetic))
+
+(defrule expr-arithmetic
+    (or (and expr-arithmetic (? ws) (or "+" "-") (? ws) expr-term)
+        expr-term))
+
+(defrule expr-term
+    (or (and expr-term (? ws) (or "*" "/" "%") (? ws) expr-factor)
+        expr-factor))
+
+(defrule expr-factor
+    (and (? (and (or "+" "-") (? ws))) expr-primary))
+
+(defrule expr-primary
+    (or (and "(" (? ws) (or select-stmt expr) (? ws) ")")
         (and (~ "CASE") ws
              (? (and (! (~ "WHEN")) expr ws))
              (+ (and (~ "WHEN") ws expr ws (~ "THEN") ws expr ws))
              (? (and (~ "ELSE") ws expr ws))
              (~ "END"))
-        (and expr ws (~ "IS") (? (and ws (~ "NOT"))) ws expr)
-        ;; ws (~ "AND") ws expr
-        (and expr ws (? (and (~ "NOT") ws)) (~ "BETWEEN") ws expr)
-        (and expr ws (? (and (~ "NOT") ws)) (~ "IN") (? ws) "(" (? ws) expr (* (and (? ws) "," (? ws) expr)) (? ws) ")")
-        (and (? (and (~ "NOT") ws)) (~ "EXISTS") (? ws) "(" (? ws) select-stmt (? ws) ")")
         (and identifier (? ws) "(" (? ws) (or (and (? (and (~ "DISTINCT") ws)) expr (* (and (? ws) "," (? ws) expr)))
                                               "*") (? ws) ")")
         literal-value
         (and (? (and identifier ".")) identifier)))
+
+(defrule expr expr-boolean)
 
 (defrule column-def
     (and identifier (? (and ws identifier)) (? (and "("  numeric-literal ")")) (? (and ws (~ "PRIMARY") ws (~ "KEY")))))
