@@ -85,4 +85,5 @@ UNION
   SELECT e7 FROM t7
    WHERE d7 in (687,507,603,52,118)
       OR (d7=399 AND e7=408 AND 396=b7 AND a7=97 AND c7=813)
-      OR (e7=605 OR 837=b7 OR e7=918)")))
+      OR (e7=605 OR 837=b7 OR e7=918)"))
+  (is (parse-sql "SELECT * FROM t1")))
