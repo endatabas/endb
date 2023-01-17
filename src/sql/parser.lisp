@@ -19,7 +19,7 @@
         (cond
           ((= 1 (length items))
            (first items))
-          ((and name (not (symbolp (first items))))
+          ((and name (not (keywordp (first items))))
            (cons name items))
           (t items)))
       items))
@@ -30,37 +30,43 @@
 
 (defrule identifier
     (and (alpha-char-p character) (* (alphanumericp character)))
-  (:text t))
+  (:text t)
+  (:lambda (items)
+    (list :identifier items)))
 
 (defrule numeric-literal
     (+ (digit-char-p character))
-  (:text t))
+  (:text t)
+  (:lambda (items)
+    (list :numeric-literal items)))
 
 (defrule string-literal
     (and "'" (* (not "'")) "'")
-  (:text t))
+  (:text t)
+  (:lambda (items)
+    (list :string-literal items)))
 
 (defrule literal-value
     (or numeric-literal
         string-literal
         (~ "NULL")))
 
-(defrule expr-boolean
-    (or (and expr-boolean ws (~ "OR") ws expr-boolean-term)
-        expr-boolean-term)
+(defrule expr-or
+    (or (and expr-or ws (~ "OR") ws expr-and)
+        expr-and)
   (:lambda (items)
-    (%flatten-ast :expr-boolean items)))
+    (%flatten-ast :expr-or items)))
 
-(defrule expr-boolean-term
-    (or (and expr-boolean-term ws (~ "AND") ws expr-boolean-factor)
-        expr-boolean-factor)
+(defrule expr-and
+    (or (and expr-and ws (~ "AND") ws expr-not)
+        expr-not)
   (:lambda (items)
-    (%flatten-ast :expr-boolean-term items)))
+    (%flatten-ast :expr-and items)))
 
-(defrule expr-boolean-factor
+(defrule expr-not
     (and (? (and (~ "NOT") ws)) expr-boolean-primary)
   (:lambda (items)
-    (%flatten-ast :expr-boolean-factor items)))
+    (%flatten-ast :expr-not items)))
 
 (defrule expr-compare
     (and expr-boolean-primary (? ws) (or "<>" "<=" ">=" "<"  ">" "=" ) (? ws) expr-numeric)
@@ -93,26 +99,26 @@
         expr-between
         expr-in
         expr-exists
-        expr-numeric)
+        expr-add)
   (:lambda (items)
     (%flatten-ast :expr-boolean-primary items)))
 
-(defrule expr-numeric
-    (or (and expr-numeric (? ws) (or "+" "-") (? ws) expr-numeric-term)
-        expr-numeric-term)
+(defrule expr-add
+    (or (and expr-add (? ws) (or "+" "-") (? ws) expr-mult)
+        expr-mult)
   (:lambda (items)
-    (%flatten-ast :expr-numeric items)))
+    (%flatten-ast :expr-binary items)))
 
-(defrule expr-numeric-term
-    (or (and expr-numeric-term (? ws) (or "*" "/" "%") (? ws) expr-numeric-factor)
-        expr-numeric-factor)
+(defrule expr-mult
+    (or (and expr-mult (? ws) (or "*" "/" "%") (? ws) expr-unary)
+        expr-unary)
   (:lambda (items)
-    (%flatten-ast :expr-term items)))
+    (%flatten-ast :expr-binary items)))
 
-(defrule expr-numeric-factor
+(defrule expr-unary
     (and (? (and (or "+" "-") (? ws))) expr-primary)
   (:lambda (items)
-    (%flatten-ast :expr-factor items)))
+    (%flatten-ast :expr-unary items)))
 
 (defrule expr-case
     (and (~ "CASE") ws
@@ -129,21 +135,21 @@
   (:lambda (items)
     (%flatten-ast :expr-set items)))
 
-(defrule column-ref
+(defrule expr-column
     (and (? (and identifier ".")) identifier)
   (:lambda (items)
-    (%flatten-ast :column-ref items)))
+    (%flatten-ast :expr-column items)))
 
 (defrule expr-primary
     (or (and "(" (? ws) (or select-stmt expr) (? ws) ")")
         expr-case
         expr-set
         literal-value
-        column-ref)
+        expr-column)
   (:lambda (items)
     (%flatten-ast :expr-primary items)))
 
-(defrule expr expr-boolean)
+(defrule expr expr-or)
 
 (defrule column-def
     (and identifier (? (and ws identifier)) (? (and "("  numeric-literal ")")) (? (and ws (~ "PRIMARY") ws (~ "KEY"))))
