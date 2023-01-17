@@ -62,12 +62,37 @@
   (:lambda (items)
     (%flatten-ast :expr-boolean-factor items)))
 
+(defrule expr-compare
+    (and expr-boolean-primary (? ws) (or "<>" "<=" ">=" "<"  ">" "=" ) (? ws) expr-numeric)
+  (:lambda (items)
+    (%flatten-ast :expr-compare items)))
+
+(defrule expr-is
+    (and expr-boolean-primary ws (~ "IS") (? (and ws (~ "NOT"))) ws expr-numeric)
+  (:lambda (items)
+    (%flatten-ast :expr-is items)))
+
+(defrule expr-between
+    (and expr-boolean-primary ws (? (and (~ "NOT") ws)) (~ "BETWEEN") ws (and expr-numeric ws (~ "AND") ws expr-numeric))
+  (:lambda (items)
+    (%flatten-ast :expr-between items)))
+
+(defrule expr-in
+    (and expr-boolean-primary ws (? (and (~ "NOT") ws)) (~ "IN") (? ws) "(" (? ws) expr (* (and (? ws) "," (? ws) expr)) (? ws) ")")
+  (:lambda (items)
+    (%flatten-ast :expr-in items)))
+
+(defrule expr-exists
+    (and (? (and (~ "NOT") ws)) (~ "EXISTS") (? ws) "(" (? ws) select-stmt (? ws) ")")
+  (:lambda (items)
+    (%flatten-ast :expr-exists items)))
+
 (defrule expr-boolean-primary
-    (or (and expr-boolean-primary (? ws) (or "<>" "<=" ">=" "<"  ">" "=" ) (? ws) expr-numeric)
-        (and expr-boolean-primary ws (~ "IS") (? (and ws (~ "NOT"))) ws expr-numeric)
-        (and expr-boolean-primary ws (? (and (~ "NOT") ws)) (~ "BETWEEN") ws (and expr-numeric ws (~ "AND") ws expr-numeric))
-        (and expr-boolean-primary ws (? (and (~ "NOT") ws)) (~ "IN") (? ws) "(" (? ws) expr (* (and (? ws) "," (? ws) expr)) (? ws) ")")
-        (and (? (and (~ "NOT") ws)) (~ "EXISTS") (? ws) "(" (? ws) select-stmt (? ws) ")")
+    (or expr-compare
+        expr-is
+        expr-between
+        expr-in
+        expr-exists
         expr-numeric)
   (:lambda (items)
     (%flatten-ast :expr-boolean-primary items)))
@@ -89,17 +114,32 @@
   (:lambda (items)
     (%flatten-ast :expr-factor items)))
 
+(defrule expr-case
+    (and (~ "CASE") ws
+         (? (and (! (~ "WHEN")) expr ws))
+         (+ (and (~ "WHEN") ws expr ws (~ "THEN") ws expr ws))
+         (? (and (~ "ELSE") ws expr ws))
+         (~ "END"))
+  (:lambda (items)
+    (%flatten-ast :expr-case items)))
+
+(defrule expr-set
+    (and identifier (? ws) "(" (? ws) (or (and (? (and (~ "DISTINCT") ws)) expr (* (and (? ws) "," (? ws) expr)))
+                                          "*") (? ws) ")")
+  (:lambda (items)
+    (%flatten-ast :expr-set items)))
+
+(defrule column-ref
+    (and (? (and identifier ".")) identifier)
+  (:lambda (items)
+    (%flatten-ast :column-ref items)))
+
 (defrule expr-primary
     (or (and "(" (? ws) (or select-stmt expr) (? ws) ")")
-        (and (~ "CASE") ws
-             (? (and (! (~ "WHEN")) expr ws))
-             (+ (and (~ "WHEN") ws expr ws (~ "THEN") ws expr ws))
-             (? (and (~ "ELSE") ws expr ws))
-             (~ "END"))
-        (and identifier (? ws) "(" (? ws) (or (and (? (and (~ "DISTINCT") ws)) expr (* (and (? ws) "," (? ws) expr)))
-                                              "*") (? ws) ")")
+        expr-case
+        expr-set
         literal-value
-        (and (? (and identifier ".")) identifier))
+        column-ref)
   (:lambda (items)
     (%flatten-ast :expr-primary items)))
 
@@ -127,10 +167,15 @@
   (:lambda (items)
     (%flatten-ast :create-index-stmt items)))
 
+(defrule values-stmt
+    (and (~ "VALUES") (? ws) "(" (? ws) expr (* (and (? ws) "," (? ws) expr)) (? ws) ")")
+  (:lambda (items)
+    (%flatten-ast :values-stmt items)))
+
 (defrule insert-stmt
     (and (~ "INSERT") ws (~ "INTO") ws identifier (? ws)
          (? (and "(" (? ws) identifier (* (and (? ws) "," (? ws) identifier)) (? ws) ")" (? ws)))
-         (~ "VALUES") (? ws) "(" (? ws) expr (* (and (? ws) "," (? ws) expr)) (? ws) ")")
+         values-stmt)
   (:lambda (items)
     (%flatten-ast :insert-stmt items)))
 
@@ -152,17 +197,36 @@
   (:lambda (items)
     (%flatten-ast :ordering-term items)))
 
+(defrule from-clause
+    (and (~ "FROM") ws table-or-subquery (* (and (? ws) "," (? ws) table-or-subquery)))
+  (:lambda (items)
+    (%flatten-ast :from-stmt items)))
+
+(defrule where-clause
+    (and (~ "WHERE") ws expr)
+  (:lambda (items)
+    (%flatten-ast :where-stmt items)))
+
 (defrule select-core
-    (and (~ "SELECT") ws (and result-column (* (and (? ws) "," (? ws) result-column)))
-         (? (and ws (~ "FROM") ws table-or-subquery (* (and (? ws) "," (? ws) table-or-subquery))))
-         (? (and ws (~ "WHERE") ws expr)))
+    (or (and (~ "SELECT") ws (and result-column (* (and (? ws) "," (? ws) result-column)))
+             (? (and ws from-clause))
+             (? (and ws where-clause)))
+        values-stmt)
   (:lambda (items)
     (%flatten-ast :select-core items)))
 
+(defrule compound-select-stmt
+    (and select-core (? (and ws (or (and (~ "UNION") (? (and ws (~ "ALL")))) (~ "INTERSECT") (~ "EXCEPT")) ws compound-select-stmt)))
+  (:lambda (items)
+    (%flatten-ast :compound-select-stmt items)))
+
+(defrule order-by-clause
+    (and (~ "ORDER") ws (~ "BY") ws ordering-term (* (and (? ws) "," (? ws) ordering-term)))
+  (:lambda (items)
+    (%flatten-ast :order-by-clause items)))
+
 (defrule select-stmt
-    (and select-core
-         (* (and ws (or (and (~ "UNION") (? (and ws (~ "ALL")))) (~ "INTERSECT") (~ "EXCEPT")) ws select-core))
-         (? (and ws (~ "ORDER") ws (~ "BY") ws ordering-term (* (and (? ws) "," (? ws) ordering-term)))))
+    (and compound-select-stmt (? (and ws order-by-clause)))
   (:lambda (items)
     (%flatten-ast :select-stmt items)))
 
