@@ -37,24 +37,24 @@
     (and (alpha-char-p character) (* (alphanumericp character)))
   (:text t)
   (:lambda (items)
-    (list :identifier items)))
+    (make-symbol items)))
 
 (defrule numeric-literal
     (+ (digit-char-p character))
   (:text t)
   (:lambda (items)
-    (list :numeric-literal items)))
+    (parse-integer items)))
 
 (defrule string-literal
     (and "'" (* (not "'")) "'")
   (:text t)
   (:lambda (items)
-    (list :string-literal items)))
+    (subseq items 1 (1- (length items)))))
 
 (defrule null-literal
     (~ "NULL")
   (:lambda (items)
-    (list :null-literal items)))
+    :sql/null))
 
 (defrule literal-value
     (or numeric-literal
