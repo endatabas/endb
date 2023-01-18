@@ -108,14 +108,14 @@
 
 (defrule %expr-in
     (and expr-boolean-primary ws (~ "IN") (? ws) "(" (? ws) expr-list (? ws) ")")
-  (:destructure (expr ws1 in ws2 open-brace ws3 expr-list ws4 close-brace)
-    (declare (ignore ws1 in ws2 open-brace ws3 ws4 close-brace))
+  (:destructure (expr ws1 in ws2 ob ws3 expr-list ws4 cb)
+    (declare (ignore ws1 in ws2 ob ws3 ws4 cb))
     (list :expr-in expr expr-list)))
 
 (defrule %expr-not-in
     (and expr-boolean-primary ws (~ "NOT") ws (~ "IN") (? ws) "(" (? ws) expr-list (? ws) ")")
-  (:destructure (expr ws1 not ws2 in ws3 open-brace ws4 expr-list ws5 close-brace)
-    (declare (ignore ws1 not ws2 in ws3 open-brace ws4 ws5 close-brace))
+  (:destructure (expr ws1 not ws2 in ws3 ob ws4 expr-list ws5 cb)
+    (declare (ignore ws1 not ws2 in ws3 ob ws4 ws5 cb))
     (list :expr-in expr expr-list)))
 
 (defrule expr-in
@@ -208,14 +208,14 @@
 
 (defrule %expr-set
     (and identifier (? ws) "(" (? ws) expr-list (? ws) ")")
-  (:destructure (identifier ws1 open-brace ws2 expr-list ws3 close-brace)
-    (declare (ignore  ws1 open-brace ws2 ws3 close-brace))
+  (:destructure (identifier ws1 ob ws2 expr-list ws3 cb)
+    (declare (ignore  ws1 ob ws2 ws3 cb))
     (list :expr-set identifier expr-list)))
 
 (defrule %expr-set-distinct
     (and identifier (? ws) "(" (? ws) (~ "DISTINCT") ws expr-list (? ws) ")")
-  (:destructure (identifier ws1 open-brace ws2 distinct ws3 expr-list ws4 close-brace)
-    (declare (ignore ws1 open-brace ws2 distinct ws3 ws4 close-brace))
+  (:destructure (identifier ws1 ob ws2 distinct ws3 expr-list ws4 cb)
+    (declare (ignore ws1 ob ws2 distinct ws3 ws4 cb))
     (list :expr-set-distinct identifier expr-list)))
 
 (defrule expr-set
@@ -234,14 +234,14 @@
 
 (defrule subquery
     (and "(" (? ws) select-stmt (? ws) ")")
-  (:destructure (open-brace ws1 select-stmt ws2 close-brace)
-    (declare (ignore open-brace ws1 ws2 close-brace))
+  (:destructure (ob ws1 select-stmt ws2 cb)
+    (declare (ignore ob ws1 ws2 cb))
     (list :subquery select-stmt)))
 
 (defrule expr-paren
     (and "(" (? ws) expr (? ws) ")")
-  (:destructure (open-brace ws1 expr ws2 close-brace)
-    (declare (ignore open-brace ws1 ws2 close-brace))
+  (:destructure (ob ws1 expr ws2 cb)
+    (declare (ignore ob ws1 ws2 cb))
     expr))
 
 (defrule expr-primary
@@ -273,8 +273,8 @@
 (defrule create-table-stmt
     (and (~ "CREATE") ws (~ "TABLE") ws identifier (? ws)
          "(" (? ws) column-def-list (? ws) ")")
-  (:destructure (create ws1 table ws2 identifier ws3 open-brace ws4 column-def-list ws5 close-brace)
-    (declare (ignore create ws1 table ws2 ws3 open-brace ws4 ws5 close-brace))
+  (:destructure (create ws1 table ws2 identifier ws3 ob ws4 column-def-list ws5 cb)
+    (declare (ignore create ws1 table ws2 ws3 ob ws4 ws5 cb))
     (list :create-table-stmt identifier column-def-list)))
 
 (defrule indexed-column
@@ -292,8 +292,8 @@
 
 (defrule values-stmt
     (and (~ "VALUES") (? ws) "(" (? ws) expr-list (? ws) ")")
-  (:destructure (values ws1 open-brace ws2 expr-list ws3 close-brace)
-    (declare (ignore values ws1 open-brace ws2 ws3 close-brace))
+  (:destructure (values ws1 ob ws2 expr-list ws3 cb)
+    (declare (ignore values ws1 ob ws2 ws3 cb))
     (list :values-stmt expr-list)))
 
 (defrule identifier-list
@@ -311,8 +311,8 @@
     (and (~ "INSERT") ws (~ "INTO") ws identifier (? ws)
          "(" (? ws) identifier-list (? ws) ")" (? ws)
          select-core)
-  (:destructure (insert ws1 into ws2 identifier ws3 open-brace ws4 identifier-list ws5 close-brace ws6 select)
-    (declare (ignore insert ws1 into ws2 ws3 open-brace ws4 ws5 close-brace ws6))
+  (:destructure (insert ws1 into ws2 identifier ws3 ob ws4 identifier-list ws5 cb ws6 select)
+    (declare (ignore insert ws1 into ws2 ws3 ob ws4 ws5 cb ws6))
     (list :insert-stmt identifier select identifier-list)))
 
 (defrule insert-stmt
