@@ -4,13 +4,27 @@
   (:import-from :esrap))
 (in-package :endb/sql/parser)
 
+(defun %remove-nil (items)
+  (remove-if #'null items))
+
 (defun %flatten-list (name items)
   (list name (if (= 1 (length items))
                  items
                  (cons (first items)
-                       (remove-if (lambda (x)
-                                    (or (null x) (eq "," x)))
+                       (remove-if #'null
                                   (apply #'concatenate 'list (second items)))))))
+
+(defrule comma
+    ","
+  (:constant nil))
+
+(defrule left-brace
+    "("
+  (:constant nil))
+
+(defrule right-brace
+    ")"
+  (:constant nil))
 
 (defrule ws
     (+ (or #\Space #\Tab #\Newline))
@@ -45,8 +59,9 @@
 
 (defrule %expr-or
     (and expr-or ws (~ "OR") ws expr-and)
-  (:destructure (expr-1 ws1 or ws2 expr-2)
-    (declare (ignore ws1 or ws2))
+  (:function %remove-nil)
+  (:destructure (expr-1 or expr-2)
+    (declare (ignore or))
     (list :expr-or expr-1 expr-2)))
 
 (defrule expr-or
@@ -54,8 +69,9 @@
 
 (defrule %expr-and
     (and expr-and ws (~ "AND") ws expr-not)
-  (:destructure (expr-1 ws1 and ws2 expr-2)
-    (declare (ignore ws1 and ws2))
+  (:function %remove-nil)
+  (:destructure (expr-1 and expr-2)
+    (declare (ignore and))
     (list :expr-and expr-1 expr-2)))
 
 (defrule expr-and
@@ -63,8 +79,9 @@
 
 (defrule %expr-not
     (and (~ "NOT") ws expr-boolean-primary)
-  (:destructure (not ws expr)
-    (declare (ignore not ws))
+  (:function %remove-nil)
+  (:destructure (not expr)
+    (declare (ignore not))
     (list :expr-not expr)))
 
 (defrule expr-not
@@ -72,20 +89,22 @@
 
 (defrule expr-compare
     (and expr-boolean-primary (? ws) (or "<>" "<=" ">=" "<"  ">" "=" ) (? ws) expr-add)
-  (:destructure (expr-1 ws1 op ws2 expr-2)
-    (declare (ignore ws1 ws2))
+  (:function %remove-nil)
+  (:destructure (expr-1 op expr-2)
     (list :expr-compare expr-1 (make-symbol op) expr-2)))
 
 (defrule %expr-is
     (and expr-boolean-primary ws (~ "IS") ws expr-add)
-  (:destructure (expr-1 ws1 is ws2 expr-2)
-    (declare (ignore ws1 is ws2))
+  (:function %remove-nil)
+  (:destructure (expr-1 is expr-2)
+    (declare (ignore is))
     (list :expr-is expr-1 expr-2)))
 
 (defrule %expr-is-not
     (and expr-boolean-primary ws (~ "IS") ws (~ "NOT") ws expr-add)
-  (:destructure (expr-1 ws1 is ws2 not ws3 expr-2)
-    (declare (ignore ws1 is ws2 not ws3))
+  (:function %remove-nil)
+  (:destructure (expr-1 is not expr-2)
+    (declare (ignore is not))
     (list :expr-is-not expr-1 expr-2)))
 
 (defrule expr-is
@@ -93,29 +112,33 @@
 
 (defrule %expr-between
     (and expr-boolean-primary ws (~ "BETWEEN") ws expr-add ws (~ "AND") ws expr-add)
-  (:destructure (expr-1 ws1 between ws2 expr-2 ws3 and ws4 expr-3)
-    (declare (ignore ws1 between  ws2 and ws3 ws4))
+  (:function %remove-nil)
+  (:destructure (expr-1 between expr-2 and expr-3)
+    (declare (ignore between and))
     (list :expr-between expr-1 expr-2 expr-3)))
 
 (defrule %expr-not-between
     (and expr-boolean-primary ws (~ "NOT") ws (~ "BETWEEN") ws expr-add ws (~ "AND") ws expr-add)
-  (:destructure (expr-1 ws1 not ws2 between ws3 expr-2 ws4 and ws5 expr-3)
-    (declare (ignore ws1 not ws2 between ws3 and ws4 ws5))
+  (:function %remove-nil)
+  (:destructure (expr-1 not between expr-2 and expr-3)
+    (declare (ignore not between and))
     (list :expr-not-between expr-1 expr-2 expr-3)))
 
 (defrule expr-between
     (or %expr-not-between %expr-between))
 
 (defrule %expr-in
-    (and expr-boolean-primary ws (~ "IN") (? ws) "(" (? ws) expr-list (? ws) ")")
-  (:destructure (expr ws1 in ws2 ob ws3 expr-list ws4 cb)
-    (declare (ignore ws1 in ws2 ob ws3 ws4 cb))
+    (and expr-boolean-primary ws (~ "IN") (? ws) left-brace (? ws) expr-list (? ws) right-brace)
+  (:function %remove-nil)
+  (:destructure (expr in expr-list)
+    (declare (ignore in))
     (list :expr-in expr expr-list)))
 
 (defrule %expr-not-in
-    (and expr-boolean-primary ws (~ "NOT") ws (~ "IN") (? ws) "(" (? ws) expr-list (? ws) ")")
-  (:destructure (expr ws1 not ws2 in ws3 ob ws4 expr-list ws5 cb)
-    (declare (ignore ws1 not ws2 in ws3 ob ws4 ws5 cb))
+    (and expr-boolean-primary ws (~ "NOT") ws (~ "IN") (? ws) left-brace (? ws) expr-list (? ws) right-brace)
+  (:function %remove-nil)
+  (:destructure (expr not in expr-list)
+    (declare (ignore not in))
     (list :expr-in expr expr-list)))
 
 (defrule expr-in
@@ -123,14 +146,16 @@
 
 (defrule %expr-exists
     (and (~ "EXISTS") (? ws) subquery)
-  (:destructure (exists ws subquery)
-    (declare (ignore exists ws))
+  (:function %remove-nil)
+  (:destructure (exists subquery)
+    (declare (ignore exists))
     (list :expr-exists subquery)))
 
 (defrule %expr-not-exists
     (and (~ "NOT") ws (~ "EXISTS") (? ws) subquery)
-  (:destructure (not ws1 exists ws2 subquery)
-    (declare (ignore not ws1 exists ws2))
+  (:function %remove-nil)
+  (:destructure (not exists subquery)
+    (declare (ignore not exists))
     (list :expr-not-exists subquery)))
 
 (defrule expr-exists
@@ -146,8 +171,8 @@
 
 (defrule %expr-add
     (and expr-add (? ws) (or "+" "-") (? ws) expr-mult)
-  (:destructure (expr-1 ws1 op ws2 expr-2)
-    (declare (ignore ws1 ws2))
+  (:function %remove-nil)
+  (:destructure (expr-1 op expr-2)
     (list :expr-binary expr-1 (make-symbol op) expr-2)))
 
 (defrule expr-add
@@ -155,8 +180,8 @@
 
 (defrule %expr-mult
     (and expr-mult (? ws) (or "*" "/" "%") (? ws) expr-unary)
-  (:destructure (expr-1 ws1 op ws2 expr-2)
-    (declare (ignore ws1 ws2))
+  (:function %remove-nil)
+  (:destructure (expr-1 op expr-2)
     (list :expr-binary expr-1 (make-symbol op) expr-2)))
 
 (defrule expr-mult
@@ -164,8 +189,8 @@
 
 (defrule %expr-unary
     (and (or "+" "-") (? ws) expr-primary)
-  (:destructure (op ws expr)
-    (declare (ignore ws))
+  (:function %remove-nil)
+  (:destructure (op expr)
     (list :expr-unary (make-symbol op) expr)))
 
 (defrule expr-unary
@@ -173,14 +198,16 @@
 
 (defrule %expr-case-when
     (and (~ "WHEN") ws expr ws (~ "THEN") ws expr ws)
-  (:destructure (when ws1 expr-1 ws2 then ws3 expr-2 ws4)
-    (declare (ignore when ws1 ws2 then ws3 ws4))
+  (:function %remove-nil)
+  (:destructure (when expr-1 then expr-2)
+    (declare (ignore when then))
     (list :expr-case-when expr-1 expr-2)))
 
 (defrule %expr-case-else
     (and (~ "ELSE") ws expr ws)
-  (:destructure (else ws1 expr ws2)
-    (declare (ignore else ws1 ws2))
+  (:function %remove-nil)
+  (:destructure (else expr)
+    (declare (ignore else))
     (list :expr-case-else expr)))
 
 (defrule expr-case
@@ -201,21 +228,22 @@
                    (list else)))))
 
 (defrule %expr-set-star
-    (and identifier (? ws) "(" (? ws) star (? ws) ")")
+    (and identifier (? ws) left-brace (? ws) star (? ws) right-brace)
   (:destructure (identifier &rest rest)
     (declare (ignore rest))
     (list :expr-set-star identifier)))
 
 (defrule %expr-set
-    (and identifier (? ws) "(" (? ws) expr-list (? ws) ")")
-  (:destructure (identifier ws1 ob ws2 expr-list ws3 cb)
-    (declare (ignore  ws1 ob ws2 ws3 cb))
+    (and identifier (? ws) left-brace (? ws) expr-list (? ws) right-brace)
+  (:function %remove-nil)
+  (:destructure (identifier expr-list)
     (list :expr-set identifier expr-list)))
 
 (defrule %expr-set-distinct
-    (and identifier (? ws) "(" (? ws) (~ "DISTINCT") ws expr-list (? ws) ")")
-  (:destructure (identifier ws1 ob ws2 distinct ws3 expr-list ws4 cb)
-    (declare (ignore ws1 ob ws2 distinct ws3 ws4 cb))
+    (and identifier (? ws) left-brace (? ws) (~ "DISTINCT") ws expr-list (? ws) right-brace)
+  (:function %remove-nil)
+  (:destructure (identifier distinct expr-list)
+    (declare (ignore distinct))
     (list :expr-set-distinct identifier expr-list)))
 
 (defrule expr-set
@@ -233,15 +261,15 @@
     (or %expr-column identifier))
 
 (defrule subquery
-    (and "(" (? ws) select-stmt (? ws) ")")
-  (:destructure (ob ws1 select-stmt ws2 cb)
-    (declare (ignore ob ws1 ws2 cb))
+    (and left-brace (? ws) select-stmt (? ws) right-brace)
+  (:function %remove-nil)
+  (:destructure (select-stmt)
     (list :subquery select-stmt)))
 
 (defrule expr-paren
-    (and "(" (? ws) expr (? ws) ")")
-  (:destructure (ob ws1 expr ws2 cb)
-    (declare (ignore ob ws1 ws2 cb))
+    (and left-brace (? ws) expr (? ws) right-brace)
+  (:function %remove-nil)
+  (:destructure (expr)
     expr))
 
 (defrule expr-primary
@@ -253,28 +281,29 @@
         expr-column))
 
 (defrule expr-list
-    (and expr (* (and (? ws) "," (? ws) expr)))
+    (and expr (* (and (? ws) comma (? ws) expr)))
   (:lambda (items)
     (%flatten-list :expr-list items)))
 
 (defrule expr expr-or)
 
 (defrule column-def
-    (and identifier (? (and ws identifier)) (? (and "("  numeric-literal ")")) (? (and ws (~ "PRIMARY") ws (~ "KEY"))))
+    (and identifier (? (and ws identifier)) (? (and left-brace  numeric-literal right-brace)) (? (and ws (~ "PRIMARY") ws (~ "KEY"))))
   (:destructure (identifier &rest type-def)
     (declare (ignore type-def))
     identifier))
 
 (defrule column-def-list
-    (and column-def (* (and (? ws) "," (? ws) column-def)))
+    (and column-def (* (and (? ws) comma (? ws) column-def)))
   (:lambda (items)
     (%flatten-list :column-def-list items)))
 
 (defrule create-table-stmt
     (and (~ "CREATE") ws (~ "TABLE") ws identifier (? ws)
-         "(" (? ws) column-def-list (? ws) ")")
-  (:destructure (create ws1 table ws2 identifier ws3 ob ws4 column-def-list ws5 cb)
-    (declare (ignore create ws1 table ws2 ws3 ob ws4 ws5 cb))
+         left-brace (? ws) column-def-list (? ws) right-brace)
+  (:function %remove-nil)
+  (:destructure (create table identifier column-def-list)
+    (declare (ignore create table))
     (list :create-table-stmt identifier column-def-list)))
 
 (defrule indexed-column
@@ -282,37 +311,40 @@
   (:constant nil))
 
 (defrule indexed-column-list
-    (and indexed-column (* (and (? ws) "," (? ws) indexed-column)))
+    (and indexed-column (* (and (? ws) comma (? ws) indexed-column)))
   (:constant nil))
 
 (defrule create-index-stmt
     (and (~ "CREATE") ws (~ "INDEX") ws identifier ws (~ "ON") ws identifier (? ws)
-         "(" (? ws) indexed-column-list (? ws) ")")
+         left-brace (? ws) indexed-column-list (? ws) right-brace)
   (:constant nil))
 
 (defrule values-stmt
-    (and (~ "VALUES") (? ws) "(" (? ws) expr-list (? ws) ")")
-  (:destructure (values ws1 ob ws2 expr-list ws3 cb)
-    (declare (ignore values ws1 ob ws2 ws3 cb))
+    (and (~ "VALUES") (? ws) left-brace (? ws) expr-list (? ws) right-brace)
+  (:function %remove-nil)
+  (:destructure (values expr-list)
+    (declare (ignore values))
     (list :values-stmt expr-list)))
 
 (defrule identifier-list
-    (and identifier (* (and (? ws) "," (? ws) identifier)))
+    (and identifier (* (and (? ws) comma (? ws) identifier)))
   (:lambda (items)
     (%flatten-list :identifier-list items)))
 
 (defrule %insert-stmt
     (and (~ "INSERT") ws (~ "INTO") ws identifier (? ws) select-core)
-  (:destructure (insert ws1 into ws2 identifier ws3 select)
-    (declare (ignore insert ws1 into ws2 ws3))
+  (:function %remove-nil)
+  (:destructure (insert into identifier select)
+    (declare (ignore insert into))
     (list :insert-stmt identifier select)))
 
 (defrule %insert-stmt-identifier-list
     (and (~ "INSERT") ws (~ "INTO") ws identifier (? ws)
-         "(" (? ws) identifier-list (? ws) ")" (? ws)
+         left-brace (? ws) identifier-list (? ws) right-brace (? ws)
          select-core)
-  (:destructure (insert ws1 into ws2 identifier ws3 ob ws4 identifier-list ws5 cb ws6 select)
-    (declare (ignore insert ws1 into ws2 ws3 ob ws4 ws5 cb ws6))
+  (:function %remove-nil)
+  (:destructure (insert into identifier identifier-list select)
+    (declare (ignore insert into))
     (list :insert-stmt identifier select identifier-list)))
 
 (defrule insert-stmt
@@ -321,7 +353,8 @@
 (defrule star
     "*"
   (:lambda (items)
-    (list :star items)))
+    (declare (ignore items))
+    (list :star)))
 
 (defrule %table-or-subquery-identifier
     identifier
@@ -330,34 +363,38 @@
 
 (defrule %table-or-subquery-as
     (and identifier ws (~ "AS") ws identifier)
-  (:destructure (identifier ws1 as ws2 as-identifier)
-    (declare (ignore ws1 as ws2))
+  (:function %remove-nil)
+  (:destructure (identifier as as-identifier)
+    (declare (ignore as))
     (cons identifier as-identifier)))
 
 (defrule %table-or-subquery-alias
     (and identifier ws (! (or (~ "ORDER") (~ "WHERE"))) identifier)
-  (:destructure (identifier ws not-order-or-where as-identifier)
-    (declare (ignore ws not-order-or-where))
+  (:function %remove-nil)
+  (:destructure (identifier not-order-or-where as-identifier)
+    (declare (ignore not-order-or-where))
     (cons identifier as-identifier)))
 
 (defrule table-or-subquery
     (or %table-or-subquery-as %table-or-subquery-alias %table-or-subquery-identifier))
 
 (defrule table-subquery-list
-    (and table-or-subquery (* (and (? ws) "," (? ws) table-or-subquery)))
+    (and table-or-subquery (* (and (? ws) comma (? ws) table-or-subquery)))
   (:lambda (items)
     (%flatten-list :table-subquery-list items)))
 
 (defrule from-clause
     (and (~ "FROM") ws table-subquery-list)
-  (:destructure (from ws table-or-subquery-list)
-    (declare (ignore from ws))
+  (:function %remove-nil)
+  (:destructure (from table-or-subquery-list)
+    (declare (ignore from))
     (list :from-clause table-or-subquery-list)))
 
 (defrule where-clause
     (and (~ "WHERE") ws expr)
-  (:destructure (where ws expr)
-    (declare (ignore where ws))
+  (:function %remove-nil)
+  (:destructure (where expr)
+    (declare (ignore where))
     (list :where-clause expr)))
 
 (defrule %result-column-expr
@@ -367,21 +404,23 @@
 
 (defrule %result-column-as
     (and expr ws (~ "AS") ws identifier)
-  (:destructure (expr ws1 as ws2 as-identifier)
-    (declare (ignore ws1 as ws2))
+  (:function %remove-nil)
+  (:destructure (expr as as-identifier)
+    (declare (ignore as))
     (cons expr as-identifier)))
 
 (defrule %result-column-alias
     (and expr ws (! (~ "FROM")) identifier)
-  (:destructure (expr ws not-from as-identifier)
-    (declare (ignore ws not-from))
+  (:function %remove-nil)
+  (:destructure (expr not-from as-identifier)
+    (declare (ignore not-from))
     (cons expr as-identifier)))
 
 (defrule result-column
     (or star %result-column-as %result-column-alias %result-column-expr))
 
 (defrule result-column-list
-    (and result-column (* (and (? ws) "," (? ws) result-column)))
+    (and result-column (* (and (? ws) comma (? ws) result-column)))
   (:lambda (items)
     (%flatten-list :result-column-list items)))
 
@@ -403,26 +442,30 @@
 
 (defrule %union-all-stmt
     (and select-core ws (~ "UNION") ws (~ "ALL") ws compound-select-stmt)
-  (:destructure (select-1 ws1 union ws2 all ws3 select-2)
-    (declare (ignore ws1 union ws2 all ws3))
+  (:function %remove-nil)
+  (:destructure (select-1 union all select-2)
+    (declare (ignore union all))
     (list :union-all-stmt select-1 select-2)))
 
 (defrule %union-stmt
     (and select-core ws (~ "UNION") ws compound-select-stmt)
-  (:destructure (select-1 ws1 union ws2 select-2)
-    (declare (ignore ws1 union ws2))
+  (:function %remove-nil)
+  (:destructure (select-1 union select-2)
+    (declare (ignore union))
     (list :union-stmt select-1 select-2)))
 
 (defrule %intersect-stmt
     (and select-core ws (~ "INTERSECT") ws compound-select-stmt)
-  (:destructure (select-1 ws1 intersect ws2 select-2)
-    (declare (ignore ws1 intersect ws2))
+  (:function %remove-nil)
+  (:destructure (select-1 intersect select-2)
+    (declare (ignore intersect))
     (list :intersect-stmt select-1 select-2)))
 
 (defrule %except-stmt
     (and select-core ws (~ "EXCEPT") ws compound-select-stmt)
-  (:destructure (select-1 ws1 except ws2 select-2)
-    (declare (ignore ws1 except ws2))
+  (:function %remove-nil)
+  (:destructure (select-1 except select-2)
+    (declare (ignore except))
     (list :except-stmt select-1 select-2)))
 
 (defrule compound-select-stmt
@@ -432,17 +475,20 @@
     (and expr (? (and ws (or (~ "ASC") (~ "DESC")))))
   (:destructure (expr &optional ws (direction "ASC"))
     (declare (ignore ws))
-    (cons expr direction)))
+    (cons expr (ecase direction
+                 ("ASC" :asc)
+                 ("DESC" :desc)))))
 
 (defrule ordering-term-list
-    (and ordering-term (* (and (? ws) "," (? ws) ordering-term)))
+    (and ordering-term (* (and (? ws) comma (? ws) ordering-term)))
   (:lambda (items)
     (%flatten-list :ordering-term-list items)))
 
 (defrule order-by-clause
     (and (~ "ORDER") ws (~ "BY") ws ordering-term-list)
-  (:destructure (order ws1 by ws2 ordering-term-list)
-    (declare (ignore order ws1 by ws2))
+  (:function %remove-nil)
+  (:destructure (order by ordering-term-list)
+    (declare (ignore order by))
     (list :order-by-clause ordering-term-list)))
 
 (defrule select-stmt
