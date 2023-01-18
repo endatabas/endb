@@ -48,8 +48,8 @@
   x1 VARCHAR(40)
 )"))
   (is (parse-sql "INSERT INTO t1 VALUES(382,414,67,992,483,'table tn1 row 1')"))
-  (is (parse-sql "CREATE INDEX t1i0 ON t1(a1,b1,c1,d1,e1,x1)"))
-  (is (parse-sql "CREATE INDEX t8all ON t8(e8 DESC, d8 ASC, c8 DESC, b8 ASC, a8 DESC)"))
+  (is (null (parse-sql "CREATE INDEX t1i0 ON t1(a1,b1,c1,d1,e1,x1)")))
+  (is (null (parse-sql "CREATE INDEX t8all ON t8(e8 DESC, d8 ASC, c8 DESC, b8 ASC, a8 DESC)")))
   (is (parse-sql "SELECT e1 FROM t1
    WHERE a1 in (767,433,637,363,776,109,451)
       OR c1 in (683,531,654,246,3,876,309,284)

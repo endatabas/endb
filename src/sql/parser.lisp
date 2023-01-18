@@ -5,7 +5,7 @@
 (in-package :endb/sql/parser)
 
 (defun %flatten-ast (name items)
-  (if (listp items)
+  (if (and (listp items) (listp (rest items)))
       (let ((items (remove-if (lambda (x)
                                 (or (null x)
                                     (case x
@@ -53,30 +53,36 @@
 
 (defrule null-literal
     (~ "NULL")
-  (:lambda (items)
-    :sql/null))
+  (:constant :sql/null))
 
 (defrule literal-value
     (or numeric-literal
         string-literal
         null-literal))
 
-(defrule expr-or
-    (or (and expr-or ws (~ "OR") ws expr-and)
-        expr-and)
+(defrule %expr-or
+    (and expr-or ws (~ "OR") ws expr-and)
   (:lambda (items)
     (%flatten-ast :expr-or items)))
 
-(defrule expr-and
-    (or (and expr-and ws (~ "AND") ws expr-not)
-        expr-not)
+(defrule expr-or
+    (or %expr-or expr-and))
+
+(defrule %expr-and
+    (and expr-and ws (~ "AND") ws expr-not)
   (:lambda (items)
     (%flatten-ast :expr-and items)))
 
-(defrule expr-not
-    (and (? (and (~ "NOT") ws)) expr-boolean-primary)
+(defrule expr-and
+    (or %expr-and expr-not))
+
+(defrule %expr-not
+    (and (~ "NOT") ws expr-boolean-primary)
   (:lambda (items)
     (%flatten-ast :expr-not items)))
+
+(defrule expr-not
+    (or %expr-not expr-boolean-primary))
 
 (defrule expr-compare
     (and expr-boolean-primary (? ws) (or "<>" "<=" ">=" "<"  ">" "=" ) (? ws) expr-add)
@@ -113,22 +119,29 @@
   (:lambda (items)
     (%flatten-ast :expr-boolean-primary items)))
 
+(defrule %expr-add
+    (and expr-add (? ws) (or "+" "-") (? ws) expr-mult)
+  (:lambda (items)
+    (%flatten-ast :expr-binary items)))
+
 (defrule expr-add
-    (or (and expr-add (? ws) (or "+" "-") (? ws) expr-mult)
-        expr-mult)
+    (or %expr-add expr-mult))
+
+(defrule %expr-mult
+    (and expr-mult (? ws) (or "*" "/" "%") (? ws) expr-unary)
   (:lambda (items)
     (%flatten-ast :expr-binary items)))
 
 (defrule expr-mult
-    (or (and expr-mult (? ws) (or "*" "/" "%") (? ws) expr-unary)
-        expr-unary)
-  (:lambda (items)
-    (%flatten-ast :expr-binary items)))
+    (or %expr-mult expr-unary))
 
-(defrule expr-unary
-    (and (? (and (or "+" "-") (? ws))) expr-primary)
+(defrule %expr-unary
+    (and (or "+" "-") (? ws) expr-primary)
   (:lambda (items)
     (%flatten-ast :expr-unary items)))
+
+(defrule expr-unary
+    (or %expr-unary expr-primary))
 
 (defrule expr-case
     (and (~ "CASE") ws
@@ -141,23 +154,32 @@
 
 (defrule expr-set
     (and identifier (? ws) "(" (? ws) (or (and (? (and (~ "DISTINCT") ws)) expr-list)
-                                          "*") (? ws) ")")
+                                          star) (? ws) ")")
   (:lambda (items)
     (%flatten-ast :expr-set items)))
 
+(defrule %expr-column
+    (and identifier "." identifier)
+  (:destructure (table dot column)
+    (declare (ignore dot))
+    (make-symbol (format nil "~A.~A"
+                         (symbol-name table)
+                         (symbol-name column)))))
+
 (defrule expr-column
-    (and (? (and identifier ".")) identifier)
+    (or %expr-column identifier))
+
+(defrule subquery
+    (and "(" (? ws) (or select-stmt expr) (? ws) ")")
   (:lambda (items)
-    (cons :expr-column items)))
+    (%flatten-ast :subquery items)))
 
 (defrule expr-primary
-    (or (and "(" (? ws) (or select-stmt expr) (? ws) ")")
+    (or subquery
         expr-case
         expr-set
         literal-value
-        expr-column)
-  (:lambda (items)
-    (%flatten-ast :expr-primary items)))
+        expr-column))
 
 (defrule expr-list
     (and expr (* (and (? ws) "," (? ws) expr)))
@@ -168,8 +190,9 @@
 
 (defrule column-def
     (and identifier (? (and ws identifier)) (? (and "("  numeric-literal ")")) (? (and ws (~ "PRIMARY") ws (~ "KEY"))))
-  (:lambda (items)
-    (cons :column-def items)))
+  (:destructure (identifier &rest type-def)
+    (declare (ignore type-def))
+    identifier))
 
 (defrule column-def-list
     (and column-def (* (and (? ws) "," (? ws) column-def)))
@@ -184,19 +207,16 @@
 
 (defrule indexed-column
     (and identifier (? (and ws (or (~ "ASC") (~ "DESC")))))
-  (:lambda (items)
-    (cons :indexed-column items)))
+  (:constant nil))
 
 (defrule indexed-column-list
     (and indexed-column (* (and (? ws) "," (? ws) indexed-column)))
-  (:lambda (items)
-    (%flatten-list :indexed-column-list items)))
+  (:constant nil))
 
 (defrule create-index-stmt
     (and (~ "CREATE") ws (~ "INDEX") ws identifier ws (~ "ON") ws identifier (? ws)
          "(" (? ws) indexed-column-list (? ws) ")")
-  (:lambda (items)
-    (%flatten-ast :create-index-stmt items)))
+  (:constant nil))
 
 (defrule values-stmt
     (and (~ "VALUES") (? ws) "(" (? ws) expr-list (? ws) ")")
@@ -220,18 +240,25 @@
   (:lambda (items)
     (list :star items)))
 
-(defrule result-column
-    (or (and expr (? (or (and ws (~ "AS") ws identifier)
-                         (and ws (! (~ "FROM")) identifier))))
-        star)
-  (:lambda (items)
-    (cons :result-column items)))
+(defrule %table-or-subquery-identifier
+    identifier
+  (:lambda (identifier)
+    (cons identifier identifier)))
+
+(defrule %table-or-subquery-as
+    (and identifier ws (~ "AS") ws identifier)
+  (:destructure (identifier ws1 as ws2 as-identifier)
+    (declare (ignore ws1 as ws2))
+    (cons identifier as-identifier)))
+
+(defrule %table-or-subquery-alias
+    (and identifier ws (! (or (~ "ORDER") (~ "WHERE"))) identifier)
+  (:destructure (identifier ws not-order-or-where as-identifier)
+    (declare (ignore ws not-order-or-where))
+    (cons identifier as-identifier)))
 
 (defrule table-or-subquery
-    (and identifier (? (and ws (or (and (~ "AS") ws identifier)
-                                   (and (! (or (~ "ORDER") (~ "WHERE"))) identifier)))))
-  (:lambda (items)
-    (cons :table-or-subquery items)))
+    (or %table-or-subquery-as %table-or-subquery-alias %table-or-subquery-identifier))
 
 (defrule table-subquery-list
     (and table-or-subquery (* (and (? ws) "," (? ws) table-or-subquery)))
@@ -240,13 +267,35 @@
 
 (defrule from-clause
     (and (~ "FROM") ws table-subquery-list)
-  (:lambda (items)
-    (%flatten-ast :from-stmt items)))
+  (:destructure (from ws table-or-subquery-list)
+    (declare (ignore from ws))
+    (list :from-clause table-or-subquery-list)))
 
 (defrule where-clause
     (and (~ "WHERE") ws expr)
-  (:lambda (items)
-    (%flatten-ast :where-stmt items)))
+  (:destructure (where ws expr)
+    (declare (ignore where ws))
+    (list :where-clause expr)))
+
+(defrule %result-column-expr
+    expr
+  (:lambda (expr)
+    (cons expr (gensym))))
+
+(defrule %result-column-as
+    (and expr ws (~ "AS") ws identifier)
+  (:destructure (expr ws1 as ws2 as-identifier)
+    (declare (ignore ws1 as ws2))
+    (cons expr as-identifier)))
+
+(defrule %result-column-alias
+    (and expr ws (! (~ "FROM")) identifier)
+  (:destructure (expr ws not-from as-identifier)
+    (declare (ignore ws not-from))
+    (cons expr as-identifier)))
+
+(defrule result-column
+    (or star %result-column-as %result-column-alias %result-column-expr))
 
 (defrule result-column-list
     (and result-column (* (and (? ws) "," (? ws) result-column)))
@@ -268,8 +317,9 @@
 
 (defrule ordering-term
     (and expr (? (and ws (or (~ "ASC") (~ "DESC")))))
-  (:lambda (items)
-    (cons :ordering-term items)))
+  (:destructure (expr &optional ws (direction "ASC"))
+    (declare (ignore ws))
+    (cons expr direction)))
 
 (defrule ordering-term-list
     (and ordering-term (* (and (? ws) "," (? ws) ordering-term)))
@@ -278,8 +328,9 @@
 
 (defrule order-by-clause
     (and (~ "ORDER") ws (~ "BY") ws ordering-term-list)
-  (:lambda (items)
-    (%flatten-ast :order-by-clause items)))
+  (:destructure (order ws1 by ws2 ordering-term-list)
+    (declare (ignore order ws1 by ws2))
+    (list :order-by-clause ordering-term-list)))
 
 (defrule select-stmt
     (and compound-select-stmt (? (and ws order-by-clause)))
@@ -293,8 +344,9 @@
              insert-stmt
              select-stmt)
          (? ws))
-  (:lambda (items)
-    (%flatten-ast :sql-stmt items)))
+  (:destructure (ws1 stmt ws2)
+    (declare (ignore ws1 ws2))
+    stmt))
 
 (defun parse-sql (in)
   (esrap:parse 'sql-stmt in))
