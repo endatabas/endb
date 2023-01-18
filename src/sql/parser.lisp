@@ -389,13 +389,17 @@
     (%flatten-list :result-column-list items)))
 
 (defrule %select-core
-    (and (~ "SELECT") ws result-column-list
+    (and (~ "SELECT") (? (and ws (or (~ "ALL")
+                                     (~ "DISTINCT"))))
+         ws result-column-list
          (? (and ws from-clause))
          (? (and ws where-clause)))
-  (:destructure (select ws1 result-column-list (&optional ws2 from-clause) (&optional ws3 where-clause))
+  (:destructure (select distinct-all ws1 result-column-list (&optional ws2 from-clause) (&optional ws3 where-clause))
     (declare (ignore select ws1 ws2 ws3))
     (concatenate 'list
-                 (list :select-core result-column-list)
+                 (list (if (equal "DISTINCT" (second distinct-all))
+                           :select-core-distinct
+                           :select-core) result-column-list)
                  (when from-clause
                    (list from-clause))
                  (when where-clause
@@ -441,14 +445,24 @@
     (declare (ignore order by))
     (list :order-by-clause ordering-term-list)))
 
+(defrule limit-clause
+    (and (~ "LIMIT") ws expr (? (and (or (and ws (~ "OFFSET") ws) (and (? ws) comma (? ws))) expr)))
+  (:destructure (limit ws1 expr (&optional comma offset))
+    (declare (ignore limit ws1 comma))
+    (if offset
+        (list :limit-clause expr offset)
+        (list :limit-clause expr))))
+
 (defrule select-stmt
-    (and compound-select-stmt (? (and ws order-by-clause)))
-  (:destructure (select (&optional ws order-by))
-    (declare (ignore ws))
+    (and compound-select-stmt (? (and ws order-by-clause)) (? (and ws limit-clause)))
+  (:destructure (select (&optional ws1 order-by) (&optional ws2 limit))
+    (declare (ignore ws1 ws2))
     (concatenate 'list
                  (list :select-stmt select)
                  (when order-by
-                   (list order-by)))))
+                   (list order-by))
+                 (when limit
+                   (list limit)))))
 
 (defrule sql-stmt
     (and (? ws)
