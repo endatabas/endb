@@ -4,26 +4,6 @@
   (:import-from :esrap))
 (in-package :endb/sql/parser)
 
-(defun %flatten-ast (name items)
-  (if (and (listp items) (listp (rest items)))
-      (let ((items (remove-if (lambda (x)
-                                (or (null x)
-                                    (case x
-                                      ("(" x)
-                                      (")" x)
-                                      ("," x)
-                                      ("." x))))
-                              (mapcar (lambda (item)
-                                        (%flatten-ast nil item))
-                                      items))))
-        (cond
-          ((= 1 (length items))
-           (first items))
-          ((and name (not (keywordp (first items))))
-           (cons name items))
-          (t items)))
-      items))
-
 (defun %flatten-list (name items)
   (list name (if (= 1 (length items))
                  items
@@ -191,14 +171,34 @@
 (defrule expr-unary
     (or %expr-unary expr-primary))
 
+(defrule %expr-case-when
+    (and (~ "WHEN") ws expr ws (~ "THEN") ws expr ws)
+  (:destructure (when ws1 expr-1 ws2 then ws3 expr-2 ws4)
+    (declare (ignore when ws1 ws2 then ws3 ws4))
+    (list :expr-case-when expr-1 expr-2)))
+
+(defrule %expr-case-else
+    (and (~ "ELSE") ws expr ws)
+  (:destructure (else ws1 expr ws2)
+    (declare (ignore else ws1 ws2))
+    (list :expr-case-else expr)))
+
 (defrule expr-case
     (and (~ "CASE") ws
          (? (and (! (~ "WHEN")) expr ws))
-         (+ (and (~ "WHEN") ws expr ws (~ "THEN") ws expr ws))
-         (? (and (~ "ELSE") ws expr ws))
+         (+ %expr-case-when)
+         (? %expr-case-else)
          (~ "END"))
-  (:lambda (items)
-    (%flatten-ast :expr-case items)))
+  (:destructure (case ws1 (&optional not-when expr ws2) whens else end)
+    (declare (ignore case ws1 not-when ws2 end))
+    (concatenate 'list
+                 (list :expr-case)
+                 (when expr
+                   (list expr))
+                 (when whens
+                   (list (list :expr-case-when-list whens)))
+                 (when else
+                   (list else)))))
 
 (defrule %expr-set-star
     (and identifier (? ws) "(" (? ws) star (? ws) ")")
