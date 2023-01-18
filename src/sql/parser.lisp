@@ -93,73 +93,37 @@
   (:destructure (expr-1 op expr-2)
     (list :expr-compare expr-1 (make-symbol op) expr-2)))
 
-(defrule %expr-is
-    (and expr-boolean-primary ws (~ "IS") ws expr-add)
-  (:function %remove-nil)
-  (:destructure (expr-1 is expr-2)
-    (declare (ignore is))
-    (list :expr-is expr-1 expr-2)))
-
-(defrule %expr-is-not
-    (and expr-boolean-primary ws (~ "IS") ws (~ "NOT") ws expr-add)
-  (:function %remove-nil)
-  (:destructure (expr-1 is not expr-2)
-    (declare (ignore is not))
-    (list :expr-is-not expr-1 expr-2)))
-
 (defrule expr-is
-    (or %expr-is-not %expr-is))
-
-(defrule %expr-between
-    (and expr-boolean-primary ws (~ "BETWEEN") ws expr-add ws (~ "AND") ws expr-add)
+    (and expr-boolean-primary ws (and (~ "IS") (? (and ws (~ "NOT")))) ws expr-add)
   (:function %remove-nil)
-  (:destructure (expr-1 between expr-2 and expr-3)
-    (declare (ignore between and))
-    (list :expr-between expr-1 expr-2 expr-3)))
-
-(defrule %expr-not-between
-    (and expr-boolean-primary ws (~ "NOT") ws (~ "BETWEEN") ws expr-add ws (~ "AND") ws expr-add)
-  (:function %remove-nil)
-  (:destructure (expr-1 not between expr-2 and expr-3)
-    (declare (ignore not between and))
-    (list :expr-not-between expr-1 expr-2 expr-3)))
+  (:destructure (expr-1 is-not expr-2)
+    (if (second is-not)
+        (list :expr-not (list :expr-is expr-1 expr-2))
+        (list :expr-is expr-1 expr-2))))
 
 (defrule expr-between
-    (or %expr-not-between %expr-between))
-
-(defrule %expr-in
-    (and expr-boolean-primary ws (~ "IN") (? ws) left-brace (? ws) expr-list (? ws) right-brace)
+    (and expr-boolean-primary ws (and (? (and (~ "NOT") ws)) (~ "BETWEEN")) ws expr-add ws (~ "AND") ws expr-add)
   (:function %remove-nil)
-  (:destructure (expr in expr-list)
-    (declare (ignore in))
-    (list :expr-in expr expr-list)))
-
-(defrule %expr-not-in
-    (and expr-boolean-primary ws (~ "NOT") ws (~ "IN") (? ws) left-brace (? ws) expr-list (? ws) right-brace)
-  (:function %remove-nil)
-  (:destructure (expr not in expr-list)
-    (declare (ignore not in))
-    (list :expr-in expr expr-list)))
+  (:destructure (expr-1 not-between expr-2 and expr-3)
+    (declare (ignore and))
+    (if (first not-between)
+        (list :expr-not (list :expr-between expr-1 expr-2 expr-3))
+        (list :expr-between expr-1 expr-2 expr-3))))
 
 (defrule expr-in
-    (or %expr-not-in %expr-in))
+    (and expr-boolean-primary ws (and (? (and (~ "NOT") ws)) (~ "IN")) (? ws) left-brace (? ws) expr-list (? ws) right-brace)
+  (:function %remove-nil)
+  (:destructure (expr not-in expr-list)
+    (if (first not-in)
+        (list :expr-not (list :expr-in expr expr-list))
+        (list :expr-in expr expr-list))))
 
-(defrule %expr-exists
+(defrule expr-exists
     (and (~ "EXISTS") (? ws) subquery)
   (:function %remove-nil)
   (:destructure (exists subquery)
     (declare (ignore exists))
     (list :expr-exists subquery)))
-
-(defrule %expr-not-exists
-    (and (~ "NOT") ws (~ "EXISTS") (? ws) subquery)
-  (:function %remove-nil)
-  (:destructure (not exists subquery)
-    (declare (ignore not exists))
-    (list :expr-not-exists subquery)))
-
-(defrule expr-exists
-    (or %expr-not-exists %expr-exists))
 
 (defrule expr-boolean-primary
     (or expr-compare
@@ -440,36 +404,22 @@
 (defrule select-core
     (or %select-core values-stmt))
 
-(defrule %union-all-stmt
-    (and select-core ws (~ "UNION") ws (~ "ALL") ws compound-select-stmt)
+(defrule %compound-select-stmt
+    (and select-core ws (or (and (~ "UNION") ws (~ "ALL"))
+                            (~ "UNION")
+                            (~ "INTERSECT")
+                            (~ "EXCEPT")) ws compound-select-stmt)
   (:function %remove-nil)
-  (:destructure (select-1 union all select-2)
-    (declare (ignore union all))
-    (list :union-all-stmt select-1 select-2)))
-
-(defrule %union-stmt
-    (and select-core ws (~ "UNION") ws compound-select-stmt)
-  (:function %remove-nil)
-  (:destructure (select-1 union select-2)
-    (declare (ignore union))
-    (list :union-stmt select-1 select-2)))
-
-(defrule %intersect-stmt
-    (and select-core ws (~ "INTERSECT") ws compound-select-stmt)
-  (:function %remove-nil)
-  (:destructure (select-1 intersect select-2)
-    (declare (ignore intersect))
-    (list :intersect-stmt select-1 select-2)))
-
-(defrule %except-stmt
-    (and select-core ws (~ "EXCEPT") ws compound-select-stmt)
-  (:function %remove-nil)
-  (:destructure (select-1 except select-2)
-    (declare (ignore except))
-    (list :except-stmt select-1 select-2)))
+  (:destructure (select-1 op select-2)
+    (list  (cond
+             ((equal op '("UNION" nil "ALL")) :union-all-stmt)
+             ((equal op "UNION") :union-stmt)
+             ((equal op "INTERSECT") :intersect-stmt)
+             ((equal op "EXCEPT") :except-stmt))
+           select-1 select-2)))
 
 (defrule compound-select-stmt
-    (or %union-all-stmt %union-stmt %intersect-stmt %except-stmt select-core))
+    (or %compound-select-stmt select-core))
 
 (defrule ordering-term
     (and expr (? (and ws (or (~ "ASC") (~ "DESC")))))
