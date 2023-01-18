@@ -62,7 +62,7 @@
   (:function %remove-nil)
   (:destructure (expr-1 or expr-2)
     (declare (ignore or))
-    (list :expr-or expr-1 expr-2)))
+    (list :or expr-1 expr-2)))
 
 (defrule expr-or
     (or %expr-or expr-and))
@@ -72,7 +72,7 @@
   (:function %remove-nil)
   (:destructure (expr-1 and expr-2)
     (declare (ignore and))
-    (list :expr-and expr-1 expr-2)))
+    (list :and expr-1 expr-2)))
 
 (defrule expr-and
     (or %expr-and expr-not))
@@ -82,7 +82,7 @@
   (:function %remove-nil)
   (:destructure (not expr)
     (declare (ignore not))
-    (list :expr-not expr)))
+    (list :not expr)))
 
 (defrule expr-not
     (or %expr-not expr-boolean-primary))
@@ -91,15 +91,15 @@
     (and expr-boolean-primary (? ws) (or "<>" "<=" ">=" "<"  ">" "=" ) (? ws) expr-add)
   (:function %remove-nil)
   (:destructure (expr-1 op expr-2)
-    (list :expr-compare expr-1 (make-symbol op) expr-2)))
+    (list (intern op :keyword) expr-1 expr-2)))
 
 (defrule expr-is
     (and expr-boolean-primary ws (and (~ "IS") (? (and ws (~ "NOT")))) ws expr-add)
   (:function %remove-nil)
   (:destructure (expr-1 is-not expr-2)
     (if (second is-not)
-        (list :expr-not (list :expr-is expr-1 expr-2))
-        (list :expr-is expr-1 expr-2))))
+        (list :not (list :is expr-1 expr-2))
+        (list :is expr-1 expr-2))))
 
 (defrule expr-between
     (and expr-boolean-primary ws (and (? (and (~ "NOT") ws)) (~ "BETWEEN")) ws expr-add ws (~ "AND") ws expr-add)
@@ -107,23 +107,23 @@
   (:destructure (expr-1 not-between expr-2 and expr-3)
     (declare (ignore and))
     (if (first not-between)
-        (list :expr-not (list :expr-between expr-1 expr-2 expr-3))
-        (list :expr-between expr-1 expr-2 expr-3))))
+        (list :not (list :between expr-1 expr-2 expr-3))
+        (list :between expr-1 expr-2 expr-3))))
 
 (defrule expr-in
     (and expr-boolean-primary ws (and (? (and (~ "NOT") ws)) (~ "IN")) (? ws) left-brace (? ws) expr-list (? ws) right-brace)
   (:function %remove-nil)
   (:destructure (expr not-in expr-list)
     (if (first not-in)
-        (list :expr-not (list :expr-in expr expr-list))
-        (list :expr-in expr expr-list))))
+        (list :not (list :in expr expr-list))
+        (list :in expr expr-list))))
 
 (defrule expr-exists
     (and (~ "EXISTS") (? ws) subquery)
   (:function %remove-nil)
   (:destructure (exists subquery)
     (declare (ignore exists))
-    (list :expr-exists subquery)))
+    (list :exists subquery)))
 
 (defrule expr-boolean-primary
     (or expr-compare
@@ -137,7 +137,7 @@
     (and expr-add (? ws) (or "+" "-") (? ws) expr-mult)
   (:function %remove-nil)
   (:destructure (expr-1 op expr-2)
-    (list :expr-binary expr-1 (make-symbol op) expr-2)))
+    (list (intern op :keyword) expr-1 expr-2)))
 
 (defrule expr-add
     (or %expr-add expr-mult))
@@ -146,7 +146,7 @@
     (and expr-mult (? ws) (or "*" "/" "%") (? ws) expr-unary)
   (:function %remove-nil)
   (:destructure (expr-1 op expr-2)
-    (list :expr-binary expr-1 (make-symbol op) expr-2)))
+    (list (intern op :keyword) expr-1 expr-2)))
 
 (defrule expr-mult
     (or %expr-mult expr-unary))
@@ -155,7 +155,7 @@
     (and (or "+" "-") (? ws) expr-primary)
   (:function %remove-nil)
   (:destructure (op expr)
-    (list :expr-unary (make-symbol op) expr)))
+    (list (intern op :keyword) expr)))
 
 (defrule expr-unary
     (or %expr-unary expr-primary))
@@ -165,14 +165,14 @@
   (:function %remove-nil)
   (:destructure (when expr-1 then expr-2)
     (declare (ignore when then))
-    (list :expr-case-when expr-1 expr-2)))
+    (list :when expr-1 expr-2)))
 
 (defrule %expr-case-else
     (and (~ "ELSE") ws expr ws)
   (:function %remove-nil)
   (:destructure (else expr)
     (declare (ignore else))
-    (list :expr-case-else expr)))
+    (list :else expr)))
 
 (defrule expr-case
     (and (~ "CASE") ws
@@ -183,35 +183,35 @@
   (:destructure (case ws1 (&optional not-when expr ws2) whens else end)
     (declare (ignore case ws1 not-when ws2 end))
     (concatenate 'list
-                 (list :expr-case)
+                 (list :case)
                  (when expr
                    (list expr))
                  (when whens
-                   (list (list :expr-case-when-list whens)))
+                   (list (list :when-list whens)))
                  (when else
                    (list else)))))
 
-(defrule %expr-set-star
-    (and identifier (? ws) left-brace (? ws) star (? ws) right-brace)
-  (:destructure (identifier &rest rest)
-    (declare (ignore rest))
-    (list :expr-set-star identifier)))
+(defrule %expr-count-star
+    (and (~ "COUNT") (? ws) left-brace (? ws) star (? ws) right-brace)
+  (:lambda (items)
+    (declare (ignore items))
+    (list :function :count-star)))
 
-(defrule %expr-set
+(defrule %expr-function
     (and identifier (? ws) left-brace (? ws) expr-list (? ws) right-brace)
   (:function %remove-nil)
   (:destructure (identifier expr-list)
-    (list :expr-set identifier expr-list)))
+    (list :function (intern (string-upcase (symbol-name identifier)) :keyword) expr-list)))
 
-(defrule %expr-set-distinct
+(defrule %expr-function-distinct
     (and identifier (? ws) left-brace (? ws) (~ "DISTINCT") ws expr-list (? ws) right-brace)
   (:function %remove-nil)
   (:destructure (identifier distinct expr-list)
     (declare (ignore distinct))
-    (list :expr-set-distinct identifier expr-list)))
+    (list :function (intern (string-upcase (symbol-name identifier)) :keyword) :distinct expr-list)))
 
-(defrule expr-set
-    (or %expr-set-star %expr-set-distinct %expr-set))
+(defrule expr-function
+    (or %expr-count-star %expr-function-distinct %expr-function))
 
 (defrule %expr-column
     (and identifier "." identifier)
@@ -240,7 +240,7 @@
     (or subquery
         expr-paren
         expr-case
-        expr-set
+        expr-function
         literal-value
         expr-column))
 
