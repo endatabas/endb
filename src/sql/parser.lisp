@@ -25,9 +25,12 @@
       items))
 
 (defun %flatten-list (name items)
-  (cons name (if (= 1 (length items))
+  (list name (if (= 1 (length items))
                  items
-                 (cons (first items) (second items)))))
+                 (cons (first items)
+                       (remove-if (lambda (x)
+                                    (or (null x) (eq "," x)))
+                                  (apply #'concatenate 'list (second items)))))))
 
 (defrule ws
     (+ (or #\Space #\Tab #\Newline))
@@ -197,11 +200,26 @@
   (:lambda (items)
     (%flatten-ast :expr-case items)))
 
+(defrule %expr-set-star
+    (and identifier (? ws) "(" (? ws) star (? ws) ")")
+  (:destructure (identifier &rest rest)
+    (declare (ignore rest))
+    (list :expr-set-star identifier)))
+
+(defrule %expr-set
+    (and identifier (? ws) "(" (? ws) expr-list (? ws) ")")
+  (:destructure (identifier ws1 open-brace ws2 expr-list ws3 close-brace)
+    (declare (ignore  ws1 open-brace ws2 ws3 close-brace))
+    (list :expr-set identifier expr-list)))
+
+(defrule %expr-set-distinct
+    (and identifier (? ws) "(" (? ws) (~ "DISTINCT") ws expr-list (? ws) ")")
+  (:destructure (identifier ws1 open-brace ws2 distinct ws3 expr-list ws4 close-brace)
+    (declare (ignore ws1 open-brace ws2 distinct ws3 ws4 close-brace))
+    (list :expr-set-distinct identifier expr-list)))
+
 (defrule expr-set
-    (and identifier (? ws) "(" (? ws) (or (and (? (and (~ "DISTINCT") ws)) expr-list)
-                                          star) (? ws) ")")
-  (:lambda (items)
-    (%flatten-ast :expr-set items)))
+    (or %expr-set-star %expr-set-distinct %expr-set))
 
 (defrule %expr-column
     (and identifier "." identifier)
@@ -255,8 +273,9 @@
 (defrule create-table-stmt
     (and (~ "CREATE") ws (~ "TABLE") ws identifier (? ws)
          "(" (? ws) column-def-list (? ws) ")")
-  (:lambda (items)
-    (%flatten-ast :create-table-stmt items)))
+  (:destructure (create ws1 table ws2 identifier ws3 open-brace ws4 column-def-list ws5 close-brace)
+    (declare (ignore create ws1 table ws2 ws3 open-brace ws4 ws5 close-brace))
+    (list :create-table-stmt identifier column-def-list)))
 
 (defrule indexed-column
     (and identifier (? (and ws (or (~ "ASC") (~ "DESC")))))
@@ -282,12 +301,22 @@
   (:lambda (items)
     (%flatten-list :identifier-list items)))
 
-(defrule insert-stmt
+(defrule %insert-stmt
+    (and (~ "INSERT") ws (~ "INTO") ws identifier (? ws) select-core)
+  (:destructure (insert ws1 into ws2 identifier ws3 select)
+    (declare (ignore insert ws1 into ws2 ws3))
+    (list :insert-stmt identifier select)))
+
+(defrule %insert-stmt-identifier-list
     (and (~ "INSERT") ws (~ "INTO") ws identifier (? ws)
-         (? (and "(" (? ws) identifier-list (? ws) ")" (? ws)))
-         values-stmt)
-  (:lambda (items)
-    (%flatten-ast :insert-stmt items)))
+         "(" (? ws) identifier-list (? ws) ")" (? ws)
+         select-core)
+  (:destructure (insert ws1 into ws2 identifier ws3 open-brace ws4 identifier-list ws5 close-brace ws6 select)
+    (declare (ignore insert ws1 into ws2 ws3 open-brace ws4 ws5 close-brace ws6))
+    (list :insert-stmt identifier select identifier-list)))
+
+(defrule insert-stmt
+    (or %insert-stmt %insert-stmt-identifier-list))
 
 (defrule star
     "*"
@@ -356,18 +385,48 @@
   (:lambda (items)
     (%flatten-list :result-column-list items)))
 
+(defrule %select-core
+    (and (~ "SELECT") ws result-column-list
+         (? (and ws from-clause))
+         (? (and ws where-clause)))
+  (:destructure (select ws1 result-column-list (&optional ws2 from-clause) (&optional ws3 where-clause))
+    (declare (ignore select ws1 ws2 ws3))
+    (concatenate 'list
+                 (list :select-core result-column-list)
+                 (when from-clause
+                   (list from-clause))
+                 (when where-clause
+                   (list where-clause)))))
+
 (defrule select-core
-    (or (and (~ "SELECT") ws result-column-list
-             (? (and ws from-clause))
-             (? (and ws where-clause)))
-        values-stmt)
-  (:lambda (items)
-    (%flatten-ast :select-core items)))
+    (or %select-core values-stmt))
+
+(defrule %union-all-stmt
+    (and select-core ws (~ "UNION") ws (~ "ALL") ws compound-select-stmt)
+  (:destructure (select-1 ws1 union ws2 all ws3 select-2)
+    (declare (ignore ws1 union ws2 all ws3))
+    (list :union-all-stmt select-1 select-2)))
+
+(defrule %union-stmt
+    (and select-core ws (~ "UNION") ws compound-select-stmt)
+  (:destructure (select-1 ws1 union ws2 select-2)
+    (declare (ignore ws1 union ws2))
+    (list :union-stmt select-1 select-2)))
+
+(defrule %intersect-stmt
+    (and select-core ws (~ "INTERSECT") ws compound-select-stmt)
+  (:destructure (select-1 ws1 intersect ws2 select-2)
+    (declare (ignore ws1 intersect ws2))
+    (list :intersect-stmt select-1 select-2)))
+
+(defrule %except-stmt
+    (and select-core ws (~ "EXCEPT") ws compound-select-stmt)
+  (:destructure (select-1 ws1 except ws2 select-2)
+    (declare (ignore ws1 except ws2))
+    (list :except-stmt select-1 select-2)))
 
 (defrule compound-select-stmt
-    (and select-core (? (and ws (or (and (~ "UNION") (? (and ws (~ "ALL")))) (~ "INTERSECT") (~ "EXCEPT")) ws compound-select-stmt)))
-  (:lambda (items)
-    (%flatten-ast :compound-select-stmt items)))
+    (or %union-all-stmt %union-stmt %intersect-stmt %except-stmt select-core))
 
 (defrule ordering-term
     (and expr (? (and ws (or (~ "ASC") (~ "DESC")))))
@@ -388,8 +447,12 @@
 
 (defrule select-stmt
     (and compound-select-stmt (? (and ws order-by-clause)))
-  (:lambda (items)
-    (%flatten-ast :select-stmt items)))
+  (:destructure (select (&optional ws order-by))
+    (declare (ignore ws))
+    (concatenate 'list
+                 (list :select-stmt select)
+                 (when order-by
+                   (list order-by)))))
 
 (defrule sql-stmt
     (and (? ws)
