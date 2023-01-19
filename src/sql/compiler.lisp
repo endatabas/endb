@@ -1,7 +1,6 @@
 (defpackage :endb/sql/compiler
   (:use :cl)
-  (:export #:compile-sql)
-  (:import-from :esrap))
+  (:export #:compile-sql))
 (in-package :endb/sql/compiler)
 
 (defgeneric sql->cl (ctx type &rest args))
