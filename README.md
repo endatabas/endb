@@ -4,9 +4,20 @@
 
 Install https://www.quicklisp.org/ and https://www.sbcl.org/
 
+On Ubuntu:
+
 ```bash
 sudo apt install sbcl cl-quicklisp
 sbcl --load /usr/share/common-lisp/source/quicklisp/quicklisp.lisp
+```
+
+On MacOS:
+
+```bash
+brew install sbcl
+# For full instructions, see https://www.quicklisp.org/beta/#installation
+curl -O https://beta.quicklisp.org/quicklisp.lisp
+sbcl --load quicklisp.lisp
 ```
 
 Initialise Quicklisp:
@@ -32,14 +43,15 @@ git submodule update --init --recursive
 Run the tests and build the binary:
 
 ```bash
-make test endb
+make test target/endb
 ```
 
 ## Sqllogictest
 
 See https://www.sqlite.org/sqllogictest/
 
-Install gcc which is needed to build the test runner:
+Install gcc or Clang which is needed to build the test runner.
+On MacOS, Clang will be automatically installed. On Ubuntu:
 
 ```bash
 sudo apt install gcc

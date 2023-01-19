@@ -2,6 +2,12 @@ LISP ?= sbcl --noinform
 
 SOURCES = $(shell find src -iname \*.lisp)
 FASL_FILES = $(shell find . -iname \*.fasl)
+SED_CMD = sed -i
+SHARED_LIB_EXT = .so
+ifeq ($(shell uname -s),Darwin)
+	SED_CMD = sed -i.bak
+	SHARED_LIB_EXT = .dylib
+endif
 
 CFLAGS = -g -Wall
 
@@ -33,15 +39,15 @@ test:
 		--eval '(ql:quickload :endb-test :silent t)' \
 		--eval '(uiop:quit (if (fiveam:run-all-tests) 0 1))'
 
-target/libsqllogictest.so: CFLAGS += -DSQLITE_NO_SYNC=1 -DSQLITE_THREADSAFE=0 -DOMIT_ODBC=1 -shared -fPIC
-target/libsqllogictest.so: target Makefile sqllogictest/src/*
+target/libsqllogictest$(SHARED_LIB_EXT): CFLAGS += -DSQLITE_NO_SYNC=1 -DSQLITE_THREADSAFE=0 -DOMIT_ODBC=1 -shared -fPIC
+target/libsqllogictest$(SHARED_LIB_EXT): target Makefile sqllogictest/src/*
 	cd sqllogictest/src && \
-		sed -i s/int\ main/int\ sqllogictest_main/ sqllogictest.c && \
+		$(SED_CMD) s/int\ main/int\ sqllogictest_main/ sqllogictest.c && \
 		$(CC) $(CFLAGS) -o $(CURDIR)/$@ $(SLT_SOURCES) && \
-		sed -i s/int\ sqllogictest_main/int\ main/ sqllogictest.c
+		$(SED_CMD) s/int\ sqllogictest_main/int\ main/ sqllogictest.c
 	touch $@
 
-target/slt: target Makefile *.asd $(SOURCES) slt/*.lisp target/libsqllogictest.so
+target/slt: target Makefile *.asd $(SOURCES) slt/*.lisp target/libsqllogictest$(SHARED_LIB_EXT)
 	$(LISP) --non-interactive \
 		--eval '(ql:quickload :endb-slt :silent t)' \
 		--eval '(asdf:make :endb-slt)'
