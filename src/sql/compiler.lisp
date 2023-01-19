@@ -146,22 +146,14 @@
 (defmethod sql->cl (ctx (type (eql :between)) &rest args)
   (destructuring-bind (expr lhs rhs)
       args
-    (let ((expr-sym (gensym))
-          (lhs-sym (gensym))
-          (rhs-sym (gensym)))
-      `(let ((,expr-sym ,(ast->cl ctx expr))
-             (,lhs-sym ,(ast->cl ctx lhs))
-             (,rhs-sym ,(ast->cl ctx rhs)))
-         (and (>= ,expr-sym ,lhs-sym)
-              (<= ,expr-sym ,rhs-sym))))))
+    `(expr:sql-between ,(ast->cl ctx expr) ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
 
 (defmethod sql->cl (ctx (type (eql :in)) &rest args)
   (destructuring-bind (expr expr-list)
       args
-    `(member ,(ast->cl ctx expr)
-             ,(if (eq :subquery (first expr-list))
-                  `(ast->cl ctx expr-list)
-                  `(list ,@(ast->cl ctx expr-list))))))
+    `(expr:sql-in ,(ast->cl ctx expr) ,(if (eq :subquery (first expr-list))
+                                           `(ast->cl ctx expr-list)
+                                           `(list ,@(ast->cl ctx expr-list))))))
 
 (defmethod sql->cl (ctx (type (eql :exists)) &rest args)
   (destructuring-bind (subquery)

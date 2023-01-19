@@ -50,7 +50,7 @@
 
 (defrule null-literal
     (~ "NULL")
-  (:constant :sql/null))
+  (:constant :null))
 
 (defrule literal-value
     (or numeric-literal
