@@ -192,4 +192,7 @@
     (t ast)))
 
 (defun compile->sql (ctx ast)
-  (ast->cl ctx ast))
+  (let* ((db-sym (gensym))
+         (ctx (cons (cons :db-sym db-sym) ctx)))
+    (eval `(lambda (,db-sym)
+             ,(ast->cl ctx ast)))))
