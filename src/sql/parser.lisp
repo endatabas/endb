@@ -268,7 +268,7 @@
   (:function %remove-nil)
   (:destructure (create table identifier column-def-list)
     (declare (ignore create table))
-    (list :create-table-stmt identifier column-def-list)))
+    (list :create-table identifier column-def-list)))
 
 (defrule indexed-column
     (and identifier (? (and ws (or (~ "ASC") (~ "DESC")))))
@@ -288,7 +288,7 @@
   (:function %remove-nil)
   (:destructure (values expr-list)
     (declare (ignore values))
-    (list :values-stmt expr-list)))
+    (list :values expr-list)))
 
 (defrule identifier-list
     (and identifier (* (and (? ws) comma (? ws) identifier)))
@@ -300,7 +300,7 @@
   (:function %remove-nil)
   (:destructure (insert into identifier select)
     (declare (ignore insert into))
-    (list :insert-stmt identifier select)))
+    (list :insert identifier select)))
 
 (defrule %insert-stmt-identifier-list
     (and (~ "INSERT") ws (~ "INTO") ws identifier (? ws)
@@ -309,7 +309,7 @@
   (:function %remove-nil)
   (:destructure (insert into identifier identifier-list select)
     (declare (ignore insert into))
-    (list :insert-stmt identifier select identifier-list)))
+    (list :insert identifier select identifier-list)))
 
 (defrule insert-stmt
     (or %insert-stmt %insert-stmt-identifier-list))
@@ -320,27 +320,27 @@
     (declare (ignore items))
     (list :star)))
 
-(defrule %table-or-subquery-identifier
+(defrule %table-or-subquery-table-name
     identifier
-  (:lambda (identifier)
-    (cons identifier identifier)))
+  (:lambda (table-name)
+    (cons table-name table-name)))
 
-(defrule %table-or-subquery-as
-    (and identifier ws (~ "AS") ws identifier)
+(defrule %table-or-subquery-as-alias
+    (and (or identifier subquery) ws (~ "AS") ws identifier)
   (:function %remove-nil)
-  (:destructure (identifier as as-identifier)
+  (:destructure (table-or-subquery as alias)
     (declare (ignore as))
-    (cons identifier as-identifier)))
+    (cons table-or-subquery alias)))
 
 (defrule %table-or-subquery-alias
-    (and identifier ws (! (or (~ "ORDER") (~ "WHERE"))) identifier)
+    (and (or identifier subquery) ws (! (or (~ "ORDER") (~ "WHERE"))) identifier)
   (:function %remove-nil)
-  (:destructure (identifier not-order-or-where as-identifier)
+  (:destructure (table-or-subquery not-order-or-where as-identifier)
     (declare (ignore not-order-or-where))
-    (cons identifier as-identifier)))
+    (cons table-or-subquery as-identifier)))
 
 (defrule table-or-subquery
-    (or %table-or-subquery-as %table-or-subquery-alias %table-or-subquery-identifier))
+    (or %table-or-subquery-as-alias %table-or-subquery-alias %table-or-subquery-table-name))
 
 (defrule table-subquery-list
     (and table-or-subquery (* (and (? ws) comma (? ws) table-or-subquery)))
@@ -352,14 +352,14 @@
   (:function %remove-nil)
   (:destructure (from table-or-subquery-list)
     (declare (ignore from))
-    (list :from-clause table-or-subquery-list)))
+    (list :from table-or-subquery-list)))
 
 (defrule where-clause
     (and (~ "WHERE") ws expr)
   (:function %remove-nil)
   (:destructure (where expr)
     (declare (ignore where))
-    (list :where-clause expr)))
+    (list :where expr)))
 
 (defrule %result-column-expr
     expr
@@ -398,8 +398,8 @@
     (declare (ignore select ws1 ws2 ws3))
     (concatenate 'list
                  (list (if (equal "DISTINCT" (second distinct-all))
-                           :select-core-distinct
-                           :select-core) result-column-list)
+                           :select-distinct
+                           :select) result-column-list)
                  (when from-clause
                    (list from-clause))
                  (when where-clause
@@ -416,10 +416,10 @@
   (:function %remove-nil)
   (:destructure (select-1 op select-2)
     (list  (cond
-             ((equal op '("UNION" nil "ALL")) :union-all-stmt)
-             ((equal op "UNION") :union-stmt)
-             ((equal op "INTERSECT") :intersect-stmt)
-             ((equal op "EXCEPT") :except-stmt))
+             ((equal op '("UNION" nil "ALL")) :union-all)
+             ((equal op "UNION") :union)
+             ((equal op "INTERSECT") :intersect)
+             ((equal op "EXCEPT") :except))
            select-1 select-2)))
 
 (defrule compound-select-stmt
@@ -443,22 +443,22 @@
   (:function %remove-nil)
   (:destructure (order by ordering-term-list)
     (declare (ignore order by))
-    (list :order-by-clause ordering-term-list)))
+    (list :order-by ordering-term-list)))
 
 (defrule limit-clause
     (and (~ "LIMIT") ws expr (? (and (or (and ws (~ "OFFSET") ws) (and (? ws) comma (? ws))) expr)))
   (:destructure (limit ws1 expr (&optional comma offset))
     (declare (ignore limit ws1 comma))
     (if offset
-        (list :limit-clause expr offset)
-        (list :limit-clause expr))))
+        (list :limit expr offset)
+        (list :limit expr))))
 
 (defrule select-stmt
     (and compound-select-stmt (? (and ws order-by-clause)) (? (and ws limit-clause)))
   (:destructure (select (&optional ws1 order-by) (&optional ws2 limit))
     (declare (ignore ws1 ws2))
     (concatenate 'list
-                 (list :select-stmt select)
+                 select
                  (when order-by
                    (list order-by))
                  (when limit
