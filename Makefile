@@ -15,7 +15,7 @@ SLT_SOURCES = sqllogictest.c md5.c sqlite3.c
 SLT_ENGINE = CLSQLite
 SLT_TESTS = $(shell ls -1 sqllogictest/test/select*)
 
-default: test
+default: test target/endb
 
 target:
 	mkdir target

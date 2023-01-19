@@ -43,7 +43,7 @@ git submodule update --init --recursive
 Run the tests and build the binary:
 
 ```bash
-make test target/endb
+make
 ```
 
 ## Sqllogictest
