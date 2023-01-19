@@ -151,9 +151,7 @@
 (defmethod sql->cl (ctx (type (eql :in)) &rest args)
   (destructuring-bind (expr expr-list)
       args
-    `(expr:sql-in ,(ast->cl ctx expr) ,(if (eq :subquery (first expr-list))
-                                           `(ast->cl ctx expr-list)
-                                           `(list ,@(ast->cl ctx expr-list))))))
+    `(expr:sql-in ,(ast->cl ctx expr) ,(ast->cl ctx expr-list))))
 
 (defmethod sql->cl (ctx (type (eql :exists)) &rest args)
   (destructuring-bind (subquery)
@@ -169,9 +167,10 @@
              (cond
                ,@(mapcar
                   (lambda (x)
-                    (if (eq :else (first x))
-                        x
-                        (list `(expr:sql-= ,expr-sym ,(ast->cl ctx (first x))) (ast->cl ctx (second x)))))
+                    (list (if (eq :else (first x))
+                              :else
+                              `(expr:sql-= ,expr-sym ,(ast->cl ctx (first x))))
+                          (ast->cl ctx (second x))))
                   cases))))
         `(cond ,@(mapcar
                   (lambda (x)
@@ -184,8 +183,8 @@
           (symbolp (first ast)))
      (apply #'sql->cl ctx ast))
     ((listp ast)
-     (mapcar (lambda (ast)
-               (ast->cl ctx ast)) ast))
+     (cons 'list (mapcar (lambda (ast)
+                           (ast->cl ctx ast)) ast)))
     (t ast)))
 
 (defun compile->sql (ctx ast)
