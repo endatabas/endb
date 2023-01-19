@@ -1,5 +1,6 @@
 (defpackage :endb/sql/compiler
   (:use :cl)
+  (:import-from :endb/sql/expr)
   (:export #:compile-sql))
 (in-package :endb/sql/compiler)
 
@@ -53,7 +54,8 @@
 (defmethod sql->cl (ctx (type (eql :function)) &rest args)
   (destructuring-bind (fn args)
       args
-    `(,(find-symbol (symbol-name fn)) ,@(ast->cl ctx args))))
+    (let ((fn-sym (find-symbol (string-upcase (concatenate 'string "sql-" (symbol-name fn))) :endb/sql/expr)))
+      `(,fn-sym ,@(ast->cl ctx args)))))
 
 (defmethod sql->cl (ctx (type (eql :aggregate-function)) &rest args)
   (if (eq :count-star (first args))
@@ -62,84 +64,84 @@
           args
         (declare (ignore fn args distinct)))))
 
+(defmethod sql->cl (ctx (type (eql :=)) &rest args)
+  (destructuring-bind (lhs rhs)
+      args
+    `(expr:sql-= ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
+
+(defmethod sql->cl (ctx (type (eql :<>)) &rest args)
+  (destructuring-bind (lhs rhs)
+      args
+    `(expr:sql-<> ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
+
+(defmethod sql->cl (ctx (type (eql :is)) &rest args)
+  (destructuring-bind (lhs rhs)
+      args
+    `(expr:sql-is ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
+
+(defmethod sql->cl (ctx (type (eql :<)) &rest args)
+  (destructuring-bind (lhs rhs)
+      args
+    `(expr:sql-< ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
+
+(defmethod sql->cl (ctx (type (eql :<=)) &rest args)
+  (destructuring-bind (lhs rhs)
+      args
+    `(expr:sql-<= ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
+
+(defmethod sql->cl (ctx (type (eql :>)) &rest args)
+  (destructuring-bind (lhs rhs)
+      args
+    `(expr:sql-> ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
+
+(defmethod sql->cl (ctx (type (eql :>=)) &rest args)
+  (destructuring-bind (lhs rhs)
+      args
+    `(expr:sql->= ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
+
+(defmethod sql->cl (ctx (type (eql :not)) &rest args)
+  (destructuring-bind (expr)
+      args
+    `(expr:sql-not ,(ast->cl ctx expr))))
+
+(defmethod sql->cl (ctx (type (eql :and)) &rest args)
+  (destructuring-bind (lhs rhs)
+      args
+    `(expr:sql-and ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
+
+(defmethod sql->cl (ctx (type (eql :or)) &rest args)
+  (destructuring-bind (lhs rhs)
+      args
+    `(expr:sql-or ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
+
 (defmethod sql->cl (ctx (type (eql :+)) &rest args)
   (destructuring-bind (lhs &optional rhs)
       args
     (if rhs
-        `(+ ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))
-        `(+ ,(ast->cl ctx lhs)))))
+        `(expr:sql-+ ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))
+        `(expr:sql-+ ,(ast->cl ctx lhs)))))
 
 (defmethod sql->cl (ctx (type (eql :-)) &rest args)
   (destructuring-bind (lhs &optional rhs)
       args
     (if rhs
-        `(- ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))
-        `(- ,(ast->cl ctx lhs)))))
+        `(expr:sql-- ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))
+        `(expr:sql-- ,(ast->cl ctx lhs)))))
 
 (defmethod sql->cl (ctx (type (eql :*)) &rest args)
   (destructuring-bind (lhs rhs)
       args
-    `(* ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
+    `(expr:sql-* ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
 
 (defmethod sql->cl (ctx (type (eql :/)) &rest args)
   (destructuring-bind (lhs rhs)
       args
-    `(/ ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
+    `(expr:sql-/ ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
 
 (defmethod sql->cl (ctx (type (eql :%)) &rest args)
   (destructuring-bind (lhs rhs)
       args
-    `(mod ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :=)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(equal ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :<>)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(not (equal ,(ast->cl ctx lhs) ,(ast->cl ctx rhs)))))
-
-(defmethod sql->cl (ctx (type (eql :<)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(< ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :<=)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(<= ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :>)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(> ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :>=)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(>= ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :and)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(and ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :or)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(or ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :not)) &rest args)
-  (destructuring-bind (expr)
-      args
-    `(not ,(ast->cl ctx expr))))
-
-(defmethod sql->cl (ctx (type (eql :is)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(eq ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
+    `(expr:sql-% ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
 
 (defmethod sql->cl (ctx (type (eql :between)) &rest args)
   (destructuring-bind (expr lhs rhs)
@@ -174,7 +176,7 @@
                   (lambda (x)
                     (if (eq :else (first x))
                         x
-                        (list `(equal ,expr-sym ,(ast->cl ctx (first x))) (ast->cl ctx (second x)))))
+                        (list `(expr:sql-= ,expr-sym ,(ast->cl ctx (first x))) (ast->cl ctx (second x)))))
                   cases))))
         `(cond ,@(mapcar
                   (lambda (x)
