@@ -111,12 +111,17 @@
         (list :between expr-1 expr-2 expr-3))))
 
 (defrule expr-in
-    (and expr-boolean-primary ws (and (? (and (~ "NOT") ws)) (~ "IN")) (? ws) left-brace (? ws) expr-list (? ws) right-brace)
+    (and expr-boolean-primary ws (and (? (and (~ "NOT") ws)) (~ "IN")) (? ws)
+         (or subquery
+             (and left-brace (? ws) expr-list (? ws) right-brace)))
   (:function %remove-nil)
-  (:destructure (expr not-in expr-list)
-    (if (first not-in)
-        (list :not (list :in expr expr-list))
-        (list :in expr expr-list))))
+  (:destructure (expr not-in expr-list-or-query)
+    (let ((expr-list-or-query (if (eq :subquery (first expr-list-or-query))
+                                  expr-list-or-query
+                                  (first (%remove-nil expr-list-or-query)))))
+      (if (first not-in)
+          (list :not (list :in expr expr-list-or-query))
+          (list :in expr expr-list-or-query)))))
 
 (defrule expr-exists
     (and (~ "EXISTS") (? ws) subquery)

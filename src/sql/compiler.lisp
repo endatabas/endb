@@ -158,7 +158,10 @@
 (defmethod sql->cl (ctx (type (eql :in)) &rest args)
   (destructuring-bind (expr expr-list)
       args
-    `(member ,(ast->cl ctx expr) (list ,@(ast->cl ctx expr-list)))))
+    `(member ,(ast->cl ctx expr)
+             ,(if (eq :subquery (first expr-list))
+                  `(ast->cl ctx expr-list)
+                  `(list ,@(ast->cl ctx expr-list))))))
 
 (defmethod sql->cl (ctx (type (eql :exists)) &rest args)
   (destructuring-bind (subquery)
