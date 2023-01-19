@@ -193,23 +193,29 @@
     (and (~ "COUNT") (? ws) left-brace (? ws) star (? ws) right-brace)
   (:lambda (items)
     (declare (ignore items))
-    (list :function :count-star)))
+    (list :aggregate-function :count-star)))
+
+(defun %expr-function-name (identifier)
+  (intern (string-upcase (symbol-name identifier)) :keyword))
+
+(defun %expr-aggregate-function-p (fn)
+  (member fn '(:COUNT :AVG :SUM :MIN :MAX)))
 
 (defrule %expr-function
-    (and identifier (? ws) left-brace (? ws) expr-list (? ws) right-brace)
-  (:function %remove-nil)
-  (:destructure (identifier expr-list)
-    (list :function (intern (string-upcase (symbol-name identifier)) :keyword) expr-list)))
-
-(defrule %expr-function-distinct
-    (and identifier (? ws) left-brace (? ws) (~ "DISTINCT") ws expr-list (? ws) right-brace)
+    (and identifier (? ws) left-brace (? ws) (and (? (and (~ "DISTINCT") ws))) expr-list (? ws) right-brace)
   (:function %remove-nil)
   (:destructure (identifier distinct expr-list)
-    (declare (ignore distinct))
-    (list :function (intern (string-upcase (symbol-name identifier)) :keyword) :distinct expr-list)))
+    (let ((fn (%expr-function-name identifier)))
+      (concatenate 'list
+                   (list (if (%expr-aggregate-function-p fn)
+                             :aggregate-function
+                             :function)
+                         fn expr-list)
+                   (when (not (null (first distinct)))
+                     (list :distinct t))))))
 
 (defrule expr-function
-    (or %expr-count-star %expr-function-distinct %expr-function))
+    (or %expr-count-star %expr-function))
 
 (defrule %expr-column
     (and identifier "." identifier)
@@ -405,9 +411,9 @@
   (:destructure (select distinct-all ws1 result-column-list (&optional ws2 from-clause) (&optional ws3 where-clause))
     (declare (ignore select ws1 ws2 ws3))
     (concatenate 'list
-                 (list (if (equal "DISTINCT" (second distinct-all))
-                           :select-distinct
-                           :select) result-column-list)
+                 (list :select result-column-list)
+                 (when (equal "DISTINCT" (second distinct-all))
+                   (list :distinct t))
                  (when from-clause
                    from-clause)
                  (when where-clause
