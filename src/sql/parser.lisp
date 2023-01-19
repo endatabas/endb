@@ -7,12 +7,12 @@
 (defun %remove-nil (items)
   (remove-if #'null items))
 
-(defun %flatten-list (name items)
-  (list name (if (= 1 (length items))
-                 items
-                 (cons (first items)
-                       (remove-if #'null
-                                  (apply #'concatenate 'list (second items)))))))
+(defun %flatten-list (items)
+  (if (= 1 (length items))
+      items
+      (cons (first items)
+            (remove-if #'null
+                       (apply #'concatenate 'list (second items))))))
 
 (defrule comma
     ","
@@ -187,7 +187,7 @@
                  (when expr
                    (list expr))
                  (when whens
-                   (list (list :when-list whens)))
+                   (list whens))
                  (when else
                    (list else)))))
 
@@ -247,7 +247,7 @@
 (defrule expr-list
     (and expr (* (and (? ws) comma (? ws) expr)))
   (:lambda (items)
-    (%flatten-list :expr-list items)))
+    (%flatten-list items)))
 
 (defrule expr expr-or)
 
@@ -260,7 +260,7 @@
 (defrule column-def-list
     (and column-def (* (and (? ws) comma (? ws) column-def)))
   (:lambda (items)
-    (%flatten-list :column-def-list items)))
+    (%flatten-list items)))
 
 (defrule create-table-stmt
     (and (~ "CREATE") ws (~ "TABLE") ws identifier (? ws)
@@ -293,7 +293,7 @@
 (defrule identifier-list
     (and identifier (* (and (? ws) comma (? ws) identifier)))
   (:lambda (items)
-    (%flatten-list :identifier-list items)))
+    (%flatten-list items)))
 
 (defrule %insert-stmt
     (and (~ "INSERT") ws (~ "INTO") ws identifier (? ws) select-core)
@@ -345,7 +345,7 @@
 (defrule table-subquery-list
     (and table-or-subquery (* (and (? ws) comma (? ws) table-or-subquery)))
   (:lambda (items)
-    (%flatten-list :table-subquery-list items)))
+    (%flatten-list items)))
 
 (defrule from-clause
     (and (~ "FROM") ws table-subquery-list)
@@ -386,7 +386,7 @@
 (defrule result-column-list
     (and result-column (* (and (? ws) comma (? ws) result-column)))
   (:lambda (items)
-    (%flatten-list :result-column-list items)))
+    (%flatten-list items)))
 
 (defrule %select-core
     (and (~ "SELECT") (? (and ws (or (~ "ALL")
@@ -436,7 +436,7 @@
 (defrule ordering-term-list
     (and ordering-term (* (and (? ws) comma (? ws) ordering-term)))
   (:lambda (items)
-    (%flatten-list :ordering-term-list items)))
+    (%flatten-list items)))
 
 (defrule order-by-clause
     (and (~ "ORDER") ws (~ "BY") ws ordering-term-list)
