@@ -70,21 +70,18 @@
 (defmethod sql->cl (ctx (type (eql :case)) &rest args)
   (destructuring-bind (cases-or-expr &optional cases)
       args
-    (if cases
-        (let ((expr-sym (gensym)))
-          `(let ((,expr-sym ,(ast->cl ctx cases-or-expr)))
-             (cond
-               ,@(mapcar
-                  (lambda (x)
-                    (list (if (eq :else (first x))
-                              :else
-                              `(expr:sql-= ,expr-sym ,(ast->cl ctx (first x))))
-                          (ast->cl ctx (second x))))
-                  cases))))
-        `(cond ,@(mapcar
-                  (lambda (x)
-                    (list (ast->cl ctx (first x)) (ast->cl ctx (second x))))
-                  cases-or-expr)))))
+    (let ((expr-sym (gensym)))
+      `(let ((,expr-sym ,(if cases
+                             (ast->cl ctx cases-or-expr)
+                             t)))
+         (cond
+           ,@(mapcar
+              (lambda (x)
+                (list (if (eq :else (first x))
+                          :else
+                          `(endb/sql/expr:sql-= ,expr-sym ,(ast->cl ctx (first x))))
+                      (ast->cl ctx (second x))))
+              (or cases cases-or-expr)))))))
 
 (defmethod sql->cl (ctx fn &rest args)
   (sql->cl ctx :function fn args))

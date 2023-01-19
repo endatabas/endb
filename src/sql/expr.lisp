@@ -1,5 +1,4 @@
 (defpackage :endb/sql/expr
-  (:nicknames :expr)
   (:use :cl)
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
