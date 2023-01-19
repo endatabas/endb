@@ -17,6 +17,9 @@
 (deftype sql-number ()
   `(or number sql-null))
 
+(deftype sql-string ()
+  `(or string sql-null))
+
 (declaim (ftype (function (t t) sql-boolean) sql-=))
 (defun sql-= (x y)
   (if (or (eq :null x) (eq :null y))
