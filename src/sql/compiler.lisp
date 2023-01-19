@@ -51,11 +51,14 @@
       args
     (ast->cl ctx query)))
 
+(defun %find-sql-expr-symbol (fn)
+  (find-symbol (string-upcase (concatenate 'string "sql-" (symbol-name fn))) :endb/sql/expr))
+
 (defmethod sql->cl (ctx (type (eql :function)) &rest args)
   (destructuring-bind (fn args)
       args
-    (let ((fn-sym (find-symbol (string-upcase (concatenate 'string "sql-" (symbol-name fn))) :endb/sql/expr)))
-      `(,fn-sym ,@(ast->cl ctx args)))))
+    `(,(%find-sql-expr-symbol fn) ,@(mapcar (lambda (ast)
+                                              (ast->cl ctx ast)) args))))
 
 (defmethod sql->cl (ctx (type (eql :aggregate-function)) &rest args)
   (if (eq :count-star (first args))
@@ -63,100 +66,6 @@
       (destructuring-bind (fn args &key distinct)
           args
         (declare (ignore fn args distinct)))))
-
-(defmethod sql->cl (ctx (type (eql :=)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(expr:sql-= ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :<>)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(expr:sql-<> ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :is)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(expr:sql-is ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :<)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(expr:sql-< ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :<=)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(expr:sql-<= ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :>)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(expr:sql-> ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :>=)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(expr:sql->= ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :not)) &rest args)
-  (destructuring-bind (expr)
-      args
-    `(expr:sql-not ,(ast->cl ctx expr))))
-
-(defmethod sql->cl (ctx (type (eql :and)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(expr:sql-and ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :or)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(expr:sql-or ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :+)) &rest args)
-  (destructuring-bind (lhs &optional rhs)
-      args
-    (if rhs
-        `(expr:sql-+ ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))
-        `(expr:sql-+ ,(ast->cl ctx lhs)))))
-
-(defmethod sql->cl (ctx (type (eql :-)) &rest args)
-  (destructuring-bind (lhs &optional rhs)
-      args
-    (if rhs
-        `(expr:sql-- ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))
-        `(expr:sql-- ,(ast->cl ctx lhs)))))
-
-(defmethod sql->cl (ctx (type (eql :*)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(expr:sql-* ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :/)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(expr:sql-/ ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :%)) &rest args)
-  (destructuring-bind (lhs rhs)
-      args
-    `(expr:sql-% ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :between)) &rest args)
-  (destructuring-bind (expr lhs rhs)
-      args
-    `(expr:sql-between ,(ast->cl ctx expr) ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
-
-(defmethod sql->cl (ctx (type (eql :in)) &rest args)
-  (destructuring-bind (expr expr-list)
-      args
-    `(expr:sql-in ,(ast->cl ctx expr) ,(ast->cl ctx expr-list))))
-
-(defmethod sql->cl (ctx (type (eql :exists)) &rest args)
-  (destructuring-bind (subquery)
-      args
-    `(expr:sql-exists ,(ast->cl ctx subquery))))
 
 (defmethod sql->cl (ctx (type (eql :case)) &rest args)
   (destructuring-bind (cases-or-expr &optional cases)
@@ -176,6 +85,9 @@
                   (lambda (x)
                     (list (ast->cl ctx (first x)) (ast->cl ctx (second x))))
                   cases-or-expr)))))
+
+(defmethod sql->cl (ctx fn &rest args)
+  (sql->cl ctx :function fn args))
 
 (defun ast->cl (ctx ast)
   (cond
