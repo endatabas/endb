@@ -165,7 +165,7 @@
   (:function %remove-nil)
   (:destructure (when expr-1 then expr-2)
     (declare (ignore when then))
-    (list :when expr-1 expr-2)))
+    (list expr-1 expr-2)))
 
 (defrule %expr-case-else
     (and (~ "ELSE") ws expr ws)
@@ -186,10 +186,8 @@
                  (list :case)
                  (when expr
                    (list expr))
-                 (when whens
-                   (list whens))
-                 (when else
-                   (list else)))))
+                 (list (concatenate 'list whens (when else
+                                                  (list else)))))))
 
 (defrule %expr-count-star
     (and (~ "COUNT") (? ws) left-brace (? ws) star (? ws) right-brace)
@@ -283,12 +281,22 @@
          left-brace (? ws) indexed-column-list (? ws) right-brace)
   (:constant nil))
 
-(defrule values-stmt
-    (and (~ "VALUES") (? ws) left-brace (? ws) expr-list (? ws) right-brace)
+(defrule values-row
+    (and left-brace (? ws) expr-list (? ws) right-brace)
+  (:function %remove-nil))
+
+(defrule values-row-list
+    (and values-row (* (and (? ws) comma (? ws) values-row)))
   (:function %remove-nil)
-  (:destructure (values expr-list)
+  (:lambda (items)
+    (apply #'concatenate 'list (%flatten-list items))))
+
+(defrule values-stmt
+    (and (~ "VALUES") (? ws) values-row-list)
+  (:function %remove-nil)
+  (:destructure (values values-row-list)
     (declare (ignore values))
-    (list :values expr-list)))
+    (list :values values-row-list)))
 
 (defrule identifier-list
     (and identifier (* (and (? ws) comma (? ws) identifier)))
@@ -307,9 +315,9 @@
          left-brace (? ws) identifier-list (? ws) right-brace (? ws)
          select-core)
   (:function %remove-nil)
-  (:destructure (insert into identifier identifier-list select)
+  (:destructure (insert into identifier column-name-list select)
     (declare (ignore insert into))
-    (list :insert identifier select identifier-list)))
+    (list :insert identifier select :column-names column-name-list)))
 
 (defrule insert-stmt
     (or %insert-stmt %insert-stmt-identifier-list))
@@ -364,21 +372,21 @@
 (defrule %result-column-expr
     expr
   (:lambda (expr)
-    (cons expr :sql/unassigned)))
+    (cons expr (when (symbolp expr)
+                 expr))))
 
 (defrule %result-column-as
     (and expr ws (~ "AS") ws identifier)
   (:function %remove-nil)
-  (:destructure (expr as as-identifier)
+  (:destructure (expr as alias)
     (declare (ignore as))
-    (cons expr as-identifier)))
+    (cons expr alias)))
 
 (defrule %result-column-alias
     (and expr ws (! (~ "FROM")) identifier)
   (:function %remove-nil)
-  (:destructure (expr not-from as-identifier)
-    (declare (ignore not-from))
-    (cons expr as-identifier)))
+  (:destructure (expr alias)
+    (cons expr alias)))
 
 (defrule result-column
     (or star %result-column-as %result-column-alias %result-column-expr))
@@ -401,9 +409,9 @@
                            :select-distinct
                            :select) result-column-list)
                  (when from-clause
-                   (list from-clause))
+                   from-clause)
                  (when where-clause
-                   (list where-clause)))))
+                   where-clause))))
 
 (defrule select-core
     (or %select-core values-stmt))
@@ -460,9 +468,9 @@
     (concatenate 'list
                  select
                  (when order-by
-                   (list order-by))
+                   order-by)
                  (when limit
-                   (list limit)))))
+                   limit))))
 
 (defrule sql-stmt
     (and (? ws)
