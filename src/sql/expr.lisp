@@ -4,7 +4,7 @@
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-%
-            #:sql-between #:sql-in
+           #:sql-between #:sql-in
            #:sql-abs))
 (in-package :endb/sql/expr)
 
