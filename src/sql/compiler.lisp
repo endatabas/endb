@@ -158,7 +158,7 @@
 (defmethod sql->cl (ctx (type (eql :exists)) &rest args)
   (destructuring-bind (subquery)
       args
-    `(not (null ,(ast->cl ctx subquery)))))
+    `(expr:sql-exists ,(ast->cl ctx subquery))))
 
 (defmethod sql->cl (ctx (type (eql :case)) &rest args)
   (destructuring-bind (cases-or-expr &optional cases)

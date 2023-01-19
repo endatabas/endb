@@ -72,4 +72,8 @@
   (is (eq :null (sql-not (sql-in 1 '(:null)))))
   (is (eq t (sql-not (sql-in 1 '(0)))))
   (is (eq :null (sql-not (sql-in 1 '(:null 2)))))
-  (is (eq nil (sql-not (sql-in 1 '(:null 1))))))
+  (is (eq nil (sql-not (sql-in 1 '(:null 1)))))
+
+  (is (eq t (sql-exists '(1))))
+  (is (eq t (sql-exists '(:null))))
+  (is (eq nil (sql-exists '()))))

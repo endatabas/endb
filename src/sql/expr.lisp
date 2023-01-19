@@ -4,21 +4,18 @@
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-%
-           #:sql-between #:sql-in
+           #:sql-between #:sql-in #:sql-exists
            #:sql-abs))
 (in-package :endb/sql/expr)
-
-(defun sql-boolean-p (x)
-  (member x '(t nil :null)))
-
-(deftype sql-boolean ()
-  `(satisfies sql-boolean-p))
 
 (deftype sql-null ()
   `(member :null))
 
+(deftype sql-boolean ()
+  `(or boolean sql-null))
+
 (deftype sql-number ()
-  `(or sql-null number))
+  `(or number sql-null))
 
 (declaim (ftype (function (t t) sql-boolean) sql-=))
 (defun sql-= (x y)
@@ -120,6 +117,10 @@
 (declaim (ftype (function (sql-number sql-number sql-number) sql-boolean) sql-between))
 (defun sql-between (expr lhs rhs)
   (sql-and (sql->= expr lhs) (sql-<= expr rhs)))
+
+(declaim (ftype (function (list) sql-boolean) sql-exists))
+(defun sql-exists (list)
+  (not (null list)))
 
 (declaim (ftype (function (sql-number) sql-number) sql-abs))
 (defun sql-abs (x)
