@@ -7,9 +7,34 @@
 (defgeneric sql->cl (ctx type &rest args))
 
 (defmethod sql->cl (ctx (type (eql :select)) &rest args)
-  (destructuring-bind (select-list &key from where order-by limit)
+  (destructuring-bind (select-list &key distinct from where order-by limit)
       args
-    (declare (ignore select-list from where order-by limit))))
+    (declare (ignore select-list distinct from where order-by limit))))
+
+(defmethod sql->cl (ctx (type (eql :values)) &rest args)
+  (destructuring-bind (values-list &key order-by limit)
+      args
+    (declare (ignore values-list order-by limit))))
+
+(defmethod sql->cl (ctx (type (eql :union)) &rest args)
+  (destructuring-bind (lhs rhs &key order-by limit)
+      args
+    (declare (ignore lhs rhs order-by limit))))
+
+(defmethod sql->cl (ctx (type (eql :union-all)) &rest args)
+  (destructuring-bind (lhs rhs &key order-by limit)
+      args
+    (declare (ignore lhs rhs order-by limit))))
+
+(defmethod sql->cl (ctx (type (eql :except)) &rest args)
+  (destructuring-bind (lhs rhs &key order-by limit)
+      args
+    (declare (ignore lhs rhs order-by limit))))
+
+(defmethod sql->cl (ctx (type (eql :intersect)) &rest args)
+  (destructuring-bind (lhs rhs &key order-by limit)
+      args
+    (declare (ignore lhs rhs order-by limit))))
 
 (defmethod sql->cl (ctx (type (eql :create-table)) &rest args)
   (destructuring-bind (table-name columns)
@@ -20,6 +45,23 @@
   (destructuring-bind (table-name values &key column-names)
       args
     (declare (ignore table-name values column-names))))
+
+(defmethod sql->cl (ctx (type (eql :subquery)) &rest args)
+  (destructuring-bind (query)
+      args
+    (ast->cl ctx query)))
+
+(defmethod sql->cl (ctx (type (eql :function)) &rest args)
+  (destructuring-bind (fn args)
+      args
+    `(,(find-symbol (symbol-name fn)) ,@(ast->cl ctx args))))
+
+(defmethod sql->cl (ctx (type (eql :aggregate-function)) &rest args)
+  (if (eq :count-star (first args))
+      nil
+      (destructuring-bind (fn args &key distinct)
+          args
+        (declare (ignore fn args distinct)))))
 
 (defmethod sql->cl (ctx (type (eql :+)) &rest args)
   (destructuring-bind (lhs &optional rhs)
@@ -115,7 +157,7 @@
 (defmethod sql->cl (ctx (type (eql :in)) &rest args)
   (destructuring-bind (expr expr-list)
       args
-    `(member ,(ast->cl ctx expr) ,(ast->cl ctx expr-list))))
+    `(member ,(ast->cl ctx expr) (list ,@(ast->cl ctx expr-list)))))
 
 (defmethod sql->cl (ctx (type (eql :exists)) &rest args)
   (destructuring-bind (subquery)
@@ -146,8 +188,8 @@
           (symbolp (first ast)))
      (apply #'sql->cl ctx ast))
     ((listp ast)
-     (cons 'list (mapcar (lambda (ast)
-                           (ast->cl ctx ast)) ast)))
+     (mapcar (lambda (ast)
+               (ast->cl ctx ast)) ast))
     (t ast)))
 
 (defun compile->sql (ctx ast)
