@@ -4,7 +4,8 @@
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-%
            #:sql-between #:sql-in #:sql-exists
-           #:sql-abs))
+           #:sql-abs
+           #:sql-create-table #:sql-insert))
 (in-package :endb/sql/expr)
 
 (deftype sql-null ()
@@ -129,3 +130,24 @@
   (if (eq :null x)
       :null
       (abs x)))
+
+(defun sql-create-table (db table-name columns)
+  (let ((table (make-hash-table :test 'equal)))
+    (setf (gethash :columns table) columns)
+    (setf (gethash :rows table) ())
+    (setf (gethash table-name db) table)
+    db))
+
+(defun sql-insert (db table-name values &key column-names)
+  (let* ((table (gethash table-name db))
+         (rows (gethash :rows table))
+         (values (if column-names
+                     (let* ((column-names-in-order (gethash :columns table)))
+                       (mapcar (lambda (row)
+                                 (mapcar (lambda (column)
+                                           (nth (position column column-names-in-order :test #'equal) row))
+                                         column-names))
+                               values))
+                     values)))
+    (setf (gethash :rows table) (append values rows))
+    db))

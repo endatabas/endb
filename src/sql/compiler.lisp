@@ -14,7 +14,8 @@
 (defmethod sql->cl (ctx (type (eql :values)) &rest args)
   (destructuring-bind (values-list &key order-by limit)
       args
-    (declare (ignore values-list order-by limit))))
+    (declare (ignore order-by limit))
+    (ast->cl ctx values-list)))
 
 (defmethod sql->cl (ctx (type (eql :union)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit)
@@ -39,12 +40,13 @@
 (defmethod sql->cl (ctx (type (eql :create-table)) &rest args)
   (destructuring-bind (table-name columns)
       args
-    (declare (ignore table-name columns))))
+    `(endb/sql/expr:sql-create-table ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name) ',(mapcar #'symbol-name columns))))
 
 (defmethod sql->cl (ctx (type (eql :insert)) &rest args)
   (destructuring-bind (table-name values &key column-names)
       args
-    (declare (ignore table-name values column-names))))
+    `(endb/sql/expr:sql-insert ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name) ,(ast->cl ctx values)
+                               :column-names ',(mapcar #'symbol-name column-names))))
 
 (defmethod sql->cl (ctx (type (eql :subquery)) &rest args)
   (destructuring-bind (query)
@@ -96,7 +98,7 @@
                            (ast->cl ctx ast)) ast)))
     (t ast)))
 
-(defun compile->sql (ctx ast)
+(defun compile-sql (ctx ast)
   (let* ((db-sym (gensym))
          (ctx (cons (cons :db-sym db-sym) ctx)))
     (eval `(lambda (,db-sym)
