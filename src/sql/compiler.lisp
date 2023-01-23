@@ -20,22 +20,26 @@
 (defmethod sql->cl (ctx (type (eql :union)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit)
       args
-    (declare (ignore lhs rhs order-by limit))))
+    (declare (ignore order-by limit))
+    `(union ,(ast->cl ctx lhs) ,(ast->cl ctx rhs) :test 'equal)))
 
 (defmethod sql->cl (ctx (type (eql :union-all)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit)
       args
-    (declare (ignore lhs rhs order-by limit))))
+    (declare (ignore order-by limit))
+    `(append ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))))
 
 (defmethod sql->cl (ctx (type (eql :except)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit)
       args
-    (declare (ignore lhs rhs order-by limit))))
+    (declare (ignore order-by limit))
+    `(set-difference ,(ast->cl ctx lhs) ,(ast->cl ctx rhs) :test 'equal)))
 
 (defmethod sql->cl (ctx (type (eql :intersect)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit)
       args
-    (declare (ignore lhs rhs order-by limit))))
+    (declare (ignore order-by limit))
+    `(intersection ,(ast->cl ctx lhs) ,(ast->cl ctx rhs) :test 'equal)))
 
 (defmethod sql->cl (ctx (type (eql :create-table)) &rest args)
   (destructuring-bind (table-name columns)
