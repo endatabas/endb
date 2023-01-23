@@ -296,7 +296,7 @@
 (defrule create-index-stmt
     (and (~ "CREATE") ws (~ "INDEX") ws identifier ws (~ "ON") ws identifier (? ws)
          left-brace (? ws) indexed-column-list (? ws) right-brace)
-  (:constant nil))
+  (:constant (list :create-index)))
 
 (defrule values-row
     (and left-brace (? ws) expr-list (? ws) right-brace)

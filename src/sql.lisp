@@ -9,7 +9,5 @@
   (make-hash-table :test 'equal))
 
 (defun execute-sql (db sql)
-  (funcall
-   (endb/sql/compiler:compile-sql (list (cons :db db))
-                                  (endb/sql/parser:parse-sql sql))
-   db))
+  (let ((ast (endb/sql/parser:parse-sql sql)))
+    (funcall (endb/sql/compiler:compile-sql (list (cons :db db)) ast) db)))

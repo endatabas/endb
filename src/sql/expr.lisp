@@ -5,7 +5,7 @@
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-%
            #:sql-between #:sql-in #:sql-exists
            #:sql-abs
-           #:sql-create-table #:sql-insert))
+           #:sql-create-table #:sql-create-index #:sql-insert))
 (in-package :endb/sql/expr)
 
 (deftype sql-null ()
@@ -141,7 +141,10 @@
     (setf (gethash :column->idx table) column->idx)
     (setf (gethash :rows table) ())
     (setf (gethash table-name db) table)
-    db))
+    (values nil t)))
+
+(defun sql-create-index (db)
+  (values nil t))
 
 (defun sql-insert (db table-name values &key column-names)
   (let* ((table (gethash table-name db))
@@ -155,4 +158,4 @@
                              values)
                      values)))
     (setf (gethash :rows table) (append values rows))
-    db))
+    (values nil (length values))))

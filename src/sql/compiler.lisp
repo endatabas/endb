@@ -46,6 +46,10 @@
       args
     `(endb/sql/expr:sql-create-table ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name) ',(mapcar #'symbol-name columns))))
 
+(defmethod sql->cl (ctx (type (eql :create-index)) &rest args)
+  (declare (ignore args))
+  `(endb/sql/expr:sql-create-index ,(cdr (assoc :db-sym ctx))))
+
 (defmethod sql->cl (ctx (type (eql :insert)) &rest args)
   (destructuring-bind (table-name values &key column-names)
       args
@@ -95,7 +99,8 @@
 (defun ast->cl (ctx ast)
   (cond
     ((and (listp ast)
-          (symbolp (first ast)))
+          (symbolp (first ast))
+          (not (eq :null (first ast))))
      (apply #'sql->cl ctx ast))
     ((listp ast)
      (cons 'list (mapcar (lambda (ast)
@@ -106,4 +111,5 @@
   (let* ((db-sym (gensym))
          (ctx (cons (cons :db-sym db-sym) ctx)))
     (eval `(lambda (,db-sym)
+             (declare (ignorable ,db-sym))
              ,(ast->cl ctx ast)))))

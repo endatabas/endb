@@ -5,7 +5,7 @@
   (:import-from :sqlite)
   (:import-from :asdf)
   (:import-from :uiop)
-  (:import-from :endb-test/sql/parser :parse-sql))
+  (:import-from :endb/sql))
 (in-package :endb-slt/core)
 
 (cffi:defcstruct DbEngine
@@ -38,11 +38,29 @@
         (#\R (format nil "~,3F" value)))
       "NULL"))
 
+(defun %slt-result (result zTypes pazResult pnResult)
+  (let* ((n-used (* (length result) (length zTypes)))
+         (az-result (cffi:foreign-alloc :pointer :count n-used)))
+    (loop for row-offset from 0 by (length zTypes)
+          for row in result
+          do (loop for col-offset from row-offset
+                   for col in row
+                   for type across zTypes
+                   do (setf (cffi:mem-aref az-result :pointer col-offset)
+                            (cffi:foreign-string-alloc (%slt-format col type)))))
+    (setf (cffi:mem-ref pnResult :int) n-used)
+    (setf (cffi:mem-ref pazResult :pointer) az-result)))
+
+(defun %slt-free-result (azResult nResult)
+  (dotimes (n nResult)
+    (cffi:foreign-free (cffi:mem-aref azResult :pointer n)))
+  (cffi:foreign-free azResult))
+
 (cffi:defcallback sqliteConnect :int
-  ((NotUsed :pointer)
-   (zCon :string)
-   (ppConn (:pointer :pointer))
-   (zOpt :string))
+    ((NotUsed :pointer)
+     (zCon :string)
+     (ppConn (:pointer :pointer))
+     (zOpt :string))
   (declare (ignorable NotUsed ppConn zOpt))
   (let* ((handle (sqlite:connect (or zCon ":memory:")))
          (pConn (sqlite::handle handle)))
@@ -51,8 +69,8 @@
     0))
 
 (cffi:defcallback sqliteGetEngineName :int
-  ((pConn :pointer)
-   (zName (:pointer :char)))
+    ((pConn :pointer)
+     (zName (:pointer :char)))
   (declare (ignorable pConn zName))
   (if *sqlite-db-engine*
       (progn
@@ -61,9 +79,9 @@
       1))
 
 (cffi:defcallback sqliteStatement :int
-  ((pConn :pointer)
-   (zSql :string)
-   (bQuiet :int))
+    ((pConn :pointer)
+     (zSql :string)
+     (bQuiet :int))
   (declare (ignore bQuiet))
   (let ((handle (gethash (cffi:pointer-address pConn) *connections*)))
     (if handle
@@ -73,41 +91,29 @@
         1)))
 
 (cffi:defcallback sqliteQuery :int
-  ((pConn :pointer)
-   (zSql :string)
-   (zTypes :string)
-   (pazResult (:pointer (:pointer (:pointer :char))))
-   (pnResult (:pointer :int)))
+    ((pConn :pointer)
+     (zSql :string)
+     (zTypes :string)
+     (pazResult (:pointer (:pointer (:pointer :char))))
+     (pnResult (:pointer :int)))
   (declare (ignorable pazResult pnResult))
   (let ((handle (gethash (cffi:pointer-address pConn) *connections*)))
     (if handle
-        (let* ((result (sqlite:execute-to-list handle zSql))
-               (n-used (* (length result) (length zTypes)))
-               (az-result (cffi:foreign-alloc :pointer :count n-used)))
-          (loop for row-offset from 0 by (length zTypes)
-                for row in result
-                do (loop for col-offset from row-offset
-                         for col in row
-                         for type across zTypes
-                         do (setf (cffi:mem-aref az-result :pointer col-offset)
-                                  (cffi:foreign-string-alloc (%slt-format col type)))))
-          (setf (cffi:mem-ref pnResult :int) n-used)
-          (setf (cffi:mem-ref pazResult :pointer) az-result)
+        (progn
+          (%slt-result (sqlite:execute-to-list handle zSql) zTypes  pazResult pnResult)
           0)
         1)))
 
 (cffi:defcallback sqliteFreeResult :int
-  ((pConn :pointer)
-   (azResult (:pointer (:pointer :char)))
-   (nResult :int))
+    ((pConn :pointer)
+     (azResult (:pointer (:pointer :char)))
+     (nResult :int))
   (declare (ignore pConn))
-  (dotimes (n nResult)
-    (cffi:foreign-free (cffi:mem-aref azResult :pointer n)))
-  (cffi:foreign-free azResult)
+  (%slt-free-result azResult nResult)
   0)
 
 (cffi:defcallback sqliteDisconnect :int
-  ((pConn :pointer))
+    ((pConn :pointer))
   (let ((handle (gethash (cffi:pointer-address pConn) *connections*)))
     (if handle
         (progn
@@ -117,19 +123,19 @@
         1)))
 
 (cffi:defcallback endbConnect :int
-  ((NotUsed :pointer)
-   (zCon :string)
-   (ppConn (:pointer :pointer))
-   (zOpt :string))
+    ((NotUsed :pointer)
+     (zCon :string)
+     (ppConn (:pointer :pointer))
+     (zOpt :string))
   (declare (ignorable NotUsed zCon ppConn zOpt))
-  (let* ((handle "endb"))
+  (let* ((endb (endb/sql:create-db)))
     (setf (cffi:mem-ref ppConn :pointer) (cffi:null-pointer))
-    (setf (gethash (cffi:pointer-address (cffi:null-pointer)) *connections*) handle)
+    (setf (gethash (cffi:pointer-address (cffi:null-pointer)) *connections*) endb)
     0))
 
 (cffi:defcallback endbGetEngineName :int
-  ((pConn :pointer)
-   (zName (:pointer :char)))
+    ((pConn :pointer)
+     (zName (:pointer :char)))
   (declare (ignorable pConn zName))
   (if *endb-db-engine*
       (progn
@@ -138,49 +144,54 @@
       1))
 
 (cffi:defcallback endbStatement :int
-  ((pConn :pointer)
-   (zSql :string)
-   (bQuiet :int))
+    ((pConn :pointer)
+     (zSql :string)
+     (bQuiet :int))
   (declare (ignore bQuiet))
   (let ((endb (gethash (cffi:pointer-address pConn) *connections*)))
     (if endb
         (progn
-          (parse-sql zSql)
-          0)
+          (multiple-value-bind (result result-code)
+              (endb/sql:execute-sql endb zSql)
+            (declare (ignore result))
+            (if result-code
+                0
+                1)))
         1)))
 
 (cffi:defcallback endbQuery :int
-  ((pConn :pointer)
-   (zSql :string)
-   (zTypes :string)
-   (pazResult (:pointer (:pointer (:pointer :char))))
-   (pnResult (:pointer :int)))
+    ((pConn :pointer)
+     (zSql :string)
+     (zTypes :string)
+     (pazResult (:pointer (:pointer (:pointer :char))))
+     (pnResult (:pointer :int)))
   (declare (ignorable zTypes pazResult pnResult))
   (let ((endb (gethash (cffi:pointer-address pConn) *connections*)))
     (if endb
-        (progn
-          (parse-sql zSql)
-          0)
+        (multiple-value-bind (result result-code)
+            (endb/sql:execute-sql endb zSql)
+          (if result-code
+              (progn
+                (%slt-result result zTypes pazResult pnResult)
+                0)
+              1))
         1)))
 
 (cffi:defcallback endbFreeResult :int
-  ((pConn :pointer)
-   (azResult (:pointer (:pointer :char)))
-   (nResult :int))
+    ((pConn :pointer)
+     (azResult (:pointer (:pointer :char)))
+     (nResult :int))
   (declare (ignore pConn))
-  (dotimes (n nResult)
-    (cffi:foreign-free (cffi:mem-aref azResult :pointer n)))
-  (cffi:foreign-free azResult)
+  (%slt-free-result azResult nResult)
   0)
 
 (cffi:defcallback endbDisconnect :int
-  ((pConn :pointer))
-  (let ((handle (gethash (cffi:pointer-address pConn) *connections*)))
-    (if handle
-        (progn
-          (remhash (cffi:pointer-address pConn) *connections*)
-          0)
-        1)))
+    ((pConn :pointer))
+  (if (gethash (cffi:pointer-address pConn) *connections*)
+      (progn
+        (remhash (cffi:pointer-address pConn) *connections*)
+        0)
+      1))
 
 (cffi:define-foreign-library libsqllogictest
   (t (:default "libsqllogictest")))
