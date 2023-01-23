@@ -110,13 +110,16 @@
         (list :not (list :between expr-1 expr-2 expr-3))
         (list :between expr-1 expr-2 expr-3))))
 
+(defun %queryp (ast)
+  (member (first ast) '(:select :union-all :union :intersect :except)))
+
 (defrule expr-in
     (and expr-boolean-primary ws (and (? (and (~ "NOT") ws)) (~ "IN")) (? ws)
          (or subquery
              (and left-brace (? ws) expr-list (? ws) right-brace)))
   (:function %remove-nil)
   (:destructure (expr not-in expr-list-or-query)
-    (let ((expr-list-or-query (if (eq :subquery (first expr-list-or-query))
+    (let ((expr-list-or-query (if (%queryp expr-list-or-query)
                                   expr-list-or-query
                                   (first (%remove-nil expr-list-or-query)))))
       (if (first not-in)
@@ -234,8 +237,13 @@
 (defrule subquery
     (and left-brace (? ws) select-stmt (? ws) right-brace)
   (:function %remove-nil)
-  (:destructure (select-stmt)
-    (list :subquery select-stmt)))
+  (:destructure (query)
+    query))
+
+(defrule scalar-subquery
+    subquery
+  (:lambda (query)
+    (list :scalar-subquery query)))
 
 (defrule expr-paren
     (and left-brace (? ws) expr (? ws) right-brace)
@@ -244,7 +252,7 @@
     expr))
 
 (defrule expr-primary
-    (or subquery
+    (or scalar-subquery
         expr-paren
         expr-case
         expr-function
