@@ -9,7 +9,7 @@
 (in-package :endb/sql/expr)
 
 (deftype sql-null ()
-  `(member :null))
+  `(eql :null))
 
 (deftype sql-boolean ()
   `(or boolean sql-null))
@@ -144,6 +144,7 @@
     (values nil t)))
 
 (defun sql-create-index (db)
+  (declare (ignore db))
   (values nil t))
 
 (defun sql-insert (db table-name values &key column-names)
