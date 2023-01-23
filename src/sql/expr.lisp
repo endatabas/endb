@@ -132,7 +132,7 @@
       (abs x)))
 
 (defun sql-create-table (db table-name columns)
-  (let ((table (make-hash-table :test 'equal)))
+  (let ((table (make-hash-table)))
     (setf (gethash :columns table) columns)
     (setf (gethash :rows table) ())
     (setf (gethash table-name db) table)
