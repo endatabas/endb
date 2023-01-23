@@ -12,7 +12,7 @@
       items
       (cons (first items)
             (remove-if #'null
-                       (apply #'concatenate 'list (second items))))))
+                       (apply #'append (second items))))))
 
 (defrule comma
     ","
@@ -187,12 +187,11 @@
          (~ "END"))
   (:destructure (case ws1 (&optional not-when expr ws2) whens else end)
     (declare (ignore case ws1 not-when ws2 end))
-    (concatenate 'list
-                 (list :case)
-                 (when expr
-                   (list expr))
-                 (list (concatenate 'list whens (when else
-                                                  (list else)))))))
+    (append (list :case)
+            (when expr
+              (list expr))
+            (list (append whens (when else
+                                  (list else)))))))
 
 (defrule %expr-count-star
     (and (~ "COUNT") (? ws) left-brace (? ws) star (? ws) right-brace)
@@ -211,13 +210,12 @@
   (:function %remove-nil)
   (:destructure (identifier distinct expr-list)
     (let ((fn (%expr-function-name identifier)))
-      (concatenate 'list
-                   (list (if (%expr-aggregate-function-p fn)
-                             :aggregate-function
-                             :function)
-                         fn expr-list)
-                   (when (not (null (first distinct)))
-                     (list :distinct t))))))
+      (append (list (if (%expr-aggregate-function-p fn)
+                        :aggregate-function
+                        :function)
+                    fn expr-list)
+              (when (not (null (first distinct)))
+                (list :distinct t))))))
 
 (defrule expr-function
     (or %expr-count-star %expr-function))
@@ -300,7 +298,7 @@
     (and values-row (* (and (? ws) comma (? ws) values-row)))
   (:function %remove-nil)
   (:lambda (items)
-    (apply #'concatenate 'list (%flatten-list items))))
+    (apply #'append (%flatten-list items))))
 
 (defrule values-stmt
     (and (~ "VALUES") (? ws) values-row-list)
@@ -415,14 +413,13 @@
          (? (and ws where-clause)))
   (:destructure (select distinct-all ws1 result-column-list (&optional ws2 from-clause) (&optional ws3 where-clause))
     (declare (ignore select ws1 ws2 ws3))
-    (concatenate 'list
-                 (list :select result-column-list)
-                 (when (equal "DISTINCT" (second distinct-all))
-                   (list :distinct t))
-                 (when from-clause
-                   from-clause)
-                 (when where-clause
-                   where-clause))))
+    (append (list :select result-column-list)
+            (when (equal "DISTINCT" (second distinct-all))
+              (list :distinct t))
+            (when from-clause
+              from-clause)
+            (when where-clause
+              where-clause))))
 
 (defrule select-core
     (or %select-core values-stmt))
@@ -476,12 +473,11 @@
     (and compound-select-stmt (? (and ws order-by-clause)) (? (and ws limit-clause)))
   (:destructure (select (&optional ws1 order-by) (&optional ws2 limit))
     (declare (ignore ws1 ws2))
-    (concatenate 'list
-                 select
-                 (when order-by
-                   order-by)
-                 (when limit
-                   limit))))
+    (append select
+            (when order-by
+              order-by)
+            (when limit
+              limit))))
 
 (defrule sql-stmt
     (and (? ws)
