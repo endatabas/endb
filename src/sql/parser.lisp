@@ -52,10 +52,20 @@
     (~ "NULL")
   (:constant :null))
 
+(defrule true-literal
+    (~ "TRUE")
+  (:constant :true))
+
+(defrule false-literal
+    (~ "FALSE")
+  (:constant :false))
+
 (defrule literal-value
     (or numeric-literal
         string-literal
-        null-literal))
+        null-literal
+        true-literal
+        false-literal))
 
 (defrule %expr-or
     (and expr-or ws (~ "OR") ws expr-and)

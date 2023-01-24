@@ -131,6 +131,13 @@
       :null
       (abs x)))
 
+(declaim (ftype (function (list) t) sql-scalar-subquery))
+(defun sql-scalar-subquery (x)
+  (assert (<= (length x) 1))
+  (if (null x)
+      :null
+      (caar x)))
+
 (defun sql-create-table (db table-name columns)
   (let ((table (make-hash-table))
         (column->idx (make-hash-table :test 'equal)))
