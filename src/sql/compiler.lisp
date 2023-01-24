@@ -167,7 +167,7 @@
            ,@(mapcar
               (lambda (x)
                 (list (if (eq :else (first x))
-                          :else
+                          t
                           `(endb/sql/expr:sql-= ,expr-sym ,(ast->cl ctx (first x))))
                       (ast->cl ctx (second x))))
               (or cases cases-or-expr)))))))

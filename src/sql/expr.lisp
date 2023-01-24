@@ -154,23 +154,24 @@
   (sort rows (lambda (x y)
                (reduce
                 (lambda (acc order)
-                  (let ((idx (1- (car order))))
-                    (or acc (funcall (if (eq :ASC (cdr order))
-                                         #'<
-                                         #'>)
-                                     (nth idx x)
-                                     (nth idx y)))))
+                  (let* ((idx (1- (car order)))
+                         (asc (eq :ASC (cdr order)))
+                         (xv (nth idx x))
+                         (yv (nth idx y)))
+                    (or acc (cond
+                              ((eq :null xv) asc)
+                              ((eq :null yv) nil)
+                              (t (funcall (if asc
+                                              #'<
+                                              #'>)
+                                          xv
+                                          yv))))))
                 order-by
                 :initial-value nil))))
 
 (defun sql-create-table (db table-name columns)
-  (let ((table (make-hash-table))
-        (column->idx (make-hash-table :test 'equal)))
-    (loop for column in columns
-          for idx from 0
-          do (setf (gethash column column->idx) idx))
+  (let ((table (make-hash-table)))
     (setf (gethash :columns table) columns)
-    (setf (gethash :column->idx table) column->idx)
     (setf (gethash :rows table) ())
     (setf (gethash table-name db) table)
     (values nil t)))
@@ -182,13 +183,16 @@
 (defun sql-insert (db table-name values &key column-names)
   (let* ((table (gethash table-name db))
          (rows (gethash :rows table))
-         (column->idx (gethash :column->idx table))
          (values (if column-names
-                     (mapcar (lambda (row)
-                               (mapcar (lambda (column)
-                                         (nth (gethash column column->idx) row))
-                                       column-names))
-                             values)
+                     (let ((column->idx (make-hash-table :test 'equal)))
+                       (loop for column in column-names
+                             for idx from 0
+                             do (setf (gethash column column->idx) idx))
+                       (mapcar (lambda (row)
+                                 (mapcar (lambda (column)
+                                           (nth (gethash column column->idx) row))
+                                         (gethash :columns table)))
+                               values))
                      values)))
     (setf (gethash :rows table) (append values rows))
     (values nil (length values))))
