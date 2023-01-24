@@ -77,3 +77,11 @@
   (is (eq t (sql-exists '(1))))
   (is (eq t (sql-exists '(:null))))
   (is (eq nil (sql-exists '()))))
+
+(test three-valued-logic-coalesce
+  (is (eq :null (sql-coalesce :null :null)))
+  (is (eq 1 (sql-coalesce :null 1)))
+  (is (eq 1 (sql-coalesce 1 :null)))
+  (is (eq 1 (sql-coalesce 1 :null 2)))
+  (is (eq 2 (sql-coalesce :null :null 2 3)))
+  (is (eq nil (sql-coalesce nil 2))))

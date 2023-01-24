@@ -3,7 +3,7 @@
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-%
-           #:sql-between #:sql-in #:sql-exists
+           #:sql-between #:sql-in #:sql-exists #:sql-coalesce
            #:sql-abs
            #:sql-create-table #:sql-create-index #:sql-insert))
 (in-package :endb/sql/expr)
@@ -20,17 +20,20 @@
 (deftype sql-string ()
   `(or string sql-null))
 
-(declaim (ftype (function (t t) sql-boolean) sql-=))
+(deftype sql-value ()
+  `(or sql-null sql-boolean sql-number sql-string))
+
+(declaim (ftype (function (sql-value sql-value) sql-boolean) sql-=))
 (defun sql-= (x y)
   (if (or (eq :null x) (eq :null y))
       :null
       (equalp x y)))
 
-(declaim (ftype (function (t t) sql-boolean) sql-<>))
+(declaim (ftype (function (sql-value sql-value) sql-boolean) sql-<>))
 (defun sql-<> (x y)
   (sql-not (sql-= x y)))
 
-(declaim (ftype (function (t t) sql-boolean) sql-is))
+(declaim (ftype (function (sql-value sql-value) sql-boolean) sql-is))
 (defun sql-is (x y)
   (equalp x y))
 
@@ -78,6 +81,15 @@
            (or ,y :null)
            (or ,x-sym ,y)))))
 
+(declaim (ftype (function (sql-value sql-value &rest sql-value) sql-value) sql-coalesce))
+(defun sql-coalesce (x y &rest args)
+  (let ((tail (member-if-not (lambda (x)
+                               (eq :null x))
+                             (cons x (cons y args)))))
+    (if tail
+        (first tail)
+        :null)))
+
 (declaim (ftype (function (sql-number &optional sql-number) sql-number) sql-+))
 (defun sql-+ (x &optional (y 0))
   (if (or (eq :null x) (eq :null y))
@@ -110,7 +122,7 @@
       :null
       (mod x y)))
 
-(declaim (ftype (function (t list) sql-boolean) sql-in))
+(declaim (ftype (function (sql-value list) sql-boolean) sql-in))
 (defun sql-in (item list)
   (reduce (lambda (x y)
             (sql-or x (sql-= y item)))
@@ -131,7 +143,7 @@
       :null
       (abs x)))
 
-(declaim (ftype (function (list) t) sql-scalar-subquery))
+(declaim (ftype (function (list) sql-value) sql-scalar-subquery))
 (defun sql-scalar-subquery (x)
   (assert (<= (length x) 1))
   (if (null x)
