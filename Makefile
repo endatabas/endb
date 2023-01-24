@@ -17,10 +17,8 @@ SLT_TESTS = $(shell ls -1 sqllogictest/test/select*)
 
 default: test target/endb
 
-target:
-	mkdir target
-
-target/endb: target Makefile *.asd $(SOURCES)
+target/endb: Makefile *.asd $(SOURCES)
+	mkdir -p target
 	$(LISP) --non-interactive \
 		--eval '(ql:quickload :endb :silent t)' \
 		--eval '(asdf:make :endb)'
@@ -39,19 +37,20 @@ test:
 		--eval '(ql:quickload :endb-test :silent t)' \
 		--eval '(uiop:quit (if (fiveam:run-all-tests) 0 1))'
 
-target/libsqllogictest$(SHARED_LIB_EXT): CFLAGS += -DSQLITE_NO_SYNC=1 -DSQLITE_THREADSAFE=0 -DOMIT_ODBC=1 -shared -fPIC
-target/libsqllogictest$(SHARED_LIB_EXT): target Makefile sqllogictest/src/*
-	cd sqllogictest/src && \
-		$(SED_CMD) s/int\ main/int\ sqllogictest_main/ sqllogictest.c && \
-		$(CC) $(CFLAGS) -o $(CURDIR)/$@ $(SLT_SOURCES) && \
-		$(SED_CMD) s/int\ sqllogictest_main/int\ main/ sqllogictest.c
-	touch $@
+target/sqllogictest_src: sqllogictest/src
+	mkdir -p target
+	rm -rf $@
+	cp -a $< $@
+	$(SED_CMD) s/int\ main/int\ sqllogictest_main/ $@/sqllogictest.c
 
-target/slt: target Makefile *.asd $(SOURCES) slt/*.lisp target/libsqllogictest$(SHARED_LIB_EXT)
+target/libsqllogictest$(SHARED_LIB_EXT): CFLAGS += -DSQLITE_NO_SYNC=1 -DSQLITE_THREADSAFE=0 -DOMIT_ODBC=1 -shared -fPIC
+target/libsqllogictest$(SHARED_LIB_EXT): Makefile target/sqllogictest_src
+	cd target/sqllogictest_src && $(CC) $(CFLAGS) -o $(CURDIR)/$@ $(SLT_SOURCES)
+
+target/slt: Makefile *.asd $(SOURCES) slt/*.lisp target/libsqllogictest$(SHARED_LIB_EXT)
 	$(LISP) --non-interactive \
 		--eval '(ql:quickload :endb-slt :silent t)' \
 		--eval '(asdf:make :endb-slt)'
-	touch $@
 
 slt-test: target/slt
 	for test in $(SLT_TESTS); do ./$< -engine $(SLT_ENGINE) -verify $$test; done
