@@ -30,9 +30,6 @@
                   ((symbolp expr) (%unqualified-column-name expr))
                   (t (%anonymous-column-name idx)))))
 
-(defun %wrap-ast-with-projection (ast projection)
-  (values `(values ,ast ',(mapcar #'symbol-name projection)) projection))
-
 (defun %base-table (ctx table)
   (values `(gethash :rows (gethash ,(symbol-name table) ,(cdr (assoc :db-sym ctx))))
           (mapcar #'%compiler-symbol (gethash :columns (gethash (symbol-name table) (cdr (assoc :db ctx)))))))
@@ -72,9 +69,9 @@
                                                                (+ (car limit) (cdr limit))
                                                                (car limit)))
                         ast)))
-          (%wrap-ast-with-projection ast (if select-star
-                                             (mapcar #'%unqualified-column-name select-star)
-                                             (%select-projection select-list))))))))
+          (values ast (if select-star
+                          (mapcar #'%unqualified-column-name select-star)
+                          (%select-projection select-list))))))))
 
 (defun %values-projection (arity)
   (loop for idx from 1 upto arity
@@ -84,7 +81,7 @@
   (destructuring-bind (values-list &key order-by limit)
       args
     (declare (ignore order-by limit))
-    (%wrap-ast-with-projection (ast->cl ctx values-list) (%values-projection (length (first values-list))))))
+    (values (ast->cl ctx values-list) (%values-projection (length (first values-list))))))
 
 (defmethod sql->cl (ctx (type (eql :union)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit)
@@ -92,7 +89,7 @@
     (declare (ignore order-by limit))
     (multiple-value-bind (lhs-ast columns)
         (ast->cl ctx lhs)
-      (%wrap-ast-with-projection `(union ,lhs-ast ,(ast->cl ctx rhs) :test 'equal) columns))))
+      (values `(union ,lhs-ast ,(ast->cl ctx rhs) :test 'equal) columns))))
 
 (defmethod sql->cl (ctx (type (eql :union-all)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit)
@@ -100,7 +97,7 @@
     (declare (ignore order-by limit))
     (multiple-value-bind (lhs-ast projection)
         (ast->cl ctx lhs)
-      (%wrap-ast-with-projection `(append ,lhs-ast ,(ast->cl ctx rhs)) projection))))
+      (values `(append ,lhs-ast ,(ast->cl ctx rhs)) projection))))
 
 (defmethod sql->cl (ctx (type (eql :except)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit)
@@ -108,7 +105,7 @@
     (declare (ignore order-by limit))
     (multiple-value-bind (lhs-ast projection)
         (ast->cl ctx lhs)
-      (%wrap-ast-with-projection `(set-difference ,lhs-ast ,(ast->cl ctx rhs) :test 'equal) projection))))
+      (values `(set-difference ,lhs-ast ,(ast->cl ctx rhs) :test 'equal) projection))))
 
 (defmethod sql->cl (ctx (type (eql :intersect)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit)
@@ -116,7 +113,7 @@
     (declare (ignore order-by limit))
     (multiple-value-bind (lhs-ast projection)
         (ast->cl ctx lhs)
-      (%wrap-ast-with-projection `(intersection ,lhs-ast ,(ast->cl ctx rhs) :test 'equal) projection))))
+      (values `(intersection ,lhs-ast ,(ast->cl ctx rhs) :test 'equal) projection))))
 
 (defmethod sql->cl (ctx (type (eql :create-table)) &rest args)
   (destructuring-bind (table-name column-names)
@@ -196,6 +193,10 @@
 (defun compile-sql (ctx ast)
   (let* ((db-sym (gensym))
          (ctx (cons (cons :db-sym db-sym) ctx)))
-    (eval `(lambda (,db-sym)
-             (declare (ignorable ,db-sym))
-             ,(ast->cl ctx ast)))))
+    (multiple-value-bind (ast projection)
+        (ast->cl ctx ast)
+      (eval `(lambda (,db-sym)
+               (declare (ignorable ,db-sym))
+               ,(if projection
+                    `(values ,ast ,(cons 'list (mapcar #'symbol-name projection)))
+                    ast))))))
