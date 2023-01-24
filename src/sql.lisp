@@ -9,5 +9,8 @@
   (make-hash-table :test 'equal))
 
 (defun execute-sql (db sql)
-  (let ((ast (endb/sql/parser:parse-sql sql)))
-    (funcall (endb/sql/compiler:compile-sql (list (cons :db db)) ast) db)))
+  (handler-case
+      (let ((ast (endb/sql/parser:parse-sql sql)))
+        (funcall (endb/sql/compiler:compile-sql (list (cons :db db)) ast) db))
+    (error (c)
+      (format t "Failed to execute SQL: ~A~%" c))))

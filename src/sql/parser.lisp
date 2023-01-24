@@ -210,7 +210,7 @@
     (and (~ "COUNT") (? ws) left-brace (? ws) star (? ws) right-brace)
   (:lambda (items)
     (declare (ignore items))
-    (list :aggregate-function :count-star)))
+    (list :aggregate-function :count-star ())))
 
 (defun %expr-function-name (identifier)
   (intern (string-upcase (symbol-name identifier)) :keyword))

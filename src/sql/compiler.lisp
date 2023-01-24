@@ -147,14 +147,12 @@
                                               (ast->cl ctx ast)) args))))
 
 (defmethod sql->cl (ctx (type (eql :aggregate-function)) &rest args)
-  (if (eq :count-star (first args))
-      nil
-      (destructuring-bind (fn args &key distinct)
-          args
-        (declare (ignore args distinct))
-        (let ((fn-sym (find-symbol (string-upcase (concatenate 'string "sql-aggregate-" (symbol-name fn))) :endb/sql/expr)))
-          (assert fn-sym nil (format nil "Unknown aggregate function: ~A" fn))
-          fn-sym))))
+  (destructuring-bind (fn args &key distinct)
+      args
+    (declare (ignore args distinct))
+    (let ((fn-sym (find-symbol (string-upcase (concatenate 'string "sql-aggregate-" (symbol-name fn))) :endb/sql/expr)))
+      (assert fn-sym nil (format nil "Unknown aggregate function: ~A" fn))
+      fn-sym)))
 
 (defmethod sql->cl (ctx (type (eql :case)) &rest args)
   (destructuring-bind (cases-or-expr &optional cases)
