@@ -26,7 +26,9 @@
 (defvar *endb-db-engine*)
 
 (defun %slt-format (value type)
-  (if value
+  (if (or (null value)
+          (eq :null value))
+      "NULL"
       (ecase type
         (#\T (if (equal "" value)
                  "(empty)"
@@ -35,8 +37,7 @@
                                           (char< c #\ )))
                                 (princ-to-string value))))
         (#\I (format nil "~D" value))
-        (#\R (format nil "~,3F" value)))
-      "NULL"))
+        (#\R (format nil "~,3F" value)))))
 
 (defun %slt-result (result zTypes pazResult pnResult)
   (let* ((n-used (* (length result) (length zTypes)))

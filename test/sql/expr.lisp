@@ -85,3 +85,12 @@
   (is (eq 1 (sql-coalesce 1 :null 2)))
   (is (eq 2 (sql-coalesce :null :null 2 3)))
   (is (eq nil (sql-coalesce nil 2))))
+
+(test arithmetic
+  (is (eq :null (sql-+ 2 :null)))
+  (is (eq :null (sql-- :null)))
+  (is (eq :null (sql-* :null 3)))
+  (is (eq :null (sql-/ :null 3)))
+  (is (= 2/3 (sql-/ 2 3)))
+  (is (= 2 (sql-abs -2)))
+  (is (eq :null (sql-abs :null))))
