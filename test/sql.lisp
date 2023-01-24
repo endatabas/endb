@@ -33,3 +33,30 @@
         (execute-sql db "CREATE INDEX t1i0 ON t1(a1,b1,c1,d1,e1,x1)")
       (is (null result))
       (is (eq t result-code)))))
+
+(test simple-select
+  (let ((db (create-db)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 1 + 1")
+      (is (equal '("column1") columns))
+      (is (equal '((2)) result)))
+
+    (execute-sql db "CREATE TABLE t1(a INTEGER, b INTEGER, c INTEGER, d INTEGER, e INTEGER)")
+    (execute-sql db "INSERT INTO t1 VALUES(103,102,100,101,104)")
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT a FROM t1")
+      (is (equal '((103)) result))
+      (is (equal '("a") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT a FROM t1 LIMIT 0")
+      (is (equal '() result))
+      (is (equal '("a") columns)))
+
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT t1.b + t1.c AS x FROM t1")
+      (is (equal '((202)) result))
+      (is (equal '("x") columns)))))

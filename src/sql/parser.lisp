@@ -368,7 +368,7 @@
     (cons table-or-subquery alias)))
 
 (defrule %table-or-subquery-alias
-    (and (or identifier subquery) ws (! (or (~ "ORDER") (~ "WHERE"))) identifier)
+    (and (or identifier subquery) ws (! (or (~ "WHERE") (~ "ORDER") (~ "LIMIT"))) identifier)
   (:function %remove-nil)
   (:destructure (table-or-subquery not-order-or-where as-identifier)
     (declare (ignore not-order-or-where))
@@ -483,8 +483,8 @@
   (:destructure (limit ws1 expr (&optional comma offset))
     (declare (ignore limit ws1 comma))
     (if offset
-        (list :limit expr offset)
-        (list :limit expr))))
+        (list :limit (cons expr offset))
+        (list :limit (list expr)))))
 
 (defrule select-stmt
     (and compound-select-stmt (? (and ws order-by-clause)) (? (and ws limit-clause)))

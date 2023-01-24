@@ -6,15 +6,21 @@
 
 (defgeneric sql->cl (ctx type &rest args))
 
+(defun %compiler-symbol (x)
+  (intern x :endb/sql/compiler))
+
 (defun %anonymous-column-name (idx)
-  (make-symbol (concatenate 'string "column" (princ-to-string idx))))
+  (%compiler-symbol (concatenate 'string "column" (princ-to-string idx))))
 
 (defun %unqualified-column-name (column)
   (let* ((column-str (symbol-name column))
          (idx (position #\. column-str)))
     (if idx
-        (make-symbol (subseq column-str (1+ idx)))
+        (%compiler-symbol (subseq column-str (1+ idx)))
         column)))
+
+(defun %qualified-column-name (cv column)
+  (%compiler-symbol (concatenate 'string (symbol-name cv) "." (symbol-name column))))
 
 (defun %select-projection (select-list)
   (loop for idx from 1
@@ -24,12 +30,43 @@
                   ((symbolp expr) (%unqualified-column-name expr))
                   (t (%anonymous-column-name idx)))))
 
+(defun %wrap-ast-with-projection (ast projection)
+  (values `(values ,ast ',(mapcar #'symbol-name projection)) projection))
+
+(defun %base-table (ctx table)
+  (values `(gethash :rows (gethash ,(symbol-name table) ,(cdr (assoc :db-sym ctx))))
+          (mapcar #'%compiler-symbol (gethash :columns (gethash (symbol-name table) (cdr (assoc :db ctx)))))))
+
 (defmethod sql->cl (ctx (type (eql :select)) &rest args)
-  (destructuring-bind (select-list &key distinct (from '(((:values ((nil)))))) (where :true) order-by limit)
+  (destructuring-bind (select-list &key distinct (from '(((:values ((:null))) . #:dual))) (where :true) order-by limit)
       args
-    (declare (ignore distinct from where order-by limit))
-    (let ((ast nil))
-      (values ast (%select-projection select-list)))))
+    (declare (ignore order-by))
+    (labels ((build-ast (from)
+               (when from
+                 (let ((table-or-subquery (first from)))
+                   (multiple-value-bind (table projection)
+                       (if (symbolp (car table-or-subquery))
+                           (%base-table ctx (car table-or-subquery))
+                           (ast->cl ctx (car table-or-subquery)))
+                     (let* ((cv (cdr table-or-subquery))
+                            (cv-sym (gensym))
+                            (qualified-projection (loop for column in projection
+                                                        collect (%qualified-column-name cv column)))
+                            (where-pred (ast->cl ctx where))
+                            (ast `(loop for ,cv-sym in ,table for ,qualified-projection = ,cv-sym for ,projection = ,cv-sym)))
+                       (if (null (rest from))
+                           (append ast `(when ,where-pred collect ,(ast->cl ctx (mapcar #'car select-list))))
+                           (append ast (list 'nconc (build-ast (rest from)))))))))))
+      (let* ((ast (build-ast from))
+             (ast (if distinct
+                      `(remove-duplicates ,ast :test 'equal)
+                      ast))
+             (ast (if limit
+                      `(subseq ,ast ,(or (cdr limit) 0) ,(if (cdr limit)
+                                                           (+ (car limit) (cdr limit))
+                                                           (car limit)))
+                      ast)))
+        (%wrap-ast-with-projection ast (%select-projection select-list))))))
 
 (defun %values-projection (arity)
   (loop for idx from 1 upto arity
@@ -39,7 +76,7 @@
   (destructuring-bind (values-list &key order-by limit)
       args
     (declare (ignore order-by limit))
-    (values (ast->cl ctx values-list) (%values-projection (length (first values-list))))))
+    (%wrap-ast-with-projection (ast->cl ctx values-list) (%values-projection (length (first values-list))))))
 
 (defmethod sql->cl (ctx (type (eql :union)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit)
@@ -47,7 +84,7 @@
     (declare (ignore order-by limit))
     (multiple-value-bind (lhs-ast columns)
         (ast->cl ctx lhs)
-      (values `(union ,lhs-ast ,(ast->cl ctx rhs) :test 'equal) columns))))
+      (%wrap-ast-with-projection `(union ,lhs-ast ,(ast->cl ctx rhs) :test 'equal) columns))))
 
 (defmethod sql->cl (ctx (type (eql :union-all)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit)
@@ -55,7 +92,7 @@
     (declare (ignore order-by limit))
     (multiple-value-bind (lhs-ast projection)
         (ast->cl ctx lhs)
-      (values `(append ,lhs-ast ,(ast->cl ctx rhs)) projection))))
+      (%wrap-ast-with-projection `(append ,lhs-ast ,(ast->cl ctx rhs)) projection))))
 
 (defmethod sql->cl (ctx (type (eql :except)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit)
@@ -63,7 +100,7 @@
     (declare (ignore order-by limit))
     (multiple-value-bind (lhs-ast projection)
         (ast->cl ctx lhs)
-      (values `(set-difference ,lhs-ast ,(ast->cl ctx rhs) :test 'equal) projection))))
+      (%wrap-ast-with-projection `(set-difference ,lhs-ast ,(ast->cl ctx rhs) :test 'equal) projection))))
 
 (defmethod sql->cl (ctx (type (eql :intersect)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit)
@@ -71,7 +108,7 @@
     (declare (ignore order-by limit))
     (multiple-value-bind (lhs-ast projection)
         (ast->cl ctx lhs)
-      (values `(intersection ,lhs-ast ,(ast->cl ctx rhs) :test 'equal) projection))))
+      (%wrap-ast-with-projection `(intersection ,lhs-ast ,(ast->cl ctx rhs) :test 'equal) projection))))
 
 (defmethod sql->cl (ctx (type (eql :create-table)) &rest args)
   (destructuring-bind (table-name column-names)
@@ -133,12 +170,14 @@
     ((eq :true ast) t)
     ((eq :false ast) nil)
     ((and (listp ast)
-          (symbolp (first ast))
+          (keywordp (first ast))
           (not (member (first ast) '(:null :true :false))))
      (apply #'sql->cl ctx ast))
     ((listp ast)
      (cons 'list (mapcar (lambda (ast)
                            (ast->cl ctx ast)) ast)))
+    ((and (symbolp ast)
+          (not (keywordp ast))) (%compiler-symbol (symbol-name ast)))
     (t ast)))
 
 (defun compile-sql (ctx ast)
