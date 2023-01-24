@@ -37,7 +37,6 @@
 (defmethod sql->cl (ctx (type (eql :select)) &rest args)
   (destructuring-bind (select-list &key distinct (from '(((:values ((:null))) . #:dual))) (where :true) order-by limit)
       args
-    (declare (ignore order-by))
     (let ((select-star))
       (labels ((build-ast (from full-projection)
                  (when from
@@ -63,6 +62,9 @@
         (let* ((ast (build-ast from ()))
                (ast (if distinct
                         `(remove-duplicates ,ast :test 'equal)
+                        ast))
+               (ast (if order-by
+                        `(endb/sql/expr::%sql-sort ,ast ',order-by)
                         ast))
                (ast (if limit
                         `(subseq ,ast ,(or (cdr limit) 0) ,(if (cdr limit)

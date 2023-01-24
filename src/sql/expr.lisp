@@ -150,6 +150,19 @@
       :null
       (caar x)))
 
+(defun %sql-sort (rows order-by)
+  (sort rows (lambda (x y)
+               (reduce
+                (lambda (acc order)
+                  (let ((idx (1- (car order))))
+                    (or acc (funcall (if (eq :ASC (cdr order))
+                                         #'<
+                                         #'>)
+                                     (nth idx x)
+                                     (nth idx y)))))
+                order-by
+                :initial-value nil))))
+
 (defun sql-create-table (db table-name columns)
   (let ((table (make-hash-table))
         (column->idx (make-hash-table :test 'equal)))
