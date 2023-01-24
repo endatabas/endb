@@ -389,8 +389,7 @@
 (defrule %result-column-expr
     expr
   (:lambda (expr)
-    (cons expr (when (symbolp expr)
-                 expr))))
+    (list expr)))
 
 (defrule %result-column-as
     (and expr ws (~ "AS") ws identifier)
