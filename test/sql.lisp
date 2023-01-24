@@ -59,4 +59,9 @@
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT t1.b + t1.c AS x FROM t1")
       (is (equal '((202)) result))
-      (is (equal '("x") columns)))))
+      (is (equal '("x") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM t1")
+      (is (equal '((103 102 100 101 104)) result))
+      (is (equal '("a" "b" "c" "d" "e") columns)))))

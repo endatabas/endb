@@ -41,32 +41,40 @@
   (destructuring-bind (select-list &key distinct (from '(((:values ((:null))) . #:dual))) (where :true) order-by limit)
       args
     (declare (ignore order-by))
-    (labels ((build-ast (from)
-               (when from
-                 (let ((table-or-subquery (first from)))
-                   (multiple-value-bind (table projection)
-                       (if (symbolp (car table-or-subquery))
-                           (%base-table ctx (car table-or-subquery))
-                           (ast->cl ctx (car table-or-subquery)))
-                     (let* ((cv (cdr table-or-subquery))
-                            (cv-sym (gensym))
-                            (qualified-projection (loop for column in projection
-                                                        collect (%qualified-column-name cv column)))
-                            (where-pred (ast->cl ctx where))
-                            (ast `(loop for ,cv-sym in ,table for ,qualified-projection = ,cv-sym for ,projection = ,cv-sym)))
-                       (if (null (rest from))
-                           (append ast `(when ,where-pred collect ,(ast->cl ctx (mapcar #'car select-list))))
-                           (append ast (list 'nconc (build-ast (rest from)))))))))))
-      (let* ((ast (build-ast from))
-             (ast (if distinct
-                      `(remove-duplicates ,ast :test 'equal)
-                      ast))
-             (ast (if limit
-                      `(subseq ,ast ,(or (cdr limit) 0) ,(if (cdr limit)
-                                                           (+ (car limit) (cdr limit))
-                                                           (car limit)))
-                      ast)))
-        (%wrap-ast-with-projection ast (%select-projection select-list))))))
+    (let ((select-star))
+      (labels ((build-ast (from full-projection)
+                 (when from
+                   (let ((table-or-subquery (first from)))
+                     (multiple-value-bind (table projection)
+                         (if (symbolp (car table-or-subquery))
+                             (%base-table ctx (car table-or-subquery))
+                             (ast->cl ctx (car table-or-subquery)))
+                       (let* ((cv (cdr table-or-subquery))
+                              (cv-sym (gensym))
+                              (qualified-projection (loop for column in projection
+                                                          collect (%qualified-column-name cv column)))
+                              (full-projection (append full-projection qualified-projection))
+                              (where-pred (ast->cl ctx where))
+                              (ast `(loop for ,cv-sym in ,table for ,qualified-projection = ,cv-sym for ,projection = ,cv-sym)))
+                         (if (null (rest from))
+                             (append ast `(when ,where-pred collect ,(if (equal '((:star)) select-list)
+                                                                         (progn
+                                                                           (setq select-star full-projection)
+                                                                           (cons 'list full-projection))
+                                                                         (ast->cl ctx (mapcar #'car select-list)))))
+                             (append ast (list 'nconc (build-ast (rest from) select-star))))))))))
+        (let* ((ast (build-ast from ()))
+               (ast (if distinct
+                        `(remove-duplicates ,ast :test 'equal)
+                        ast))
+               (ast (if limit
+                        `(subseq ,ast ,(or (cdr limit) 0) ,(if (cdr limit)
+                                                               (+ (car limit) (cdr limit))
+                                                               (car limit)))
+                        ast)))
+          (%wrap-ast-with-projection ast (if select-star
+                                             (mapcar #'%unqualified-column-name select-star)
+                                             (%select-projection select-list))))))))
 
 (defun %values-projection (arity)
   (loop for idx from 1 upto arity
@@ -131,7 +139,9 @@
     (ast->cl ctx query)))
 
 (defun %find-sql-expr-symbol (fn)
-  (find-symbol (string-upcase (concatenate 'string "sql-" (symbol-name fn))) :endb/sql/expr))
+  (let ((fn-sym (find-symbol (string-upcase (concatenate 'string "sql-" (symbol-name fn))) :endb/sql/expr)))
+    (assert fn-sym nil (format nil "Unknown built-in function: ~A" fn))
+    fn-sym))
 
 (defmethod sql->cl (ctx (type (eql :function)) &rest args)
   (destructuring-bind (fn args)
@@ -144,7 +154,10 @@
       nil
       (destructuring-bind (fn args &key distinct)
           args
-        (declare (ignore fn args distinct)))))
+        (declare (ignore args distinct))
+        (let ((fn-sym (find-symbol (string-upcase (concatenate 'string "sql-aggregate-" (symbol-name fn))) :endb/sql/expr)))
+          (assert fn-sym nil (format nil "Unknown aggregate function: ~A" fn))
+          fn-sym))))
 
 (defmethod sql->cl (ctx (type (eql :case)) &rest args)
   (destructuring-bind (cases-or-expr &optional cases)
