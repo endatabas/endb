@@ -64,19 +64,19 @@
       :null
       (not x)))
 
-(declaim (ftype (function (sql-boolean sql-boolean) sql-boolean) sql-and))
-(defun sql-and (x y)
-  (if (and (eq t y) (eq :null x))
-      :null
-      (and x y)))
+(defmacro sql-and (x y)
+  (let ((x-sym (gensym)))
+    `(let ((,x-sym ,x))
+       (if (eq :null ,x-sym)
+           (and ,y :null)
+           (and ,x-sym ,y)))))
 
-(declaim (ftype (function (sql-boolean sql-boolean) sql-boolean) sql-or))
-(defun sql-or (x y)
-  (cond
-    ((eq t y) t)
-    ((and (eq nil y) (eq :null x))
-     :null)
-    (t (or x y))))
+(defmacro sql-or (x y)
+  (let ((x-sym (gensym)))
+    `(let ((,x-sym ,x))
+       (if (eq :null ,x-sym)
+           (or ,y :null)
+           (or ,x-sym ,y)))))
 
 (declaim (ftype (function (sql-number &optional sql-number) sql-number) sql-+))
 (defun sql-+ (x &optional (y 0))
