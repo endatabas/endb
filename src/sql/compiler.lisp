@@ -18,14 +18,14 @@
 
 (defun %select-projection (select-list)
   (loop for idx from 1
-        for (column . alias) in select-list
+        for (expr . alias) in select-list
         collect (cond
                   (alias alias)
-                  ((symbolp column) (%unqualified-column-name column))
+                  ((symbolp expr) (%unqualified-column-name expr))
                   (t (%anonymous-column-name idx)))))
 
 (defmethod sql->cl (ctx (type (eql :select)) &rest args)
-  (destructuring-bind (select-list &key distinct from where order-by limit)
+  (destructuring-bind (select-list &key distinct (from '(((:values ((nil)))))) (where :true) order-by limit)
       args
     (declare (ignore distinct from where order-by limit))
     (let ((ast nil))
@@ -130,9 +130,11 @@
 
 (defun ast->cl (ctx ast)
   (cond
+    ((eq :true ast) t)
+    ((eq :false ast) nil)
     ((and (listp ast)
           (symbolp (first ast))
-          (not (eq :null (first ast))))
+          (not (member (first ast) '(:null :true :false))))
      (apply #'sql->cl ctx ast))
     ((listp ast)
      (cons 'list (mapcar (lambda (ast)
