@@ -69,4 +69,9 @@
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT b, COUNT(t1.a) FROM t1 GROUP BY b")
       (is (equal '((102 1)) result))
-      (is (equal '("b" "column2") columns)))))
+      (is (equal '("b" "column2") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT SUM(a) FROM t1")
+      (is (equal '((103)) result))
+      (is (equal '("column1") columns)))))
