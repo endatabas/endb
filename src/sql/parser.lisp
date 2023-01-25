@@ -1,6 +1,6 @@
 (defpackage :endb/sql/parser
   (:use :cl :esrap)
-  (:export #:parse-sql)
+  (:export #:parse-sql #:*aggregate-functions*)
   (:import-from :esrap))
 (in-package :endb/sql/parser)
 
@@ -215,15 +215,14 @@
 (defun %expr-function-name (identifier)
   (intern (string-upcase (symbol-name identifier)) :keyword))
 
-(defun %expr-aggregate-function-p (fn)
-  (member fn '(:COUNT :AVG :SUM :MIN :MAX)))
+(defvar *aggregate-functions* '(:COUNT :AVG :SUM :MIN :MAX))
 
 (defrule %expr-function
     (and identifier (? ws) left-brace (? ws) (and (? (and (~ "DISTINCT") ws))) expr-list (? ws) right-brace)
   (:function %remove-nil)
   (:destructure (identifier distinct expr-list)
     (let ((fn (%expr-function-name identifier)))
-      (append (list (if (%expr-aggregate-function-p fn)
+      (append (list (if (member fn *aggregate-functions*)
                         :aggregate-function
                         :function)
                     fn expr-list)

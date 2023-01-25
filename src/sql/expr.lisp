@@ -5,6 +5,7 @@
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-%
            #:sql-between #:sql-in #:sql-exists #:sql-coalesce
            #:sql-abs
+           #:sql-count-star #:sql-count #:sql-sum #:sql-avg #:sql-min #:sql-max
            #:sql-create-table #:sql-create-index #:sql-insert))
 (in-package :endb/sql/expr)
 

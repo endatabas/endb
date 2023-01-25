@@ -100,3 +100,24 @@
   (is (equal '((2) (1) (:null)) (endb/sql/expr::%sql-sort (copy-list '((1) (2) (:null))) '((1 . :DESC)))))
   (is (equal '((2 1) (2 2) (1 1)) (endb/sql/expr::%sql-sort (copy-list '((1 1) (2 2) (2 1))) '((1 . :DESC) (2 . :ASC)))))
   (is (equal '((2 2) (1 1) (2 1)) (endb/sql/expr::%sql-sort (copy-list '((1 1) (2 2) (2 1))) '((2 . :DESC))))))
+
+(test aggregates
+  (is (= 6 (sql-sum '(1 2 3))))
+  (is (eq :null (sql-sum '())))
+  (is (eq :null (sql-sum '(:null))))
+  (is (= 1 (sql-sum '(:null 1))))
+  (is (= 6 (sql-sum '(1 2 3 3) :distinct t)))
+
+  (is (= 3 (sql-count '(1 2 3))))
+  (is (= 3 (sql-count '(1 2 3 3) :distinct t)))
+  (is (= 2 (sql-count '(1 2 :null))))
+  (is (= 3 (sql-count-star '(1 2 :null))))
+
+  (is (= 1 (sql-avg '(:null 1))))
+  (is (eq :null (sql-avg '(:null))))
+  (is (= 2.5 (sql-avg '(:null 2 3))))
+
+  (is (= 2 (sql-min '(:null 2 3))))
+  (is (eq :null (sql-min '())))
+  (is (= 3 (sql-max '(:null 2 3))))
+  (is (eq :null (sql-max '(:null)))))
