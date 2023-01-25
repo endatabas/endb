@@ -227,6 +227,15 @@
                 order-by
                 :initial-value nil))))
 
+(defun %sql-group-by (rows group-count)
+  (let ((acc (make-hash-table :test 'equal)))
+    (loop for row in rows
+          for k = (subseq row 0 group-count)
+          do (setf (gethash k acc)
+                   (let ((group-acc (or (gethash k acc) (make-list (- (length row) group-count)))))
+                     (mapcar #'cons (subseq row group-count) group-acc))))
+    acc))
+
 (defun sql-create-table (db table-name columns)
   (let ((table (make-hash-table)))
     (setf (gethash :columns table) columns)

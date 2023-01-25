@@ -7,7 +7,10 @@
 (defgeneric sql->cl (ctx type &rest args))
 
 (defun %compiler-symbol (x)
-  (intern x :endb/sql/compiler))
+  (intern (if (symbolp x)
+              (symbol-name x)
+              x)
+          :endb/sql/compiler))
 
 (defun %anonymous-column-name (idx)
   (%compiler-symbol (concatenate 'string "column" (princ-to-string idx))))
@@ -51,7 +54,6 @@
                                      (group-by () group-by-p) (having :true havingp)
                                      order-by limit)
       args
-    (declare (ignore group-by having))
     (let ((full-projection))
       (labels ((select->cl (from)
                  (let ((table-or-subquery (first from)))
@@ -73,9 +75,26 @@
                                                                   append (if (eq :star expr)
                                                                              full-projection
                                                                              (list (ast->cl ctx expr))))))
-                                  (group-by-needed-p (or group-by-p havingp (plusp (hash-table-size aggregate-table)))))
-                             (declare (ignore group-by-needed-p))
-                             (append src (list 'when (ast->cl ctx where) 'collect selected-src)))))))))
+                                  (group-by-needed-p (or group-by-p havingp (plusp (hash-table-count aggregate-table)))))
+                             (if group-by-needed-p
+                                 (let* ((group-by-projection (mapcar #'%compiler-symbol group-by))
+                                        (group-by-exprs-projection (loop for k being the hash-key of aggregate-table
+                                                                         collect k))
+                                        (group-by-exprs (loop for v being the hash-value of aggregate-table
+                                                              collect v))
+                                        (acc-sym (gensym))
+                                        (k-sym (gensym))
+                                        (v-sym (gensym))
+                                        (group-by-in-src (list 'when (ast->cl ctx where)
+                                                               'collect (cons 'list (append group-by-projection group-by-exprs)))))
+                                   `(let* ((,acc-sym ,(append src group-by-in-src))
+                                           (,acc-sym (endb/sql/expr::%sql-group-by ,acc-sym ,(length group-by-projection))))
+                                      (loop for ,k-sym being the hash-key using (hash-value ,v-sym) of ,acc-sym
+                                            for ,group-by-projection = ,k-sym
+                                            for ,group-by-exprs-projection = ,v-sym
+                                            when ,(ast->cl ctx having)
+                                              collect ,selected-src)))
+                                 (append src (list 'when (ast->cl ctx where) 'collect selected-src))))))))))
         (let* ((src (select->cl from))
                (src (if distinct
                         `(remove-duplicates ,src :test 'equal)
@@ -161,7 +180,7 @@
           (aggregate-sym (gensym)))
       (assert fn-sym nil (format nil "Unknown aggregate function: ~A" fn))
       (assert (<= (length args) 1) nil (format nil "Aggregates require max 1 argument, got: ~D" (length args)))
-      (setf (gethash aggregate-sym aggregate-table) (first args))
+      (setf (gethash aggregate-sym aggregate-table) (ast->cl ctx (first args)))
       `(,fn-sym ,aggregate-sym :distinct ,distinct))))
 
 (defmethod sql->cl (ctx (type (eql :case)) &rest args)
