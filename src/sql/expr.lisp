@@ -150,6 +150,53 @@
       :null
       (caar x)))
 
+(declaim (ftype (function (list &key (:distinct boolean)) sql-number) sql-count-star))
+(defun sql-count-star (x &key distinct)
+  (declare (ignore distinct))
+  (length x))
+
+(declaim (ftype (function (list &key (:distinct boolean)) sql-number) sql-avg))
+(defun sql-avg (x &key distinct)
+  (let ((x (if distinct
+               (remove-duplicates x)
+               x)))
+    (sql-/ (reduce #'sql-+ x) (length x))))
+
+(declaim (ftype (function (list &key (:distinct boolean)) sql-number) sql-sum))
+(defun sql-sum (x &key distinct)
+  (let ((x (if distinct
+               (remove-duplicates x)
+               x)))
+    (reduce #'sql-+ x)))
+
+(declaim (ftype (function (list &key (:distinct boolean)) sql-number) sql-min))
+(defun sql-min (x &key distinct)
+  (let ((x (if distinct
+               (remove-duplicates x)
+               x)))
+    (reduce
+     (lambda (x y)
+       (cond
+         ((eq :null x) :null)
+         ((eq :null y) :null)
+         ((< x y) x)
+         (t y)))
+     x)))
+
+(declaim (ftype (function (list &key (:distinct boolean)) sql-number) sql-max))
+(defun sql-max (x &key distinct)
+  (let ((x (if distinct
+               (remove-duplicates x)
+               x)))
+    (reduce
+     (lambda (x y)
+       (cond
+         ((eq :null x) :null)
+         ((eq :null y) :null)
+         ((> x y) x)
+         (t y)))
+     x)))
+
 (defun %sql-sort (rows order-by)
   (sort rows (lambda (x y)
                (reduce

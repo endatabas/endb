@@ -47,7 +47,9 @@
     src))
 
 (defmethod sql->cl (ctx (type (eql :select)) &rest args)
-  (destructuring-bind (select-list &key distinct (from '(((:values ((:null))) . #:dual))) (where :true) group-by (having :true) order-by limit)
+  (destructuring-bind (select-list &key distinct (from '(((:values ((:null))) . #:dual))) (where :true)
+                                     (group-by () group-by-p) (having :true havingp)
+                                     order-by limit)
       args
     (declare (ignore group-by having))
     (let ((full-projection))
@@ -65,10 +67,14 @@
                        (setq full-projection (append full-projection qualified-projection))
                        (if (rest from)
                            (append src (list 'nconc (select->cl (rest from))))
-                           (let ((selected-src (cons 'list (loop for (expr) in select-list
-                                                                 append (if (eq :star expr)
-                                                                            full-projection
-                                                                            (list (ast->cl ctx expr)))))))
+                           (let* ((aggregate-table (make-hash-table))
+                                  (ctx (cons (cons :aggregate-table aggregate-table) ctx))
+                                  (selected-src (cons 'list (loop for (expr) in select-list
+                                                                  append (if (eq :star expr)
+                                                                             full-projection
+                                                                             (list (ast->cl ctx expr))))))
+                                  (group-by-needed-p (or group-by-p havingp (plusp (hash-table-size aggregate-table)))))
+                             (declare (ignore group-by-needed-p))
                              (append src (list 'when (ast->cl ctx where) 'collect selected-src)))))))))
         (let* ((src (select->cl from))
                (src (if distinct
@@ -150,10 +156,13 @@
 (defmethod sql->cl (ctx (type (eql :aggregate-function)) &rest args)
   (destructuring-bind (fn args &key distinct)
       args
-    (declare (ignore args distinct))
-    (let ((fn-sym (%find-sql-expr-symbol fn)))
+    (let ((aggregate-table (cdr (assoc :aggregate-table ctx)))
+          (fn-sym (%find-sql-expr-symbol fn))
+          (aggregate-sym (gensym)))
       (assert fn-sym nil (format nil "Unknown aggregate function: ~A" fn))
-      nil)))
+      (assert (<= (length args) 1) nil (format nil "Aggregates require max 1 argument, got: ~D" (length args)))
+      (setf (gethash aggregate-sym aggregate-table) (first args))
+      `(,fn-sym ,aggregate-sym :distinct ,distinct))))
 
 (defmethod sql->cl (ctx (type (eql :case)) &rest args)
   (destructuring-bind (cases-or-expr &optional cases)
