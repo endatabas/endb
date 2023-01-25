@@ -5,7 +5,8 @@
   (:import-from :sqlite)
   (:import-from :asdf)
   (:import-from :uiop)
-  (:import-from :endb/sql))
+  (:import-from :endb/sql)
+  #+sbcl (:import-from :sb-sprof))
 (in-package :endb-slt/core)
 
 (cffi:defcstruct DbEngine
@@ -265,6 +266,16 @@
 
 (defun main ()
   (unwind-protect
-       (uiop:quit (%slt-main (cons (uiop:argv0) (uiop:command-line-arguments))))
+       (uiop:quit
+        (let ((exit-code 0)
+              (args (cons (uiop:argv0) (uiop:command-line-arguments))))
+          #+sbcl (if (uiop:getenv "SB_SPROF")
+                     (progn (sb-sprof:with-profiling (:max-samples 1000
+                                                      :report :flat
+                                                      :loop nil)
+                              (setq exit-code (%slt-main args)))
+                            exit-code)
+                     (%slt-main args))
+          #-sbcl (%slt-main args)))
     (%free-db-engine *sqlite-db-engine*)
     (%free-db-engine *endb-db-engine*)))
