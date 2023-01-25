@@ -157,51 +157,55 @@
 
 (declaim (ftype (function (list &key (:distinct boolean)) sql-number) sql-count))
 (defun sql-count (x &key distinct)
-  (length (if distinct
-              (remove-duplicates x)
-              x)))
+  (length (remove :null (if distinct
+                            (remove-duplicates x)
+                            x))))
 
 (declaim (ftype (function (list &key (:distinct boolean)) sql-number) sql-avg))
 (defun sql-avg (x &key distinct)
-  (let ((x (if distinct
-               (remove-duplicates x)
-               x)))
-    (sql-/ (reduce #'sql-+ x) (length x))))
+  (let ((x-no-nulls (remove :null (if distinct
+                                      (remove-duplicates x)
+                                      x))))
+    (if x-no-nulls
+        (sql-/ (reduce #'sql-+ x-no-nulls) (length x-no-nulls))
+        :null)))
 
 (declaim (ftype (function (list &key (:distinct boolean)) sql-number) sql-sum))
 (defun sql-sum (x &key distinct)
-  (let ((x (if distinct
-               (remove-duplicates x)
-               x)))
-    (reduce #'sql-+ x)))
+  (let ((x-no-nulls (remove :null (if distinct
+                                      (remove-duplicates x)
+                                      x))))
+    (if x-no-nulls
+        (reduce #'sql-+ x-no-nulls)
+        :null)))
 
 (declaim (ftype (function (list &key (:distinct boolean)) sql-number) sql-min))
 (defun sql-min (x &key distinct)
-  (let ((x (if distinct
-               (remove-duplicates x)
-               x)))
-    (reduce
-     (lambda (x y)
-       (cond
-         ((eq :null x) :null)
-         ((eq :null y) :null)
-         ((< x y) x)
-         (t y)))
-     x)))
+  (let ((x-no-nulls (remove :null (if distinct
+                                      (remove-duplicates x)
+                                      x))))
+    (if x-no-nulls
+        (reduce
+         (lambda (x y)
+           (if (sql-< x y)
+               x
+               y))
+         x-no-nulls)
+        :null)))
 
 (declaim (ftype (function (list &key (:distinct boolean)) sql-number) sql-max))
 (defun sql-max (x &key distinct)
-  (let ((x (if distinct
-               (remove-duplicates x)
-               x)))
-    (reduce
-     (lambda (x y)
-       (cond
-         ((eq :null x) :null)
-         ((eq :null y) :null)
-         ((> x y) x)
-         (t y)))
-     x)))
+  (let ((x-no-nulls (remove :null (if distinct
+                                      (remove-duplicates x)
+                                      x))))
+    (if x-no-nulls
+        (reduce
+         (lambda (x y)
+           (if (sql-> x y)
+               x
+               y))
+         x-no-nulls)
+        :null)))
 
 (defun %sql-sort (rows order-by)
   (sort rows (lambda (x y)
