@@ -74,4 +74,11 @@
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT SUM(a) FROM t1")
       (is (equal '((103)) result))
-      (is (equal '("column1") columns)))))
+      (is (equal '("column1") columns)))
+
+    (execute-sql db "INSERT INTO t1(e,c,b,d,a) VALUES(103,102,102,101,104), (NULL,102,NULL,101,104)")
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT COUNT(*), COUNT(e), SUM(e), AVG(a), MIN(b), MAX(c), b FROM t1 GROUP BY b")
+      (is (equal '((2 2 207 207/2 102 102 102) (1 0 :null 104 :null 102 :null)) result))
+      (is (equal '("column1" "column2" "column3" "column4" "column5" "column6" "b") columns)))))
