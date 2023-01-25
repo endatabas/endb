@@ -137,23 +137,23 @@
     (ast->cl ctx query)))
 
 (defun %find-sql-expr-symbol (fn)
-  (let ((fn-sym (find-symbol (string-upcase (concatenate 'string "sql-" (symbol-name fn))) :endb/sql/expr)))
-    (assert fn-sym nil (format nil "Unknown built-in function: ~A" fn))
-    fn-sym))
+  (find-symbol (string-upcase (concatenate 'string "sql-" (symbol-name fn))) :endb/sql/expr))
 
 (defmethod sql->cl (ctx (type (eql :function)) &rest args)
   (destructuring-bind (fn args)
       args
-    `(,(%find-sql-expr-symbol fn) ,@(mapcar (lambda (ast)
-                                              (ast->cl ctx ast)) args))))
+    (let ((fn-sym (%find-sql-expr-symbol fn)))
+      (assert fn-sym nil (format nil "Unknown built-in function: ~A" fn))
+      `(,fn-sym ,@(mapcar (lambda (ast)
+                            (ast->cl ctx ast)) args)))))
 
 (defmethod sql->cl (ctx (type (eql :aggregate-function)) &rest args)
   (destructuring-bind (fn args &key distinct)
       args
     (declare (ignore args distinct))
-    (let ((fn-sym (find-symbol (string-upcase (concatenate 'string "sql-aggregate-" (symbol-name fn))) :endb/sql/expr)))
+    (let ((fn-sym (%find-sql-expr-symbol fn)))
       (assert fn-sym nil (format nil "Unknown aggregate function: ~A" fn))
-      fn-sym)))
+      nil)))
 
 (defmethod sql->cl (ctx (type (eql :case)) &rest args)
   (destructuring-bind (cases-or-expr &optional cases)
