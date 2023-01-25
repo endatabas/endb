@@ -155,6 +155,12 @@
   (declare (ignore distinct))
   (length x))
 
+(declaim (ftype (function (list &key (:distinct boolean)) sql-number) sql-count))
+(defun sql-count (x &key distinct)
+  (length (if distinct
+              (remove-duplicates x)
+              x)))
+
 (declaim (ftype (function (list &key (:distinct boolean)) sql-number) sql-avg))
 (defun sql-avg (x &key distinct)
   (let ((x (if distinct
