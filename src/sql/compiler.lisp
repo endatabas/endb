@@ -22,13 +22,14 @@
 (defun %qualified-column-name (cv column)
   (%compiler-symbol (concatenate 'string (symbol-name cv) "." (symbol-name column))))
 
-(defun %select-projection (select-list)
+(defun %select-projection (select-list select-star-projection)
   (loop for idx from 1
         for (expr . alias) in select-list
-        collect (cond
-                  (alias alias)
-                  ((symbolp expr) (%unqualified-column-name expr))
-                  (t (%anonymous-column-name idx)))))
+        append (cond
+                 ((eq :star expr) select-star-projection)
+                 (alias (list alias))
+                 ((symbolp expr) (list (%unqualified-column-name expr)))
+                 (t (list (%anonymous-column-name idx))))))
 
 (defun %base-table (ctx table)
   (values `(gethash :rows (gethash ,(symbol-name table) ,(cdr (assoc :db-sym ctx))))
@@ -74,10 +75,9 @@
                (ast (if distinct
                         `(remove-duplicates ,ast :test 'equal)
                         ast))
-               (ast (%wrap-with-order-by-and-limit ast order-by limit)))
-          (values ast (if select-star
-                          (mapcar #'%unqualified-column-name select-star)
-                          (%select-projection select-list))))))))
+               (ast (%wrap-with-order-by-and-limit ast order-by limit))
+               (select-star-projection (mapcar #'%unqualified-column-name select-star)))
+          (values ast (%select-projection select-list select-star-projection)))))))
 
 (defun %values-projection (arity)
   (loop for idx from 1 upto arity
