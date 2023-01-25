@@ -34,6 +34,17 @@
   (values `(gethash :rows (gethash ,(symbol-name table) ,(cdr (assoc :db-sym ctx))))
           (mapcar #'%compiler-symbol (gethash :columns (gethash (symbol-name table) (cdr (assoc :db ctx)))))))
 
+(defun %wrap-with-order-by-and-limit (ast order-by limit)
+  (let* ((ast (if order-by
+                               `(endb/sql/expr::%sql-sort ,ast ',order-by)
+                               ast))
+         (ast (if limit
+                  `(subseq ,ast ,(or (cdr limit) 0) ,(if (cdr limit)
+                                                         (+ (car limit) (cdr limit))
+                                                         (car limit)))
+                  ast)))
+    ast))
+
 (defmethod sql->cl (ctx (type (eql :select)) &rest args)
   (destructuring-bind (select-list &key distinct (from '(((:values ((:null))) . #:dual))) (where :true) order-by limit)
       args
@@ -63,14 +74,7 @@
                (ast (if distinct
                         `(remove-duplicates ,ast :test 'equal)
                         ast))
-               (ast (if order-by
-                        `(endb/sql/expr::%sql-sort ,ast ',order-by)
-                        ast))
-               (ast (if limit
-                        `(subseq ,ast ,(or (cdr limit) 0) ,(if (cdr limit)
-                                                               (+ (car limit) (cdr limit))
-                                                               (car limit)))
-                        ast)))
+               (ast (%wrap-with-order-by-and-limit ast order-by limit)))
           (values ast (if select-star
                           (mapcar #'%unqualified-column-name select-star)
                           (%select-projection select-list))))))))
@@ -82,40 +86,36 @@
 (defmethod sql->cl (ctx (type (eql :values)) &rest args)
   (destructuring-bind (values-list &key order-by limit)
       args
-    (declare (ignore order-by limit))
-    (values (ast->cl ctx values-list) (%values-projection (length (first values-list))))))
+    (values (%wrap-with-order-by-and-limit (ast->cl ctx values-list) order-by limit)
+            (%values-projection (length (first values-list))))))
 
 (defmethod sql->cl (ctx (type (eql :union)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit)
       args
-    (declare (ignore order-by limit))
     (multiple-value-bind (lhs-ast columns)
         (ast->cl ctx lhs)
-      (values `(union ,lhs-ast ,(ast->cl ctx rhs) :test 'equal) columns))))
+      (values (%wrap-with-order-by-and-limit `(union ,lhs-ast ,(ast->cl ctx rhs) :test 'equal) order-by limit) columns))))
 
 (defmethod sql->cl (ctx (type (eql :union-all)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit)
       args
-    (declare (ignore order-by limit))
     (multiple-value-bind (lhs-ast projection)
         (ast->cl ctx lhs)
-      (values `(append ,lhs-ast ,(ast->cl ctx rhs)) projection))))
+      (values (%wrap-with-order-by-and-limit `(append ,lhs-ast ,(ast->cl ctx rhs)) order-by limit) projection))))
 
 (defmethod sql->cl (ctx (type (eql :except)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit)
       args
-    (declare (ignore order-by limit))
     (multiple-value-bind (lhs-ast projection)
         (ast->cl ctx lhs)
-      (values `(set-difference ,lhs-ast ,(ast->cl ctx rhs) :test 'equal) projection))))
+      (values (%wrap-with-order-by-and-limit `(set-difference ,lhs-ast ,(ast->cl ctx rhs) :test 'equal) order-by limit) projection))))
 
 (defmethod sql->cl (ctx (type (eql :intersect)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit)
       args
-    (declare (ignore order-by limit))
     (multiple-value-bind (lhs-ast projection)
         (ast->cl ctx lhs)
-      (values `(intersection ,lhs-ast ,(ast->cl ctx rhs) :test 'equal) projection))))
+      (values (%wrap-with-order-by-and-limit `(intersection ,lhs-ast ,(ast->cl ctx rhs) :test 'equal) order-by limit) projection))))
 
 (defmethod sql->cl (ctx (type (eql :create-table)) &rest args)
   (destructuring-bind (table-name column-names)
