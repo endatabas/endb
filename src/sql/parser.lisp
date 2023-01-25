@@ -459,18 +459,18 @@
     (or %select-core values-stmt))
 
 (defrule %compound-select-stmt
-    (and select-core ws (or (and (~ "UNION") ws (~ "ALL"))
-                            (~ "UNION")
-                            (~ "INTERSECT")
-                            (~ "EXCEPT")) ws compound-select-stmt)
+    (and compound-select-stmt ws (or (and (~ "UNION") ws (~ "ALL"))
+                                     (~ "UNION")
+                                     (~ "INTERSECT")
+                                     (~ "EXCEPT")) ws select-core)
   (:function %remove-nil)
   (:destructure (select-1 op select-2)
-    (list  (cond
-             ((equal op '("UNION" nil "ALL")) :union-all)
-             ((equal op "UNION") :union)
-             ((equal op "INTERSECT") :intersect)
-             ((equal op "EXCEPT") :except))
-           select-1 select-2)))
+    (list (cond
+            ((equal op '("UNION" nil "ALL")) :union-all)
+            ((equal op "UNION") :union)
+            ((equal op "INTERSECT") :intersect)
+            ((equal op "EXCEPT") :except))
+          select-1 select-2)))
 
 (defrule compound-select-stmt
     (or %compound-select-stmt select-core))

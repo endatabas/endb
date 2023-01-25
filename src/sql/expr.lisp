@@ -4,6 +4,7 @@
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-%
            #:sql-between #:sql-in #:sql-exists #:sql-coalesce
+           #:sql-union-all #:sql-union #:sql-except #:sql-intersect
            #:sql-abs
            #:sql-count-star #:sql-count #:sql-sum #:sql-avg #:sql-min #:sql-max
            #:sql-create-table #:sql-create-index #:sql-insert))
@@ -138,6 +139,22 @@
 (defun sql-exists (list)
   (not (null list)))
 
+(declaim (ftype (function (list list) list) sql-union))
+(defun sql-union (lhs rhs)
+  (remove-duplicates (union lhs rhs :test 'equal) :test 'equal))
+
+(declaim (ftype (function (list list) list) sql-union-all))
+(defun sql-union-all (lhs rhs)
+  (append lhs rhs))
+
+(declaim (ftype (function (list list) list) sql-except))
+(defun sql-except (lhs rhs)
+  (remove-duplicates (set-difference lhs rhs :test 'equal) :test 'equal))
+
+(declaim (ftype (function (list list) list) sql-intersect))
+(defun sql-intersect (lhs rhs)
+  (remove-duplicates (intersection lhs rhs :test 'equal) :test 'equal))
+
 (declaim (ftype (function (sql-number) sql-number) sql-abs))
 (defun sql-abs (x)
   (if (eq :null x)
@@ -209,31 +226,35 @@
         :null)))
 
 (defun %sql-sort (rows order-by)
-  (sort rows (lambda (x y)
-               (reduce
-                (lambda (acc order)
-                  (let* ((idx (1- (car order)))
-                         (asc (eq :ASC (cdr order)))
-                         (xv (nth idx x))
-                         (yv (nth idx y)))
-                    (or acc (cond
-                              ((eq :null xv) asc)
-                              ((eq :null yv) nil)
-                              (t (funcall (if asc
-                                              #'<
-                                              #'>)
-                                          xv
-                                          yv))))))
-                order-by
-                :initial-value nil))))
+  (labels ((asc (x y)
+             (cond
+               ((eq :null x) t)
+               ((eq :null y) nil)
+               (t (< x y))))
+           (desc (x y)
+             (cond
+               ((eq :null y) t)
+               ((eq :null x) nil)
+               (t (> x y)))))
+    (sort rows (lambda (x y)
+                 (loop for (idx . direction) in order-by
+                       for cmp = (ecase direction
+                                   (:asc #'asc)
+                                   (:desc #'desc))
+                       for xv = (nth (1- idx) x)
+                       for yv = (nth (1- idx) y)
+                       thereis (funcall cmp xv yv)
+                       until (funcall cmp yv xv))))))
 
-(defun %sql-group-by (rows group-count)
+(defun %sql-group-by (rows group-count group-expr-count)
   (let ((acc (make-hash-table :test 'equal)))
-    (loop for row in rows
-          for k = (subseq row 0 group-count)
-          do (setf (gethash k acc)
-                   (let ((group-acc (or (gethash k acc) (make-list (- (length row) group-count)))))
-                     (mapcar #'cons (subseq row group-count) group-acc))))
+    (if (and (null rows) (zerop group-count))
+        (setf (gethash () acc) ())
+        (loop for row in rows
+              for k = (subseq row 0 group-count)
+              do (setf (gethash k acc)
+                       (let ((group-acc (or (gethash k acc) (make-list group-expr-count))))
+                         (mapcar #'cons (subseq row group-count) group-acc)))))
     acc))
 
 (defun sql-create-table (db table-name columns)

@@ -85,16 +85,16 @@
                                         (acc-sym (gensym))
                                         (k-sym (gensym))
                                         (v-sym (gensym))
-                                        (group-by-in-src (list 'when (ast->cl ctx where)
+                                        (group-by-in-src (list 'when (list 'eq t (ast->cl ctx where))
                                                                'collect (cons 'list (append group-by-projection group-by-exprs)))))
                                    `(let* ((,acc-sym ,(append src group-by-in-src))
-                                           (,acc-sym (endb/sql/expr::%sql-group-by ,acc-sym ,(length group-by-projection))))
+                                           (,acc-sym (endb/sql/expr::%sql-group-by ,acc-sym ,(length group-by-projection) ,(length group-by-exprs))))
                                       (loop for ,k-sym being the hash-key using (hash-value ,v-sym) of ,acc-sym
                                             for ,group-by-projection = ,k-sym
                                             for ,group-by-exprs-projection = ,v-sym
-                                            when ,(ast->cl ctx having)
+                                            when (eq t ,(ast->cl ctx having))
                                               collect ,selected-src)))
-                                 (append src (list 'when (ast->cl ctx where) 'collect selected-src))))))))))
+                                 (append src (list 'when (list 'eq t (ast->cl ctx where)) 'collect selected-src))))))))))
         (let* ((src (select->cl from))
                (src (if distinct
                         `(remove-duplicates ,src :test 'equal)
@@ -118,28 +118,28 @@
       args
     (multiple-value-bind (lhs-src columns)
         (ast->cl ctx lhs)
-      (values (%wrap-with-order-by-and-limit `(union ,lhs-src ,(ast->cl ctx rhs) :test 'equal) order-by limit) columns))))
+      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-union ,lhs-src ,(ast->cl ctx rhs)) order-by limit) columns))))
 
 (defmethod sql->cl (ctx (type (eql :union-all)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit)
       args
     (multiple-value-bind (lhs-src projection)
         (ast->cl ctx lhs)
-      (values (%wrap-with-order-by-and-limit `(append ,lhs-src ,(ast->cl ctx rhs)) order-by limit) projection))))
+      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-union-all ,lhs-src ,(ast->cl ctx rhs)) order-by limit) projection))))
 
 (defmethod sql->cl (ctx (type (eql :except)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit)
       args
     (multiple-value-bind (lhs-src projection)
         (ast->cl ctx lhs)
-      (values (%wrap-with-order-by-and-limit `(set-difference ,lhs-src ,(ast->cl ctx rhs) :test 'equal) order-by limit) projection))))
+      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-except ,lhs-src ,(ast->cl ctx rhs)) order-by limit) projection))))
 
 (defmethod sql->cl (ctx (type (eql :intersect)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit)
       args
     (multiple-value-bind (lhs-src projection)
         (ast->cl ctx lhs)
-      (values (%wrap-with-order-by-and-limit `(intersection ,lhs-src ,(ast->cl ctx rhs) :test 'equal) order-by limit) projection))))
+      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-intersect ,lhs-src ,(ast->cl ctx rhs)) order-by limit) projection))))
 
 (defmethod sql->cl (ctx (type (eql :create-table)) &rest args)
   (destructuring-bind (table-name column-names)
@@ -195,7 +195,7 @@
               (lambda (x)
                 (list (if (eq :else (first x))
                           t
-                          `(endb/sql/expr:sql-= ,expr-sym ,(ast->cl ctx (first x))))
+                          `(eq t (endb/sql/expr:sql-= ,expr-sym ,(ast->cl ctx (first x)))))
                       (ast->cl ctx (second x))))
               (or cases cases-or-expr)))))))
 
@@ -226,6 +226,7 @@
     (multiple-value-bind (src projection)
         (ast->cl ctx ast)
       (eval `(lambda (,db-sym)
+               (declare (optimize (speed 3) (safety 0) (debug 0)))
                (declare (ignorable ,db-sym))
                ,(if projection
                     `(values ,src ,(cons 'list (mapcar #'symbol-name projection)))
