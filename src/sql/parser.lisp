@@ -368,7 +368,7 @@
     (cons table-or-subquery alias)))
 
 (defrule %table-or-subquery-alias
-    (and (or identifier subquery) ws (! (or (~ "WHERE") (~ "ORDER") (~ "LIMIT"))) identifier)
+    (and (or identifier subquery) ws (! (or (~ "WHERE") (~ "GROUP") (~ "HAVING") (~ "ORDER") (~ "LIMIT"))) identifier)
   (:function %remove-nil)
   (:destructure (table-or-subquery not-order-or-where as-identifier)
     (declare (ignore not-order-or-where))
@@ -395,6 +395,20 @@
   (:destructure (where expr)
     (declare (ignore where))
     (list :where expr)))
+
+(defrule group-by-clause
+    (and (~ "GROUP") ws (~ "BY") ws identifier-list)
+  (:function %remove-nil)
+  (:destructure (group by group-by-columns)
+    (declare (ignore group by))
+    (list :group-by group-by-columns)))
+
+(defrule having-clause
+    (and (~ "HAVING") ws expr)
+  (:function %remove-nil)
+  (:destructure (having expr)
+    (declare (ignore having))
+    (list :having expr)))
 
 (defrule %result-column-expr
     expr
@@ -427,16 +441,20 @@
                                      (~ "DISTINCT"))))
          ws result-column-list
          (? (and ws from-clause))
-         (? (and ws where-clause)))
-  (:destructure (select distinct-all ws1 result-column-list (&optional ws2 from-clause) (&optional ws3 where-clause))
-    (declare (ignore select ws1 ws2 ws3))
+         (? (and ws where-clause))
+         (? (and ws group-by-clause))
+         (? (and ws having-clause)))
+  (:destructure (select distinct-all ws1 result-column-list
+                        (&optional ws2 from-clause) (&optional ws3 where-clause)
+                        (&optional ws4 group-by-clause) (&optional ws5 having-clause))
+    (declare (ignore select ws1 ws2 ws3 ws4 ws5))
     (append (list :select result-column-list)
             (when (equal "DISTINCT" (second distinct-all))
               (list :distinct t))
-            (when from-clause
-              from-clause)
-            (when where-clause
-              where-clause))))
+            from-clause
+            where-clause
+            group-by-clause
+            having-clause)))
 
 (defrule select-core
     (or %select-core values-stmt))
@@ -490,11 +508,7 @@
     (and compound-select-stmt (? (and ws order-by-clause)) (? (and ws limit-clause)))
   (:destructure (select (&optional ws1 order-by) (&optional ws2 limit))
     (declare (ignore ws1 ws2))
-    (append select
-            (when order-by
-              order-by)
-            (when limit
-              limit))))
+    (append select order-by limit)))
 
 (defrule sql-stmt
     (and (? ws)

@@ -87,4 +87,5 @@ UNION
       OR (d7=399 AND e7=408 AND 396=b7 AND a7=97 AND c7=813)
       OR (e7=605 OR 837=b7 OR e7=918)"))
   (is (parse-sql "SELECT * FROM t1"))
-  (is (parse-sql "INSERT INTO t1(e,c,b,d,a) VALUES(NULL,102,NULL,101,104)")))
+  (is (parse-sql "INSERT INTO t1(e,c,b,d,a) VALUES(NULL,102,NULL,101,104)"))
+  (is (parse-sql "SELECT cor0.col2 AS col2 FROM tab2 AS cor0 GROUP BY col2 HAVING NOT NULL < NULL")))

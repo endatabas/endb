@@ -47,8 +47,9 @@
     ast))
 
 (defmethod sql->cl (ctx (type (eql :select)) &rest args)
-  (destructuring-bind (select-list &key distinct (from '(((:values ((:null))) . #:dual))) (where :true) order-by limit)
+  (destructuring-bind (select-list &key distinct (from '(((:values ((:null))) . #:dual))) (where :true) group-by (having :true) order-by limit)
       args
+    (declare (ignore group-by having))
     (let ((select-star))
       (labels ((build-ast (from full-projection)
                  (when from
