@@ -10,7 +10,9 @@
 
 (defun execute-sql (db sql)
   (handler-case
-      (let ((ast (endb/sql/parser:parse-sql sql)))
-        (funcall (endb/sql/compiler:compile-sql (list (cons :db db)) ast) db))
+      (let* ((ast (endb/sql/parser:parse-sql sql))
+             (ctx (list (cons :db db)))
+             (sql-fn (endb/sql/compiler:compile-sql ctx ast)))
+        (funcall sql-fn db))
     (error (c)
       (format t "Failed to execute SQL: ~A~%" c))))
