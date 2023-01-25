@@ -29,7 +29,7 @@
 (defun sql-= (x y)
   (if (or (eq :null x) (eq :null y))
       :null
-      (equalp x y)))
+      (equal x y)))
 
 (declaim (ftype (function (sql-value sql-value) sql-boolean) sql-<>))
 (defun sql-<> (x y)
@@ -37,7 +37,7 @@
 
 (declaim (ftype (function (sql-value sql-value) sql-boolean) sql-is))
 (defun sql-is (x y)
-  (equalp x y))
+  (equal x y))
 
 (declaim (ftype (function (sql-number sql-number) sql-boolean) sql-<))
 (defun sql-< (x y)
