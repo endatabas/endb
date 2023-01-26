@@ -136,8 +136,8 @@
   (sql-and (sql->= expr lhs) (sql-<= expr rhs)))
 
 (declaim (ftype (function (sequence) sql-boolean) sql-exists))
-(defun sql-exists (xs)
-  (not (null xs)))
+(defun sql-exists (rows)
+  (not (null rows)))
 
 (declaim (ftype (function (sequence sequence) sequence) sql-union))
 (defun sql-union (lhs rhs)
@@ -162,11 +162,11 @@
       (abs x)))
 
 (declaim (ftype (function (sequence) sql-value) sql-scalar-subquery))
-(defun sql-scalar-subquery (xs)
-  (assert (<= (length xs) 1))
-  (if (null xs)
+(defun sql-scalar-subquery (rows)
+  (assert (<= (length rows) 1))
+  (if (null rows)
       :null
-      (caar xs)))
+      (caar rows)))
 
 (declaim (ftype (function (sequence &key (:distinct boolean)) sql-number) sql-count-star))
 (defun sql-count-star (xs &key distinct)
