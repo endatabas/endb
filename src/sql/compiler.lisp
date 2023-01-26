@@ -60,7 +60,6 @@
                            (%base-table ctx (car table-or-subquery))
                            (ast->cl ctx (car table-or-subquery)))
                      (let* ((cv (cdr table-or-subquery))
-                            (cv-sym (gensym))
                             (qualified-projection (loop for column in projection
                                                         collect (%qualified-column-name cv column)))
                             (env-extension (loop for column in projection
@@ -68,18 +67,18 @@
                                                  for column-sym = (gensym (symbol-name qualified-column))
                                                  append (list (cons column column-sym) (cons qualified-column column-sym))))
                             (ctx (append env-extension ctx))
-                            (src `(loop for ,cv-sym in ,table
-                                        for ,(remove-duplicates (mapcar #'cdr env-extension)) = ,cv-sym)))
+                            (src `(loop for ,(remove-duplicates (mapcar #'cdr env-extension)) in ,table)))
                        (setq full-projection (append full-projection qualified-projection))
                        (if (rest from)
                            (append src (list 'nconc (select->cl (rest from))))
                            (let* ((aggregate-table (make-hash-table))
                                   (ctx (cons (cons :aggregate-table aggregate-table) ctx))
-                                  (selected-src (cons 'list (loop for (expr) in select-list
-                                                                  append (if (eq :star expr)
-                                                                             (loop for p in full-projection
-                                                                                   collect (ast->cl ctx p))
-                                                                             (list (ast->cl ctx expr))))))
+                                  (src (append src `(when (eq t ,(ast->cl ctx where)))))
+                                  (selected-src (loop for (expr) in select-list
+                                                      append (if (eq :star expr)
+                                                                 (loop for p in full-projection
+                                                                       collect (ast->cl ctx p))
+                                                                 (list (ast->cl ctx expr)))))
                                   (group-by-needed-p (or group-by-p havingp (plusp (hash-table-count aggregate-table)))))
                              (if group-by-needed-p
                                  (let* ((group-by-projection (loop for g in group-by
@@ -89,18 +88,14 @@
                                         (group-by-exprs (loop for v being the hash-value of aggregate-table
                                                               collect v))
                                         (acc-sym (gensym))
-                                        (k-sym (gensym))
-                                        (v-sym (gensym))
-                                        (group-by-in-src (list 'when (list 'eq t (ast->cl ctx where))
-                                                               'collect (cons 'list (append group-by-projection group-by-exprs)))))
+                                        (group-by-in-src `(collect (list ,@(append group-by-projection group-by-exprs)))))
                                    `(let* ((,acc-sym ,(append src group-by-in-src))
                                            (,acc-sym (endb/sql/expr::%sql-group-by ,acc-sym ,(length group-by-projection) ,(length group-by-exprs))))
-                                      (loop for ,k-sym being the hash-key using (hash-value ,v-sym) of ,acc-sym
-                                            for ,group-by-projection = ,k-sym
-                                            for ,group-by-exprs-projection = ,v-sym
+                                      (loop for ,group-by-projection being the hash-key
+                                              using (hash-value ,group-by-exprs-projection) of ,acc-sym
                                             when (eq t ,(ast->cl ctx having))
-                                              collect ,selected-src)))
-                                 (append src (list 'when (list 'eq t (ast->cl ctx where)) 'collect selected-src))))))))))
+                                              collect (list ,@selected-src))))
+                                 (append src `(collect (list ,@selected-src)))))))))))
         (let* ((src (select->cl from))
                (src (if distinct
                         `(endb/sql/expr::%sql-distinct ,src)
