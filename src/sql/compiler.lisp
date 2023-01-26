@@ -52,18 +52,35 @@
                                      (group-by () group-by-p) (having :true havingp)
                                      order-by limit)
       args
-    (labels ((from->cl (from where-src selected-src)
+    (labels ((from->cl (from-tables where-src selected-src)
                (destructuring-bind (table-src env-extension qualified-projection)
-                   (first from)
+                   (first from-tables)
                  (declare (ignore qualified-projection))
                  `(loop for ,(remove-duplicates (mapcar #'cdr env-extension))
                           in ,table-src
-                        ,@(if (rest from)
-                              `(nconc ,(from->cl (rest from) where-src selected-src))
+                        ,@(if (rest from-tables)
+                              `(nconc ,(from->cl (rest from-tables) where-src selected-src))
                               `(when (eq t ,where-src) collect (list ,@selected-src))))))
-             (select->cl (ctx from from-acc)
+             (group-by->cl (ctx from-tables where-src selected-src)
+               (let* ((aggregate-table (cdr (assoc :aggregate-table ctx)))
+                      (having-src (ast->cl ctx having))
+                      (group-by-projection (loop for g in group-by
+                                                 collect (ast->cl ctx g)))
+                      (group-by-exprs-projection (loop for k being the hash-key of aggregate-table
+                                                       collect k))
+                      (group-by-exprs (loop for v being the hash-value of aggregate-table
+                                            collect v))
+                      (group-by-selected-src (append group-by-projection group-by-exprs))
+                      (from-src (from->cl from-tables where-src group-by-selected-src))
+                      (group-by-src `(endb/sql/expr::%sql-group-by ,from-src ,(length group-by-projection) ,(length group-by-exprs))))
+                 `(loop for ,group-by-projection being the hash-key
+                          using (hash-value ,group-by-exprs-projection)
+                            of ,group-by-src
+                        when (eq t ,having-src)
+                          collect (list ,@selected-src))))
+             (select->cl (ctx from-ast from-tables)
                (destructuring-bind (table-or-subquery . table-alias)
-                   (first from)
+                   (first from-ast)
                  (multiple-value-bind (table-src projection)
                      (if (symbolp table-or-subquery)
                          (%base-table ctx table-or-subquery)
@@ -75,12 +92,13 @@
                                                for column-sym = (gensym (symbol-name qualified-column))
                                                append (list (cons column column-sym) (cons qualified-column column-sym))))
                           (ctx (append env-extension ctx))
-                          (from-acc (append from-acc (list (list table-src env-extension qualified-projection)))))
-                     (if (rest from)
-                         (select->cl ctx (rest from) from-acc)
+                          (from-table (list table-src env-extension qualified-projection))
+                          (from-tables (append from-tables (list from-table))))
+                     (if (rest from-ast)
+                         (select->cl ctx (rest from-ast) from-tables)
                          (let* ((aggregate-table (make-hash-table))
                                 (ctx (cons (cons :aggregate-table aggregate-table) ctx))
-                                (full-projection (mapcan #'third from-acc))
+                                (full-projection (mapcan #'third from-tables))
                                 (selected-src (loop for (expr) in select-list
                                                     append (if (eq :star expr)
                                                                (loop for p in full-projection
@@ -90,22 +108,8 @@
                                 (group-by-needed-p (or group-by-p havingp (plusp (hash-table-count aggregate-table)))))
                            (cons
                             (if group-by-needed-p
-                                (let* ((having-src (ast->cl ctx having))
-                                       (group-by-projection (loop for g in group-by
-                                                                  collect (ast->cl ctx g)))
-                                       (group-by-exprs-projection (loop for k being the hash-key of aggregate-table
-                                                                        collect k))
-                                       (group-by-exprs (loop for v being the hash-value of aggregate-table
-                                                             collect v))
-                                       (group-by-selected-src (append group-by-projection group-by-exprs))
-                                       (from-src (from->cl from-acc where-src group-by-selected-src))
-                                       (group-by-src `(endb/sql/expr::%sql-group-by ,from-src ,(length group-by-projection) ,(length group-by-exprs))))
-                                  `(loop for ,group-by-projection being the hash-key
-                                           using (hash-value ,group-by-exprs-projection)
-                                             of ,group-by-src
-                                         when (eq t ,having-src)
-                                           collect (list ,@selected-src)))
-                                (from->cl from-acc where-src selected-src))
+                                (group-by->cl ctx from-tables where-src selected-src)
+                                (from->cl from-tables where-src selected-src))
                             full-projection))))))))
       (destructuring-bind (src . full-projection)
           (select->cl ctx from ())
