@@ -40,7 +40,7 @@
 
 (defun %wrap-with-order-by-and-limit (src order-by limit)
   (let* ((src (if order-by
-                  `(endb/sql/expr::%sql-sort ,src ',order-by)
+                  `(endb/sql/expr::%sql-order-by ,src ',order-by)
                   src))
          (src (if limit
                   `(endb/sql/expr::%sql-limit ,src ',limit)
@@ -81,7 +81,8 @@
                                                                  (list (ast->cl ctx expr)))))
                                   (group-by-needed-p (or group-by-p havingp (plusp (hash-table-count aggregate-table)))))
                              (if group-by-needed-p
-                                 (let* ((group-by-projection (loop for g in group-by
+                                 (let* ((having-src (ast->cl ctx having))
+                                        (group-by-projection (loop for g in group-by
                                                                    collect (ast->cl ctx g)))
                                         (group-by-exprs-projection (loop for k being the hash-key of aggregate-table
                                                                          collect k))
@@ -93,7 +94,7 @@
                                            (,acc-sym (endb/sql/expr::%sql-group-by ,acc-sym ,(length group-by-projection) ,(length group-by-exprs))))
                                       (loop for ,group-by-projection being the hash-key
                                               using (hash-value ,group-by-exprs-projection) of ,acc-sym
-                                            when (eq t ,(ast->cl ctx having))
+                                            when (eq t ,having-src)
                                               collect (list ,@selected-src))))
                                  (append src `(collect (list ,@selected-src)))))))))))
         (let* ((src (select->cl from))

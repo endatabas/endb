@@ -201,16 +201,16 @@
 
 (declaim (ftype (function (sequence &key (:distinct boolean)) sql-number) sql-min))
 (defun sql-min (xs &key distinct)
-  (let ((x-no-nulls (remove :null (if distinct
-                                      (%sql-distinct xs)
-                                      xs))))
-    (if x-no-nulls
+  (let ((xs-no-nulls (remove :null (if distinct
+                                       (%sql-distinct xs)
+                                       xs))))
+    (if xs-no-nulls
         (reduce
          (lambda (x y)
            (if (sql-< x y)
                x
                y))
-         x-no-nulls)
+         xs-no-nulls)
         :null)))
 
 (declaim (ftype (function (sequence &key (:distinct boolean)) sql-number) sql-max))
@@ -227,17 +227,20 @@
          xs-no-nulls)
         :null)))
 
+(declaim (ftype (function (sequence) sequence) %sql-distinct))
 (defun %sql-distinct (rows)
   (remove-duplicates rows :test 'equal))
 
+(declaim (ftype (function (sequence cons) sequence) %sql-limit))
 (defun %sql-limit (rows limit-offset)
   (destructuring-bind (limit . offset)
       limit-offset
     (subseq rows (or offset 0) (if offset
-                                 (+ offset limit)
-                                 limit))))
+                                   (+ offset limit)
+                                   limit))))
 
-(defun %sql-sort (rows order-by)
+(declaim (ftype (function (sequence list) sequence) %sql-order-by))
+(defun %sql-order-by (rows order-by)
   (labels ((asc (x y)
              (cond
                ((eq :null x) t)
@@ -258,6 +261,8 @@
                        thereis (funcall cmp xv yv)
                        until (funcall cmp yv xv))))))
 
+
+(declaim (ftype (function (sequence number number) hash-table) %sql-group-by))
 (defun %sql-group-by (rows group-count group-expr-count)
   (let ((acc (make-hash-table :test 'equal)))
     (if (and (null rows) (zerop group-count))
