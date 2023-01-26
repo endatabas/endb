@@ -43,9 +43,7 @@
                   `(endb/sql/expr::%sql-sort ,src ',order-by)
                   src))
          (src (if limit
-                  `(subseq ,src ,(or (cdr limit) 0) ,(if (cdr limit)
-                                                         (+ (car limit) (cdr limit))
-                                                         (car limit)))
+                  `(endb/sql/expr::%sql-limit ,src ',limit)
                   src)))
     src))
 
@@ -97,7 +95,7 @@
                                  (append src (list 'when (list 'eq t (ast->cl ctx where)) 'collect selected-src))))))))))
         (let* ((src (select->cl from))
                (src (if distinct
-                        `(remove-duplicates ,src :test 'equal)
+                        `(endb/sql/expr::%sql-distinct ,src)
                         src))
                (src (%wrap-with-order-by-and-limit src order-by limit))
                (select-star-projection (mapcar #'%unqualified-column-name full-projection)))
