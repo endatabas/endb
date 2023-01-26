@@ -35,8 +35,8 @@
                  (t (list (%anonymous-column-name idx))))))
 
 (defun %base-table (ctx table)
-  (values `(gethash :rows (gethash ,(symbol-name table) ,(cdr (assoc :db-sym ctx))))
-          (mapcar #'%compiler-symbol (gethash :columns (gethash (symbol-name table) (cdr (assoc :db ctx)))))))
+  (values `(endb/sql/expr:base-table-rows (gethash ,(symbol-name table) ,(cdr (assoc :db-sym ctx))))
+          (mapcar #'%compiler-symbol (endb/sql/expr:base-table-columns (gethash (symbol-name table) (cdr (assoc :db ctx)))))))
 
 (defun %wrap-with-order-by-and-limit (src order-by limit)
   (let* ((src (if order-by
@@ -47,15 +47,19 @@
                   src)))
     src))
 
+(defstruct from-table
+  table-src
+  env-extension
+  qualified-projection)
+
 (defmethod sql->cl (ctx (type (eql :select)) &rest args)
   (destructuring-bind (select-list &key distinct (from '(((:values ((:null))) . #:dual))) (where :true)
                                      (group-by () group-by-p) (having :true havingp)
                                      order-by limit)
       args
     (labels ((from->cl (from-tables where-src selected-src)
-               (destructuring-bind (&key table-src env-extension qualified-projection)
+               (with-slots (table-src env-extension)
                    (first from-tables)
-                 (declare (ignore qualified-projection))
                  `(loop for ,(remove-duplicates (mapcar #'cdr env-extension))
                           in ,table-src
                         ,@(if (rest from-tables)
@@ -92,16 +96,15 @@
                                                for column-sym = (gensym (symbol-name qualified-column))
                                                append (list (cons column column-sym) (cons qualified-column column-sym))))
                           (ctx (append env-extension ctx))
-                          (from-table (list :table-src table-src
-                                            :env-extension env-extension
-                                            :qualified-projection qualified-projection))
+                          (from-table (make-from-table :table-src table-src
+                                                       :env-extension env-extension
+                                                       :qualified-projection qualified-projection))
                           (from-tables (append from-tables (list from-table))))
                      (if (rest from-ast)
                          (select->cl ctx (rest from-ast) from-tables)
                          (let* ((aggregate-table (make-hash-table))
                                 (ctx (cons (cons :aggregate-table aggregate-table) ctx))
-                                (full-projection (loop for table in from-tables
-                                                       append (getf table :qualified-projection)))
+                                (full-projection (mapcan #'from-table-qualified-projection from-tables))
                                 (selected-src (loop for (expr) in select-list
                                                     append (if (eq :star expr)
                                                                (loop for p in full-projection

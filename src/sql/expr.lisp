@@ -7,7 +7,8 @@
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect
            #:sql-abs
            #:sql-count-star #:sql-count #:sql-sum #:sql-avg #:sql-min #:sql-max
-           #:sql-create-table #:sql-create-index #:sql-insert))
+           #:sql-create-table #:sql-create-index #:sql-insert
+           #:base-table-rows #:base-table-columns))
 (in-package :endb/sql/expr)
 
 (deftype sql-null ()
@@ -274,10 +275,12 @@
                          (mapcar #'cons (subseq row group-count) group-acc)))))
     acc))
 
+(defstruct base-table
+  columns
+  rows)
+
 (defun sql-create-table (db table-name columns)
-  (let ((table (make-hash-table)))
-    (setf (gethash :columns table) columns)
-    (setf (gethash :rows table) ())
+  (let ((table (make-base-table :columns columns :rows ())))
     (setf (gethash table-name db) table)
     (values nil t)))
 
@@ -287,7 +290,7 @@
 
 (defun sql-insert (db table-name values &key column-names)
   (let* ((table (gethash table-name db))
-         (rows (gethash :rows table))
+         (rows (base-table-rows table))
          (values (if column-names
                      (let ((column->idx (make-hash-table :test 'equal)))
                        (loop for column in column-names
@@ -296,8 +299,8 @@
                        (mapcar (lambda (row)
                                  (mapcar (lambda (column)
                                            (nth (gethash column column->idx) row))
-                                         (gethash :columns table)))
+                                         (base-table-columns table)))
                                values))
                      values)))
-    (setf (gethash :rows table) (append values rows))
+    (setf (base-table-rows table) (append values rows))
     (values nil (length values))))
