@@ -377,8 +377,7 @@
 (defrule %table-or-subquery-alias
     (and (or identifier subquery) ws (! (or (~ "WHERE") (~ "GROUP") (~ "HAVING") (~ "ORDER") (~ "LIMIT"))) identifier)
   (:function %remove-nil)
-  (:destructure (table-or-subquery not-order-or-where as-identifier)
-    (declare (ignore not-order-or-where))
+  (:destructure (table-or-subquery as-identifier)
     (cons table-or-subquery as-identifier)))
 
 (defrule table-or-subquery
