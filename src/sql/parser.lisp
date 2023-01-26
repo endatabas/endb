@@ -42,6 +42,13 @@
   (:lambda (items)
     (parse-integer items)))
 
+(defrule float-literal
+    (and (+ (digit-char-p character)) "." (+ (digit-char-p character)))
+  (:text t)
+  (:lambda (items)
+    (let ((*read-eval* nil))
+      (read-from-string items))))
+
 (defrule string-literal
     (and "'" (* (not "'")) "'")
   (:text t)
@@ -61,7 +68,8 @@
   (:constant :false))
 
 (defrule literal-value
-    (or numeric-literal
+    (or float-literal
+        numeric-literal
         string-literal
         null-literal
         true-literal
