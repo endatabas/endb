@@ -175,9 +175,8 @@
       args
     (let ((fn-sym (%find-sql-expr-symbol fn)))
       (assert fn-sym nil (format nil "Unknown built-in function: ~A" fn))
-      `(,fn-sym ,@(mapcar (lambda (ast)
-                            (ast->cl ctx ast))
-                          args)))))
+      `(,fn-sym ,@(loop for ast in args
+                        collect (ast->cl ctx ast))))))
 
 (defmethod sql->cl (ctx (type (eql :aggregate-function)) &rest args)
   (destructuring-bind (fn args &key distinct)
@@ -198,13 +197,11 @@
                              (ast->cl ctx cases-or-expr)
                              t)))
          (cond
-           ,@(mapcar
-              (lambda (x)
-                (list (if (eq :else (first x))
-                          t
-                          `(eq t (endb/sql/expr:sql-= ,expr-sym ,(ast->cl ctx (first x)))))
-                      (ast->cl ctx (second x))))
-              (or cases cases-or-expr)))))))
+           ,@(loop for (test then) in (or cases cases-or-expr)
+                   collect (list (if (eq :else test)
+                                     t
+                                     `(eq t (endb/sql/expr:sql-= ,expr-sym ,(ast->cl ctx test))))
+                                 (ast->cl ctx then))))))))
 
 (defmethod sql->cl (ctx fn &rest args)
   (sql->cl ctx :function fn args))
@@ -221,9 +218,8 @@
     ((%ast-function-call-p ast)
      (apply #'sql->cl ctx ast))
     ((listp ast)
-     (cons 'list (mapcar (lambda (ast)
-                           (ast->cl ctx ast))
-                         ast)))
+     (cons 'list (loop for ast in ast
+                       collect (ast->cl ctx ast))))
     ((and (symbolp ast)
           (not (keywordp ast)))
      (cdr (assoc (%compiler-symbol (symbol-name ast)) ctx)))
