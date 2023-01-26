@@ -63,7 +63,13 @@
                             (cv-sym (gensym))
                             (qualified-projection (loop for column in projection
                                                         collect (%qualified-column-name cv column)))
-                            (src `(loop for ,cv-sym in ,table for ,qualified-projection = ,cv-sym for ,projection = ,cv-sym)))
+                            (env-extension (loop for column in projection
+                                                 for qualified-column = (%qualified-column-name cv column)
+                                                 for column-sym = (gensym (symbol-name qualified-column))
+                                                 append (list (cons column column-sym) (cons qualified-column column-sym))))
+                            (ctx (append env-extension ctx))
+                            (src `(loop for ,cv-sym in ,table
+                                        for ,(remove-duplicates (mapcar #'cdr env-extension)) = ,cv-sym)))
                        (setq full-projection (append full-projection qualified-projection))
                        (if (rest from)
                            (append src (list 'nconc (select->cl (rest from))))
@@ -71,11 +77,13 @@
                                   (ctx (cons (cons :aggregate-table aggregate-table) ctx))
                                   (selected-src (cons 'list (loop for (expr) in select-list
                                                                   append (if (eq :star expr)
-                                                                             full-projection
+                                                                             (loop for p in full-projection
+                                                                                   collect (ast->cl ctx p))
                                                                              (list (ast->cl ctx expr))))))
                                   (group-by-needed-p (or group-by-p havingp (plusp (hash-table-count aggregate-table)))))
                              (if group-by-needed-p
-                                 (let* ((group-by-projection (mapcar #'%compiler-symbol group-by))
+                                 (let* ((group-by-projection (loop for g in group-by
+                                                                   collect (ast->cl ctx g)))
                                         (group-by-exprs-projection (loop for k being the hash-key of aggregate-table
                                                                          collect k))
                                         (group-by-exprs (loop for v being the hash-value of aggregate-table
@@ -168,7 +176,8 @@
     (let ((fn-sym (%find-sql-expr-symbol fn)))
       (assert fn-sym nil (format nil "Unknown built-in function: ~A" fn))
       `(,fn-sym ,@(mapcar (lambda (ast)
-                            (ast->cl ctx ast)) args)))))
+                            (ast->cl ctx ast))
+                          args)))))
 
 (defmethod sql->cl (ctx (type (eql :aggregate-function)) &rest args)
   (destructuring-bind (fn args &key distinct)
@@ -213,9 +222,11 @@
      (apply #'sql->cl ctx ast))
     ((listp ast)
      (cons 'list (mapcar (lambda (ast)
-                           (ast->cl ctx ast)) ast)))
+                           (ast->cl ctx ast))
+                         ast)))
     ((and (symbolp ast)
-          (not (keywordp ast))) (%compiler-symbol (symbol-name ast)))
+          (not (keywordp ast)))
+     (cdr (assoc (%compiler-symbol (symbol-name ast)) ctx)))
     (t ast)))
 
 (defun compile-sql (ctx ast)
