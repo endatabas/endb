@@ -39,8 +39,8 @@
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT 1 + 1")
-      (is (equal '("column1") columns))
-      (is (equal '((2)) result)))
+      (is (equal '((2)) result))
+      (is (equal '("column1") columns)))
 
     (execute-sql db "CREATE TABLE t1(a INTEGER, b INTEGER, c INTEGER, d INTEGER, e INTEGER)")
     (execute-sql db "INSERT INTO t1 VALUES(103,102,100,101,104)")
