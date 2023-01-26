@@ -53,7 +53,7 @@
                                      order-by limit)
       args
     (labels ((from->cl (from-tables where-src selected-src)
-               (destructuring-bind (table-src env-extension qualified-projection)
+               (destructuring-bind (&key table-src env-extension qualified-projection)
                    (first from-tables)
                  (declare (ignore qualified-projection))
                  `(loop for ,(remove-duplicates (mapcar #'cdr env-extension))
@@ -92,13 +92,16 @@
                                                for column-sym = (gensym (symbol-name qualified-column))
                                                append (list (cons column column-sym) (cons qualified-column column-sym))))
                           (ctx (append env-extension ctx))
-                          (from-table (list table-src env-extension qualified-projection))
+                          (from-table (list :table-src table-src
+                                            :env-extension env-extension
+                                            :qualified-projection qualified-projection))
                           (from-tables (append from-tables (list from-table))))
                      (if (rest from-ast)
                          (select->cl ctx (rest from-ast) from-tables)
                          (let* ((aggregate-table (make-hash-table))
                                 (ctx (cons (cons :aggregate-table aggregate-table) ctx))
-                                (full-projection (mapcan #'third from-tables))
+                                (full-projection (loop for table in from-tables
+                                                       append (getf table :qualified-projection)))
                                 (selected-src (loop for (expr) in select-list
                                                     append (if (eq :star expr)
                                                                (loop for p in full-projection
@@ -106,12 +109,12 @@
                                                                (list (ast->cl ctx expr)))))
                                 (where-src (ast->cl ctx where))
                                 (group-by-needed-p (or group-by-p havingp (plusp (hash-table-count aggregate-table)))))
-                           (cons
+                           (values
                             (if group-by-needed-p
                                 (group-by->cl ctx from-tables where-src selected-src)
                                 (from->cl from-tables where-src selected-src))
                             full-projection))))))))
-      (destructuring-bind (src . full-projection)
+      (multiple-value-bind (src full-projection)
           (select->cl ctx from ())
         (let* ((src (if distinct
                         `(endb/sql/expr::%sql-distinct ,src)
