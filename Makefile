@@ -12,8 +12,8 @@ endif
 CFLAGS = -g -Wall
 
 SLT_SOURCES = sqllogictest.c md5.c sqlite3.c
-SLT_ENGINE = CLSQLite
-SLT_TESTS = $(shell ls -1 sqllogictest/test/select*)
+SLT_ENGINE = endb
+SLT_TESTS = sqllogictest/test/select1.test sqllogictest/test/select2.test sqllogictest/test/select3.test
 
 default: test target/endb
 

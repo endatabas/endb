@@ -257,7 +257,7 @@
         (dotimes (n argc)
           (cffi:foreign-string-free (cffi:mem-aref argv :pointer n)))))))
 
-(defun slt-test (test &key (engine "CLSQLite"))
+(defun slt-test (test &key (engine "endb"))
   (%slt-main (list "slt-runner" "-engine" engine "-verify" test)))
 
 (defun %free-db-engine (db-engine)
