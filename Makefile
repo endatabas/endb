@@ -13,7 +13,7 @@ CFLAGS = -g -Wall
 
 SLT_SOURCES = sqllogictest.c md5.c sqlite3.c
 SLT_ENGINE = endb
-SLT_TESTS = sqllogictest/test/select1.test sqllogictest/test/select2.test sqllogictest/test/select3.test
+SLT_TESTS = sqllogictest/test/select1.test sqllogictest/test/select2.test sqllogictest/test/select3.test sqllogictest/test/select4.test
 
 default: test target/endb
 
