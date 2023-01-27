@@ -100,12 +100,12 @@
       (+ x y)))
 
 (declaim (ftype (function (sql-number &optional sql-number) sql-number) sql--))
-(defun sql-- (x &optional y)
+(defun sql-- (x &optional (y 0 yp))
   (if (or (eq :null x) (eq :null y))
       :null
-      (if (null y)
-          (- x)
-          (- x y))))
+      (if yp
+          (- x y)
+          (- x))))
 
 (declaim (ftype (function (sql-number sql-number) sql-number) sql-*))
 (defun sql-* (x y)

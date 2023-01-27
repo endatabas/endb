@@ -93,7 +93,8 @@
   (is (eq :null (sql-/ :null 3)))
   (is (= 2/3 (sql-/ 2 3)))
   (is (= 2 (sql-abs -2)))
-  (is (eq :null (sql-abs :null))))
+  (is (eq :null (sql-abs :null)))
+  (is (= -2 (sql-- 2))))
 
 (test sorting
   (is (equal '((:null) (1) (2)) (endb/sql/expr::%sql-order-by (copy-list '((2) (:null) (1))) '((1 . :ASC)))))
