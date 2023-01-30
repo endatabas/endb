@@ -56,9 +56,9 @@
       (list expr)))
 
 (defstruct from-table
-  table-src
-  local-vars
-  qualified-projection)
+  src
+  vars
+  projection)
 
 (defvar *predicate-pushdown-ops*
   '(endb/sql/expr:sql-=
@@ -117,14 +117,14 @@
                                      (group-by () group-by-p) (having :true havingp)
                                      order-by limit)
       args
-    (labels ((join->cl (ctx local-vars equi-join-clauses table-src)
+    (labels ((join->cl (ctx new-vars equi-join-clauses table-src)
                (multiple-value-bind (in-vars out-vars)
                    (loop for (nil lhs rhs) in equi-join-clauses
-                         if (member lhs local-vars)
+                         if (member lhs new-vars)
                            collect lhs into out-vars
                          else
                            collect lhs into in-vars
-                         if (member rhs local-vars)
+                         if (member rhs new-vars)
                            collect rhs into out-vars
                          else
                            collect rhs into in-vars
@@ -135,53 +135,53 @@
                    `(let ((,index-table-sym (or (gethash ',index-key-sym ,(cdr (assoc :index-sym ctx)))
                                                 (let ((,index-table-sym (setf (gethash ',index-key-sym ,(cdr (assoc :index-sym ctx)))
                                                                               (make-hash-table :test 'equal))))
-                                                  (loop for ,local-vars
+                                                  (loop for ,new-vars
                                                           in ,table-src
-                                                        do (push (list ,@local-vars) (gethash (list ,@out-vars) ,index-table-sym)))
+                                                        do (push (list ,@new-vars) (gethash (list ,@out-vars) ,index-table-sym)))
                                                   ,index-table-sym))))
                       (gethash (list ,@in-vars) ,index-table-sym)))))
 
              (from->cl (ctx vars from-tables where-clauses selected-src)
                (let* ((from-table (or (find-if (lambda (x)
-                                                 (let ((vars (append (from-table-local-vars x) vars)))
-                                                   (loop for c in where-clauses
-                                                         thereis (%equi-join-predicate-p vars c))))
+                                                 (loop with vars = (append (from-table-vars x) vars)
+                                                       for c in where-clauses
+                                                       thereis (%equi-join-predicate-p vars c)))
                                                from-tables)
                                       (first from-tables)))
-                      (from-tables (remove from-table from-tables)))
-                 (with-slots (table-src local-vars)
-                     from-table
-                   (let* ((vars (append local-vars vars)))
-                     (multiple-value-bind (scan-clauses equi-join-clauses pushdown-clauses)
-                         (loop for c in where-clauses
-                               if (%scan-predicate-p local-vars c)
-                                 collect c into scan-clauses
-                               else if (%equi-join-predicate-p vars c)
-                                      collect c into equi-join-clauses
-                               else if (%pushdown-predicate-p vars c)
-                                      collect c into pushdown-clauses
-                               finally
-                                  (return (values scan-clauses equi-join-clauses pushdown-clauses)))
-                       (let* ((new-where-clauses (append scan-clauses equi-join-clauses pushdown-clauses))
-                              (where-clauses (set-difference where-clauses new-where-clauses)))
-                         `(loop for ,local-vars
-                                  in ,(if equi-join-clauses
-                                          (let ((table-src (if scan-clauses
-                                                               `(loop for ,local-vars
-                                                                        in ,table-src
-                                                                      ,@(loop for clause in scan-clauses append `(when (eq t ,clause)))
-                                                                      collect (list ,@local-vars))
-                                                               table-src)))
-                                            (join->cl ctx local-vars equi-join-clauses table-src))
-                                          table-src)
-                                ,@(loop for clause in (if equi-join-clauses
-                                                          pushdown-clauses
-                                                          (append scan-clauses pushdown-clauses))
-                                        append `(when (eq t ,clause)))
-                                ,@(if from-tables
-                                      `(nconc ,(from->cl ctx vars from-tables where-clauses selected-src))
-                                      `(,@(loop for clause in where-clauses append `(when (eq t ,clause)))
-                                        collect (list ,@selected-src))))))))))
+                      (from-tables (remove from-table from-tables))
+                      (new-vars (from-table-vars from-table))
+                      (table-src (from-table-src from-table))
+                      (vars (append new-vars vars)))
+                 (multiple-value-bind (scan-clauses equi-join-clauses pushdown-clauses)
+                     (loop for c in where-clauses
+                           if (%scan-predicate-p new-vars c)
+                             collect c into scan-clauses
+                           else if (%equi-join-predicate-p vars c)
+                                  collect c into equi-join-clauses
+                           else if (%pushdown-predicate-p vars c)
+                                  collect c into pushdown-clauses
+                           finally
+                              (return (values scan-clauses equi-join-clauses pushdown-clauses)))
+                   (let* ((new-where-clauses (append scan-clauses equi-join-clauses pushdown-clauses))
+                          (where-clauses (set-difference where-clauses new-where-clauses)))
+                     `(loop for ,new-vars
+                              in ,(if equi-join-clauses
+                                      (let ((table-src (if scan-clauses
+                                                           `(loop for ,new-vars
+                                                                    in ,table-src
+                                                                  ,@(loop for clause in scan-clauses append `(when (eq t ,clause)))
+                                                                  collect (list ,@new-vars))
+                                                           table-src)))
+                                        (join->cl ctx new-vars equi-join-clauses table-src))
+                                      table-src)
+                            ,@(loop for clause in (if equi-join-clauses
+                                                      pushdown-clauses
+                                                      (append scan-clauses pushdown-clauses))
+                                    append `(when (eq t ,clause)))
+                            ,@(if from-tables
+                                  `(nconc ,(from->cl ctx vars from-tables where-clauses selected-src))
+                                  `(,@(loop for clause in where-clauses append `(when (eq t ,clause)))
+                                    collect (list ,@selected-src))))))))
 
              (group-by->cl (ctx from-tables where-clauses selected-src)
                (let* ((aggregate-table (cdr (assoc :aggregate-table ctx)))
@@ -215,15 +215,15 @@
                                                for column-sym = (gensym (concatenate 'string (symbol-name qualified-column) "__"))
                                                append (list (cons column column-sym) (cons qualified-column column-sym))))
                           (ctx (append env-extension ctx))
-                          (from-table (make-from-table :table-src table-src
-                                                       :local-vars (remove-duplicates (mapcar #'cdr env-extension))
-                                                       :qualified-projection qualified-projection))
+                          (from-table (make-from-table :src table-src
+                                                       :vars (remove-duplicates (mapcar #'cdr env-extension))
+                                                       :projection qualified-projection))
                           (from-tables (append from-tables (list from-table))))
                      (if (rest from-ast)
                          (select->cl ctx (rest from-ast) from-tables)
                          (let* ((aggregate-table (make-hash-table))
                                 (ctx (cons (cons :aggregate-table aggregate-table) ctx))
-                                (full-projection (mapcan #'from-table-qualified-projection from-tables))
+                                (full-projection (mapcan #'from-table-projection from-tables))
                                 (selected-src (loop for (expr) in select-list
                                                     append (if (eq :star expr)
                                                                (loop for p in full-projection
@@ -234,7 +234,7 @@
                                 (from-tables (sort from-tables #'> :key
                                                    (lambda (x)
                                                      (loop for clause in where-clauses
-                                                           count (%scan-predicate-p (from-table-local-vars x) clause)))))
+                                                           count (%scan-predicate-p (from-table-vars x) clause)))))
                                 (group-by-needed-p (or group-by-p havingp (plusp (hash-table-count aggregate-table)))))
                            (values
                             (if group-by-needed-p
