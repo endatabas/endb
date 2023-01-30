@@ -55,7 +55,6 @@
       (is (equal '() result))
       (is (equal '("a") columns)))
 
-
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT t1.b + t1.c AS x FROM t1")
       (is (equal '((202)) result))
@@ -80,7 +79,7 @@
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT COUNT(*), COUNT(e), SUM(e), AVG(a), MIN(b), MAX(c), b FROM t1 GROUP BY b")
-      (is (equal '((2 2 207 207/2 102 102 102) (1 0 :null 104 :null 102 :null)) result))
+      (is (equal '((1 0 :null 104 :null 102 :null) (2 2 207 207/2 102 102 102)) result))
       (is (equal '("column1" "column2" "column3" "column4" "column5" "column6" "b") columns)))
 
     (multiple-value-bind (result columns)
