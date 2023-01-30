@@ -34,10 +34,11 @@
                  ((symbolp expr) (list (%unqualified-column-name expr)))
                  (t (list (%anonymous-column-name idx))))))
 
-(defun %base-table (ctx table)
+(defun %base-table->cl (ctx table)
   (let ((db-table (gethash (symbol-name table) (cdr (assoc :db ctx)))))
     (values `(endb/sql/expr:base-table-rows (gethash ,(symbol-name table) ,(cdr (assoc :db-sym ctx))))
-            (mapcar #'%compiler-symbol (endb/sql/expr:base-table-columns db-table)))))
+            (mapcar #'%compiler-symbol (endb/sql/expr:base-table-columns db-table))
+            (length (endb/sql/expr:base-table-rows db-table)))))
 
 (defun %wrap-with-order-by-and-limit (src order-by limit)
   (let* ((src (if order-by
@@ -58,6 +59,7 @@
 (defstruct from-table
   src
   vars
+  size
   projection)
 
 (defvar *predicate-pushdown-ops*
@@ -204,9 +206,9 @@
              (select->cl (ctx from-ast from-tables)
                (destructuring-bind (table-or-subquery . table-alias)
                    (first from-ast)
-                 (multiple-value-bind (table-src projection)
+                 (multiple-value-bind (table-src projection table-size)
                      (if (symbolp table-or-subquery)
-                         (%base-table ctx table-or-subquery)
+                         (%base-table->cl ctx table-or-subquery)
                          (ast->cl ctx table-or-subquery))
                    (let* ((qualified-projection (loop for column in projection
                                                       collect (%qualified-column-name table-alias column)))
@@ -217,6 +219,7 @@
                           (ctx (append env-extension ctx))
                           (from-table (make-from-table :src table-src
                                                        :vars (remove-duplicates (mapcar #'cdr env-extension))
+                                                       :size (or table-size most-positive-fixnum)
                                                        :projection qualified-projection))
                           (from-tables (append from-tables (list from-table))))
                      (if (rest from-ast)
@@ -231,10 +234,11 @@
                                                                (list (ast->cl ctx expr)))))
                                 (where-clauses (loop for clause in (%and-clauses where)
                                                      collect (ast->cl ctx clause)))
-                                (from-tables (sort from-tables #'> :key
+                                (from-tables (sort from-tables #'< :key
                                                    (lambda (x)
-                                                     (loop for clause in where-clauses
-                                                           count (%scan-predicate-p (from-table-vars x) clause)))))
+                                                     (/ (from-table-size x)
+                                                        (1+ (loop for clause in where-clauses
+                                                                  count (%scan-predicate-p (from-table-vars x) clause)))))))
                                 (group-by-needed-p (or group-by-p havingp (plusp (hash-table-count aggregate-table)))))
                            (values
                             (if group-by-needed-p
