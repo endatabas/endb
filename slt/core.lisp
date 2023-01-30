@@ -253,7 +253,11 @@
                      (cffi:foreign-string-alloc (elt args n))))
              (setf (cffi:mem-aref argv :pointer argc)
                    (cffi:null-pointer))
-             (sqllogictest-main argc argv))
+             #+sbcl (if (uiop:getenv "SB_INTERPRET")
+                        (let ((sb-ext:*evaluator-mode* :interpret))
+                          (sqllogictest-main argc argv))
+                        (sqllogictest-main argc argv))
+             #-sbcl (sqllogictest-main argc argv))
         (dotimes (n argc)
           (cffi:foreign-string-free (cffi:mem-aref argv :pointer n)))))))
 
