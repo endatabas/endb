@@ -140,37 +140,49 @@
                                                         do (push (list ,@local-vars) (gethash (list ,@out-vars) ,index-table-sym)))
                                                   ,index-table-sym))))
                       (gethash (list ,@in-vars) ,index-table-sym)))))
+
              (from->cl (ctx vars from-tables where-clauses selected-src)
-               (with-slots (table-src local-vars)
-                   (first from-tables)
-                 (let* ((vars (append local-vars vars)))
-                   (multiple-value-bind (scan-clauses equi-join-clauses pushdown-clauses)
-                       (loop for c in where-clauses
-                             if (%scan-predicate-p local-vars c)
-                               collect c into scan-clauses
-                             else if (%equi-join-predicate-p vars c)
-                                    collect c into equi-join-clauses
-                             else if (%pushdown-predicate-p vars c)
-                                    collect c into pushdown-clauses
-                             finally
-                                (return (values scan-clauses equi-join-clauses pushdown-clauses)))
-                     (let* ((new-where-clauses (append scan-clauses equi-join-clauses pushdown-clauses))
-                            (where-clauses (set-difference where-clauses new-where-clauses)))
-                       `(loop for ,local-vars
-                                in ,(let ((table-src (if scan-clauses
-                                                         `(loop for ,local-vars
-                                                                  in ,table-src
-                                                                ,@(loop for clause in scan-clauses append `(when (eq t ,clause)))
-                                                                collect (list ,@local-vars))
-                                                         table-src)))
-                                      (if equi-join-clauses
-                                          (join->cl ctx local-vars equi-join-clauses table-src)
-                                          table-src))
-                              ,@(loop for clause in pushdown-clauses append `(when (eq t ,clause)))
-                              ,@(if (rest from-tables)
-                                    `(nconc ,(from->cl ctx vars (rest from-tables) where-clauses selected-src))
-                                    `(,@(loop for clause in where-clauses append `(when (eq t ,clause)))
-                                      collect (list ,@selected-src)))))))))
+               (let* ((from-table (or (find-if (lambda (x)
+                                                 (let ((vars (append (from-table-local-vars x) vars)))
+                                                   (loop for c in where-clauses
+                                                         thereis (%equi-join-predicate-p vars c))))
+                                               from-tables)
+                                      (first from-tables)))
+                      (from-tables (remove from-table from-tables)))
+                 (with-slots (table-src local-vars)
+                     from-table
+                   (let* ((vars (append local-vars vars)))
+                     (multiple-value-bind (scan-clauses equi-join-clauses pushdown-clauses)
+                         (loop for c in where-clauses
+                               if (%scan-predicate-p local-vars c)
+                                 collect c into scan-clauses
+                               else if (%equi-join-predicate-p vars c)
+                                      collect c into equi-join-clauses
+                               else if (%pushdown-predicate-p vars c)
+                                      collect c into pushdown-clauses
+                               finally
+                                  (return (values scan-clauses equi-join-clauses pushdown-clauses)))
+                       (let* ((new-where-clauses (append scan-clauses equi-join-clauses pushdown-clauses))
+                              (where-clauses (set-difference where-clauses new-where-clauses)))
+                         `(loop for ,local-vars
+                                  in ,(if equi-join-clauses
+                                          (let ((table-src (if scan-clauses
+                                                               `(loop for ,local-vars
+                                                                        in ,table-src
+                                                                      ,@(loop for clause in scan-clauses append `(when (eq t ,clause)))
+                                                                      collect (list ,@local-vars))
+                                                               table-src)))
+                                            (join->cl ctx local-vars equi-join-clauses table-src))
+                                          table-src)
+                                ,@(loop for clause in (if equi-join-clauses
+                                                          pushdown-clauses
+                                                          (append scan-clauses pushdown-clauses))
+                                        append `(when (eq t ,clause)))
+                                ,@(if from-tables
+                                      `(nconc ,(from->cl ctx vars from-tables where-clauses selected-src))
+                                      `(,@(loop for clause in where-clauses append `(when (eq t ,clause)))
+                                        collect (list ,@selected-src))))))))))
+
              (group-by->cl (ctx from-tables where-clauses selected-src)
                (let* ((aggregate-table (cdr (assoc :aggregate-table ctx)))
                       (having-src (ast->cl ctx having))
@@ -188,6 +200,7 @@
                             of ,group-by-src
                         when (eq t ,having-src)
                           collect (list ,@selected-src))))
+
              (select->cl (ctx from-ast from-tables)
                (destructuring-bind (table-or-subquery . table-alias)
                    (first from-ast)
@@ -228,6 +241,7 @@
                                 (group-by->cl ctx from-tables where-clauses selected-src)
                                 (from->cl ctx () from-tables where-clauses selected-src))
                             full-projection))))))))
+
       (multiple-value-bind (src full-projection)
           (select->cl ctx from ())
         (let* ((src (if distinct
