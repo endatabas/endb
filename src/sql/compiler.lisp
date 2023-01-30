@@ -129,14 +129,14 @@
                (return (values in-vars out-vars)))
     (let ((index-table-sym (gensym))
           (index-key-sym (gensym)))
-      `(let ((,index-table-sym (or (gethash ',index-key-sym ,(cdr (assoc :index-sym ctx)))
-                                   (let ((,index-table-sym (setf (gethash ',index-key-sym ,(cdr (assoc :index-sym ctx)))
-                                                                 (make-hash-table :test 'equal))))
-                                     (loop for ,new-vars
-                                             in ,table-src
-                                           do (push (list ,@new-vars) (gethash (list ,@out-vars) ,index-table-sym)))
-                                     ,index-table-sym))))
-         (gethash (list ,@in-vars) ,index-table-sym)))))
+      `(gethash (list ,@in-vars)
+                (or (gethash ',index-key-sym ,(cdr (assoc :index-sym ctx)))
+                    (loop with ,index-table-sym = (setf (gethash ',index-key-sym ,(cdr (assoc :index-sym ctx)))
+                                                        (make-hash-table :test 'equal))
+                          for ,new-vars
+                            in ,table-src
+                          do (push (list ,@new-vars) (gethash (list ,@out-vars) ,index-table-sym))
+                          finally (return ,index-table-sym)))))))
 
 (defun %selection-with-limit-offset->cl (ctx limit-offset selected-src)
   (let ((acc-sym (cdr (assoc :acc-sym ctx))))
@@ -155,10 +155,8 @@
                     (incf ,rows-sym)
                     (push (list ,@selected-src) ,acc-sym))
                when (eql ,rows-sym ,limit)
-               do (return-from ,block-sym ,acc-sym)
-               finally (return ,acc-sym))))
-        `(do (push (list ,@selected-src) ,acc-sym)
-             finally (return ,acc-sym)))))
+               do (return-from ,block-sym ,acc-sym))))
+        `(do (push (list ,@selected-src) ,acc-sym)))))
 
 (defun %from->cl (ctx vars from-tables where-clauses selected-src limit-offset)
   (let* ((from-table (or (find-if (lambda (x)
@@ -213,7 +211,9 @@
          (group-by-selected-src (append group-by-projection group-by-exprs))
          (group-acc-sym (gensym))
          (group-ctx (cons (cons :acc-sym group-acc-sym) ctx))
-         (from-src `(let ((,group-acc-sym)) ,(%from->cl group-ctx () from-tables where-clauses group-by-selected-src nil)))
+         (from-src `(let ((,group-acc-sym))
+                      ,(%from->cl group-ctx () from-tables where-clauses group-by-selected-src nil)
+                      ,group-acc-sym))
          (group-by-src `(endb/sql/expr::%sql-group-by ,from-src ,(length group-by-projection) ,(length group-by-exprs))))
     (append `(loop for ,group-by-projection being the hash-key
                      using (hash-value ,group-by-exprs-projection)
@@ -280,7 +280,8 @@
                          (let ((,rows-sym 0)
                                (,acc-sym))
                            (declare (ignorable ,rows-sym))
-                           ,src)))
+                           ,src
+                           ,acc-sym)))
                  (src (if distinct
                           `(endb/sql/expr::%sql-distinct ,src)
                           src))
