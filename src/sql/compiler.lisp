@@ -102,15 +102,17 @@
                             collect (list ,@vars))
                      src))
             (index-table-sym (gensym))
+            (index-key-sym (gensym))
             (index-key-form `(list ',(gensym) ,@free-vars)))
         `(gethash (list ,@in-vars)
-                  (or (gethash ,index-key-form ,(cdr (assoc :index-sym ctx)))
-                      (loop with ,index-table-sym = (setf (gethash ,index-key-form ,(cdr (assoc :index-sym ctx)))
-                                                          (make-hash-table :test 'equal))
-                            for ,vars
-                              in ,src
-                            do (push (list ,@vars) (gethash (list ,@out-vars) ,index-table-sym))
-                            finally (return ,index-table-sym))))))))
+                  (let ((,index-key-sym ,index-key-form))
+                    (or (gethash ,index-key-sym ,(cdr (assoc :index-sym ctx)))
+                        (loop with ,index-table-sym = (setf (gethash ,index-key-sym ,(cdr (assoc :index-sym ctx)))
+                                                            (make-hash-table :test 'equal))
+                              for ,vars
+                                in ,src
+                              do (push (list ,@vars) (gethash (list ,@out-vars) ,index-table-sym))
+                              finally (return ,index-table-sym)))))))))
 
 (defun %selection-with-limit-offset->cl (ctx selected-src limit-offset)
   (let ((acc-sym (cdr (assoc :acc-sym ctx))))
