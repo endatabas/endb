@@ -78,29 +78,37 @@
            (member lhs vars)
            (member rhs vars)))))
 
-(defun %join->cl (ctx new-vars equi-join-clauses table-src)
-  (multiple-value-bind (in-vars out-vars)
-      (loop for (nil lhs rhs) in (mapcar #'where-clause-src equi-join-clauses)
-            if (member lhs new-vars)
-              collect lhs into out-vars
-            else
-              collect lhs into in-vars
-            if (member rhs new-vars)
-              collect rhs into out-vars
-            else
-              collect rhs into in-vars
-            finally
-               (return (values in-vars out-vars)))
-    (let ((index-table-sym (gensym))
-          (index-key-sym (gensym)))
-      `(gethash (list ,@in-vars)
-                (or (gethash ',index-key-sym ,(cdr (assoc :index-sym ctx)))
-                    (loop with ,index-table-sym = (setf (gethash ',index-key-sym ,(cdr (assoc :index-sym ctx)))
-                                                        (make-hash-table :test 'equal))
-                          for ,new-vars
-                            in ,table-src
-                          do (push (list ,@new-vars) (gethash (list ,@out-vars) ,index-table-sym))
-                          finally (return ,index-table-sym)))))))
+(defun %join->cl (ctx from-table scan-clauses equi-join-clauses)
+  (with-slots (src vars)
+      from-table
+    (multiple-value-bind (in-vars out-vars)
+        (loop for (nil lhs rhs) in (mapcar #'where-clause-src equi-join-clauses)
+              if (member lhs vars)
+                collect lhs into out-vars
+              else
+                collect lhs into in-vars
+              if (member rhs vars)
+                collect rhs into out-vars
+              else
+                collect rhs into in-vars
+              finally
+                 (return (values in-vars out-vars)))
+      (let ((src (if scan-clauses
+                     `(loop for ,vars
+                              in ,src
+                            ,@(loop for clause in scan-clauses append `(when (eq t ,(where-clause-src clause))))
+                            collect (list ,@vars))
+                     src))
+            (index-table-sym (gensym))
+            (index-key-sym (gensym)))
+        `(gethash (list ,@in-vars)
+                  (or (gethash ',index-key-sym ,(cdr (assoc :index-sym ctx)))
+                      (loop with ,index-table-sym = (setf (gethash ',index-key-sym ,(cdr (assoc :index-sym ctx)))
+                                                          (make-hash-table :test 'equal))
+                            for ,vars
+                              in ,src
+                            do (push (list ,@vars) (gethash (list ,@out-vars) ,index-table-sym))
+                            finally (return ,index-table-sym))))))))
 
 (defun %selection-with-limit-offset->cl (ctx selected-src limit-offset)
   (let ((acc-sym (cdr (assoc :acc-sym ctx))))
@@ -148,13 +156,7 @@
              (where-clauses (set-difference where-clauses new-where-clauses)))
         `(loop for ,new-vars
                  in ,(if equi-join-clauses
-                         (let ((table-src (if scan-clauses
-                                              `(loop for ,new-vars
-                                                       in ,table-src
-                                                     ,@(loop for clause in scan-clauses append `(when (eq t ,(where-clause-src clause))))
-                                                     collect (list ,@new-vars))
-                                              table-src)))
-                           (%join->cl ctx new-vars equi-join-clauses table-src))
+                         (%join->cl ctx from-table scan-clauses equi-join-clauses)
                          table-src)
                ,@(loop for clause in (if equi-join-clauses
                                          pushdown-clauses
