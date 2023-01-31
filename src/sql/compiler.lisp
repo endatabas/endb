@@ -44,7 +44,7 @@
   (let* ((src (if order-by
                   `(endb/sql/expr::%sql-order-by ,src ',order-by)
                   src))
-         (src (if limit
+         (src (if (and order-by limit)
                   `(endb/sql/expr::%sql-limit ,src ',limit)
                   src)))
     src))
@@ -138,7 +138,7 @@
                           do (push (list ,@new-vars) (gethash (list ,@out-vars) ,index-table-sym))
                           finally (return ,index-table-sym)))))))
 
-(defun %selection-with-limit-offset->cl (ctx limit-offset selected-src)
+(defun %selection-with-limit-offset->cl (ctx selected-src limit-offset)
   (let ((acc-sym (cdr (assoc :acc-sym ctx))))
     (if limit-offset
         (destructuring-bind (limit . offset)
@@ -158,7 +158,7 @@
                do (return-from ,block-sym ,acc-sym))))
         `(do (push (list ,@selected-src) ,acc-sym)))))
 
-(defun %from->cl (ctx vars from-tables where-clauses selected-src limit-offset)
+(defun %from->cl (ctx from-tables where-clauses selected-src &optional limit-offset vars)
   (let* ((from-table (or (find-if (lambda (x)
                                     (loop with vars = (append (from-table-vars x) vars)
                                           for c in where-clauses
@@ -196,11 +196,11 @@
                                          (append scan-clauses pushdown-clauses))
                        append `(when (eq t ,clause)))
                ,@(if from-tables
-                     `(do ,(%from->cl ctx vars from-tables where-clauses selected-src limit-offset))
+                     `(do ,(%from->cl ctx from-tables where-clauses selected-src limit-offset vars))
                      (append `(,@(loop for clause in where-clauses append `(when (eq t ,clause))))
-                             (%selection-with-limit-offset->cl ctx limit-offset selected-src))))))))
+                             (%selection-with-limit-offset->cl ctx selected-src limit-offset))))))))
 
-(defun %group-by->cl (ctx from-tables where-clauses group-by having selected-src limit-offset)
+(defun %group-by->cl (ctx from-tables where-clauses selected-src limit-offset group-by having)
   (let* ((aggregate-table (cdr (assoc :aggregate-table ctx)))
          (group-by-projection (loop for g in group-by
                                     collect (ast->cl ctx g)))
@@ -212,14 +212,14 @@
          (group-acc-sym (gensym))
          (group-ctx (cons (cons :acc-sym group-acc-sym) ctx))
          (from-src `(let ((,group-acc-sym))
-                      ,(%from->cl group-ctx () from-tables where-clauses group-by-selected-src nil)
+                      ,(%from->cl group-ctx from-tables where-clauses group-by-selected-src)
                       ,group-acc-sym))
          (group-by-src `(endb/sql/expr::%sql-group-by ,from-src ,(length group-by-projection) ,(length group-by-exprs))))
     (append `(loop for ,group-by-projection being the hash-key
                      using (hash-value ,group-by-exprs-projection)
                        of ,group-by-src
                    when (eq t ,(ast->cl ctx having)))
-            (%selection-with-limit-offset->cl ctx limit-offset selected-src))))
+            (%selection-with-limit-offset->cl ctx selected-src limit-offset))))
 
 (defmethod sql->cl (ctx (type (eql :select)) &rest args)
   (destructuring-bind (select-list &key distinct (from '(((:values ((:null))) . #:dual))) (where :true)
@@ -262,11 +262,13 @@
                                                      (/ (from-table-size x)
                                                         (1+ (loop for clause in where-clauses
                                                                   count (%scan-predicate-p (from-table-vars x) clause)))))))
+                                (limit-offset (unless order-by
+                                                limit))
                                 (group-by-needed-p (or group-by-p havingp (plusp (hash-table-count aggregate-table)))))
                            (values
                             (if group-by-needed-p
-                                (%group-by->cl ctx from-tables where-clauses group-by having selected-src limit)
-                                (%from->cl ctx () from-tables where-clauses selected-src limit))
+                                (%group-by->cl ctx from-tables where-clauses selected-src limit-offset group-by having)
+                                (%from->cl ctx from-tables where-clauses selected-src limit-offset))
                             full-projection))))))))
       (let* ((block-sym (gensym))
              (acc-sym (gensym))
@@ -277,15 +279,15 @@
         (multiple-value-bind (src full-projection)
             (select->cl ctx from ())
           (let* ((src `(block ,block-sym
-                         (let ((,rows-sym 0)
+                         (let (,@(when limit
+                                   (list `(,rows-sym 0)))
                                (,acc-sym))
-                           (declare (ignorable ,rows-sym))
                            ,src
                            ,acc-sym)))
                  (src (if distinct
                           `(endb/sql/expr::%sql-distinct ,src)
                           src))
-                 (src (%wrap-with-order-by-and-limit src order-by nil))
+                 (src (%wrap-with-order-by-and-limit src order-by limit))
                  (select-star-projection (mapcar #'%unqualified-column-name full-projection)))
             (values src (%select-projection select-list select-star-projection))))))))
 
