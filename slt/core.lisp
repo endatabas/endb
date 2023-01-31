@@ -6,6 +6,7 @@
   (:import-from :asdf)
   (:import-from :uiop)
   (:import-from :endb/sql)
+  (:import-from :endb/sql/compiler)
   #+sbcl (:import-from :sb-sprof))
 (in-package :endb-slt/core)
 
@@ -256,8 +257,12 @@
              #+sbcl (let ((sb-ext:*evaluator-mode* (if (uiop:getenv "SB_INTERPRET")
                                                        :interpret
                                                        :compile)))
-                      (sqllogictest-main argc argv))
-             #-sbcl (sqllogictest-main argc argv))
+                      (if (uiop:getenv "SLT_TIMING")
+                          (time (sqllogictest-main argc argv))
+                          (sqllogictest-main argc argv)))
+             #-sbcl (if (uiop:getenv "SLT_TIMING")
+                        (time (sqllogictest-main argc argv))
+                        (sqllogictest-main argc argv)))
         (dotimes (n argc)
           (cffi:foreign-string-free (cffi:mem-aref argv :pointer n)))))))
 

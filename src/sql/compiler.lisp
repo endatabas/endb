@@ -402,6 +402,13 @@
     (t ast)))
 
 (defvar *verbose* nil)
+(defvar *interpreter-from-limit* 8)
+
+(defun %interpretp (ast)
+  (and (listp ast)
+       (eq :select (first ast))
+       (> (length (cdr (getf ast :from)))
+          *interpreter-from-limit*)))
 
 (defun compile-sql (ctx ast)
   (let* ((db-sym (gensym))
@@ -413,11 +420,17 @@
       (when *verbose*
         (pprint ast)
         (pprint src))
-      (eval `(lambda (,db-sym)
-               (declare (optimize (speed 3) (safety 0) (debug 0)))
-               (declare (ignorable ,db-sym))
-               (let ((,index-sym (make-hash-table :test 'equal)))
-                 (declare (ignorable ,index-sym))
-                 ,(if projection
+      (let* ((src (if projection
                       `(values ,src ,(cons 'list (mapcar #'symbol-name projection)))
-                      src)))))))
+                      src))
+             (src `(lambda (,db-sym)
+                     (declare (optimize (speed 3) (safety 0) (debug 0)))
+                     (declare (ignorable ,db-sym))
+                     (let ((,index-sym (make-hash-table :test 'equal)))
+                       (declare (ignorable ,index-sym))
+                       ,src))))
+        #+sbcl (let ((sb-ext:*evaluator-mode* (if (%interpretp ast)
+                                                  :interpret
+                                                  :compile)))
+                 (eval src))
+        #-sbcl (eval src)))))
