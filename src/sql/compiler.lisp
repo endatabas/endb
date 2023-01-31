@@ -66,31 +66,9 @@
   src
   vars)
 
-(defvar *predicate-pushdown-ops*
-  '(endb/sql/expr:sql-=
-    endb/sql/expr:sql-is
-    endb/sql/expr:sql-in
-    endb/sql/expr:sql-<
-    endb/sql/expr:sql->
-    endb/sql/expr:sql-<=
-    endb/sql/expr:sql->=))
-
 (defun %binary-predicate-p (x)
   (and (listp x)
        (= 3 (length x))))
-
-(defun %literalp (x)
-  (and (atom x)
-       (not (symbolp x))))
-
-(defun %literal-list-p (xs)
-  (and (listp xs)
-       (or (and (equal 'list (first xs))
-                (every #'%literalp (rest xs)))
-           (equal 'quote (first xs)))))
-
-(defun %scan-predicate-p (local-vars clause-vars)
-  (subsetp clause-vars local-vars))
 
 (defun %equi-join-predicate-p (vars clause)
   (when (%binary-predicate-p clause)
@@ -99,16 +77,6 @@
       (and (equal 'endb/sql/expr:sql-= op)
            (member lhs vars)
            (member rhs vars)))))
-
-(defun %pushdown-predicate-p (vars clause)
-  (when (%binary-predicate-p clause)
-    (destructuring-bind (op lhs rhs)
-        clause
-      (and (member op *predicate-pushdown-ops* :test 'equal)
-           (or (member lhs vars)
-               (%literalp lhs))
-           (or (member rhs vars)
-               (%literalp rhs))))))
 
 (defun %join->cl (ctx new-vars equi-join-clauses table-src)
   (multiple-value-bind (in-vars out-vars)
@@ -168,12 +136,11 @@
          (vars (append new-vars vars)))
     (multiple-value-bind (scan-clauses equi-join-clauses pushdown-clauses)
         (loop for c in where-clauses
-              for src = (where-clause-src c)
-              if (%scan-predicate-p new-vars (where-clause-vars c))
+              if (subsetp (where-clause-vars c) new-vars)
                 collect c into scan-clauses
-              else if (%equi-join-predicate-p vars src)
+              else if (%equi-join-predicate-p vars (where-clause-src c))
                      collect c into equi-join-clauses
-              else if (%pushdown-predicate-p vars src)
+              else if (subsetp (where-clause-vars c) vars)
                      collect c into pushdown-clauses
               finally
                  (return (values scan-clauses equi-join-clauses pushdown-clauses)))
@@ -257,7 +224,8 @@
                                                      collect (let* ((vars ())
                                                                     (ctx (cons (cons :on-var-access
                                                                                      (cons (lambda (x)
-                                                                                             (push x vars))
+                                                                                             (when (assoc (car x) ctx)
+                                                                                               (push (cdr x) vars)))
                                                                                            (cdr (assoc :on-var-access ctx))))
                                                                                ctx)))
                                                                (make-where-clause :src (ast->cl ctx clause)
@@ -267,7 +235,7 @@
                                                      (/ (from-table-size x)
                                                         (1+ (loop for clause in where-clauses
                                                                   for src = (where-clause-src clause)
-                                                                  when (%scan-predicate-p (from-table-vars x) (where-clause-vars clause))
+                                                                  when (subsetp (where-clause-vars clause) (from-table-vars x))
                                                                     sum (case (first src)
                                                                           (endb/sql/expr:sql-= 10)
                                                                           (endb/sql/expr:sql-in 2)
@@ -427,10 +395,10 @@
                                collect (ast->cl ctx ast)))))))
     ((and (symbolp ast)
           (not (keywordp ast)))
-     (let ((var (cdr (assoc (%compiler-symbol (symbol-name ast)) ctx))))
+     (let ((symbol-var-pair (assoc (%compiler-symbol (symbol-name ast)) ctx)))
        (dolist (cb (cdr (assoc :on-var-access ctx)))
-         (funcall cb var))
-       var))
+         (funcall cb symbol-var-pair))
+       (cdr symbol-var-pair)))
     (t ast)))
 
 (defvar *verbose* nil)
