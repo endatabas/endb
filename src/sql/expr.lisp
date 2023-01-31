@@ -127,10 +127,14 @@
 
 (declaim (ftype (function (sql-value sequence) sql-boolean) sql-in))
 (defun sql-in (item xs)
-  (reduce (lambda (x y)
-            (sql-or x (sql-= y item)))
-          xs
-          :initial-value nil))
+  (block in
+    (reduce (lambda (x y)
+              (let ((result (sql-= y item)))
+                (if (eq t result)
+                    (return-from in result)
+                    (sql-or x result))))
+            xs
+            :initial-value nil)))
 
 (declaim (ftype (function (sql-number sql-number sql-number) sql-boolean) sql-between))
 (defun sql-between (expr lhs rhs)

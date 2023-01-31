@@ -81,8 +81,9 @@
 
 (defun %literal-list-p (xs)
   (and (listp xs)
-       (equal 'list (first xs))
-       (every #'%literalp (rest xs))))
+       (or (and (equal 'list (first xs))
+                (every #'%literalp (rest xs)))
+           (equal 'quote (first xs)))))
 
 (defun %scan-predicate-p (local-vars clause)
   (when (%binary-predicate-p clause)
@@ -261,7 +262,11 @@
                                                    (lambda (x)
                                                      (/ (from-table-size x)
                                                         (1+ (loop for clause in where-clauses
-                                                                  count (%scan-predicate-p (from-table-vars x) clause)))))))
+                                                                  when (%scan-predicate-p (from-table-vars x) clause)
+                                                                    sum (ecase (first clause)
+                                                                          (endb/sql/expr:sql-= 10)
+                                                                          (endb/sql/expr:sql-in 2)
+                                                                          (t 1))))))))
                                 (limit-offset (unless order-by
                                                 limit))
                                 (group-by-needed-p (or group-by-p havingp (plusp (hash-table-count aggregate-table)))))
@@ -405,8 +410,16 @@
     ((%ast-function-call-p ast)
      (apply #'sql->cl ctx ast))
     ((listp ast)
-     (cons 'list (loop for ast in ast
-                       collect (ast->cl ctx ast))))
+     (cond
+       ((some #'%ast-function-call-p ast)
+        (cons 'list (loop for ast in ast
+                          collect (ast->cl ctx ast))))
+       ((assoc :quote ctx)
+        (loop for ast in ast
+              collect (ast->cl ctx ast)))
+       (t (let ((ctx (cons (cons :quote t) ctx)))
+            (list 'quote (loop for ast in ast
+                               collect (ast->cl ctx ast)))))))
     ((and (symbolp ast)
           (not (keywordp ast)))
      (cdr (assoc (%compiler-symbol (symbol-name ast)) ctx)))
