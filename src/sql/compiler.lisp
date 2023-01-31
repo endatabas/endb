@@ -1,7 +1,7 @@
 (defpackage :endb/sql/compiler
   (:use :cl)
   (:import-from :endb/sql/expr)
-  (:export #:compile-sql))
+  (:export #:compile-sql #:*verbose*))
 (in-package :endb/sql/compiler)
 
 (defgeneric sql->cl (ctx type &rest args))
@@ -62,6 +62,10 @@
   size
   projection)
 
+(defstruct where-clause
+  src
+  vars)
+
 (defvar *predicate-pushdown-ops*
   '(endb/sql/expr:sql-=
     endb/sql/expr:sql-is
@@ -85,17 +89,8 @@
                 (every #'%literalp (rest xs)))
            (equal 'quote (first xs)))))
 
-(defun %scan-predicate-p (local-vars clause)
-  (when (%binary-predicate-p clause)
-    (destructuring-bind (op lhs rhs)
-        clause
-      (let ((lhs-var-p (member lhs local-vars))
-            (rhs-var-p (member rhs local-vars)))
-        (and (member op *predicate-pushdown-ops* :test 'equal)
-             (or (and lhs-var-p (%literalp rhs))
-                 (and lhs-var-p (%literal-list-p rhs))
-                 (and (%literalp lhs) rhs-var-p)
-                 (and lhs-var-p rhs-var-p)))))))
+(defun %scan-predicate-p (local-vars clause-vars)
+  (subsetp clause-vars local-vars))
 
 (defun %equi-join-predicate-p (vars clause)
   (when (%binary-predicate-p clause)
@@ -117,7 +112,7 @@
 
 (defun %join->cl (ctx new-vars equi-join-clauses table-src)
   (multiple-value-bind (in-vars out-vars)
-      (loop for (nil lhs rhs) in equi-join-clauses
+      (loop for (nil lhs rhs) in (mapcar #'where-clause-src equi-join-clauses)
             if (member lhs new-vars)
               collect lhs into out-vars
             else
@@ -163,7 +158,8 @@
   (let* ((from-table (or (find-if (lambda (x)
                                     (loop with vars = (append (from-table-vars x) vars)
                                           for c in where-clauses
-                                          thereis (%equi-join-predicate-p vars c)))
+                                          for src = (where-clause-src c)
+                                          thereis (%equi-join-predicate-p vars src)))
                                   from-tables)
                          (first from-tables)))
          (from-tables (remove from-table from-tables))
@@ -172,11 +168,12 @@
          (vars (append new-vars vars)))
     (multiple-value-bind (scan-clauses equi-join-clauses pushdown-clauses)
         (loop for c in where-clauses
-              if (%scan-predicate-p new-vars c)
+              for src = (where-clause-src c)
+              if (%scan-predicate-p new-vars (where-clause-vars c))
                 collect c into scan-clauses
-              else if (%equi-join-predicate-p vars c)
+              else if (%equi-join-predicate-p vars src)
                      collect c into equi-join-clauses
-              else if (%pushdown-predicate-p vars c)
+              else if (%pushdown-predicate-p vars src)
                      collect c into pushdown-clauses
               finally
                  (return (values scan-clauses equi-join-clauses pushdown-clauses)))
@@ -187,7 +184,7 @@
                          (let ((table-src (if scan-clauses
                                               `(loop for ,new-vars
                                                        in ,table-src
-                                                     ,@(loop for clause in scan-clauses append `(when (eq t ,clause)))
+                                                     ,@(loop for clause in scan-clauses append `(when (eq t ,(where-clause-src clause))))
                                                      collect (list ,@new-vars))
                                               table-src)))
                            (%join->cl ctx new-vars equi-join-clauses table-src))
@@ -195,10 +192,10 @@
                ,@(loop for clause in (if equi-join-clauses
                                          pushdown-clauses
                                          (append scan-clauses pushdown-clauses))
-                       append `(when (eq t ,clause)))
+                       append `(when (eq t ,(where-clause-src clause))))
                ,@(if from-tables
                      `(do ,(%from->cl ctx from-tables where-clauses selected-src limit-offset vars))
-                     (append `(,@(loop for clause in where-clauses append `(when (eq t ,clause))))
+                     (append `(,@(loop for clause in where-clauses append `(when (eq t ,(where-clause-src clause)))))
                              (%selection-with-limit-offset->cl ctx selected-src limit-offset))))))))
 
 (defun %group-by->cl (ctx from-tables where-clauses selected-src limit-offset group-by having)
@@ -257,13 +254,21 @@
                                                                      collect (ast->cl ctx p))
                                                                (list (ast->cl ctx expr)))))
                                 (where-clauses (loop for clause in (%and-clauses where)
-                                                     collect (ast->cl ctx clause)))
+                                                     collect (let* ((vars ())
+                                                                    (ctx (cons (cons :on-var-access
+                                                                                     (cons (lambda (x)
+                                                                                             (push x vars))
+                                                                                           (cdr (assoc :on-var-access ctx))))
+                                                                               ctx)))
+                                                               (make-where-clause :src (ast->cl ctx clause)
+                                                                                  :vars vars))))
                                 (from-tables (sort from-tables-acc #'< :key
                                                    (lambda (x)
                                                      (/ (from-table-size x)
                                                         (1+ (loop for clause in where-clauses
-                                                                  when (%scan-predicate-p (from-table-vars x) clause)
-                                                                    sum (ecase (first clause)
+                                                                  for src = (where-clause-src clause)
+                                                                  when (%scan-predicate-p (from-table-vars x) (where-clause-vars clause))
+                                                                    sum (case (first src)
                                                                           (endb/sql/expr:sql-= 10)
                                                                           (endb/sql/expr:sql-in 2)
                                                                           (t 1))))))))
@@ -422,8 +427,13 @@
                                collect (ast->cl ctx ast)))))))
     ((and (symbolp ast)
           (not (keywordp ast)))
-     (cdr (assoc (%compiler-symbol (symbol-name ast)) ctx)))
+     (let ((var (cdr (assoc (%compiler-symbol (symbol-name ast)) ctx))))
+       (dolist (cb (cdr (assoc :on-var-access ctx)))
+         (funcall cb var))
+       var))
     (t ast)))
+
+(defvar *verbose* nil)
 
 (defun compile-sql (ctx ast)
   (let* ((db-sym (gensym))
@@ -432,6 +442,9 @@
          (ctx (cons (cons :index-sym index-sym) ctx)))
     (multiple-value-bind (src projection)
         (ast->cl ctx ast)
+      (when *verbose*
+        (pprint ast)
+        (pprint src))
       (eval `(lambda (,db-sym)
                (declare (optimize (speed 3) (safety 0) (debug 0)))
                (declare (ignorable ,db-sym))

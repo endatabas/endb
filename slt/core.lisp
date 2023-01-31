@@ -253,10 +253,10 @@
                      (cffi:foreign-string-alloc (elt args n))))
              (setf (cffi:mem-aref argv :pointer argc)
                    (cffi:null-pointer))
-             #+sbcl (if (uiop:getenv "SB_INTERPRET")
-                        (let ((sb-ext:*evaluator-mode* :interpret))
-                          (sqllogictest-main argc argv))
-                        (sqllogictest-main argc argv))
+             #+sbcl (let ((sb-ext:*evaluator-mode* (if (uiop:getenv "SB_INTERPRET")
+                                                       :interpret
+                                                       :compile)))
+                      (sqllogictest-main argc argv))
              #-sbcl (sqllogictest-main argc argv))
         (dotimes (n argc)
           (cffi:foreign-string-free (cffi:mem-aref argv :pointer n)))))))
@@ -270,16 +270,17 @@
 
 (defun main ()
   (unwind-protect
-       (uiop:quit
-        (let ((exit-code 0)
-              (args (cons (uiop:argv0) (uiop:command-line-arguments))))
-          #+sbcl (if (uiop:getenv "SB_SPROF")
-                     (progn (sb-sprof:with-profiling (:max-samples 1000
-                                                      :report :flat
-                                                      :loop nil)
-                              (setq exit-code (%slt-main args)))
-                            exit-code)
-                     (%slt-main args))
-          #-sbcl (%slt-main args)))
+       (let ((endb/sql/compiler:*verbose* (uiop:getenv "ENDB_VERBOSE")))
+         (uiop:quit
+          (let ((exit-code 0)
+                (args (cons (uiop:argv0) (uiop:command-line-arguments))))
+            #+sbcl (if (uiop:getenv "SB_SPROF")
+                       (progn (sb-sprof:with-profiling (:max-samples 1000
+                                                        :report :flat
+                                                        :loop nil)
+                                (setq exit-code (%slt-main args)))
+                              exit-code)
+                       (%slt-main args))
+            #-sbcl (%slt-main args))))
     (%free-db-engine *sqlite-db-engine*)
     (%free-db-engine *endb-db-engine*)))
