@@ -289,3 +289,7 @@
             #-sbcl (%slt-main args))))
     (%free-db-engine *sqlite-db-engine*)
     (%free-db-engine *endb-db-engine*)))
+
+(defun slt-sanity (&key (engine "endb"))
+  (loop for idx from 1 upto 5
+        do (time (slt-test (format nil "sqllogictest/test/select~D.test" idx) :engine engine))))
