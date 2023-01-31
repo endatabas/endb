@@ -6,38 +6,31 @@
 
 (defgeneric sql->cl (ctx type &rest args))
 
-(defun %compiler-symbol (x)
-  (intern (if (symbolp x)
-              (symbol-name x)
-              x)
-          :endb/sql/compiler))
-
 (defun %anonymous-column-name (idx)
-  (%compiler-symbol (concatenate 'string "column" (princ-to-string idx))))
+  (concatenate 'string "column" (princ-to-string idx)))
 
 (defun %unqualified-column-name (column)
-  (let* ((column-str (symbol-name column))
-         (idx (position #\. column-str)))
+  (let* ((idx (position #\. column)))
     (if idx
-        (%compiler-symbol (subseq column-str (1+ idx)))
+        (subseq column (1+ idx))
         column)))
 
 (defun %qualified-column-name (table-alias column)
-  (%compiler-symbol (concatenate 'string (symbol-name table-alias) "." (symbol-name column))))
+  (concatenate 'string table-alias "." column))
 
 (defun %select-projection (select-list select-star-projection)
   (loop for idx from 1
         for (expr . alias) in select-list
         append (cond
                  ((eq :star expr) select-star-projection)
-                 (alias (list alias))
-                 ((symbolp expr) (list (%unqualified-column-name expr)))
+                 (alias (list (symbol-name alias)))
+                 ((symbolp expr) (list (%unqualified-column-name (symbol-name expr))))
                  (t (list (%anonymous-column-name idx))))))
 
 (defun %base-table->cl (ctx table)
   (let ((db-table (gethash (symbol-name table) (cdr (assoc :db ctx)))))
     (values `(endb/sql/expr:base-table-rows (gethash ,(symbol-name table) ,(cdr (assoc :db-sym ctx))))
-            (mapcar #'%compiler-symbol (endb/sql/expr:base-table-columns db-table))
+            (endb/sql/expr:base-table-columns db-table)
             ()
             (length (endb/sql/expr:base-table-rows db-table)))))
 
@@ -204,12 +197,13 @@
                  (multiple-value-bind (table-src projection free-vars table-size)
                      (if (symbolp table-or-subquery)
                          (%base-table->cl ctx table-or-subquery)
-                         (ast->cl-with-free-vars ctx table-or-subquery))
-                   (let* ((qualified-projection (loop for column in projection
+                         (%ast->cl-with-free-vars ctx table-or-subquery))
+                   (let* ((table-alias (symbol-name table-alias))
+                          (qualified-projection (loop for column in projection
                                                       collect (%qualified-column-name table-alias column)))
                           (env-extension (loop for column in projection
                                                for qualified-column = (%qualified-column-name table-alias column)
-                                               for column-sym = (gensym (concatenate 'string (symbol-name qualified-column) "__"))
+                                               for column-sym = (gensym (concatenate 'string qualified-column "__"))
                                                append (list (cons column column-sym) (cons qualified-column column-sym))))
                           (ctx (append env-extension ctx))
                           (from-table (make-from-table :src table-src
@@ -226,11 +220,11 @@
                                 (selected-src (loop for (expr) in select-list
                                                     append (if (eq :star expr)
                                                                (loop for p in full-projection
-                                                                     collect (ast->cl ctx p))
+                                                                     collect (ast->cl ctx (make-symbol p)))
                                                                (list (ast->cl ctx expr)))))
                                 (where-clauses (loop for clause in (%and-clauses where)
                                                      collect (multiple-value-bind (src projection free-vars)
-                                                                 (ast->cl-with-free-vars ctx clause)
+                                                                 (%ast->cl-with-free-vars ctx clause)
                                                                (declare (ignore projection))
                                                                (make-where-clause :src src
                                                                                   :free-vars free-vars))))
@@ -399,17 +393,17 @@
                                collect (ast->cl ctx ast)))))))
     ((and (symbolp ast)
           (not (keywordp ast)))
-     (let ((symbol-var-pair (assoc (%compiler-symbol (symbol-name ast)) ctx)))
+     (let ((symbol-var-pair (assoc (symbol-name ast) ctx :test 'equal)))
        (dolist (cb (cdr (assoc :on-var-access ctx)))
          (funcall cb symbol-var-pair))
        (cdr symbol-var-pair)))
     (t ast)))
 
-(defun ast->cl-with-free-vars (ctx ast)
+(defun %ast->cl-with-free-vars (ctx ast)
   (let* ((vars ())
          (ctx (cons (cons :on-var-access
                           (cons (lambda (x)
-                                  (when (assoc (car x) ctx)
+                                  (when (assoc (car x) ctx :test 'equal)
                                     (pushnew (cdr x) vars)))
                                 (cdr (assoc :on-var-access ctx))))
                     ctx)))
@@ -439,7 +433,7 @@
         (pprint ast)
         (pprint src))
       (let* ((src (if projection
-                      `(values ,src ,(list 'quote (mapcar #'symbol-name projection)))
+                      `(values ,src ,(list 'quote projection))
                       src))
              (src `(lambda (,db-sym)
                      (declare (optimize (speed 3) (safety 0) (debug 0)))
