@@ -146,19 +146,19 @@
 
 (declaim (ftype (function (sequence sequence) sequence) sql-union))
 (defun sql-union (lhs rhs)
-  (%sql-distinct (union lhs rhs :test 'equal)))
+  (%sql-distinct (nunion lhs rhs :test 'equal)))
 
 (declaim (ftype (function (sequence sequence) sequence) sql-union-all))
 (defun sql-union-all (lhs rhs)
-  (append lhs rhs))
+  (nconc lhs rhs))
 
 (declaim (ftype (function (sequence sequence) sequence) sql-except))
 (defun sql-except (lhs rhs)
-  (%sql-distinct (set-difference lhs rhs :test 'equal)))
+  (%sql-distinct (nset-difference lhs rhs :test 'equal)))
 
 (declaim (ftype (function (sequence sequence) sequence) sql-intersect))
 (defun sql-intersect (lhs rhs)
-  (%sql-distinct (intersection lhs rhs :test 'equal)))
+  (%sql-distinct (nintersection lhs rhs :test 'equal)))
 
 (declaim (ftype (function (sql-number) sql-number) sql-abs))
 (defun sql-abs (x)
@@ -188,7 +188,7 @@
 
 (declaim (ftype (function (sequence &key (:distinct boolean)) sql-number) sql-avg))
 (defun sql-avg (xs &key distinct)
-  (let ((xs-no-nulls (remove :null (if distinct
+  (let ((xs-no-nulls (delete :null (if distinct
                                        (%sql-distinct xs)
                                        xs))))
     (if xs-no-nulls
@@ -197,7 +197,7 @@
 
 (declaim (ftype (function (sequence &key (:distinct boolean)) sql-number) sql-sum))
 (defun sql-sum (xs &key distinct)
-  (let ((xs-no-nulls (remove :null (if distinct
+  (let ((xs-no-nulls (delete :null (if distinct
                                        (%sql-distinct xs)
                                        xs))))
     (if xs-no-nulls
@@ -206,7 +206,7 @@
 
 (declaim (ftype (function (sequence &key (:distinct boolean)) sql-number) sql-min))
 (defun sql-min (xs &key distinct)
-  (let ((xs-no-nulls (remove :null (if distinct
+  (let ((xs-no-nulls (delete :null (if distinct
                                        (%sql-distinct xs)
                                        xs))))
     (if xs-no-nulls
@@ -220,7 +220,7 @@
 
 (declaim (ftype (function (sequence &key (:distinct boolean)) sql-number) sql-max))
 (defun sql-max (xs &key distinct)
-  (let ((xs-no-nulls (remove :null (if distinct
+  (let ((xs-no-nulls (delete :null (if distinct
                                        (%sql-distinct xs)
                                        xs))))
     (if xs-no-nulls
@@ -234,7 +234,7 @@
 
 (declaim (ftype (function (sequence) sequence) %sql-distinct))
 (defun %sql-distinct (rows)
-  (remove-duplicates rows :test 'equal))
+  (delete-duplicates rows :test 'equal))
 
 (declaim (ftype (function (sequence cons) sequence) %sql-limit))
 (defun %sql-limit (rows limit-offset)
