@@ -81,7 +81,7 @@
            (member rhs vars)))))
 
 (defun %join->cl (ctx from-table scan-clauses equi-join-clauses)
-  (with-slots (src vars)
+  (with-slots (src vars free-vars)
       from-table
     (multiple-value-bind (in-vars out-vars)
         (loop for (nil lhs rhs) in (mapcar #'where-clause-src equi-join-clauses)
@@ -102,10 +102,10 @@
                             collect (list ,@vars))
                      src))
             (index-table-sym (gensym))
-            (index-key-sym (gensym)))
+            (index-key-form `(list ',(gensym) ,@free-vars)))
         `(gethash (list ,@in-vars)
-                  (or (gethash ',index-key-sym ,(cdr (assoc :index-sym ctx)))
-                      (loop with ,index-table-sym = (setf (gethash ',index-key-sym ,(cdr (assoc :index-sym ctx)))
+                  (or (gethash ,index-key-form ,(cdr (assoc :index-sym ctx)))
+                      (loop with ,index-table-sym = (setf (gethash ,index-key-form ,(cdr (assoc :index-sym ctx)))
                                                           (make-hash-table :test 'equal))
                             for ,vars
                               in ,src

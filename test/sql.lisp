@@ -85,6 +85,11 @@
       (is (equal '((103)) result))
       (is (equal '("column1") columns)))
 
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT t1.a, x.a FROM t1, t1 AS x WHERE t1.a = x.a")
+      (is (equal '((103 103)) result))
+      (is (equal '("a" "a") columns)))
+
     (execute-sql db "INSERT INTO t1(e,c,b,d,a) VALUES(103,102,102,101,104), (NULL,102,NULL,101,104)")
 
     (multiple-value-bind (result columns)
