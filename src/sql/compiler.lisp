@@ -405,10 +405,12 @@
 (defvar *interpreter-from-limit* 8)
 
 (defun %interpretp (ast)
-  (and (listp ast)
-       (eq :select (first ast))
-       (> (length (cdr (getf ast :from)))
-          *interpreter-from-limit*)))
+  (when (listp ast)
+    (case (first ast)
+      ((:create-table :create-index) t)
+      (:insert (eq :values (first (third ast))))
+      (:select (> (length (cdr (getf ast :from)))
+                  *interpreter-from-limit*)))))
 
 (defun compile-sql (ctx ast)
   (let* ((db-sym (gensym))
@@ -421,7 +423,7 @@
         (pprint ast)
         (pprint src))
       (let* ((src (if projection
-                      `(values ,src ,(cons 'list (mapcar #'symbol-name projection)))
+                      `(values ,src ,(list 'quote (mapcar #'symbol-name projection)))
                       src))
              (src `(lambda (,db-sym)
                      (declare (optimize (speed 3) (safety 0) (debug 0)))
@@ -431,6 +433,6 @@
                        ,src))))
         #+sbcl (let ((sb-ext:*evaluator-mode* (if (%interpretp ast)
                                                   :interpret
-                                                  :compile)))
+                                                  sb-ext:*evaluator-mode*)))
                  (eval src))
         #-sbcl (eval src)))))
