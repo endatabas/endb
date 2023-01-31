@@ -38,6 +38,7 @@
   (let ((db-table (gethash (symbol-name table) (cdr (assoc :db ctx)))))
     (values `(endb/sql/expr:base-table-rows (gethash ,(symbol-name table) ,(cdr (assoc :db-sym ctx))))
             (mapcar #'%compiler-symbol (endb/sql/expr:base-table-columns db-table))
+            ()
             (length (endb/sql/expr:base-table-rows db-table)))))
 
 (defun %wrap-with-order-by-and-limit (src order-by limit)
@@ -59,12 +60,13 @@
 (defstruct from-table
   src
   vars
+  free-vars
   size
   projection)
 
 (defstruct where-clause
   src
-  vars)
+  free-vars)
 
 (defun %binary-predicate-p (x)
   (and (listp x)
@@ -131,24 +133,25 @@
         `(do (push (list ,@selected-src) ,acc-sym)))))
 
 (defun %from->cl (ctx from-tables where-clauses selected-src &optional limit-offset vars)
-  (let* ((from-table (or (find-if (lambda (x)
+  (let* ((candidate-tables (remove-if-not (lambda (x)
+                                            (subsetp (from-table-free-vars x) vars))
+                                          from-tables))
+         (from-table (or (find-if (lambda (x)
                                     (loop with vars = (append (from-table-vars x) vars)
                                           for c in where-clauses
-                                          for src = (where-clause-src c)
-                                          thereis (%equi-join-predicate-p vars src)))
-                                  from-tables)
-                         (first from-tables)))
+                                          thereis (%equi-join-predicate-p vars (where-clause-src c))))
+                                  candidate-tables)
+                         (first candidate-tables)))
          (from-tables (remove from-table from-tables))
          (new-vars (from-table-vars from-table))
-         (table-src (from-table-src from-table))
          (vars (append new-vars vars)))
     (multiple-value-bind (scan-clauses equi-join-clauses pushdown-clauses)
         (loop for c in where-clauses
-              if (subsetp (where-clause-vars c) new-vars)
+              if (subsetp (where-clause-free-vars c) new-vars)
                 collect c into scan-clauses
               else if (%equi-join-predicate-p vars (where-clause-src c))
                      collect c into equi-join-clauses
-              else if (subsetp (where-clause-vars c) vars)
+              else if (subsetp (where-clause-free-vars c) vars)
                      collect c into pushdown-clauses
               finally
                  (return (values scan-clauses equi-join-clauses pushdown-clauses)))
@@ -157,7 +160,7 @@
         `(loop for ,new-vars
                  in ,(if equi-join-clauses
                          (%join->cl ctx from-table scan-clauses equi-join-clauses)
-                         table-src)
+                         (from-table-src from-table))
                ,@(loop for clause in (if equi-join-clauses
                                          pushdown-clauses
                                          (append scan-clauses pushdown-clauses))
@@ -196,10 +199,10 @@
     (labels ((select->cl (ctx from-ast from-tables-acc)
                (destructuring-bind (table-or-subquery . table-alias)
                    (first from-ast)
-                 (multiple-value-bind (table-src projection table-size)
+                 (multiple-value-bind (table-src projection free-vars table-size)
                      (if (symbolp table-or-subquery)
                          (%base-table->cl ctx table-or-subquery)
-                         (ast->cl ctx table-or-subquery))
+                         (ast->cl-with-free-vars ctx table-or-subquery))
                    (let* ((qualified-projection (loop for column in projection
                                                       collect (%qualified-column-name table-alias column)))
                           (env-extension (loop for column in projection
@@ -209,6 +212,7 @@
                           (ctx (append env-extension ctx))
                           (from-table (make-from-table :src table-src
                                                        :vars (remove-duplicates (mapcar #'cdr env-extension))
+                                                       :free-vars free-vars
                                                        :size (or table-size most-positive-fixnum)
                                                        :projection qualified-projection))
                           (from-tables-acc (append from-tables-acc (list from-table))))
@@ -223,21 +227,17 @@
                                                                      collect (ast->cl ctx p))
                                                                (list (ast->cl ctx expr)))))
                                 (where-clauses (loop for clause in (%and-clauses where)
-                                                     collect (let* ((vars ())
-                                                                    (ctx (cons (cons :on-var-access
-                                                                                     (cons (lambda (x)
-                                                                                             (when (assoc (car x) ctx)
-                                                                                               (push (cdr x) vars)))
-                                                                                           (cdr (assoc :on-var-access ctx))))
-                                                                               ctx)))
-                                                               (make-where-clause :src (ast->cl ctx clause)
-                                                                                  :vars vars))))
+                                                     collect (multiple-value-bind (src projection free-vars)
+                                                                 (ast->cl-with-free-vars ctx clause)
+                                                               (declare (ignore projection))
+                                                               (make-where-clause :src src
+                                                                                  :free-vars free-vars))))
                                 (from-tables (sort from-tables-acc #'< :key
                                                    (lambda (x)
                                                      (/ (from-table-size x)
                                                         (1+ (loop for clause in where-clauses
                                                                   for src = (where-clause-src clause)
-                                                                  when (subsetp (where-clause-vars clause) (from-table-vars x))
+                                                                  when (subsetp (where-clause-free-vars clause) (from-table-vars x))
                                                                     sum (case (first src)
                                                                           (endb/sql/expr:sql-= 10)
                                                                           (endb/sql/expr:sql-in 2)
@@ -402,6 +402,18 @@
          (funcall cb symbol-var-pair))
        (cdr symbol-var-pair)))
     (t ast)))
+
+(defun ast->cl-with-free-vars (ctx ast)
+  (let* ((vars ())
+         (ctx (cons (cons :on-var-access
+                          (cons (lambda (x)
+                                  (when (assoc (car x) ctx)
+                                    (pushnew (cdr x) vars)))
+                                (cdr (assoc :on-var-access ctx))))
+                    ctx)))
+    (multiple-value-bind (src projection)
+        (ast->cl ctx ast)
+      (values src projection vars))))
 
 (defvar *verbose* nil)
 (defvar *interpreter-from-limit* 8)
