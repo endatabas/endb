@@ -1,0 +1,17 @@
+FROM docker.io/fukamachi/sbcl:latest-alpine AS build-env
+
+RUN apk add --no-cache gcc musl-dev sqlite-libs
+
+WORKDIR /root/.roswell/local-projects/endb
+COPY . /root/.roswell/local-projects/endb
+
+RUN make clean test slt-test target/endb
+
+FROM alpine
+
+RUN apk add --no-cache zstd-dev
+
+WORKDIR /app
+COPY --from=build-env /root/.roswell/local-projects/endb/target/endb /app
+
+CMD ["./endb"]
