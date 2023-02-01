@@ -481,11 +481,12 @@
 
 (defrule ordering-term
     (and expr (? (and ws (or (~ "ASC") (~ "DESC")))))
-  (:destructure (expr &optional ws (direction "ASC"))
+  (:destructure (expr &optional ws direction)
     (declare (ignore ws))
-    (cons expr (ecase direction
-                 ("ASC" :asc)
-                 ("DESC" :desc)))))
+    (cons expr (if (or (null direction)
+                       (equal "ASC" direction))
+                   :asc
+                   :desc))))
 
 (defrule ordering-term-list
     (and ordering-term (* (and (? ws) comma (? ws) ordering-term)))
