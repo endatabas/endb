@@ -256,7 +256,7 @@
                    (cffi:null-pointer))
              #+sbcl (let ((sb-ext:*evaluator-mode* (if (uiop:getenv "SB_INTERPRET")
                                                        :interpret
-                                                       :compile)))
+                                                       sb-ext:*evaluator-mode*)))
                       (if (uiop:getenv "SLT_TIMING")
                           (time (sqllogictest-main argc argv))
                           (sqllogictest-main argc argv)))
