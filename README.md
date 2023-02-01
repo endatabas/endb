@@ -54,7 +54,7 @@ Install gcc or Clang which is needed to build the test runner.
 On MacOS, Clang will be automatically installed. On Ubuntu:
 
 ```bash
-sudo apt install gcc
+sudo apt install build-essential libsqlite3-0
 ```
 
 Build and run sanity checks. We patch the build slightly to inject our own database engine:
