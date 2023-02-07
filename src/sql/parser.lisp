@@ -200,6 +200,7 @@
         :true
         :false
         (:- term)
+        (:+ term)
         (:|(| expr :|)| #'%k-2-3))
 
   (id-list (id)
