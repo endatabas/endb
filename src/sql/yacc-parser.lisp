@@ -22,7 +22,7 @@
               "NULL" "TRUE" "FALSE"
               "CREATE" "TABLE" "INSERT" "INTO"
               "CASE" "WHEN" "THEN" "ELSE" "END"
-              "AND" "OR" "NOT" "EXISTS" "BETWEEN" "IS"
+              "AND" "OR" "NOT" "EXISTS" "BETWEEN" "IS" "IN"
               "UNION" "EXCEPT" "INTERSECT"))
   (setf (gethash kw *kw-table*) (intern kw :keyword)))
 
@@ -38,31 +38,117 @@
     (declare (ignore a c))
     b)
 
+  (defun %rcons2 (a b)
+    (append a (list b)))
+
   (defun %rcons3 (a b c)
     (declare (ignore b))
     (append a (list c)))
 
   (defun %del-2 (a b c)
     (declare (ignore b))
-    (list a c)))
+    (list a c))
+
+  (defvar *aggregate-functions*)
+  (setf *aggregate-functions* '("COUNT" "AVG" "SUM" "MIN" "MAX")))
 
 (yacc:define-parser *sql-parser*
   (:start-symbol sql-stmt)
-  (:terminals (id flt int str :* :+ :- :/ :% :< :> :<= :>= := :<> :|,| :|(| :|)|
+  (:terminals (id flt int str :* :+ :- :/ :|| :% :< :> :<= :>= := :<> :|,| :|(| :|)|
                                  :select :all :distinct :as :from :where :values
                               :order :by :asc :desc :group :having :limit :offset
                               :null :true :false
                                  :create :table :insert :into
                                  :case :when :then :else :end
-                              :and :or :not :exists :between :is
-                              :union :except :intersect))
-  (:precedence ((:left :* :/ :%) (:left :+ :-)))
+                              :and :or :not :exists :between :is :in
+                                 :union :except :intersect))
+  (:precedence ((:left :||) (:left :* :/ :%) (:left :+ :-)
+                (:left :< :<= :> :>=)
+                (:left := :<> :is :not)
+                (:left :and)
+                (:left :or)
+                (:left :between :exists :in)))
+
+  (in-expr
+   (expr :in subquery #'%i2p)
+   (expr :in :|(| expr-list :|)| (lambda (expr in lb expr-list rb)
+                                   (declare (ignore in lb rb))
+                                   (list :in expr expr-list))))
+
+  (is-expr
+   (expr :is expr (lambda (expr-1 is expr-2)
+                    (declare (ignore is))
+                    (if (and (listp expr-2)
+                             (eq :not (first expr-2)))
+                        (list :not (list :is expr-1 (second expr-2)))
+                        (list :is expr-1 expr-2)))))
+
+  (between-expr
+   (expr :between between-and-expr (lambda (expr between between-and-expr)
+                                     (declare (ignore between))
+                                     (list :between expr (second between-and-expr) (third between-and-expr)))))
+
+  (function-expr
+   (id :|(| all-distinct expr-list :|)| (lambda (id lb all-distinct expr-list rb)
+                                          (declare (ignore lb rb))
+                                          (let ((fn-type (if (member (symbol-name id) *aggregate-functions* :test 'equal)
+                                                             :aggregate-function
+                                                             :function)))
+                                            (append (list fn-type id expr-list)
+                                                    (when (eq :distinct all-distinct)
+                                                      (list :distinct t)))))))
+
+  (case-when-list-element
+   (:when expr :then expr (lambda (when expr-1 then expr-2)
+                            (declare (ignore when then))
+                            (list expr-1 expr-2))))
+
+  (case-when-list
+   (case-when-list-element)
+   (case-when-list case-when-list-element #'%rcons2))
+
+  (case-else-expr
+   (:else expr)
+   ())
+
+  (case-base-expr
+   (expr)
+   ())
+
+  (case-expr
+   (:case case-base-expr case-when-list case-else-expr :end
+          (lambda (case base-expr case-when-list case-else-expr end)
+            (declare (ignore case end))
+            (append (list :case)
+                    (when base-expr
+                      base-expr)
+                    (list (append case-when-list (list case-else-expr)))))))
+
+  (scalar-subquery
+   (subquery (lambda (subquery)
+               (list :scalar-subquery subquery))))
 
   (expr (expr :+ expr #'%i2p)
         (expr :- expr #'%i2p)
         (expr :* expr #'%i2p)
         (expr :/ expr #'%i2p)
         (expr :% expr #'%i2p)
+        (expr :< expr #'%i2p)
+        (expr :<= expr #'%i2p)
+        (expr :> expr #'%i2p)
+        (expr :>= expr #'%i2p)
+        (expr := expr #'%i2p)
+        (expr :<> expr #'%i2p)
+        (:not expr)
+        (expr :and expr #'%i2p)
+        (expr :or expr #'%i2p)
+        (expr :exists subquery #'%i2p)
+        function-expr
+        between-expr
+        is-expr
+        in-expr
+        case-expr
+        scalar-subquery
         term)
 
   (term id int flt str
@@ -84,7 +170,7 @@
    (expr id))
 
   (select-list (select-list-element)
-               (select-list :|,| select-list-element  #'%rcons3))
+               (select-list :|,| select-list-element #'%rcons3))
 
   (table-list-element
    (id)
@@ -159,10 +245,23 @@
    (:select all-distinct select-list from where group-by having
             (lambda (select all-distinct select-list from where group-by having)
               (declare (ignore select))
-              (append (list :select select-list :distinct (eq :distinct all-distinct))
+              (append (list :select select-list)
+                      (when (eq :distinct all-distinct)
+                        (list :distinct t))
                       from where group-by having))))
 
-  (select-stmt (select-core order-by limit #'append))
+  (compound-select-stmt
+   (compound-select-stmt :union :all select-core (lambda (compound-select-stmt union all select-core)
+                                                   (declare (ignore union all))
+                                                   (list :union-all compound-select-stmt select-core)))
+   (compound-select-stmt :union select-core #'%i2p)
+   (compound-select-stmt :intersect select-core #'%i2p)
+   (compound-select-stmt :except select-core #'%i2p)
+   select-core)
+
+  (select-stmt (compound-select-stmt order-by limit #'append))
+
+  (subquery (:|(| select-stmt :|)| #'%k-2-3))
 
   (insert-stmt
    (:insert :into id :|(| id-list :|)| select-stmt
