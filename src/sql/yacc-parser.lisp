@@ -64,29 +64,57 @@
                                  :union :except :intersect))
   (:precedence ((:left :||) (:left :* :/ :%) (:left :+ :-)
                 (:left :< :<= :> :>=)
-                (:left := :<> :is :not)
+                (:left := :<> :is)
                 (:left :and)
                 (:left :or)
-                (:left :between :exists :in)))
+                (:left :in :between)
+                (:right :not)
+                (:right :exists)))
+
+  (not-term
+   (:not term))
+
+  (expr-not
+   (expr :not))
 
   (in-expr
    (expr :in subquery #'%i2p)
+   (expr-not :in subquery (lambda (expr subquery)
+                            (declare (ignore))
+                            (list :not (list :in (first expr) subquery))))
    (expr :in :|(| expr-list :|)| (lambda (expr in lb expr-list rb)
                                    (declare (ignore in lb rb))
-                                   (list :in expr expr-list))))
+                                   (list :in expr expr-list)))
+   (expr-not :in :|(| expr-list :|)| (lambda (expr lb expr-list rb)
+                                       (declare (ignore lb rb))
+                                       (list :not (list :in (first expr) expr-list)))))
 
   (is-expr
+   (expr :is not-term (lambda (expr-1 is expr-2)
+                        (declare (ignore is))
+                        (list :not (list :is expr-1 (second expr-2)))))
    (expr :is expr (lambda (expr-1 is expr-2)
                     (declare (ignore is))
-                    (if (and (listp expr-2)
-                             (eq :not (first expr-2)))
-                        (list :not (list :is expr-1 (second expr-2)))
-                        (list :is expr-1 expr-2)))))
+                    (list :is expr-1 expr-2))))
+
+  (between-and-expr
+   (term :and term))
 
   (between-expr
    (expr :between between-and-expr (lambda (expr between between-and-expr)
                                      (declare (ignore between))
-                                     (list :between expr (second between-and-expr) (third between-and-expr)))))
+                                     (list :between expr (second between-and-expr) (third between-and-expr))))
+   (expr-not :between between-and-expr (lambda (expr between between-and-expr)
+                                         (declare (ignore between))
+                                         (list :not (list :between (first expr) (second between-and-expr) (third between-and-expr))))))
+
+  (exists-expr
+   (:exists subquery (lambda (exists subquery)
+                       (declare (ignore exists))
+                       (list :exists subquery)))
+   (:not :exists subquery (lambda (not exists subquery)
+                            (declare (ignore not exists))
+                            (list :not (list :exists subquery)))))
 
   (function-expr
    (id :|(| all-distinct expr-list :|)| (lambda (id lb all-distinct expr-list rb)
@@ -139,20 +167,24 @@
         (expr :>= expr #'%i2p)
         (expr := expr #'%i2p)
         (expr :<> expr #'%i2p)
-        (:not expr)
         (expr :and expr #'%i2p)
         (expr :or expr #'%i2p)
-        (expr :exists subquery #'%i2p)
         function-expr
         between-expr
         is-expr
         in-expr
+        exists-expr
         case-expr
         scalar-subquery
         term)
 
-  (term id int flt str
-        :null :true :false
+  (term id
+        int
+        flt
+        str
+        :null
+        :true
+        :false
         (:- term)
         (:|(| expr :|)| #'%k-2-3))
 
