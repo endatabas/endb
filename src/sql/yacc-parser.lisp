@@ -2,7 +2,7 @@
   (:use :cl :yacc)
   (:export #:parse-sql)
   (:import-from :yacc)
-  (:import-from :ppcre))
+  (:import-from :cl-ppcre))
 (in-package :endb/sql/yacc-parser)
 
 (defvar *tokens*)
@@ -16,11 +16,12 @@
                      (cons 'str (ppcre:create-scanner "^'([^']|\\')+'"))))
 
 (defvar *kw-table* (make-hash-table :test 'equal))
+(clrhash *kw-table*)
 
 (dolist (kw '("SELECT" "ALL" "DISTINCT" "AS" "FROM" "WHERE" "VALUES"
               "ORDER" "BY" "ASC" "DESC" "GROUP" "HAVING" "LIMIT" "OFFSET"
               "NULL" "TRUE" "FALSE"
-              "CREATE" "TABLE" "INSERT" "INTO"
+              "CREATE" "TABLE" "INDEX" "ON" "INSERT" "INTO"
               "CASE" "WHEN" "THEN" "ELSE" "END"
               "AND" "OR" "NOT" "EXISTS" "BETWEEN" "IS" "IN"
               "UNION" "EXCEPT" "INTERSECT"
@@ -56,22 +57,19 @@
                                  :select :all :distinct :as :from :where :values
                               :order :by :asc :desc :group :having :limit :offset
                               :null :true :false
-                                 :create :table :insert :into
+                                 :create :table :index :on :insert :into
                                  :case :when :then :else :end
                               :and :or :not :exists :between :is :in
                                  :union :except :intersect
                               :count :avg :sum :min :max))
   (:precedence ((:left :||) (:left :* :/ :%) (:left :+ :-)
+                (:left :in :between)
                 (:left :< :<= :> :>=)
                 (:left := :<> :is)
                 (:left :and)
                 (:left :or)
-                (:left :in :between)
                 (:right :not)
                 (:right :exists)))
-
-  (not-term
-   (:not term))
 
   (expr-not
    (expr :not))
@@ -89,15 +87,26 @@
                                        (list :not (list :in (first expr) expr-list)))))
 
   (is-expr
-   (expr :is not-term (lambda (expr-1 is expr-2)
-                        (declare (ignore is))
-                        (list :not (list :is expr-1 (second expr-2)))))
    (expr :is expr (lambda (expr-1 is expr-2)
                     (declare (ignore is))
-                    (list :is expr-1 expr-2))))
+                    (if (and (listp expr-2)
+                             (eq :not (first expr-2)))
+                        (list :not (list :is expr-1 (second  expr-2)))
+                        (list :is expr-1 expr-2)))))
+
+  (between-term
+   (between-term :+ between-term #'%i2p)
+   (between-term :- between-term #'%i2p)
+   (between-term :* between-term #'%i2p)
+   (between-term :/ between-term #'%i2p)
+   (between-term :% between-term #'%i2p)
+   id
+   int
+   flt
+   (:- between-term))
 
   (between-and-expr
-   (term :and term))
+   (between-term :and between-term #'%i2p))
 
   (between-expr
    (expr :between between-and-expr (lambda (expr between between-and-expr)
@@ -110,10 +119,7 @@
   (exists-expr
    (:exists subquery (lambda (exists subquery)
                        (declare (ignore exists))
-                       (list :exists subquery)))
-   (:not :exists subquery (lambda (not exists subquery)
-                            (declare (ignore not exists))
-                            (list :not (list :exists subquery)))))
+                       (list :exists subquery))))
 
   (aggregate-fn
    :avg
@@ -126,7 +132,7 @@
                           (declare (ignore count lb star rb))
                           (list :aggregate-function :count-star ())))
    (:count :|(| all-distinct expr :|)| (lambda (count lb all-distinct expr rb)
-                                         (declare (ignore count lb star rb))
+                                         (declare (ignore count lb rb))
                                          (append (list :aggregate-function :count (list expr))
                                                  (when (eq :distinct all-distinct)
                                                    (list :distinct t)))))
@@ -182,6 +188,7 @@
         (expr :<> expr #'%i2p)
         (expr :and expr #'%i2p)
         (expr :or expr #'%i2p)
+        (:not expr)
         function-expr
         between-expr
         is-expr
@@ -319,20 +326,28 @@
               (declare (ignore insert into))
               (list :insert id select-stmt))))
 
-  (col-def (id id))
+  (opt-primary-key
+   (id id)
+   ())
+
+  (col-type
+   (id)
+   (id :|(| int :|)|))
+
+  (col-def (id col-type opt-primary-key))
 
   (col-def-list (col-def)
                 (col-def-list :|,| col-def #'%rcons3))
-
-  (create-table-stmt (:create :table id :|(| col-def-list :|)|
-                              (lambda (create table id lb col-def-list rb)
-                                (declare (ignore create table lb rb))
-                                (list :create-table id col-def-list))))
 
   (create-index-stmt (:create :index id :on id :|(| order-by-list :|)|
                               (lambda (create index id1 on id2 lb order-by-list rb)
                                 (declare (ignore create index on lb rb))
                                 (list :create-index id1 id2 order-by-list))))
+
+  (create-table-stmt (:create :table id :|(| col-def-list :|)|
+                              (lambda (create table id lb col-def-list rb)
+                                (declare (ignore create table lb rb))
+                                (list :create-table id col-def-list))))
 
   (sql-stmt insert-stmt select-stmt create-table-stmt create-index-stmt))
 
