@@ -8,7 +8,7 @@
 (defvar *tokens*)
 (setf *tokens* (list (cons nil (ppcre:create-scanner "^\\s+"))
                      (cons nil (ppcre:create-scanner "^--[^\n\r]*\r?(\n|$)"))
-                     (cons 'id (ppcre:create-scanner "^(?i)[a-z_]([a-z_]|\\d)*"))
+                     (cons 'id (ppcre:create-scanner "^(?i)[a-z_]([a-z_.]|\\d)*"))
                      (cons 'op (ppcre:create-scanner "^[-*/%+<>=|]+"))
                      (cons 'sep (ppcre:create-scanner "^[,().;]"))
                      (cons 'flt (ppcre:create-scanner "^\\d+\\.\\d+"))
@@ -23,7 +23,8 @@
               "CREATE" "TABLE" "INSERT" "INTO"
               "CASE" "WHEN" "THEN" "ELSE" "END"
               "AND" "OR" "NOT" "EXISTS" "BETWEEN" "IS" "IN"
-              "UNION" "EXCEPT" "INTERSECT"))
+              "UNION" "EXCEPT" "INTERSECT"
+              "COUNT" "AVG" "SUM" "MIN" "MAX"))
   (setf (gethash kw *kw-table*) (intern kw :keyword)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
@@ -47,21 +48,19 @@
 
   (defun %del-2 (a b c)
     (declare (ignore b))
-    (list a c))
-
-  (defvar *aggregate-functions*)
-  (setf *aggregate-functions* '("COUNT" "AVG" "SUM" "MIN" "MAX")))
+    (list a c)))
 
 (yacc:define-parser *sql-parser*
   (:start-symbol sql-stmt)
-  (:terminals (id flt int str :* :+ :- :/ :|| :% :< :> :<= :>= := :<> :|,| :|(| :|)|
+  (:terminals (id flt int str :* :+ :- :/ :|| :% :< :> :<= :>= := :<> :|,| :|(| :|)| :|.|
                                  :select :all :distinct :as :from :where :values
                               :order :by :asc :desc :group :having :limit :offset
                               :null :true :false
                                  :create :table :insert :into
                                  :case :when :then :else :end
                               :and :or :not :exists :between :is :in
-                                 :union :except :intersect))
+                                 :union :except :intersect
+                              :count :avg :sum :min :max))
   (:precedence ((:left :||) (:left :* :/ :%) (:left :+ :-)
                 (:left :< :<= :> :>=)
                 (:left := :<> :is)
@@ -116,15 +115,29 @@
                             (declare (ignore not exists))
                             (list :not (list :exists subquery)))))
 
+  (aggregate-fn
+   :avg
+   :sum
+   :min
+   :max)
+
   (function-expr
-   (id :|(| all-distinct expr-list :|)| (lambda (id lb all-distinct expr-list rb)
-                                          (declare (ignore lb rb))
-                                          (let ((fn-type (if (member (symbol-name id) *aggregate-functions* :test 'equal)
-                                                             :aggregate-function
-                                                             :function)))
-                                            (append (list fn-type id expr-list)
-                                                    (when (eq :distinct all-distinct)
-                                                      (list :distinct t)))))))
+   (:count :|(| :* :|)| (lambda (count lb star rb)
+                          (declare (ignore count lb star rb))
+                          (list :aggregate-function :count-star ())))
+   (:count :|(| all-distinct expr :|)| (lambda (count lb all-distinct expr rb)
+                                         (declare (ignore count lb star rb))
+                                         (append (list :aggregate-function :count (list expr))
+                                                 (when (eq :distinct all-distinct)
+                                                   (list :distinct t)))))
+   (aggregate-fn :|(| all-distinct expr-list :|)| (lambda (id lb all-distinct expr-list rb)
+                                                    (declare (ignore lb rb))
+                                                    (append (list :aggregate-function id expr-list)
+                                                            (when (eq :distinct all-distinct)
+                                                              (list :distinct t)))))
+   (id :|(| expr-list :|)| (lambda (id lb expr-list rb)
+                             (declare (ignore lb rb))
+                             (list :function id expr-list))))
 
   (case-when-list-element
    (:when expr :then expr (lambda (when expr-1 then expr-2)
@@ -354,9 +367,5 @@
                                                (unless (eq 'sep token-name)
                                                  token))))))))))))))
 
-;; (time (dotimes (n 10000)
-;;         (let ((lex (make-lexer "SELECT a+b*2+c*3+d*4+e*5,
-;;        (a+b+c+d+e)/5
-;;   FROM t1
-;;   ORDER BY 1,2")))
-;;           (yacc:parse-with-lexer lex *sql-parser*))))
+(defun parse-sql (in)
+  (yacc:parse-with-lexer (make-lexer in) *sql-parser*))
