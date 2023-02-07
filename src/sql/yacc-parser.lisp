@@ -26,20 +26,17 @@
               "UNION" "EXCEPT" "INTERSECT"))
   (setf (gethash kw *kw-table*) (intern kw :keyword)))
 
-(defun %flatten-list (head &optional comma tail)
-  (declare (ignore comma))
-  (cons head tail))
-
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun %remove-nil (&rest list)
-    (remove-if #'null list))
-
   (defun %i2p (a b c)
     (list b a c))
 
   (defun %k-2-3 (a b c)
     (declare (ignore a c))
     b)
+
+  (defun %rcons3 (a b c)
+    (declare (ignore b))
+    (append a (list c)))
 
   (defun %del-2 (a b c)
     (declare (ignore b))
@@ -69,30 +66,30 @@
         (:- term)
         (:|(| expr :|)| #'%k-2-3))
 
-  (id-list id
-           (id :|,| id-list #'%flatten-list)
+  (id-list (id)
+           (id-list :|,| id #'%rcons3)
            ())
 
-  (expr-list (expr #'list)
-             (expr :|,| expr-list #'%flatten-list))
+  (expr-list (expr)
+             (expr-list :|,| expr #'%rcons3))
 
   (select-list-element
-   (:* #'list)
-   (expr #'list)
+   (:*)
+   (expr)
    (expr :as id #'%del-2)
    (expr id))
 
-  (select-list (select-list-element #'list)
-               (select-list-element :|,| select-list  #'%flatten-list))
+  (select-list (select-list-element)
+               (select-list :|,| select-list-element  #'%rcons3))
 
   (table-list-element
-   (id #'list)
+   (id)
    (id :as id #'%del-2)
    (id id))
 
   (table-list
    (table-list-element)
-   (table-list-element :|,| table-list #'%flatten-list))
+   (table-list :|,| table-list-element #'%rcons3))
 
   (from
    (:from table-list)
@@ -103,7 +100,9 @@
    ())
 
   (group-by
-   (:group :by id-list)
+   (:group :by id-list (lambda (group by id-list)
+                         (declare (ignore group by))
+                         (list :group-by id-list)))
    ())
 
   (having
@@ -116,30 +115,62 @@
    ())
 
   (order-by-element
-   (id order-by-direction #'%remove-nil)
-   (int order-by-direction #'%remove-nil))
+   (id order-by-direction)
+   (int order-by-direction))
 
   (order-by-list
    (order-by-element)
-   (order-by-element :|,| order-by-list #'%flatten-list))
+   (order-by-list :|,| order-by-element #'%rcons3))
 
   (order-by
-   (:order :by order-by-list)
+   (:order :by order-by-list (lambda (order by order-by-list)
+                               (declare (ignore order by))
+                               (list :order-by order-by-list)))
+   ())
+
+  (all-distinct
+   :distinct
+   :all
    ())
 
   (select-stmt
-   (:values :|(| expr-list :|)| #'%remove-nil)
-   (:select select-list from where group-by having order-by #'%remove-nil))
-  (insert-stmt (:insert :into id :|(| id-list :|)| select-stmt #'%remove-nil))
+   (:values :|(| expr-list :|)|
+            (lambda (values lb expr-list rb)
+              (declare (ignore values lb rb))
+              (list :values expr-list)))
+
+   (:select all-distinct select-list from where group-by having order-by
+            (lambda (select all-distinct select-list from where group-by having order-by)
+              (declare (ignore select))
+              (append (list :select select-list :distinct (eq :distinct all-distinct))
+                      from where group-by having order-by))))
+  (insert-stmt
+   (:insert :into id :|(| id-list :|)| select-stmt
+            (lambda (insert into id lb id-list rb select-stmt)
+              (declare (ignore insert into lb rb))
+              (list :insert id select-stmt :column-names id-list)))
+
+   (:insert :into id select-stmt
+            (lambda (insert into id select-stmt)
+              (declare (ignore insert into))
+              (list :insert id select-stmt))))
 
   (col-def (id id))
 
-  (col-def-list (col-def #'list)
-                (col-def :|,| col-def-list #'%flatten-list))
+  (col-def-list (col-def)
+                (col-def-list :|,| col-def #'%rcons3))
 
-  (create-table-stmt (:create :table id :|(| col-def-list :|)| #'%remove-nil))
+  (create-table-stmt (:create :table id :|(| col-def-list :|)|
+                              (lambda (create table id lb col-def-list rb)
+                                (declare (ignore create table lb rb))
+                                (list :create-table id col-def-list))))
 
-  (sql-stmt insert-stmt select-stmt create-table-stmt))
+  (create-index-stmt (:create :index id :on id :|(| order-by-list :|)|
+                              (lambda (create index id1 on id2 lb order-by-list rb)
+                                (declare (ignore create index on lb rb))
+                                (list :create-index id1 id2 order-by-list))))
+
+  (sql-stmt insert-stmt select-stmt create-table-stmt create-index-stmt))
 
 (defun make-lexer (in)
   (let ((idx 0))
