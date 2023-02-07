@@ -97,10 +97,10 @@
   (is (= -2 (sql-- 2))))
 
 (test sorting
-  (is (equal '((:null) (1) (2)) (endb/sql/expr::%sql-order-by (copy-list '((2) (:null) (1))) '((1 . :ASC)))))
-  (is (equal '((2) (1) (:null)) (endb/sql/expr::%sql-order-by (copy-list '((1) (2) (:null))) '((1 . :DESC)))))
-  (is (equal '((2 1) (2 2) (1 1)) (endb/sql/expr::%sql-order-by (copy-list '((1 1) (2 2) (2 1))) '((1 . :DESC) (2 . :ASC)))))
-  (is (equal '((2 2) (1 1) (2 1)) (endb/sql/expr::%sql-order-by (copy-list '((1 1) (2 2) (2 1))) '((2 . :DESC))))))
+  (is (equal '((:null) (1) (2)) (endb/sql/expr::%sql-order-by (copy-list '((2) (:null) (1))) '((1 :ASC)))))
+  (is (equal '((2) (1) (:null)) (endb/sql/expr::%sql-order-by (copy-list '((1) (2) (:null))) '((1 :DESC)))))
+  (is (equal '((2 1) (2 2) (1 1)) (endb/sql/expr::%sql-order-by (copy-list '((1 1) (2 2) (2 1))) '((1 :DESC) (2 :ASC)))))
+  (is (equal '((2 2) (1 1) (2 1)) (endb/sql/expr::%sql-order-by (copy-list '((1 1) (2 2) (2 1))) '((2 :DESC))))))
 
 (test aggregates
   (is (= 6 (sql-sum '(1 2 3))))

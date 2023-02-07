@@ -42,6 +42,21 @@
       (is (equal '((2)) result))
       (is (equal '("column1") columns)))
 
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT CASE 1 + 1 WHEN 3 THEN 1 WHEN 2 THEN 2 END")
+      (is (equal '((2)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT CASE WHEN TRUE THEN 2 WHEN FALSE THEN 1 END")
+      (is (equal '((2)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT CASE WHEN FALSE THEN 2 ELSE 1 END")
+      (is (equal '((1)) result))
+      (is (equal '("column1") columns)))
+
     (execute-sql db "CREATE TABLE t1(a INTEGER, b INTEGER, c INTEGER, d INTEGER, e INTEGER)")
     (execute-sql db "INSERT INTO t1 VALUES(103,102,100,101,104)")
 

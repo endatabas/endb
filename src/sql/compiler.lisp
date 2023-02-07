@@ -20,9 +20,9 @@
 
 (defun %select-projection (select-list select-star-projection)
   (loop for idx from 1
-        for (expr . alias) in select-list
+        for (expr alias) in select-list
         append (cond
-                 ((eq :star expr) select-star-projection)
+                 ((eq :* expr) select-star-projection)
                  (alias (list (symbol-name alias)))
                  ((symbolp expr) (list (%unqualified-column-name (symbol-name expr))))
                  (t (list (%anonymous-column-name idx))))))
@@ -34,12 +34,12 @@
             ()
             (length (endb/sql/expr:base-table-rows db-table)))))
 
-(defun %wrap-with-order-by-and-limit (src order-by limit)
+(defun %wrap-with-order-by-and-limit (src order-by limit offset)
   (let* ((src (if order-by
                   `(endb/sql/expr::%sql-order-by ,src ',order-by)
                   src))
          (src (if (and order-by limit)
-                  `(endb/sql/expr::%sql-limit ,src ',limit)
+                  `(endb/sql/expr::%sql-limit ,src ',limit ',offset)
                   src)))
     src))
 
@@ -107,27 +107,25 @@
                               do (push (list ,@vars) (gethash (list ,@out-vars) ,index-table-sym))
                               finally (return ,index-table-sym)))))))))
 
-(defun %selection-with-limit-offset->cl (ctx selected-src limit-offset)
+(defun %selection-with-limit-offset->cl (ctx selected-src limit offset)
   (let ((acc-sym (cdr (assoc :acc-sym ctx))))
-    (if limit-offset
-        (destructuring-bind (limit . offset)
-            limit-offset
-          (let* ((rows-sym (cdr (assoc :rows-sym ctx)))
-                 (block-sym (cdr (assoc :block-sym ctx)))
-                 (limit (if offset
-                            (+ offset limit)
-                            limit))
-                 (offset (or offset 0)))
-            `(when (and (>= ,rows-sym ,offset)
-                        (not (eql ,rows-sym ,limit)))
-               do (progn
-                    (incf ,rows-sym)
-                    (push (list ,@selected-src) ,acc-sym))
-               when (eql ,rows-sym ,limit)
-               do (return-from ,block-sym ,acc-sym))))
+    (if (or limit offset)
+        (let* ((rows-sym (cdr (assoc :rows-sym ctx)))
+               (block-sym (cdr (assoc :block-sym ctx)))
+               (limit (if offset
+                          (+ offset limit)
+                          limit))
+               (offset (or offset 0)))
+          `(when (and (>= ,rows-sym ,offset)
+                      (not (eql ,rows-sym ,limit)))
+             do (progn
+                  (incf ,rows-sym)
+                  (push (list ,@selected-src) ,acc-sym))
+             when (eql ,rows-sym ,limit)
+             do (return-from ,block-sym ,acc-sym)))
         `(do (push (list ,@selected-src) ,acc-sym)))))
 
-(defun %from->cl (ctx from-tables where-clauses selected-src &optional limit-offset vars)
+(defun %from->cl (ctx from-tables where-clauses selected-src &optional limit offset vars)
   (let* ((candidate-tables (remove-if-not (lambda (x)
                                             (subsetp (from-table-free-vars x) vars))
                                           from-tables))
@@ -161,11 +159,11 @@
                                          (append scan-clauses pushdown-clauses))
                        append `(when (eq t ,(where-clause-src clause))))
                ,@(if from-tables
-                     `(do ,(%from->cl ctx from-tables where-clauses selected-src limit-offset vars))
+                     `(do ,(%from->cl ctx from-tables where-clauses selected-src limit offset vars))
                      (append `(,@(loop for clause in where-clauses append `(when (eq t ,(where-clause-src clause)))))
-                             (%selection-with-limit-offset->cl ctx selected-src limit-offset))))))))
+                             (%selection-with-limit-offset->cl ctx selected-src limit offset))))))))
 
-(defun %group-by->cl (ctx from-tables where-clauses selected-src limit-offset group-by having)
+(defun %group-by->cl (ctx from-tables where-clauses selected-src limit offset group-by having)
   (let* ((aggregate-table (cdr (assoc :aggregate-table ctx)))
          (group-by-projection (loop for g in group-by
                                     collect (ast->cl ctx g)))
@@ -184,21 +182,22 @@
                      using (hash-value ,group-by-exprs-projection)
                        of ,group-by-src
                    when (eq t ,(ast->cl ctx having)))
-            (%selection-with-limit-offset->cl ctx selected-src limit-offset))))
+            (%selection-with-limit-offset->cl ctx selected-src limit offset))))
 
 (defmethod sql->cl (ctx (type (eql :select)) &rest args)
-  (destructuring-bind (select-list &key distinct (from '(((:values ((:null))) . #:dual))) (where :true)
+  (destructuring-bind (select-list &key distinct (from '(((:values ((:null))) #:dual))) (where :true)
                                      (group-by () group-by-p) (having :true havingp)
-                                     order-by limit)
+                                     order-by limit offset)
       args
     (labels ((select->cl (ctx from-ast from-tables-acc)
-               (destructuring-bind (table-or-subquery . table-alias)
+               (destructuring-bind (table-or-subquery &optional table-alias)
                    (first from-ast)
                  (multiple-value-bind (table-src projection free-vars table-size)
                      (if (symbolp table-or-subquery)
                          (%base-table->cl ctx table-or-subquery)
                          (%ast->cl-with-free-vars ctx table-or-subquery))
-                   (let* ((table-alias (symbol-name table-alias))
+                   (let* ((table-alias (or table-alias table-or-subquery))
+                          (table-alias (symbol-name table-alias))
                           (qualified-projection (loop for column in projection
                                                       collect (%qualified-column-name table-alias column)))
                           (env-extension (loop for column in projection
@@ -218,7 +217,7 @@
                                 (ctx (cons (cons :aggregate-table aggregate-table) ctx))
                                 (full-projection (mapcan #'from-table-projection from-tables-acc))
                                 (selected-src (loop for (expr) in select-list
-                                                    append (if (eq :star expr)
+                                                    append (if (eq :* expr)
                                                                (loop for p in full-projection
                                                                      collect (ast->cl ctx (make-symbol p)))
                                                                (list (ast->cl ctx expr)))))
@@ -238,13 +237,15 @@
                                                                           (endb/sql/expr:sql-= 10)
                                                                           (endb/sql/expr:sql-in 2)
                                                                           (t 1))))))))
-                                (limit-offset (unless order-by
-                                                limit))
+                                (limit (unless order-by
+                                         limit))
+                                (offset (unless order-by
+                                         offset))
                                 (group-by-needed-p (or group-by-p havingp (plusp (hash-table-count aggregate-table)))))
                            (values
                             (if group-by-needed-p
-                                (%group-by->cl ctx from-tables where-clauses selected-src limit-offset group-by having)
-                                (%from->cl ctx from-tables where-clauses selected-src limit-offset))
+                                (%group-by->cl ctx from-tables where-clauses selected-src limit offset group-by having)
+                                (%from->cl ctx from-tables where-clauses selected-src limit offset))
                             full-projection))))))))
       (let* ((block-sym (gensym))
              (acc-sym (gensym))
@@ -263,7 +264,7 @@
                  (src (if distinct
                           `(endb/sql/expr::%sql-distinct ,src)
                           src))
-                 (src (%wrap-with-order-by-and-limit src order-by limit))
+                 (src (%wrap-with-order-by-and-limit src order-by limit offset))
                  (select-star-projection (mapcar #'%unqualified-column-name full-projection)))
             (values src (%select-projection select-list select-star-projection))))))))
 
@@ -272,43 +273,43 @@
         collect (%anonymous-column-name idx)))
 
 (defmethod sql->cl (ctx (type (eql :values)) &rest args)
-  (destructuring-bind (values-list &key order-by limit)
+  (destructuring-bind (values-list &key order-by limit offset)
       args
-    (values (%wrap-with-order-by-and-limit (ast->cl ctx values-list) order-by limit)
+    (values (%wrap-with-order-by-and-limit (ast->cl ctx values-list) order-by limit offset)
             (%values-projection (length (first values-list))))))
 
 (defmethod sql->cl (ctx (type (eql :exists)) &rest args)
   (destructuring-bind (query)
       args
-    `(endb/sql/expr:sql-exists ,(ast->cl ctx (append query '(:limit (1 . 0)))))))
+    `(endb/sql/expr:sql-exists ,(ast->cl ctx (append query '(:limit 1))))))
 
 (defmethod sql->cl (ctx (type (eql :union)) &rest args)
-  (destructuring-bind (lhs rhs &key order-by limit)
+  (destructuring-bind (lhs rhs &key order-by limit offset)
       args
     (multiple-value-bind (lhs-src columns)
         (ast->cl ctx lhs)
-      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-union ,lhs-src ,(ast->cl ctx rhs)) order-by limit) columns))))
+      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-union ,lhs-src ,(ast->cl ctx rhs)) order-by limit offset) columns))))
 
 (defmethod sql->cl (ctx (type (eql :union-all)) &rest args)
-  (destructuring-bind (lhs rhs &key order-by limit)
+  (destructuring-bind (lhs rhs &key order-by limit offset)
       args
     (multiple-value-bind (lhs-src projection)
         (ast->cl ctx lhs)
-      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-union-all ,lhs-src ,(ast->cl ctx rhs)) order-by limit) projection))))
+      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-union-all ,lhs-src ,(ast->cl ctx rhs)) order-by limit offset) projection))))
 
 (defmethod sql->cl (ctx (type (eql :except)) &rest args)
-  (destructuring-bind (lhs rhs &key order-by limit)
+  (destructuring-bind (lhs rhs &key order-by limit offset)
       args
     (multiple-value-bind (lhs-src projection)
         (ast->cl ctx lhs)
-      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-except ,lhs-src ,(ast->cl ctx rhs)) order-by limit) projection))))
+      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-except ,lhs-src ,(ast->cl ctx rhs)) order-by limit offset) projection))))
 
 (defmethod sql->cl (ctx (type (eql :intersect)) &rest args)
-  (destructuring-bind (lhs rhs &key order-by limit)
+  (destructuring-bind (lhs rhs &key order-by limit offset)
       args
     (multiple-value-bind (lhs-src projection)
         (ast->cl ctx lhs)
-      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-intersect ,lhs-src ,(ast->cl ctx rhs)) order-by limit) projection))))
+      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-intersect ,lhs-src ,(ast->cl ctx rhs)) order-by limit offset) projection))))
 
 (defmethod sql->cl (ctx (type (eql :create-table)) &rest args)
   (destructuring-bind (table-name column-names)

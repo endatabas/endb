@@ -236,13 +236,11 @@
 (defun %sql-distinct (rows)
   (delete-duplicates rows :test 'equal))
 
-(declaim (ftype (function (sequence cons) sequence) %sql-limit))
-(defun %sql-limit (rows limit-offset)
-  (destructuring-bind (limit . offset)
-      limit-offset
-    (subseq rows (or offset 0) (if offset
-                                   (+ offset limit)
-                                   limit))))
+(declaim (ftype (function (sequence t t) sequence) %sql-limit))
+(defun %sql-limit (rows limit offset)
+  (subseq rows (or offset 0) (if offset
+                                 (+ offset limit)
+                                 limit)))
 
 (declaim (ftype (function (sequence list) sequence) %sql-order-by))
 (defun %sql-order-by (rows order-by)
@@ -257,9 +255,9 @@
                ((eq :null x) nil)
                (t (> x y)))))
     (sort rows (lambda (x y)
-                 (loop for (idx . direction) in order-by
+                 (loop for (idx direction) in order-by
                        for cmp = (ecase direction
-                                   (:asc #'asc)
+                                   ((nil :asc) #'asc)
                                    (:desc #'desc))
                        for xv = (nth (1- idx) x)
                        for yv = (nth (1- idx) y)
