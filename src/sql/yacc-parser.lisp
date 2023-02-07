@@ -47,9 +47,13 @@
     (declare (ignore b))
     (append a (list c)))
 
-  (defun %del-2 (a b c)
-    (declare (ignore b))
-    (list a c)))
+  (defun %extract (&rest items)
+    (lambda (&rest list)
+      (loop for item in items
+            if (integerp item)
+              collect (nth item list)
+            else
+              collect item))))
 
 (yacc:define-parser *sql-parser*
   (:start-symbol sql-stmt)
@@ -79,9 +83,7 @@
    (expr-not :in subquery (lambda (expr subquery)
                             (declare (ignore))
                             (list :not (list :in (first expr) subquery))))
-   (expr :in :|(| expr-list :|)| (lambda (expr in lb expr-list rb)
-                                   (declare (ignore in lb rb))
-                                   (list :in expr expr-list)))
+   (expr :in :|(| expr-list :|)| (%extract :in 0 3))
    (expr-not :in :|(| expr-list :|)| (lambda (expr lb expr-list rb)
                                        (declare (ignore lb rb))
                                        (list :not (list :in (first expr) expr-list)))))
@@ -117,9 +119,7 @@
                                          (list :not (list :between (first expr) (second between-and-expr) (third between-and-expr))))))
 
   (exists-expr
-   (:exists subquery (lambda (exists subquery)
-                       (declare (ignore exists))
-                       (list :exists subquery))))
+   (:exists subquery))
 
   (aggregate-fn
    :avg
@@ -128,9 +128,7 @@
    :max)
 
   (function-expr
-   (:count :|(| :* :|)| (lambda (count lb star rb)
-                          (declare (ignore count lb star rb))
-                          (list :aggregate-function :count-star ())))
+   (:count :|(| :* :|)| (%extract :aggregate-function :count-star ()))
    (:count :|(| all-distinct expr :|)| (lambda (count lb all-distinct expr rb)
                                          (declare (ignore count lb rb))
                                          (append (list :aggregate-function :count (list expr))
@@ -141,14 +139,10 @@
                                                     (append (list :aggregate-function id expr-list)
                                                             (when (eq :distinct all-distinct)
                                                               (list :distinct t)))))
-   (id :|(| expr-list :|)| (lambda (id lb expr-list rb)
-                             (declare (ignore lb rb))
-                             (list :function id expr-list))))
+   (id :|(| expr-list :|)| (%extract :function 0 2)))
 
   (case-when-list-element
-   (:when expr :then expr (lambda (when expr-1 then expr-2)
-                            (declare (ignore when then))
-                            (list expr-1 expr-2))))
+   (:when expr :then expr (%extract 1 3)))
 
   (case-when-list
    (case-when-list-element)
@@ -172,8 +166,7 @@
                     (list (append case-when-list (list case-else-expr)))))))
 
   (scalar-subquery
-   (subquery (lambda (subquery)
-               (list :scalar-subquery subquery))))
+   (subquery (%extract :scalar-subquery 0)))
 
   (expr (expr :+ expr #'%i2p)
         (expr :- expr #'%i2p)
@@ -218,7 +211,7 @@
   (select-list-element
    (:*)
    (expr)
-   (expr :as id #'%del-2)
+   (expr :as id (%extract 0 2))
    (expr id))
 
   (select-list (select-list-element)
@@ -226,7 +219,7 @@
 
   (table-list-element
    (id)
-   (id :as id #'%del-2)
+   (id :as id (%extract 0 2))
    (id id))
 
   (table-list
@@ -242,9 +235,7 @@
    ())
 
   (group-by
-   (:group :by id-list (lambda (group by id-list)
-                         (declare (ignore group by))
-                         (list :group-by id-list)))
+   (:group :by id-list (%extract :group-by 2))
    ())
 
   (having
@@ -265,16 +256,12 @@
    (order-by-list :|,| order-by-element #'%rcons3))
 
   (order-by
-   (:order :by order-by-list (lambda (order by order-by-list)
-                               (declare (ignore order by))
-                               (list :order-by order-by-list)))
+   (:order :by order-by-list (%extract :order-by 2))
    ())
 
   (offset
    (:offset int)
-   (:|,| int (lambda (comma int)
-               (declare (ignore comma))
-               (list :offset int)))
+   (:|,| int (%extract :offset 1))
    ())
 
   (limit
@@ -289,10 +276,7 @@
    ())
 
   (select-core
-   (:values :|(| expr-list :|)|
-            (lambda (values lb expr-list rb)
-              (declare (ignore values lb rb))
-              (list :values expr-list)))
+   (:values :|(| expr-list :|)| (%extract :values 2))
 
    (:select all-distinct select-list from where group-by having
             (lambda (select all-distinct select-list from where group-by having)
@@ -303,9 +287,7 @@
                       from where group-by having))))
 
   (compound-select-stmt
-   (compound-select-stmt :union :all select-core (lambda (compound-select-stmt union all select-core)
-                                                   (declare (ignore union all))
-                                                   (list :union-all compound-select-stmt select-core)))
+   (compound-select-stmt :union :all select-core (%extract :union-all 0 2))
    (compound-select-stmt :union select-core #'%i2p)
    (compound-select-stmt :intersect select-core #'%i2p)
    (compound-select-stmt :except select-core #'%i2p)
@@ -316,15 +298,9 @@
   (subquery (:|(| select-stmt :|)| #'%k-2-3))
 
   (insert-stmt
-   (:insert :into id :|(| id-list :|)| select-stmt
-            (lambda (insert into id lb id-list rb select-stmt)
-              (declare (ignore insert into lb rb))
-              (list :insert id select-stmt :column-names id-list)))
+   (:insert :into id :|(| id-list :|)| select-stmt (%extract :insert 2 6 :column-names 4))
 
-   (:insert :into id select-stmt
-            (lambda (insert into id select-stmt)
-              (declare (ignore insert into))
-              (list :insert id select-stmt))))
+   (:insert :into id select-stmt (%extract :insert 2 3)))
 
   (opt-primary-key
    (id id)
@@ -339,15 +315,9 @@
   (col-def-list (col-def)
                 (col-def-list :|,| col-def #'%rcons3))
 
-  (create-index-stmt (:create :index id :on id :|(| order-by-list :|)|
-                              (lambda (create index id1 on id2 lb order-by-list rb)
-                                (declare (ignore create index on lb rb))
-                                (list :create-index id1 id2 order-by-list))))
+  (create-index-stmt (:create :index id :on id :|(| order-by-list :|)| (%extract :create-index)))
 
-  (create-table-stmt (:create :table id :|(| col-def-list :|)|
-                              (lambda (create table id lb col-def-list rb)
-                                (declare (ignore create table lb rb))
-                                (list :create-table id col-def-list))))
+  (create-table-stmt (:create :table id :|(| col-def-list :|)| (%extract :create-table 2 4)))
 
   (sql-stmt insert-stmt select-stmt create-table-stmt create-index-stmt))
 
