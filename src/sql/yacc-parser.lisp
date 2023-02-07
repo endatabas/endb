@@ -18,7 +18,7 @@
 (defvar *kw-table* (make-hash-table :test 'equal))
 
 (dolist (kw '("SELECT" "ALL" "DISTINCT" "AS" "FROM" "WHERE" "VALUES"
-              "ORDER" "BY" "ASC" "DESC" "GROUP" "HAVING"
+              "ORDER" "BY" "ASC" "DESC" "GROUP" "HAVING" "LIMIT" "OFFSET"
               "NULL" "TRUE" "FALSE"
               "CREATE" "TABLE" "INSERT" "INTO"
               "CASE" "WHEN" "THEN" "ELSE" "END"
@@ -29,6 +29,10 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun %i2p (a b c)
     (list b a c))
+
+  (defun %k-2-2 (a b)
+    (declare (ignore a))
+    b)
 
   (defun %k-2-3 (a b c)
     (declare (ignore a c))
@@ -46,7 +50,7 @@
   (:start-symbol sql-stmt)
   (:terminals (id flt int str :* :+ :- :/ :% :< :> :<= :>= := :<> :|,| :|(| :|)|
                                  :select :all :distinct :as :from :where :values
-                              :order :by :asc :desc :group :having
+                              :order :by :asc :desc :group :having :limit :offset
                               :null :true :false
                                  :create :table :insert :into
                                  :case :when :then :else :end
@@ -128,22 +132,38 @@
                                (list :order-by order-by-list)))
    ())
 
+  (offset
+   (:offset int)
+   (:|,| int (lambda (comma int)
+               (declare (ignore comma))
+               (list :offset int)))
+   ())
+
+  (limit
+   (:limit int offset (lambda (limit int offset)
+                        (declare (ignore limit))
+                        (append (list :limit int) offset)))
+   ())
+
   (all-distinct
    :distinct
    :all
    ())
 
-  (select-stmt
+  (select-core
    (:values :|(| expr-list :|)|
             (lambda (values lb expr-list rb)
               (declare (ignore values lb rb))
               (list :values expr-list)))
 
-   (:select all-distinct select-list from where group-by having order-by
-            (lambda (select all-distinct select-list from where group-by having order-by)
+   (:select all-distinct select-list from where group-by having
+            (lambda (select all-distinct select-list from where group-by having)
               (declare (ignore select))
               (append (list :select select-list :distinct (eq :distinct all-distinct))
-                      from where group-by having order-by))))
+                      from where group-by having))))
+
+  (select-stmt (select-core order-by limit #'append))
+
   (insert-stmt
    (:insert :into id :|(| id-list :|)| select-stmt
             (lambda (insert into id lb id-list rb select-stmt)
@@ -207,5 +227,5 @@
 ;;         (let ((lex (make-lexer "SELECT a+b*2+c*3+d*4+e*5,
 ;;        (a+b+c+d+e)/5
 ;;   FROM t1
-;;  ORDER BY 1,2")))
+;;   ORDER BY 1,2")))
 ;;           (yacc:parse-with-lexer lex *sql-parser*))))
