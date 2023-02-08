@@ -42,10 +42,10 @@
                                        :order :by :asc :desc :group :having :limit :offset
                                        :null :true :false :cross :join
                                           :create :table :index :on :insert :into :unique :delete :drop
-                                          :case :when :then :else :end
-                                       :and :or :not :exists :between :is :in :cast
-                                       :union :except :intersect
-                                          :count :avg :sum :min :max))
+                                       :case :when :then :else :end
+                                          :and :or :not :exists :between :is :in :cast
+                                          :union :except :intersect
+                                       :count :avg :sum :min :max))
   (:precedence ((:left :||)
                 (:left :* :/ :%)
                 (:left :+ :-)
@@ -59,10 +59,10 @@
    (expr :not))
 
   (in-expr
-   (expr :in subquery #'%i2p)
-   (expr-not :in subquery (lambda (expr subquery)
-                            (declare (ignore))
-                            (list :not (list :in (first expr) subquery))))
+   (expr :in subquery (%extract :in-query 0 2))
+   (expr-not :in subquery (lambda (expr in subquery)
+                            (declare (ignore in))
+                            (list :not (list :in-query (first expr) subquery))))
    (expr :in :|(| expr-list :|)| (%extract :in 0 3))
    (expr-not :in :|(| expr-list :|)| (lambda (expr in lp expr-list rp)
                                        (declare (ignore in lp rp))

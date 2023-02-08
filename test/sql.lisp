@@ -86,6 +86,11 @@
       (is (equal '("a" "b" "c" "d" "e") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM t1 WHERE a IN (VALUES (102), (103))")
+      (is (equal '((103 102 100 101 104)) result))
+      (is (equal '("a" "b" "c" "d" "e") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT * FROM t1 WHERE b = 102")
       (is (equal '((103 102 100 101 104)) result))
       (is (equal '("a" "b" "c" "d" "e") columns)))
