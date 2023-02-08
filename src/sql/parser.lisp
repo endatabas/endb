@@ -5,29 +5,6 @@
   (:import-from :cl-ppcre))
 (in-package :endb/sql/parser)
 
-(defvar *tokens*)
-(setf *tokens* (list (cons nil (ppcre:create-scanner "^\\s+"))
-                     (cons nil (ppcre:create-scanner "^--[^\n\r]*\r?(\n|$)"))
-                     (cons 'id (ppcre:create-scanner "^(?i)[a-z_]([a-z_.]|\\d)*"))
-                     (cons 'op (ppcre:create-scanner "^[-*/%+<>=|]+"))
-                     (cons 'sep (ppcre:create-scanner "^[,().;]"))
-                     (cons 'flt (ppcre:create-scanner "^\\d+\\.\\d+"))
-                     (cons 'int (ppcre:create-scanner "^\\d+"))
-                     (cons 'str (ppcre:create-scanner "^'([^']|\\')+'"))))
-
-(defvar *kw-table* (make-hash-table :test 'equal))
-(clrhash *kw-table*)
-
-(dolist (kw '("SELECT" "ALL" "DISTINCT" "AS" "FROM" "WHERE" "VALUES"
-              "ORDER" "BY" "ASC" "DESC" "GROUP" "HAVING" "LIMIT" "OFFSET"
-              "NULL" "TRUE" "FALSE"
-              "CREATE" "TABLE" "INDEX" "ON" "INSERT" "INTO"
-              "CASE" "WHEN" "THEN" "ELSE" "END"
-              "AND" "OR" "NOT" "EXISTS" "BETWEEN" "IS" "IN"
-              "UNION" "EXCEPT" "INTERSECT"
-              "COUNT" "AVG" "SUM" "MIN" "MAX"))
-  (setf (gethash kw *kw-table*) (intern kw :keyword)))
-
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defun %i2p (a b c)
     (list b a c))
@@ -57,15 +34,15 @@
 
 (yacc:define-parser *sql-parser*
   (:start-symbol sql-stmt)
-  (:terminals (id flt int str :* :+ :- :/ :|| :% :< :> :<= :>= := :<> :|,| :|(| :|)| :|.|
-                                 :select :all :distinct :as :from :where :values
-                              :order :by :asc :desc :group :having :limit :offset
-                              :null :true :false
-                                 :create :table :index :on :insert :into
-                                 :case :when :then :else :end
-                              :and :or :not :exists :between :is :in
-                                 :union :except :intersect
-                              :count :avg :sum :min :max))
+  (:terminals (id float integer string :* :+ :- :/ :|| :% :< :> :<= :>= := :<> :|,| :|(| :|)| :|.|
+                                          :select :all :distinct :as :from :where :values
+                                       :order :by :asc :desc :group :having :limit :offset
+                                       :null :true :false
+                                          :create :table :index :on :insert :into
+                                          :case :when :then :else :end
+                                       :and :or :not :exists :between :is :in
+                                          :union :except :intersect
+                                       :count :avg :sum :min :max))
   ;;  (:muffle-conflicts (1 0))
   (:precedence ((:left :||) (:left :* :/ :%) (:left :+ :-)
                 (:left :in)
@@ -104,8 +81,8 @@
    (between-term :/ between-term #'%i2p)
    (between-term :% between-term #'%i2p)
    id
-   int
-   flt
+   integer
+   float
    (:- between-term))
 
   (between-and-expr
@@ -193,9 +170,9 @@
         term)
 
   (term id
-        int
-        flt
-        str
+        integer
+        float
+        string
         :null
         :true
         :false
@@ -251,7 +228,7 @@
 
   (order-by-element
    (id order-by-direction)
-   (int order-by-direction))
+   (integer order-by-direction))
 
   (order-by-list
    (order-by-element)
@@ -262,14 +239,14 @@
    ())
 
   (offset
-   (:offset int)
-   (:|,| int (%extract :offset 1))
+   (:offset integer)
+   (:|,| integer (%extract :offset 1))
    ())
 
   (limit
-   (:limit int offset (lambda (limit int offset)
-                        (declare (ignore limit))
-                        (append (list :limit int) offset)))
+   (:limit integer offset (lambda (limit integer offset)
+                            (declare (ignore limit))
+                            (append (list :limit integer) offset)))
    ())
 
   (all-distinct
@@ -317,7 +294,7 @@
 
   (col-type
    (id)
-   (id :|(| int :|)|))
+   (id :|(| integer :|)|))
 
   (col-def (id col-type opt-primary-key (lambda (&rest list)
                                           (first list))))
@@ -331,36 +308,109 @@
 
   (sql-stmt insert-stmt select-stmt create-table-stmt create-index-stmt))
 
-(defun make-lexer (in)
+(defparameter *kw-table* (make-hash-table :test 'equalp))
+
+(dolist (kw '("SELECT" "ALL" "DISTINCT" "AS" "FROM" "WHERE" "VALUES"
+              "ORDER" "BY" "ASC" "DESC" "GROUP" "HAVING" "LIMIT" "OFFSET"
+              "NULL" "TRUE" "FALSE"
+              "CREATE" "TABLE" "INDEX" "ON" "INSERT" "INTO"
+              "CASE" "WHEN" "THEN" "ELSE" "END"
+              "AND" "OR" "NOT" "EXISTS" "BETWEEN" "IS" "IN"
+              "UNION" "EXCEPT" "INTERSECT"
+              "COUNT" "AVG" "SUM" "MIN" "MAX"))
+  (setf (gethash kw *kw-table*) (intern kw :keyword)))
+
+(defvar *comma* (intern "," :keyword))
+(defvar *left-brace* (intern "(" :keyword))
+(defvar *right-brace* (intern ")" :keyword))
+(defvar *period* (intern "." :keyword))
+
+(defvar *plus* (intern "+" :keyword))
+(defvar *minus* (intern "-" :keyword))
+(defvar *div* (intern "/" :keyword))
+(defvar *mul* (intern "*" :keyword))
+(defvar *mod* (intern "%" :keyword))
+
+(defvar *eq* (intern "=" :keyword))
+(defvar *lt* (intern "<" :keyword))
+(defvar *gt* (intern ">" :keyword))
+
+(defvar *ne* (intern "<>" :keyword))
+(defvar *lte* (intern "<=" :keyword))
+(defvar *gte* (intern ">=" :keyword))
+(defvar *concat* (intern "||" :keyword))
+
+(defvar *string-scanner* (ppcre:create-scanner "^'([^']|\\')+'"))
+(defvar *number-scanner* (ppcre:create-scanner "^\\d+(\\.\\d+)?"))
+(defvar *id-scanner* (ppcre:create-scanner "^(?i)[a-z_]([a-z_.]|\\d)*"))
+
+(defun make-sql-lexer (in)
   (let ((idx 0))
     (lambda ()
-      (when (< idx (length in))
-        (loop for (token-name . token-scanner) in *tokens*
-              do (multiple-value-bind (start end)
-                     (ppcre:scan token-scanner in :start idx)
-                   (when start
-                     (setf idx end)
-                     (when token-name
-                       (let* ((token (subseq in start end))
-                              (token (if (eq 'id token-name)
-                                         (string-downcase token)
-                                         token))
-                              (kw (gethash (string-upcase token) *kw-table*)))
-                         (return (if kw
-                                     (values kw kw)
-                                     (let ((token (case token-name
-                                                    (str (ppcre:regex-replace-all "\\'" (subseq token 1 (1- (length token))) "'"))
-                                                    (id (make-symbol token))
-                                                    ((op sep) (intern token :keyword))
-                                                    (int (parse-integer token))
-                                                    (flt (let ((*read-eval* nil))
-                                                           (read-from-string token)))
-                                                    (t token))))
-                                       (values (if (keywordp token)
-                                                   token
-                                                   token-name)
-                                               (unless (eq 'sep token-name)
-                                                 token))))))))))))))
+      (loop
+        while (< idx (length in))
+        do (case (char in idx)
+             ((#\Space #\Tab #\Newline) (incf idx))
+             (#\, (incf idx) (return *comma*))
+             (#\( (incf idx) (return *left-brace*))
+             (#\) (incf idx) (return *right-brace*))
+             (#\. (incf idx) (return *period*))
+             (#\- (incf idx) (return (values *minus* *minus*)))
+             (#\+ (incf idx) (return (values *plus* *plus*)))
+             (#\* (incf idx) (return (values *mul* *mul*)))
+             (#\/ (incf idx) (return (values *div* *div*)))
+             (#\% (incf idx) (return (values *mod* *mod*)))
+             (#\= (incf idx) (return (values *eq* *eq*)))
+             (#\<
+              (incf idx)
+              (when (< idx (length in))
+                (case (char in idx)
+                  (#\=
+                   (incf idx)
+                   (return (values *lte* *lte*)))
+                  (#\>
+                   (incf idx)
+                   (return (values *ne* *ne*)))))
+              (return (values *lt* *lt*)))
+             (#\>
+              (incf idx)
+              (if (and (< idx (length in))
+                       (eq #\= (char in idx)))
+                  (progn
+                    (incf idx)
+                    (return (values *gte* *gte*)))
+                  (return (values *gt* *gt*))))
+             (#\|
+              (incf idx)
+              (when (and (< idx (length in))
+                         (eq #\| (char in idx)))
+                (incf idx)
+                (return (values *concat* *concat*))))
+             (#\' (multiple-value-bind (start end)
+                      (ppcre:scan *string-scanner* in :start idx)
+                    (when start
+                      (setf idx end)
+                      (let* ((token (ppcre:regex-replace-all "\\'" (subseq in (1+ start) (1- end)) "'")))
+                        (return (values 'string token))))))
+             ((#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)
+              (multiple-value-bind (start end groups)
+                  (ppcre:scan *number-scanner* in :start idx)
+                (when start
+                  (setf idx end)
+                  (return (if (elt groups 0)
+                              (let ((*read-eval* nil))
+                                (values 'float (read-from-string (subseq in start end))))
+                              (values 'integer (parse-integer (subseq in start end))))))))
+             (t (multiple-value-bind (start end)
+                    (ppcre:scan *id-scanner* in :start idx)
+                  (return
+                    (when start
+                      (setf idx end)
+                      (let* ((token (subseq in start end))
+                             (kw (gethash token *kw-table*)))
+                        (if kw
+                            (values kw kw)
+                            (values 'id (make-symbol token)))))))))))))
 
 (defun parse-sql (in)
-  (yacc:parse-with-lexer (make-lexer in) *sql-parser*))
+  (yacc:parse-with-lexer (make-sql-lexer in) *sql-parser*))
