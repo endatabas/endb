@@ -60,7 +60,6 @@ slt-test: target/slt
 
 slt-test-random: SLT_TESTS = $(shell ls -1 sqllogictest/test/random/*/slt_good_0.test)
 slt-test-random: SLT_ARGS += --halt --trace
-slt-test-random: ENDB_VERBOSE = 1
 slt-test-random: slt-test
 
 slt-test-index: SLT_TESTS = $(shell ls -1 sqllogictest/test/index/*/10/slt_good_0.test)
