@@ -64,8 +64,8 @@
                             (declare (ignore))
                             (list :not (list :in (first expr) subquery))))
    (expr :in :|(| expr-list :|)| (%extract :in 0 3))
-   (expr-not :in :|(| expr-list :|)| (lambda (expr lp expr-list rp)
-                                       (declare (ignore lp rp))
+   (expr-not :in :|(| expr-list :|)| (lambda (expr in lp expr-list rp)
+                                       (declare (ignore in lp rp))
                                        (list :not (list :in (first expr) expr-list)))))
 
   (is-expr
