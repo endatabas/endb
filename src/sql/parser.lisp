@@ -85,7 +85,9 @@
    id
    integer
    float
-   (:- between-term))
+   (:- between-term)
+   (:+ between-term)
+   (:|(| between-term :|)| #'%k-2-3))
 
   (between-and-expr
    (between-term :and between-term #'%i2p))
@@ -148,20 +150,20 @@
   (scalar-subquery
    (subquery (%extract :scalar-subquery 0)))
 
-  (expr (expr :+ expr #'%i2p)
-        (expr :- expr #'%i2p)
-        (expr :* expr #'%i2p)
+  (expr (expr :* expr #'%i2p)
         (expr :/ expr #'%i2p)
         (expr :% expr #'%i2p)
+        (expr :+ expr #'%i2p)
+        (expr :- expr #'%i2p)
         (expr :< expr #'%i2p)
         (expr :<= expr #'%i2p)
         (expr :> expr #'%i2p)
         (expr :>= expr #'%i2p)
         (expr := expr #'%i2p)
         (expr :<> expr #'%i2p)
+        (:not expr)
         (expr :and expr #'%i2p)
         (expr :or expr #'%i2p)
-        (:not expr)
         function-expr
         between-expr
         is-expr
