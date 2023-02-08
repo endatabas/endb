@@ -5,7 +5,7 @@
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-%
            #:sql-between #:sql-in #:sql-exists #:sql-coalesce
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect
-           #:sql-abs
+           #:sql-cast #:sql-abs
            #:sql-count-star #:sql-count #:sql-sum #:sql-avg #:sql-min #:sql-max
            #:sql-create-table #:sql-create-index #:sql-insert
            #:base-table-rows #:base-table-columns))
@@ -160,9 +160,13 @@
 (defun sql-intersect (lhs rhs)
   (%sql-distinct (nintersection lhs rhs :test 'equal)))
 
-(declaim (ftype (function (sql-value sql-string) sql-value) sql-case))
+(declaim (ftype (function (sql-value keyword) sql-value) sql-cast))
 (defun sql-cast (x type)
-  (coerce x (intern (string-upcase type))))
+  (coerce x (ecase type
+              (:integer 'integer)
+              (:real 'real)
+              ((:decimal :signed) 'number)
+              (:varchar 'string))))
 
 (declaim (ftype (function (sql-number) sql-number) sql-abs))
 (defun sql-abs (x)

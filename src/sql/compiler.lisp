@@ -331,6 +331,11 @@
       args
     (ast->cl ctx query)))
 
+(defmethod sql->cl (ctx (type (eql :cast)) &rest args)
+  (destructuring-bind (x sql-type)
+      args
+    `(endb/sql/expr:sql-cast ,(ast->cl ctx x) ,(intern (symbol-name sql-type) :keyword))))
+
 (defun %find-sql-expr-symbol (fn)
   (find-symbol (string-upcase (concatenate 'string "sql-" (symbol-name fn))) :endb/sql/expr))
 

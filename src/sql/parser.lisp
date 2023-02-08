@@ -151,9 +151,7 @@
    (subquery (%extract :scalar-subquery 0)))
 
   (case-expr
-   (:cast :|(| expr :as id :|)| (lambda (cast lp expr as id rp)
-                                  (declare (ignore cast lp as rp))
-                                  (list :cast expr (symbol-name id)))))
+   (:cast :|(| expr :as id :|)| (%extract :cast 2 4)))
 
   (expr (expr :* expr #'%i2p)
         (expr :/ expr #'%i2p)
