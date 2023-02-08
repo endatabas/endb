@@ -113,4 +113,5 @@ UNION
   (is (parse-sql "CREATE UNIQUE INDEX idx_tab2_2 ON tab2 (col1 DESC)"))
   (is (parse-sql "INSERT INTO tab0 VALUES(0,6,5.6,'jtqxx',9,5.19,'qvgba')"))
   (is (parse-sql "DELETE FROM tab0 WHERE col4 > 2.27"))
-  (is (parse-sql "DROP TABLE tab0")))
+  (is (parse-sql "DROP TABLE tab0"))
+  (is (parse-sql "SELECT ALL col2 FROM tab0 WHERE + col0 IS NOT NULL")))

@@ -40,8 +40,12 @@
                                       (or (char> c #\~)
                                           (char< c #\ )))
                                 (princ-to-string value))))
-        (#\I (format nil "~D" value))
-        (#\R (format nil "~,3F" value)))))
+        (#\I (format nil "~D" (if (numberp value)
+                                  value
+                                  0)))
+        (#\R (format nil "~,3F" (if (numberp value)
+                                    value
+                                    0.0))))))
 
 (defun %slt-result (result zTypes pazResult pnResult)
   (let* ((n-used (* (length result) (length zTypes)))
