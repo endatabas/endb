@@ -115,9 +115,10 @@
 
 (declaim (ftype (function (sql-number sql-number) sql-number) sql-/))
 (defun sql-/ (x y)
-  (if (or (eq :null x) (eq :null y))
-      :null
-      (/ x y)))
+  (cond
+    ((or (eq :null x) (eq :null y)) :null)
+    ((and (integerp x) (integerp y)) (truncate x y))
+    (t (/ x y))))
 
 (declaim (ftype (function (sql-number sql-number) sql-number) sql-%))
 (defun sql-% (x y)
@@ -208,7 +209,7 @@
                                        (%sql-distinct xs)
                                        xs))))
     (if xs-no-nulls
-        (sql-/ (reduce #'sql-+ xs-no-nulls) (length xs-no-nulls))
+        (sql-/ (reduce #'sql-+ xs-no-nulls) (coerce (length xs-no-nulls) 'double-float))
         :null)))
 
 (declaim (ftype (function (sequence &key (:distinct boolean)) sql-number) sql-sum))

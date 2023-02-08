@@ -85,6 +85,7 @@
    id
    integer
    float
+   :null
    (:- between-term)
    (:+ between-term)
    (:|(| between-term :|)| #'%k-2-3))

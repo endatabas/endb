@@ -109,7 +109,7 @@
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT COUNT(*), COUNT(e), SUM(e), AVG(a), MIN(b), MAX(c), b FROM t1 GROUP BY b")
-      (is (equal '((1 0 :null 104 :null 102 :null) (2 2 207 207/2 102 102 102)) result))
+      (is (equalp '((1 0 :null 104.0 :null 102 :null) (2 2 207 103.5 102 102 102)) result))
       (is (equal '("column1" "column2" "column3" "column4" "column5" "column6" "b") columns)))
 
     (multiple-value-bind (result columns)
