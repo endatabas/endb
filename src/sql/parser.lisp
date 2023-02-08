@@ -370,7 +370,8 @@
                  (when start
                    (setf idx end)
                    (if (aref groups 0)
-                       (let ((*read-eval* nil))
+                       (let ((*read-eval* nil)
+                             (*read-default-float-format* 'double-float))
                          (values 'float (read-from-string (subseq in start end))))
                        (values 'integer (parse-integer (subseq in start end)))))))
              (parse-id-or-keyword (start-idx)
