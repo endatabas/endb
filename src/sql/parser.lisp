@@ -46,15 +46,14 @@
                                        :and :or :not :exists :between :is :in
                                           :union :except :intersect
                                        :count :avg :sum :min :max))
-  ;;  (:muffle-conflicts (1 0))
-  (:precedence ((:left :||) (:left :* :/ :%) (:left :+ :-)
-                (:left :in)
+  (:precedence ((:left :||)
+                (:left :* :/ :%)
+                (:left :+ :-)
                 (:left :< :<= :> :>=)
-                (:left := :<> :is)
-                (:right :between :not)
+                (:left :is :between :in :<> :=)
+                (:right :not)
                 (:left :and)
-                (:left :or)
-                (:right :exists)))
+                (:left :or)))
 
   (expr-not
    (expr :not))
@@ -113,13 +112,13 @@
    (:count :|(| all-distinct expr :|)| (lambda (count lp all-distinct expr rp)
                                          (declare (ignore count lp rp))
                                          (nconc (list :aggregate-function :count (list expr))
-                                                 (when (eq :distinct all-distinct)
-                                                   (list :distinct t)))))
+                                                (when (eq :distinct all-distinct)
+                                                  (list :distinct t)))))
    (aggregate-fn :|(| all-distinct expr-list :|)| (lambda (id lp all-distinct expr-list rp)
                                                     (declare (ignore lp rp))
                                                     (nconc (list :aggregate-function id expr-list)
-                                                            (when (eq :distinct all-distinct)
-                                                              (list :distinct t)))))
+                                                           (when (eq :distinct all-distinct)
+                                                             (list :distinct t)))))
    (id :|(| expr-list :|)| (%extract :function 0 2)))
 
   (case-when-list-element
@@ -142,9 +141,9 @@
           (lambda (case base-expr case-when-list case-else-expr end)
             (declare (ignore case end))
             (nconc (list :case)
-                    (when base-expr
-                      base-expr)
-                    (list (nconc case-when-list (list case-else-expr)))))))
+                   (when base-expr
+                     base-expr)
+                   (list (nconc case-when-list (list case-else-expr)))))))
 
   (scalar-subquery
    (subquery (%extract :scalar-subquery 0)))
@@ -271,9 +270,9 @@
             (lambda (select all-distinct select-list from where group-by having)
               (declare (ignore select))
               (nconc (list :select select-list)
-                      (when (eq :distinct all-distinct)
-                        (list :distinct t))
-                      from where group-by having))))
+                     (when (eq :distinct all-distinct)
+                       (list :distinct t))
+                     from where group-by having))))
 
   (compound-select-stmt
    (compound-select-stmt :union :all select-core (%extract :union-all 0 3))
