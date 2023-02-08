@@ -18,11 +18,11 @@
     b)
 
   (defun %rcons2 (a b)
-    (append a (list b)))
+    (nconc a (list b)))
 
   (defun %rcons3 (a b c)
     (declare (ignore b))
-    (append a (list c)))
+    (nconc a (list c)))
 
   (defun %extract (&rest items)
     (lambda (&rest list)
@@ -109,12 +109,12 @@
    (:count :|(| :* :|)| (%extract :aggregate-function :count-star ()))
    (:count :|(| all-distinct expr :|)| (lambda (count lb all-distinct expr rb)
                                          (declare (ignore count lb rb))
-                                         (append (list :aggregate-function :count (list expr))
+                                         (nconc (list :aggregate-function :count (list expr))
                                                  (when (eq :distinct all-distinct)
                                                    (list :distinct t)))))
    (aggregate-fn :|(| all-distinct expr-list :|)| (lambda (id lb all-distinct expr-list rb)
                                                     (declare (ignore lb rb))
-                                                    (append (list :aggregate-function id expr-list)
+                                                    (nconc (list :aggregate-function id expr-list)
                                                             (when (eq :distinct all-distinct)
                                                               (list :distinct t)))))
    (id :|(| expr-list :|)| (%extract :function 0 2)))
@@ -138,10 +138,10 @@
    (:case case-base-expr case-when-list case-else-expr :end
           (lambda (case base-expr case-when-list case-else-expr end)
             (declare (ignore case end))
-            (append (list :case)
+            (nconc (list :case)
                     (when base-expr
                       base-expr)
-                    (list (append case-when-list (list case-else-expr)))))))
+                    (list (nconc case-when-list (list case-else-expr)))))))
 
   (scalar-subquery
    (subquery (%extract :scalar-subquery 0)))
@@ -246,7 +246,7 @@
   (limit
    (:limit integer offset (lambda (limit integer offset)
                             (declare (ignore limit))
-                            (append (list :limit integer) offset)))
+                            (nconc (list :limit integer) offset)))
    ())
 
   (all-distinct
@@ -267,7 +267,7 @@
    (:select all-distinct select-list from where group-by having
             (lambda (select all-distinct select-list from where group-by having)
               (declare (ignore select))
-              (append (list :select select-list)
+              (nconc (list :select select-list)
                       (when (eq :distinct all-distinct)
                         (list :distinct t))
                       from where group-by having))))
@@ -279,7 +279,7 @@
    (compound-select-stmt :except select-core #'%i2p)
    select-core)
 
-  (select-stmt (compound-select-stmt order-by limit #'append))
+  (select-stmt (compound-select-stmt order-by limit #'nconc))
 
   (subquery (:|(| select-stmt :|)| #'%k-2-3))
 
@@ -346,71 +346,70 @@
 
 (defun make-sql-lexer (in)
   (let ((idx 0))
-    (lambda ()
-      (loop
-        while (< idx (length in))
-        do (case (char in idx)
-             ((#\Space #\Tab #\Newline) (incf idx))
-             (#\, (incf idx) (return *comma*))
-             (#\( (incf idx) (return *left-brace*))
-             (#\) (incf idx) (return *right-brace*))
-             (#\. (incf idx) (return *period*))
-             (#\- (incf idx) (return (values *minus* *minus*)))
-             (#\+ (incf idx) (return (values *plus* *plus*)))
-             (#\* (incf idx) (return (values *mul* *mul*)))
-             (#\/ (incf idx) (return (values *div* *div*)))
-             (#\% (incf idx) (return (values *mod* *mod*)))
-             (#\= (incf idx) (return (values *eq* *eq*)))
-             (#\<
-              (incf idx)
-              (when (< idx (length in))
-                (case (char in idx)
-                  (#\=
-                   (incf idx)
-                   (return (values *lte* *lte*)))
-                  (#\>
-                   (incf idx)
-                   (return (values *ne* *ne*)))))
-              (return (values *lt* *lt*)))
-             (#\>
-              (incf idx)
-              (if (and (< idx (length in))
-                       (eq #\= (char in idx)))
-                  (progn
-                    (incf idx)
-                    (return (values *gte* *gte*)))
-                  (return (values *gt* *gt*))))
-             (#\|
-              (incf idx)
-              (when (and (< idx (length in))
-                         (eq #\| (char in idx)))
-                (incf idx)
-                (return (values *concat* *concat*))))
-             (#\' (multiple-value-bind (start end)
-                      (ppcre:scan *string-scanner* in :start idx)
-                    (when start
-                      (setf idx end)
-                      (let* ((token (ppcre:regex-replace-all "\\'" (subseq in (1+ start) (1- end)) "'")))
-                        (return (values 'string token))))))
-             ((#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)
-              (multiple-value-bind (start end groups)
-                  (ppcre:scan *number-scanner* in :start idx)
-                (when start
-                  (setf idx end)
-                  (return (if (elt groups 0)
-                              (let ((*read-eval* nil))
-                                (values 'float (read-from-string (subseq in start end))))
-                              (values 'integer (parse-integer (subseq in start end))))))))
-             (t (multiple-value-bind (start end)
-                    (ppcre:scan *id-scanner* in :start idx)
-                  (return
-                    (when start
-                      (setf idx end)
-                      (let* ((token (subseq in start end))
-                             (kw (gethash token *kw-table*)))
-                        (if kw
-                            (values kw kw)
-                            (values 'id (make-symbol token)))))))))))))
+    (labels ((parse-string (start-idx)
+               (multiple-value-bind (start end)
+                   (ppcre:scan *string-scanner* in :start start-idx)
+                 (when start
+                   (setf idx end)
+                   (let* ((token (ppcre:regex-replace-all "\\'" (subseq in (1+ start) (1- end)) "'")))
+                     (values 'string token)))))
+             (parse-number (start-idx)
+               (multiple-value-bind (start end groups)
+                   (ppcre:scan *number-scanner* in :start start-idx)
+                 (when start
+                   (setf idx end)
+                   (if (aref groups 0)
+                       (let ((*read-eval* nil))
+                         (values 'float (read-from-string (subseq in start end))))
+                       (values 'integer (parse-integer (subseq in start end)))))))
+             (parse-id-or-keyword (start-idx)
+               (multiple-value-bind (start end)
+                   (ppcre:scan *id-scanner* in :start start-idx)
+                 (when start
+                   (setf idx end)
+                   (let* ((token (subseq in start end))
+                          (kw (gethash token *kw-table*)))
+                     (if kw
+                         (values kw kw)
+                         (values 'id (make-symbol token))))))))
+      (lambda ()
+        (loop
+          while (< idx (length in))
+          for start-idx = idx
+          for c = (char in start-idx)
+          do (incf idx)
+          unless (member c '(#\Space #\Tab #\Newline))
+            return (case c
+                     (#\, *comma*)
+                     (#\( *left-brace*)
+                     (#\) *right-brace*)
+                     (#\. *period*)
+                     (#\- (values *minus* *minus*))
+                     (#\+ (values *plus* *plus*))
+                     (#\* (values *mul* *mul*))
+                     (#\/ (values *div* *div*))
+                     (#\% (values *mod* *mod*))
+                     (#\= (values *eq* *eq*))
+                     (#\< (if (< idx (length in))
+                              (case (char in idx)
+                                (#\= (incf idx) (values *lte* *lte*))
+                                (#\> (incf idx) (values *ne* *ne*))
+                                (t (values *lt* *lt*)))
+                              (values *lt* *lt*)))
+                     (#\> (if (and (< idx (length in))
+                                   (eq #\= (char in idx)))
+                              (progn
+                                (incf idx)
+                                (values *gte* *gte*))
+                              (values *gt* *gt*)))
+                     (#\| (when (and (< idx (length in))
+                                     (eq #\| (char in idx)))
+                            (incf idx)
+                            (values *concat* *concat*)))
+                     (#\' (parse-string start-idx))
+                     ((#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)
+                      (parse-number start-idx))
+                     (t (parse-id-or-keyword start-idx))))))))
 
 (defun parse-sql (in)
   (yacc:parse-with-lexer (make-sql-lexer in) *sql-parser*))
