@@ -376,11 +376,12 @@
                              (ast->cl ctx cases-or-expr)
                              t)))
          (cond
-           ,@(loop for (test then) in (or cases cases-or-expr)
-                   collect (list (if (eq :else test)
-                                     t
-                                     `(eq t (endb/sql/expr:sql-= ,expr-sym ,(ast->cl ctx test))))
-                                 (ast->cl ctx then))))))))
+           ,@(append (loop for (test then) in (or cases cases-or-expr)
+                           collect (list (if (eq :else test)
+                                             t
+                                             `(eq t (endb/sql/expr:sql-= ,expr-sym ,(ast->cl ctx test))))
+                                         (ast->cl ctx then)))
+                     (list (list t :null))))))))
 
 (defmethod sql->cl (ctx fn &rest args)
   (sql->cl ctx :function fn args))

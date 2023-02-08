@@ -145,7 +145,9 @@
             (nconc (list :case)
                    (when base-expr
                      base-expr)
-                   (list (nconc case-when-list (list case-else-expr)))))))
+                   (list (nconc case-when-list
+                                (when case-else-expr
+                                  (list case-else-expr))))))))
 
   (scalar-subquery
    (subquery (%extract :scalar-subquery 0)))
