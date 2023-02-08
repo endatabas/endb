@@ -24,6 +24,9 @@
     (declare (ignore b))
     (nconc a (list c)))
 
+  (defun %list-1 (&rest list)
+    (first list))
+
   (defun %extract (&rest items)
     (lambda (&rest list)
       (loop for item in items
@@ -296,8 +299,7 @@
    (id)
    (id :|(| integer :|)|))
 
-  (col-def (id col-type opt-primary-key (lambda (&rest list)
-                                          (first list))))
+  (col-def (id col-type opt-primary-key #'%list-1))
 
   (col-def-list (col-def)
                 (col-def-list :|,| col-def #'%rcons3))
