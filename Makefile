@@ -16,6 +16,8 @@ SLT_ENGINE = endb
 SLT_TESTS = $(shell ls -1 sqllogictest/test/select*.test)
 SLT_ARGS = --verify
 
+ENDB_VERBOSE =
+
 default: test target/endb
 
 target/endb: Makefile *.asd $(SOURCES)
@@ -54,14 +56,16 @@ target/slt: Makefile *.asd $(SOURCES) slt/*.lisp target/libsqllogictest$(SHARED_
 		--eval '(asdf:make :endb-slt)'
 
 slt-test: target/slt
-	for test in $(SLT_TESTS); do ./$< --engine $(SLT_ENGINE) $(SLT_ARGS) $$test; done
+	for test in $(SLT_TESTS); do ENDB_VERBOSE=$(ENDB_VERBOSE) ./$< --engine $(SLT_ENGINE) $(SLT_ARGS) $$test; done
 
 slt-test-random: SLT_TESTS = $(shell ls -1 sqllogictest/test/random/*/slt_good_0.test)
 slt-test-random: SLT_ARGS += --halt --trace
+slt-test-random: ENDB_VERBOSE = 1
 slt-test-random: slt-test
 
 slt-test-index: SLT_TESTS = $(shell ls -1 sqllogictest/test/index/*/10/slt_good_0.test)
 slt-test-index: SLT_ARGS += --halt --trace
+slt-test-index: ENDB_VERBOSE = 1
 slt-test-index: slt-test
 
 slt-test-all: SLT_TESTS = $(shell find sqllogictest/test -iname *.test)

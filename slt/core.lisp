@@ -275,7 +275,7 @@
 
 (defun main ()
   (unwind-protect
-       (let ((endb/sql/compiler:*verbose* (uiop:getenv "ENDB_VERBOSE")))
+       (let ((endb/sql/compiler:*verbose* (equal "1" (uiop:getenv "ENDB_VERBOSE"))))
          (uiop:quit
           (let ((exit-code 0)
                 (args (cons (uiop:argv0) (uiop:command-line-arguments))))

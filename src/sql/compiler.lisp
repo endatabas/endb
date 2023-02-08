@@ -233,7 +233,8 @@
                                                         (1+ (loop for clause in where-clauses
                                                                   for src = (where-clause-src clause)
                                                                   when (subsetp (where-clause-free-vars clause) (from-table-vars x))
-                                                                    sum (case (first src)
+                                                                    sum (case (when (listp src)
+                                                                                (first src))
                                                                           (endb/sql/expr:sql-= 10)
                                                                           (endb/sql/expr:sql-in 2)
                                                                           (t 1))))))))
@@ -429,6 +430,9 @@
                   *interpreter-from-limit*)))))
 
 (defun compile-sql (ctx ast)
+  (when *verbose*
+    (pprint ast)
+    (terpri))
   (let* ((db-sym (gensym))
          (index-sym (gensym))
          (ctx (cons (cons :db-sym db-sym) ctx))
@@ -436,8 +440,8 @@
     (multiple-value-bind (src projection)
         (ast->cl ctx ast)
       (when *verbose*
-        (pprint ast)
-        (pprint src))
+        (pprint src)
+        (terpri))
       (let* ((src (if projection
                       `(values ,src ,(list 'quote projection))
                       src))
