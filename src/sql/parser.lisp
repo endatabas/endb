@@ -40,12 +40,12 @@
   (:terminals (id float integer string :* :+ :- :/ :|| :% :< :> :<= :>= := :<> :|,| :|(| :|)| :|.|
                                           :select :all :distinct :as :from :where :values
                                        :order :by :asc :desc :group :having :limit :offset
-                                       :null :true :false
+                                       :null :true :false :cross :join
                                           :create :table :index :on :insert :into
                                           :case :when :then :else :end
-                                       :and :or :not :exists :between :is :in
-                                          :union :except :intersect
-                                       :count :avg :sum :min :max))
+                                       :and :or :not :exists :between :is :in :cast
+                                       :union :except :intersect
+                                          :count :avg :sum :min :max))
   (:precedence ((:left :||)
                 (:left :* :/ :%)
                 (:left :+ :-)
@@ -150,6 +150,11 @@
   (scalar-subquery
    (subquery (%extract :scalar-subquery 0)))
 
+  (case-expr
+   (:cast :|(| expr :as id :|)| (lambda (cast lp expr as id rp)
+                                  (declare (ignore cast lp as rp))
+                                  (list :cast expr (symbol-name id)))))
+
   (expr (expr :* expr #'%i2p)
         (expr :/ expr #'%i2p)
         (expr :% expr #'%i2p)
@@ -164,6 +169,7 @@
         (:not expr)
         (expr :and expr #'%i2p)
         (expr :or expr #'%i2p)
+        cast-expr
         function-expr
         between-expr
         is-expr
@@ -205,9 +211,13 @@
    (id :as id (%extract 0 2))
    (id id))
 
+  (table-list-separator
+   (:|,|)
+   (:cross :join))
+
   (table-list
    (table-list-element)
-   (table-list :|,| table-list-element #'%rcons3))
+   (table-list table-list-separator table-list-element #'%rcons3))
 
   (from
    (:from table-list)
@@ -315,10 +325,10 @@
 
 (dolist (kw '("SELECT" "ALL" "DISTINCT" "AS" "FROM" "WHERE" "VALUES"
               "ORDER" "BY" "ASC" "DESC" "GROUP" "HAVING" "LIMIT" "OFFSET"
-              "NULL" "TRUE" "FALSE"
+              "NULL" "TRUE" "FALSE" "CROSS" "JOIN"
               "CREATE" "TABLE" "INDEX" "ON" "INSERT" "INTO"
               "CASE" "WHEN" "THEN" "ELSE" "END"
-              "AND" "OR" "NOT" "EXISTS" "BETWEEN" "IS" "IN"
+              "AND" "OR" "NOT" "EXISTS" "BETWEEN" "IS" "IN" "CAST"
               "UNION" "EXCEPT" "INTERSECT"
               "COUNT" "AVG" "SUM" "MIN" "MAX"))
   (setf (gethash kw *kw-table*) (intern kw :keyword)))

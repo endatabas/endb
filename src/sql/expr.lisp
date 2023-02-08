@@ -160,6 +160,10 @@
 (defun sql-intersect (lhs rhs)
   (%sql-distinct (nintersection lhs rhs :test 'equal)))
 
+(declaim (ftype (function (sql-value sql-string) sql-value) sql-case))
+(defun sql-cast (x type)
+  (coerce x (intern (string-upcase type))))
+
 (declaim (ftype (function (sql-number) sql-number) sql-abs))
 (defun sql-abs (x)
   (if (eq :null x)

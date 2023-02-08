@@ -102,4 +102,6 @@ UNION
       OR (e7=605 OR 837=b7 OR e7=918)"))
   (is (parse-sql "SELECT * FROM t1"))
   (is (parse-sql "INSERT INTO t1(e,c,b,d,a) VALUES(NULL,102,NULL,101,104)"))
-  (is (parse-sql "SELECT cor0.col2 AS col2 FROM tab2 AS cor0 GROUP BY col2 HAVING NOT NULL < NULL")))
+  (is (parse-sql "SELECT cor0.col2 AS col2 FROM tab2 AS cor0 GROUP BY col2 HAVING NOT NULL < NULL"))
+  (is (parse-sql "SELECT 20 / - - 96 + CAST ( 90 AS INTEGER ) AS col2"))
+  (is (parse-sql "SELECT ALL * FROM tab0 cor0 CROSS JOIN tab2 AS cor1")))
