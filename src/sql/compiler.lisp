@@ -73,6 +73,15 @@
            (member lhs vars)
            (member rhs vars)))))
 
+(defun %unique-vars (vars)
+  (let ((seen ()))
+    (loop for x in (reverse vars)
+          if (not (member x seen))
+            do (push x seen)
+          else
+            do (push nil seen)
+          finally (return seen))))
+
 (defun %join->cl (ctx from-table scan-clauses equi-join-clauses)
   (with-slots (src vars free-vars)
       from-table
@@ -89,7 +98,7 @@
               finally
                  (return (values in-vars out-vars)))
       (let ((src (if scan-clauses
-                     `(loop for ,vars
+                     `(loop for ,(%unique-vars vars)
                               in ,src
                             ,@(loop for clause in scan-clauses append `(when (eq t ,(where-clause-src clause))))
                             collect (list ,@vars))
@@ -102,7 +111,7 @@
                     (or (gethash ,index-key-sym ,(cdr (assoc :index-sym ctx)))
                         (loop with ,index-table-sym = (setf (gethash ,index-key-sym ,(cdr (assoc :index-sym ctx)))
                                                             (make-hash-table :test 'equal))
-                              for ,vars
+                              for ,(%unique-vars vars)
                                 in ,src
                               do (push (list ,@vars) (gethash (list ,@out-vars) ,index-table-sym))
                               finally (return ,index-table-sym)))))))))
@@ -150,7 +159,7 @@
                  (return (values scan-clauses equi-join-clauses pushdown-clauses)))
       (let* ((new-where-clauses (append scan-clauses equi-join-clauses pushdown-clauses))
              (where-clauses (set-difference where-clauses new-where-clauses)))
-        `(loop for ,new-vars
+        `(loop for ,(%unique-vars new-vars)
                  in ,(if equi-join-clauses
                          (%join->cl ctx from-table scan-clauses equi-join-clauses)
                          (from-table-src from-table))
@@ -178,7 +187,7 @@
                       ,(%from->cl group-ctx from-tables where-clauses group-by-selected-src)
                       ,group-acc-sym))
          (group-by-src `(endb/sql/expr::%sql-group-by ,from-src ,(length group-by-projection) ,(length group-by-exprs))))
-    (append `(loop for ,group-by-projection being the hash-key
+    (append `(loop for ,(%unique-vars group-by-projection) being the hash-key
                      using (hash-value ,group-by-exprs-projection)
                        of ,group-by-src
                    when (eq t ,(ast->cl ctx having)))
