@@ -109,7 +109,7 @@
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT COUNT(*), COUNT(e), SUM(e), AVG(a), MIN(b), MAX(c), b FROM t1 GROUP BY b")
-      (is (equalp '((1 0 :null 104.0 :null 102 :null) (2 2 207 103.5 102 102 102)) result))
+      (is (equal '((1 0 :null 104.0d0 :null 102 :null) (2 2 207 103.5d0 102 102 102)) result))
       (is (equal '("column1" "column2" "column3" "column4" "column5" "column6" "b") columns)))
 
     (multiple-value-bind (result columns)
@@ -120,4 +120,9 @@
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT ALL 74 * - COALESCE ( + CASE - CASE WHEN NOT ( NOT - 79 >= NULL ) THEN 48 END WHEN + + COUNT( * ) THEN 6 END, MIN( ALL + - 30 ) * 45 * 77 ) * - 14")
       (is (equal '((-107692200)) result))
-      (is (equal '("column1") columns)))))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "VALUES(0,6,5.6,'jtqxx',9,5.19,'qvgba')")
+      (is (equal '((0 6 5.6d0 "jtqxx" 9 5.19d0 "qvgba")) result))
+      (is (equal '("column1" "column2" "column3" "column4" "column5" "column6" "column7") columns)))))

@@ -41,7 +41,7 @@
                                           :select :all :distinct :as :from :where :values
                                        :order :by :asc :desc :group :having :limit :offset
                                        :null :true :false :cross :join
-                                          :create :table :index :on :insert :into
+                                          :create :table :index :on :insert :into :unique
                                           :case :when :then :else :end
                                        :and :or :not :exists :between :is :in :cast
                                        :union :except :intersect
@@ -321,7 +321,11 @@
   (col-def-list (col-def)
                 (col-def-list :|,| col-def #'%rcons3))
 
-  (create-index-stmt (:create :index id :on id :|(| order-by-list :|)| (%extract :create-index)))
+  (opt-unique
+   (:unique)
+   ())
+
+  (create-index-stmt (:create opt-unique :index id :on id :|(| order-by-list :|)| (%extract :create-index)))
 
   (create-table-stmt (:create :table id :|(| col-def-list :|)| (%extract :create-table 2 4)))
 
@@ -332,7 +336,7 @@
 (dolist (kw '("SELECT" "ALL" "DISTINCT" "AS" "FROM" "WHERE" "VALUES"
               "ORDER" "BY" "ASC" "DESC" "GROUP" "HAVING" "LIMIT" "OFFSET"
               "NULL" "TRUE" "FALSE" "CROSS" "JOIN"
-              "CREATE" "TABLE" "INDEX" "ON" "INSERT" "INTO"
+              "CREATE" "TABLE" "INDEX" "ON" "INSERT" "INTO" "UNIQUE"
               "CASE" "WHEN" "THEN" "ELSE" "END"
               "AND" "OR" "NOT" "EXISTS" "BETWEEN" "IS" "IN" "CAST"
               "UNION" "EXCEPT" "INTERSECT"
@@ -359,7 +363,7 @@
 (defvar *gte* (intern ">=" :keyword))
 (defvar *concat* (intern "||" :keyword))
 
-(defvar *string-scanner* (ppcre:create-scanner "^'([^']|\\')+'"))
+(defvar *string-scanner* (ppcre:create-scanner "^'([^']|\\')*?'"))
 (defvar *number-scanner* (ppcre:create-scanner "^\\d+(\\.\\d+)?"))
 (defvar *id-scanner* (ppcre:create-scanner "^(?i)[a-z_]([a-z_.]|\\d)*"))
 
