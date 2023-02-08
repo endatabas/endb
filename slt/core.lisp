@@ -38,7 +38,7 @@
                                       (or (char> c #\~)
                                           (char< c #\ )))
                                 (princ-to-string value))))
-        (#\I (format nil "~D" (round value)))
+        (#\I (format nil "~D" value))
         (#\R (format nil "~,3F" value)))))
 
 (defun %slt-result (result zTypes pazResult pnResult)

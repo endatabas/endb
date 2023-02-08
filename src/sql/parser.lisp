@@ -82,6 +82,9 @@
    (between-term :* between-term #'%i2p)
    (between-term :/ between-term #'%i2p)
    (between-term :% between-term #'%i2p)
+   cast-expr
+   function-expr
+   case-expr
    id
    integer
    float
@@ -219,6 +222,7 @@
   (table-list
    (table-list-element)
    (:|(| table-list-element :cross :join table-list-element :|)| (%extract 1 4))
+   (table-list-element :join table-list-element :on expr (%extract 0 2))
    (table-list table-list-separator table-list-element #'%rcons3))
 
   (from

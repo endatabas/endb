@@ -116,7 +116,7 @@
 (declaim (ftype (function (sql-number sql-number) sql-number) sql-/))
 (defun sql-/ (x y)
   (cond
-    ((or (eq :null x) (eq :null y)) :null)
+    ((or (eq :null x) (eq :null y) (zerop y)) :null)
     ((and (integerp x) (integerp y)) (truncate x y))
     (t (/ x y))))
 
@@ -165,11 +165,13 @@
 (defun sql-cast (x type)
   (if (eq :null x)
       :null
-      (coerce x (ecase type
-                  (:integer 'integer)
-                  (:real 'real)
-                  ((:decimal :signed) 'number)
-                  (:varchar 'string)))))
+      (if (and (floatp x) (eq :integer type))
+          (round x)
+          (coerce x (ecase type
+                      (:integer 'integer)
+                      (:real 'real)
+                      ((:decimal :signed) 'number)
+                      (:varchar 'string))))))
 
 (declaim (ftype (function (sql-value sql-value) sql-value) sql-nullif))
 (defun sql-nullif (x y)
