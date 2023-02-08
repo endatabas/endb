@@ -65,8 +65,8 @@
                             (declare (ignore))
                             (list :not (list :in (first expr) subquery))))
    (expr :in :|(| expr-list :|)| (%extract :in 0 3))
-   (expr-not :in :|(| expr-list :|)| (lambda (expr lb expr-list rb)
-                                       (declare (ignore lb rb))
+   (expr-not :in :|(| expr-list :|)| (lambda (expr lp expr-list rp)
+                                       (declare (ignore lp rp))
                                        (list :not (list :in (first expr) expr-list)))))
 
   (is-expr
@@ -110,13 +110,13 @@
 
   (function-expr
    (:count :|(| :* :|)| (%extract :aggregate-function :count-star ()))
-   (:count :|(| all-distinct expr :|)| (lambda (count lb all-distinct expr rb)
-                                         (declare (ignore count lb rb))
+   (:count :|(| all-distinct expr :|)| (lambda (count lp all-distinct expr rp)
+                                         (declare (ignore count lp rp))
                                          (nconc (list :aggregate-function :count (list expr))
                                                  (when (eq :distinct all-distinct)
                                                    (list :distinct t)))))
-   (aggregate-fn :|(| all-distinct expr-list :|)| (lambda (id lb all-distinct expr-list rb)
-                                                    (declare (ignore lb rb))
+   (aggregate-fn :|(| all-distinct expr-list :|)| (lambda (id lp all-distinct expr-list rp)
+                                                    (declare (ignore lp rp))
                                                     (nconc (list :aggregate-function id expr-list)
                                                             (when (eq :distinct all-distinct)
                                                               (list :distinct t)))))
