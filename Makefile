@@ -59,7 +59,6 @@ slt-test: target/slt
 	for test in $(SLT_TESTS); do ENDB_VERBOSE=$(ENDB_VERBOSE) ./$< --engine $(SLT_ENGINE) $(SLT_ARGS) $$test; done
 
 slt-test-random: SLT_TESTS = $(shell ls -1 sqllogictest/test/random/*/slt_good_0.test)
-slt-test-random: SLT_ARGS += --halt --trace
 slt-test-random: slt-test
 
 slt-test-index: SLT_TESTS = $(shell ls -1 sqllogictest/test/index/*/10/slt_good_0.test)
