@@ -41,7 +41,7 @@
                                           :select :all :distinct :as :from :where :values
                                        :order :by :asc :desc :group :having :limit :offset
                                        :null :true :false :cross :join
-                                          :create :table :index :on :insert :into :unique
+                                          :create :table :index :on :insert :into :unique :delete :drop
                                           :case :when :then :else :end
                                        :and :or :not :exists :between :is :in :cast
                                        :union :except :intersect
@@ -308,6 +308,9 @@
 
    (:insert :into id select-stmt (%extract :insert 2 3)))
 
+  (delete-stmt
+   (:delete :from id :where expr (%extract :delete 2 4)))
+
   (opt-primary-key
    (id id)
    ())
@@ -329,14 +332,16 @@
 
   (create-table-stmt (:create :table id :|(| col-def-list :|)| (%extract :create-table 2 4)))
 
-  (sql-stmt insert-stmt select-stmt create-table-stmt create-index-stmt))
+  (drop-table-stmt (:drop :table id (%extract :drop-table 2)))
+
+  (sql-stmt insert-stmt delete-stmt select-stmt create-table-stmt create-index-stmt drop-table-stmt))
 
 (defparameter *kw-table* (make-hash-table :test 'equalp))
 
 (dolist (kw '("SELECT" "ALL" "DISTINCT" "AS" "FROM" "WHERE" "VALUES"
               "ORDER" "BY" "ASC" "DESC" "GROUP" "HAVING" "LIMIT" "OFFSET"
               "NULL" "TRUE" "FALSE" "CROSS" "JOIN"
-              "CREATE" "TABLE" "INDEX" "ON" "INSERT" "INTO" "UNIQUE"
+              "CREATE" "TABLE" "INDEX" "ON" "INSERT" "INTO" "UNIQUE" "DELETE" "DROP"
               "CASE" "WHEN" "THEN" "ELSE" "END"
               "AND" "OR" "NOT" "EXISTS" "BETWEEN" "IS" "IN" "CAST"
               "UNION" "EXCEPT" "INTERSECT"

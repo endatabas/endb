@@ -330,11 +330,22 @@
   (declare (ignore args))
   `(endb/sql/expr:sql-create-index ,(cdr (assoc :db-sym ctx))))
 
+(defmethod sql->cl (ctx (type (eql :drop-table)) &rest args)
+  (destructuring-bind (table-name)
+      args
+    `(endb/sql/expr:sql-drop-table ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name))))
+
 (defmethod sql->cl (ctx (type (eql :insert)) &rest args)
   (destructuring-bind (table-name values &key column-names)
       args
     `(endb/sql/expr:sql-insert ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name) ,(ast->cl ctx values)
                                :column-names ',(mapcar #'symbol-name column-names))))
+
+(defmethod sql->cl (ctx (type (eql :delete)) &rest args)
+  (destructuring-bind (table-name where)
+      args
+    `(endb/sql/expr:sql-delete ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name)
+                               ,(ast->cl ctx (list :select (list (list :*)) :from (list (list table-name)) :where where)))))
 
 (defmethod sql->cl (ctx (type (eql :subquery)) &rest args)
   (destructuring-bind (query)
@@ -438,7 +449,7 @@
 (defun %interpretp (ast)
   (when (listp ast)
     (case (first ast)
-      ((:create-table :create-index) t)
+      ((:create-table :create-index :drop-table) t)
       (:insert (eq :values (first (third ast))))
       (:select (> (length (cdr (getf ast :from)))
                   *interpreter-from-limit*)))))

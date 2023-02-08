@@ -111,4 +111,6 @@ UNION
   (is (parse-sql "SELECT * FROM tab1 WHERE NULL NOT IN ( col0 * col0 )"))
   (is (parse-sql "SELECT SUM ( + 73 ) * - CASE WHEN NOT ( NOT 27 BETWEEN 15 AND - NULLIF ( - 63, - 28 + + 76 ) ) THEN NULL ELSE + 77 * + 69 END / - CAST ( - 69 AS INTEGER ) AS col0"))
   (is (parse-sql "CREATE UNIQUE INDEX idx_tab2_2 ON tab2 (col1 DESC)"))
-  (is (parse-sql "INSERT INTO tab0 VALUES(0,6,5.6,'jtqxx',9,5.19,'qvgba')")))
+  (is (parse-sql "INSERT INTO tab0 VALUES(0,6,5.6,'jtqxx',9,5.19,'qvgba')"))
+  (is (parse-sql "DELETE FROM tab0 WHERE col4 > 2.27"))
+  (is (parse-sql "DROP TABLE tab0")))

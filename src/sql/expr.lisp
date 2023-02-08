@@ -7,7 +7,7 @@
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect
            #:sql-cast #:sql-nullif #:sql-abs
            #:sql-count-star #:sql-count #:sql-sum #:sql-avg #:sql-min #:sql-max
-           #:sql-create-table #:sql-create-index #:sql-insert
+           #:sql-create-table #:sql-drop-table #:sql-create-index #:sql-insert #:sql-delete
            #:base-table-rows #:base-table-columns))
 (in-package :endb/sql/expr)
 
@@ -305,6 +305,10 @@
     (setf (gethash table-name db) table)
     (values nil t)))
 
+(defun sql-drop-table (db table-name)
+  (remhash table-name db)
+  (values nil t))
+
 (defun sql-create-index (db)
   (declare (ignore db))
   (values nil t))
@@ -325,3 +329,9 @@
                      values)))
     (setf (base-table-rows table) (append values rows))
     (values nil (length values))))
+
+(defun sql-delete (db table-name values)
+  (let* ((table (gethash table-name db))
+         (rows (base-table-rows table)))
+    (setf (base-table-rows table) (nset-difference rows values :test 'equal)))
+  (values nil (length values)))
