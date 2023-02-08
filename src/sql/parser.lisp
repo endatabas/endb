@@ -150,7 +150,7 @@
   (scalar-subquery
    (subquery (%extract :scalar-subquery 0)))
 
-  (case-expr
+  (cast-expr
    (:cast :|(| expr :as id :|)| (%extract :cast 2 4)))
 
   (expr (expr :* expr #'%i2p)
@@ -175,6 +175,8 @@
         exists-expr
         case-expr
         scalar-subquery
+        (:- expr)
+        (:+ expr)
         term)
 
   (term id
@@ -184,8 +186,6 @@
         :null
         :true
         :false
-        (:- term)
-        (:+ term)
         (:|(| expr :|)| #'%k-2-3))
 
   (id-list (id)
@@ -215,6 +215,7 @@
 
   (table-list
    (table-list-element)
+   (:|(| table-list-element :cross :join table-list-element :|)| (%extract 1 4))
    (table-list table-list-separator table-list-element #'%rcons3))
 
   (from

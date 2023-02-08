@@ -104,4 +104,6 @@ UNION
   (is (parse-sql "INSERT INTO t1(e,c,b,d,a) VALUES(NULL,102,NULL,101,104)"))
   (is (parse-sql "SELECT cor0.col2 AS col2 FROM tab2 AS cor0 GROUP BY col2 HAVING NOT NULL < NULL"))
   (is (parse-sql "SELECT 20 / - - 96 + CAST ( 90 AS INTEGER ) AS col2"))
-  (is (parse-sql "SELECT ALL * FROM tab0 cor0 CROSS JOIN tab2 AS cor1")))
+  (is (parse-sql "SELECT ALL * FROM tab0 cor0 CROSS JOIN tab2 AS cor1"))
+  (is (parse-sql "SELECT + + MIN ( ALL - + 32 ) AS col0, + COUNT ( * ) * + COUNT ( * ) FROM ( tab0 AS cor0 CROSS JOIN tab0 cor1 )"))
+  (is (parse-sql "SELECT ALL NULLIF ( - COUNT ( * ), + 67 * - - ( + 25 ) + 89 + - 39 * 63 ) + + 54 AS col2, 11 * 31 * - - ( 70 )")))
