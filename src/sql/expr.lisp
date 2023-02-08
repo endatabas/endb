@@ -5,7 +5,7 @@
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-%
            #:sql-between #:sql-in #:sql-exists #:sql-coalesce
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect
-           #:sql-cast #:sql-abs
+           #:sql-cast #:sql-nullif #:sql-abs
            #:sql-count-star #:sql-count #:sql-sum #:sql-avg #:sql-min #:sql-max
            #:sql-create-table #:sql-create-index #:sql-insert
            #:base-table-rows #:base-table-columns))
@@ -162,11 +162,19 @@
 
 (declaim (ftype (function (sql-value keyword) sql-value) sql-cast))
 (defun sql-cast (x type)
-  (coerce x (ecase type
-              (:integer 'integer)
-              (:real 'real)
-              ((:decimal :signed) 'number)
-              (:varchar 'string))))
+  (if (eq :null x)
+      :null
+      (coerce x (ecase type
+                  (:integer 'integer)
+                  (:real 'real)
+                  ((:decimal :signed) 'number)
+                  (:varchar 'string)))))
+
+(declaim (ftype (function (sql-value sql-value) sql-value) sql-nullif))
+(defun sql-nullif (x y)
+  (if (eq t (sql-= x y))
+      :null
+      x))
 
 (declaim (ftype (function (sql-number) sql-number) sql-abs))
 (defun sql-abs (x)
