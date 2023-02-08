@@ -399,7 +399,11 @@
      (apply #'sql->cl ctx ast))
     ((listp ast)
      (cond
-       ((some #'%ast-function-call-p ast)
+       ((some (lambda (x)
+                (or (%ast-function-call-p x)
+                    (and (symbolp x)
+                         (not (keywordp x)))))
+              ast)
         (cons 'list (loop for ast in ast
                           collect (ast->cl ctx ast))))
        ((assoc :quote ctx)
