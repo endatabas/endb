@@ -27,6 +27,8 @@
 (defvar *sqlite-db-engine*)
 (defvar *endb-db-engine*)
 
+(defvar *endb-db-engine-reported-name* "postgresql")
+
 (defun %slt-format (value type)
   (if (or (null value)
           (eq :null value))
@@ -142,7 +144,8 @@
   (declare (ignorable pConn zName))
   (if *endb-db-engine*
       (progn
-        (setf zName (cffi:foreign-slot-value *endb-db-engine* 'DbEngine 'zName))
+        (setf (cffi:mem-ref zName :pointer)
+              (cffi:foreign-slot-value *endb-db-engine* 'DbEngine 'pAuxData))
         0)
       1))
 
@@ -209,8 +212,9 @@
 (defun %register-sqlite-engine ()
   (let* ((engine (cffi:foreign-alloc 'DbEngine))
          (engine-name (cffi:foreign-string-alloc "CLSQLite")))
-    (cffi:with-foreign-slots ((zName xConnect xGetEngineName xStatement xQuery xFreeResults xDisconnect) engine DBEngine)
+    (cffi:with-foreign-slots ((zName pAuxData xConnect xGetEngineName xStatement xQuery xFreeResults xDisconnect) engine DBEngine)
       (setf zName engine-name
+            pAuxData (cffi:null-pointer)
             xConnect (cffi:callback sqliteConnect)
             xGetEngineName (cffi:callback sqliteGetEngineName)
             xStatement (cffi:callback sqliteStatement)
@@ -222,9 +226,11 @@
 
 (defun %register-endb-engine ()
   (let* ((engine (cffi:foreign-alloc 'DbEngine))
-         (engine-name (cffi:foreign-string-alloc "endb")))
-    (cffi:with-foreign-slots ((zName xConnect xGetEngineName xStatement xQuery xFreeResults xDisconnect) engine DBEngine)
+         (engine-name (cffi:foreign-string-alloc "endb"))
+         (reported-engine-name (cffi:foreign-string-alloc *endb-db-engine-reported-name*)))
+    (cffi:with-foreign-slots ((zName pAuxData xConnect xGetEngineName xStatement xQuery xFreeResults xDisconnect) engine DBEngine)
       (setf zName engine-name
+            pAuxData reported-engine-name
             xConnect (cffi:callback endbConnect)
             xGetEngineName (cffi:callback endbGetEngineName)
             xStatement (cffi:callback endbStatement)
@@ -271,11 +277,16 @@
 
 (defun %free-db-engine (db-engine)
   (cffi:foreign-free (cffi:foreign-slot-value db-engine 'DbEngine 'zName))
+  (cffi:with-foreign-slots ((pAuxData) db-engine DbEngine)
+    (unless (cffi:null-pointer-p pAuxData)
+      (cffi:foreign-free pAuxData)))
   (cffi:foreign-free db-engine))
 
 (defun main ()
   (unwind-protect
-       (let ((endb/sql/compiler:*verbose* (equal "1" (uiop:getenv "ENDB_VERBOSE"))))
+       (let ((endb/sql/compiler:*verbose* (equal "1" (uiop:getenv "ENDB_VERBOSE")))
+             (*endb-db-engine-reported-name* (or (uiop:getenv "ENDB_ENGINE_REPORTED_NAME")
+                                                 *endb-db-engine-reported-name*)))
          (uiop:quit
           (let ((exit-code 0)
                 (args (cons (uiop:argv0) (uiop:command-line-arguments))))
