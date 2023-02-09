@@ -6,6 +6,7 @@
   (:import-from :asdf)
   (:import-from :uiop)
   (:import-from :endb/sql)
+  (:import-from :endb/sql/expr)
   (:import-from :endb/sql/compiler)
   #+sbcl (:import-from :sb-sprof))
 (in-package :endb-slt/core)
@@ -30,22 +31,23 @@
 (defvar *endb-db-engine-reported-name* "postgresql")
 
 (defun %slt-format (value type)
-  (if (or (null value)
-          (eq :null value))
-      "NULL"
-      (ecase type
-        (#\T (if (equal "" value)
-                 "(empty)"
-                 (substitute-if #\@ (lambda (c)
-                                      (or (char> c #\~)
-                                          (char< c #\ )))
-                                (princ-to-string value))))
-        (#\I (format nil "~D" (if (numberp value)
-                                  value
-                                  0)))
-        (#\R (format nil "~,3F" (if (numberp value)
-                                    value
-                                    0.0))))))
+  (cond
+    ((eq :null value) "NULL")
+    ((eq t value) "1")
+    ((null value) "0")
+    (t (ecase type
+         (#\T (if (equal "" value)
+                  "(empty)"
+                  (substitute-if #\@ (lambda (c)
+                                       (or (char> c #\~)
+                                           (char< c #\ )))
+                                 (princ-to-string value))))
+         (#\I (format nil "~D" (if (numberp value)
+                                   value
+                                   0)))
+         (#\R (format nil "~,3F" (if (numberp value)
+                                     value
+                                     0.0)))))))
 
 (defun %slt-result (result zTypes pazResult pnResult)
   (let* ((n-used (* (length result) (length zTypes)))
@@ -160,13 +162,16 @@
   (declare (ignore bQuiet))
   (let ((endb (gethash (cffi:pointer-address pConn) *connections*)))
     (if endb
-        (progn
-          (multiple-value-bind (result result-code)
-              (endb/sql:execute-sql endb zSql)
-            (declare (ignore result))
-            (if result-code
-                0
-                1)))
+        (handler-case
+            (multiple-value-bind (result result-code)
+                (endb/sql:execute-sql endb zSql)
+              (declare (ignore result))
+              (if result-code
+                  0
+                  1))
+          (endb/sql/expr:sql-runtime-error (e)
+            (declare (ignore e))
+            1))
         1)))
 
 (cffi:defcallback endbQuery :int
@@ -178,13 +183,17 @@
   (declare (ignorable zTypes pazResult pnResult))
   (let ((endb (gethash (cffi:pointer-address pConn) *connections*)))
     (if endb
-        (multiple-value-bind (result result-code)
-            (endb/sql:execute-sql endb zSql)
-          (if result-code
-              (progn
-                (%slt-result result zTypes pazResult pnResult)
-                0)
-              1))
+        (handler-case
+            (multiple-value-bind (result result-code)
+                (endb/sql:execute-sql endb zSql)
+              (if result-code
+                  (progn
+                    (%slt-result result zTypes pazResult pnResult)
+                    0)
+                  1))
+          (endb/sql/expr:sql-runtime-error (e)
+            (declare (ignore e))
+            1))
         1)))
 
 (cffi:defcallback endbFreeResult :int

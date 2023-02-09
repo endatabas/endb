@@ -8,8 +8,12 @@
            #:sql-cast #:sql-nullif #:sql-abs
            #:sql-count-star #:sql-count #:sql-sum #:sql-avg #:sql-min #:sql-max
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
-           #:base-table-rows #:base-table-columns))
+           #:base-table-rows #:base-table-columns
+           #:sql-runtime-error))
 (in-package :endb/sql/expr)
+
+(define-condition sql-runtime-error (error)
+  ())
 
 (deftype sql-null ()
   `(eql :null))
@@ -140,6 +144,8 @@
 
 (declaim (ftype (function (sql-value sequence) sql-boolean) sql-in-query))
 (defun sql-in-query (item xs)
+  (when (and xs (not (= 1 (length (first xs)))))
+    (error 'sql-runtime-error :message "IN query must return single column."))
   (sql-in item (mapcar #'first xs)))
 
 (declaim (ftype (function (sql-number sql-number sql-number) sql-boolean) sql-between))
@@ -192,7 +198,8 @@
 
 (declaim (ftype (function (sequence) sql-value) sql-scalar-subquery))
 (defun sql-scalar-subquery (rows)
-  (assert (<= (length rows) 1))
+  (when (> 1 (length rows))
+    (error 'sql-runtime-error :message "Scalar subquery must return max one row."))
   (if (null rows)
       :null
       (caar rows)))

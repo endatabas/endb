@@ -130,4 +130,9 @@
     (multiple-value-bind (result columns)
         (execute-sql db "VALUES(0,6,5.6,'jtqxx',9,5.19,'qvgba')")
       (is (equal '((0 6 5.6d0 "jtqxx" 9 5.19d0 "qvgba")) result))
-      (is (equal '("column1" "column2" "column3" "column4" "column5" "column6" "column7") columns)))))
+      (is (equal '("column1" "column2" "column3" "column4" "column5" "column6" "column7") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 1 IN (2)")
+      (is (equal '((nil)) result))
+      (is (equal '("column1") columns)))))

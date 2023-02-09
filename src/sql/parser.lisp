@@ -37,15 +37,16 @@
 
 (yacc:define-parser *sql-parser*
   (:start-symbol sql-stmt)
-  (:terminals (id float integer string :* :+ :- :/ :|| :% :< :> :<= :>= := :<> :|,| :|(| :|)| :|.|
-                                          :select :all :distinct :as :from :where :values
-                                       :order :by :asc :desc :group :having :limit :offset
-                                       :null :true :false :cross :join
-                                          :create :table :index :on :insert :into :unique :delete :drop :view :if
-                                       :case :when :then :else :end
-                                          :and :or :not :exists :between :is :in :cast
-                                          :union :except :intersect
-                                       :count :avg :sum :min :max))
+  (:terminals (id float integer string binary
+                  :* :+ :- :/ :|| :% :< :> :<= :>= := :<> :|,| :|(| :|)| :|.|
+                  :select :all :distinct :as :from :where :values
+                  :order :by :asc :desc :group :having :limit :offset
+                  :null :true :false :cross :join
+                  :create :table :index :on :insert :into :unique :delete :drop :view :if
+                  :case :when :then :else :end
+                  :and :or :not :exists :between :is :in :cast
+                  :union :except :intersect
+                  :count :avg :sum :min :max))
   (:precedence ((:left :||)
                 (:left :* :/ :%)
                 (:left :+ :-)
@@ -63,10 +64,10 @@
    (expr-not :in subquery (lambda (expr in subquery)
                             (declare (ignore in))
                             (list :not (list :in-query (first expr) subquery))))
-   (expr :in :|(| expr-list :|)| (%extract :in 0 3))
-   (expr-not :in :|(| expr-list :|)| (lambda (expr in lp expr-list rp)
-                                       (declare (ignore in lp rp))
-                                       (list :not (list :in (first expr) expr-list)))))
+   (expr :in :|(| opt-expr-list :|)| (%extract :in 0 3))
+   (expr-not :in :|(| opt-expr-list :|)| (lambda (expr in lp expr-list rp)
+                                           (declare (ignore in lp rp))
+                                           (list :not (list :in (first expr) expr-list)))))
 
   (is-expr
    (expr :is expr (lambda (expr-1 is expr-2)
@@ -189,6 +190,7 @@
         integer
         float
         string
+        binary
         :null
         :true
         :false
@@ -197,6 +199,10 @@
   (id-list (id)
            (id-list :|,| id #'%rcons3)
            ())
+
+  (opt-expr-list
+   expr-list
+   ())
 
   (expr-list (expr)
              (expr-list :|,| expr #'%rcons3))
@@ -325,7 +331,7 @@
    (id)
    (id :|(| integer :|)|))
 
-  (col-def (id col-type opt-primary-key #'%list-1))
+  (col-def (id col-type opt-primary-key opt-unique #'%list-1))
 
   (col-def-list (col-def)
                 (col-def-list :|,| col-def #'%rcons3))
@@ -385,6 +391,7 @@
 (defvar *concat* (intern "||" :keyword))
 
 (defvar *string-scanner* (ppcre:create-scanner "^'([^']|\\')*?'"))
+(defvar *hex-scanner* (ppcre:create-scanner "^'[0-9a-fA-F]*?'"))
 (defvar *number-scanner* (ppcre:create-scanner "^\\d+(\\.\\d+)?"))
 (defvar *id-scanner* (ppcre:create-scanner "^(?i)[a-z_]([a-z_.]|\\d)*"))
 
@@ -397,6 +404,12 @@
                    (setf idx end)
                    (let* ((token (ppcre:regex-replace-all "\\'" (subseq in (1+ start) (1- end)) "'")))
                      (values 'string token)))))
+             (parse-hex-string (start-idx)
+               (multiple-value-bind (start end)
+                   (ppcre:scan *hex-scanner* in :start start-idx)
+                 (when start
+                   (setf idx end)
+                   (values 'binary (subseq in (1+ start) (1- end))))))
              (parse-number (start-idx)
                (multiple-value-bind (start end groups)
                    (ppcre:scan *number-scanner* in :start start-idx)
@@ -454,7 +467,11 @@
                      (#\' (parse-string start-idx))
                      ((#\0 #\1 #\2 #\3 #\4 #\5 #\6 #\7 #\8 #\9)
                       (parse-number start-idx))
-                     (t (parse-id-or-keyword start-idx))))))))
+                     (t (if (and (char-equal #\X c)
+                                 (< idx (length in))
+                                 (eq #\' (char in idx)))
+                            (parse-hex-string idx)
+                            (parse-id-or-keyword start-idx)))))))))
 
 (defun parse-sql (in)
   (yacc:parse-with-lexer (make-sql-lexer in) *sql-parser*))
