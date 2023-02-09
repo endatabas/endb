@@ -84,6 +84,28 @@
             do (push nil seen)
           finally (return seen))))
 
+(defun %flatten-from (from)
+  (let ((from-element (first from)))
+    (when from-element
+      (append (if (eq :join (first from-element))
+                  (destructuring-bind (table-1 table-2 &key on)
+                      (rest from-element)
+                    (declare (ignore on))
+                    (%flatten-from (list table-1 table-2)))
+                  (list from-element))
+              (%flatten-from (rest from))))))
+
+(defun %from-where-clauses (from)
+  (let ((from-element (first from)))
+    (when from-element
+      (append
+       (when (eq :join (first from-element))
+         (destructuring-bind (table-1 table-2 &key on)
+             (rest from-element)
+           (append (%and-clauses on)
+                   (%from-where-clauses (list table-1 table-2)))))
+       (%from-where-clauses (rest from))))))
+
 (defun %join->cl (ctx from-table scan-clauses equi-join-clauses)
   (with-slots (src vars free-vars)
       from-table
@@ -232,7 +254,8 @@
                                                                (loop for p in full-projection
                                                                      collect (ast->cl ctx (make-symbol p)))
                                                                (list (ast->cl ctx expr)))))
-                                (where-clauses (loop for clause in (%and-clauses where)
+                                (where-clauses (loop for clause in (append (%from-where-clauses from)
+                                                                           (%and-clauses where))
                                                      collect (multiple-value-bind (src projection free-vars)
                                                                  (%ast->cl-with-free-vars ctx clause)
                                                                (declare (ignore projection))
@@ -252,7 +275,7 @@
                                 (limit (unless order-by
                                          limit))
                                 (offset (unless order-by
-                                         offset))
+                                          offset))
                                 (group-by-needed-p (or group-by-p havingp (plusp (hash-table-count aggregate-table)))))
                            (values
                             (if group-by-needed-p
@@ -264,7 +287,8 @@
              (rows-sym (gensym))
              (ctx (cons (cons :rows-sym rows-sym)
                         (cons (cons :acc-sym acc-sym)
-                              (cons (cons :block-sym block-sym) ctx)))))
+                              (cons (cons :block-sym block-sym) ctx))))
+             (from (%flatten-from from)))
         (multiple-value-bind (src full-projection)
             (select->cl ctx from ())
           (let* ((src `(block ,block-sym

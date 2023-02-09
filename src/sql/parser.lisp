@@ -226,7 +226,9 @@
   (table-list
    (table-list-element)
    (:|(| table-list-element :cross :join table-list-element :|)| (%extract 1 4))
-   (table-list-element :join table-list-element :on expr (%extract 0 2))
+   (table-list-element :join table-list-element :on expr (lambda (table-1 join table-2 on expr)
+                                                           (declare (ignore join on))
+                                                           (list (list :join table-1 table-2 :on expr))))
    (table-list table-list-separator table-list-element #'%rcons3))
 
   (from

@@ -118,4 +118,5 @@ UNION
   (is (parse-sql "DROP VIEW IF EXISTS view_3_tab0_153"))
   (is (parse-sql "CREATE VIEW view_1_tab0_153 AS SELECT pk, col0 FROM tab0 WHERE col0 = 49"))
   (is (parse-sql "DROP VIEW view_1_tab1_153"))
-  (is (parse-sql "SELECT pk FROM ( SELECT pk, col0 FROM tab0 WHERE col0 = 49 ) AS tab0_153")))
+  (is (parse-sql "SELECT pk FROM ( SELECT pk, col0 FROM tab0 WHERE col0 = 49 ) AS tab0_153"))
+  (is (parse-sql "SELECT * FROM tab0 cor0 JOIN tab0 AS cor1 ON NULL IS NULL")))
