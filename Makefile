@@ -72,8 +72,7 @@ slt-test-index: SLT_TESTS = $(shell ls -1 sqllogictest/test/index/*/10/slt_good_
 slt-test-index: slt-test
 
 slt-test-evidence: SLT_TESTS = $(SLT_EVIDENCE_TESTS)
-slt-test-evidence: SLT_ARGS += --halt --trace
-slt-test-evidence: SLT_ENV = ENDB_VERBOSE=1
+slt-test-evidence: SLT_ENV=ENDB_ENGINE_REPORTED_NAME=sqlite
 slt-test-evidence: slt-test
 
 slt-test-all: SLT_TESTS = $(shell find sqllogictest/test -iname *.test | grep -v evidence)

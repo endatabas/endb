@@ -389,6 +389,39 @@
     `(endb/sql/expr:sql-delete ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name)
                                ,(ast->cl ctx (list :select (list (list :*)) :from (list (list table-name)) :where where)))))
 
+(defmethod sql->cl (ctx (type (eql :update)) &rest args)
+  (destructuring-bind (table-name update-cols &key (where :true))
+      args
+    (let ((db-table (gethash (symbol-name table-name) (cdr (assoc :db ctx)))))
+      (unless (listp db-table)
+        (let* ((columns (endb/sql/expr:base-table-columns db-table))
+               (update-cols (reverse update-cols))
+               (update-col-names (mapcar (lambda (x)
+                                           (symbol-name (first x)))
+                                         update-cols))
+               (update-select-list (loop for column in columns
+                                         for (update-col expr) = (find column update-cols
+                                                                       :key (lambda (x)
+                                                                              (symbol-name (first x)))
+                                                                       :test 'equal)
+                                         if update-col
+                                           collect (list expr)
+                                         else
+                                           collect (list (make-symbol column))))
+               (update-sym (gensym)))
+          (when (subsetp update-col-names columns :test 'equal)
+            `(let ((,update-sym ,(ast->cl ctx (list :select update-select-list :from (list (list table-name)) :where where))))
+               (endb/sql/expr:sql-delete ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name)
+                                         ,(ast->cl ctx (list :select (list (list :*)) :from (list (list table-name)) :where where)))
+               (endb/sql/expr:sql-insert ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name) ,update-sym))))))))
+
+(defmethod sql->cl (ctx (type (eql :in-query)) &rest args)
+  (destructuring-bind (expr query)
+      args
+    `(endb/sql/expr:sql-in-query ,(ast->cl ctx expr) ,(if (symbolp query)
+                                                          (ast->cl ctx (list :select (list (list :*)) :from (list (list query))))
+                                                          (ast->cl ctx query)))))
+
 (defmethod sql->cl (ctx (type (eql :subquery)) &rest args)
   (destructuring-bind (query)
       args

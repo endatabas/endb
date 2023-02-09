@@ -43,6 +43,7 @@
                   :order :by :asc :desc :group :having :limit :offset
                   :null :true :false :cross :join
                   :create :table :index :on :insert :into :unique :delete :drop :view :if
+                  :temp :temporary :replace :update :set
                   :case :when :then :else :end
                   :and :or :not :exists :between :is :in :cast
                   :union :except :intersect
@@ -59,11 +60,15 @@
   (expr-not
    (expr :not))
 
+  (subquery-or-table
+   id
+   subquery)
+
   (in-expr
-   (expr :in subquery (%extract :in-query 0 2))
-   (expr-not :in subquery (lambda (expr in subquery)
-                            (declare (ignore in))
-                            (list :not (list :in-query (first expr) subquery))))
+   (expr :in subquery-or-table (%extract :in-query 0 2))
+   (expr-not :in subquery-or-table (lambda (expr in subquery)
+                                     (declare (ignore in))
+                                     (list :not (list :in-query (first expr) subquery))))
    (expr :in :|(| opt-expr-list :|)| (%extract :in 0 3))
    (expr-not :in :|(| opt-expr-list :|)| (lambda (expr in lp expr-list rp)
                                            (declare (ignore in lp rp))
@@ -315,13 +320,28 @@
 
   (subquery (:|(| select-stmt :|)| #'%k-2-3))
 
-  (insert-stmt
-   (:insert :into id :|(| id-list :|)| select-stmt (%extract :insert 2 6 :column-names 4))
+  (opt-or-replace
+   (:or :replace)
+   ())
 
-   (:insert :into id select-stmt (%extract :insert 2 3)))
+  (insert-stmt
+   (:insert opt-or-replace :into id :|(| id-list :|)| select-stmt (%extract :insert 3 7 :column-names 5))
+
+   (:insert opt-or-replace :into id select-stmt (%extract :insert 3 4)))
 
   (delete-stmt
    (:delete :from id :where expr (%extract :delete 2 4)))
+
+  (update-col
+   (id := expr (%extract 0 2)))
+
+  (update-col-list (update-col)
+                   (update-col-list :|,| update-col #'%rcons3))
+
+  (update-stmt
+   (:update id :set update-col-list where (lambda (update id set update-col-list where)
+                                            (declare (ignore update set))
+                                            (append (list :update id update-col-list) where))))
 
   (opt-primary-key
    (id id)
@@ -354,9 +374,14 @@
 
   (drop-view-stmt (:drop :view opt-if-exists id (%extract :drop-view 3 :if-exists 2)))
 
-  (create-view-stmt (:create :view id :as select-stmt (%extract :create-view 2 4)))
+  (opt-temp
+   (:temp)
+   (:temporary)
+   ())
 
-  (sql-stmt insert-stmt delete-stmt select-stmt create-table-stmt drop-table-stmt create-index-stmt drop-index-stmt create-view-stmt drop-view-stmt))
+  (create-view-stmt (:create opt-temp :view id :as select-stmt (%extract :create-view 3 5)))
+
+  (sql-stmt insert-stmt delete-stmt update-stmt select-stmt create-table-stmt drop-table-stmt create-index-stmt drop-index-stmt create-view-stmt drop-view-stmt))
 
 (defparameter *kw-table* (make-hash-table :test 'equalp))
 
@@ -364,6 +389,7 @@
               "ORDER" "BY" "ASC" "DESC" "GROUP" "HAVING" "LIMIT" "OFFSET"
               "NULL" "TRUE" "FALSE" "CROSS" "JOIN"
               "CREATE" "TABLE" "INDEX" "ON" "INSERT" "INTO" "UNIQUE" "DELETE" "DROP" "VIEW" "IF"
+              "TEMP" "TEMPORARY" "REPLACE" "UPDATE" "SET"
               "CASE" "WHEN" "THEN" "ELSE" "END"
               "AND" "OR" "NOT" "EXISTS" "BETWEEN" "IS" "IN" "CAST"
               "UNION" "EXCEPT" "INTERSECT"
