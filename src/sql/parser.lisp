@@ -336,19 +336,21 @@
 
   (create-index-stmt (:create opt-unique :index id :on id :|(| order-by-list :|)| (%extract :create-index)))
 
-  (create-table-stmt (:create :table id :|(| col-def-list :|)| (%extract :create-table 2 4)))
+  (drop-index-stmt (:drop :index id (%extract :drop-index)))
 
-  (drop-table-stmt (:drop :table id (%extract :drop-table 2)))
+  (create-table-stmt (:create :table id :|(| col-def-list :|)| (%extract :create-table 2 4)))
 
   (opt-if-exists
    (:if :exists)
    ())
 
-  (drop-view-stmt (:drop :view opt-if-exists id (%extract :drop-view 3)))
+  (drop-table-stmt (:drop :table opt-if-exists id (%extract :drop-table 3 :if-exists 2)))
+
+  (drop-view-stmt (:drop :view opt-if-exists id (%extract :drop-view 3 :if-exists 2)))
 
   (create-view-stmt (:create :view id :as select-stmt (%extract :create-view 2 4)))
 
-  (sql-stmt insert-stmt delete-stmt select-stmt create-table-stmt create-index-stmt drop-table-stmt create-view-stmt drop-view-stmt))
+  (sql-stmt insert-stmt delete-stmt select-stmt create-table-stmt drop-table-stmt create-index-stmt drop-index-stmt create-view-stmt drop-view-stmt))
 
 (defparameter *kw-table* (make-hash-table :test 'equalp))
 

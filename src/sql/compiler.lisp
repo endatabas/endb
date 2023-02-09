@@ -356,10 +356,15 @@
   (declare (ignore args))
   `(endb/sql/expr:sql-create-index ,(cdr (assoc :db-sym ctx))))
 
+(defmethod sql->cl (ctx (type (eql :drop-index)) &rest args)
+  (declare (ignore args))
+  `(endb/sql/expr:sql-drop-index ,(cdr (assoc :db-sym ctx))))
+
 (defmethod sql->cl (ctx (type (eql :drop-table)) &rest args)
-  (destructuring-bind (table-name)
+  (destructuring-bind (table-name &key if-exists)
       args
-    `(endb/sql/expr:sql-drop-table ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name))))
+    `(endb/sql/expr:sql-drop-table ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name) :if-exists ,(when if-exists
+                                                                                                      t))))
 
 (defmethod sql->cl (ctx (type (eql :create-view)) &rest args)
   (destructuring-bind (table-name query)
@@ -367,9 +372,10 @@
     `(endb/sql/expr:sql-create-view ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name) ',query)))
 
 (defmethod sql->cl (ctx (type (eql :drop-view)) &rest args)
-  (destructuring-bind (view-name)
+  (destructuring-bind (view-name &key if-exists)
       args
-    `(endb/sql/expr:sql-drop-view ,(cdr (assoc :db-sym ctx)) ,(symbol-name view-name))))
+    `(endb/sql/expr:sql-drop-view ,(cdr (assoc :db-sym ctx)) ,(symbol-name view-name)  :if-exists ,(when if-exists
+                                                                                                     t))))
 
 (defmethod sql->cl (ctx (type (eql :insert)) &rest args)
   (destructuring-bind (table-name values &key column-names)

@@ -16,6 +16,13 @@ SLT_ENGINE = endb
 SLT_TESTS = $(shell ls -1 sqllogictest/test/select*.test)
 SLT_ARGS = --verify
 
+SLT_EVIDENCE_TESTS = sqllogictest/test/evidence/in1.test \
+	sqllogictest/test/evidence/in2.test \
+	sqllogictest/test/evidence/slt_lang_createview.test \
+	sqllogictest/test/evidence/slt_lang_droptable.test \
+	sqllogictest/test/evidence/slt_lang_dropview.test \
+	sqllogictest/test/evidence/slt_lang_update.test
+
 SLT_ENV =
 
 default: test target/endb
@@ -62,11 +69,14 @@ slt-test-random: SLT_TESTS = $(shell ls -1 sqllogictest/test/random/*/slt_good_0
 slt-test-random: slt-test
 
 slt-test-index: SLT_TESTS = $(shell ls -1 sqllogictest/test/index/*/10/slt_good_0.test)
-slt-test-index: SLT_ARGS += --halt --trace
-slt-test-index: SLT_ENV = ENDB_VERBOSE=1
 slt-test-index: slt-test
 
-slt-test-all: SLT_TESTS = $(shell find sqllogictest/test -iname *.test)
+slt-test-evidence: SLT_TESTS = $(SLT_EVIDENCE_TESTS)
+slt-test-evidence: SLT_ARGS += --halt --trace
+slt-test-evidence: SLT_ENV = ENDB_VERBOSE=1
+slt-test-evidence: slt-test
+
+slt-test-all: SLT_TESTS = $(shell find sqllogictest/test -iname *.test | grep -v evidence)
 slt-test-all: slt-test
 
 docker:

@@ -7,7 +7,7 @@
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect
            #:sql-cast #:sql-nullif #:sql-abs
            #:sql-count-star #:sql-count #:sql-sum #:sql-avg #:sql-min #:sql-max
-           #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-insert #:sql-delete
+           #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
            #:base-table-rows #:base-table-columns))
 (in-package :endb/sql/expr)
 
@@ -306,45 +306,53 @@
   rows)
 
 (defun sql-create-table (db table-name columns)
-  (let ((table (make-base-table :columns columns :rows ())))
-    (setf (gethash table-name db) table)
+  (unless (gethash table-name db)
+    (let ((table (make-base-table :columns columns :rows ())))
+      (setf (gethash table-name db) table)
+      (values nil t))))
+
+(defun sql-drop-table (db table-name &key if-exists)
+  (when (or (remhash table-name db) if-exists)
     (values nil t)))
 
-(defun sql-drop-table (db table-name)
-  (remhash table-name db)
-  (values nil t))
-
 (defun sql-create-view (db view-name query)
-  (setf (gethash view-name db) query)
-  (values nil t))
+  (unless (gethash view-name db)
+    (setf (gethash view-name db) query)
+    (values nil t)))
 
-(defun sql-drop-view (db view-name)
-  (remhash view-name db)
-  (values nil t))
+(defun sql-drop-view (db view-name &key if-exists)
+  (when (or (remhash view-name db) if-exists)
+    (values nil t)))
 
 (defun sql-create-index (db)
   (declare (ignore db))
   (values nil t))
 
+(defun sql-drop-index (db)
+  (declare (ignore db)))
+
 (defun sql-insert (db table-name values &key column-names)
-  (let* ((table (gethash table-name db))
-         (rows (base-table-rows table))
-         (values (if column-names
-                     (let ((column->idx (make-hash-table :test 'equal)))
-                       (loop for column in column-names
-                             for idx from 0
-                             do (setf (gethash column column->idx) idx))
-                       (mapcar (lambda (row)
-                                 (mapcar (lambda (column)
-                                           (nth (gethash column column->idx) row))
-                                         (base-table-columns table)))
-                               values))
-                     values)))
-    (setf (base-table-rows table) (append values rows))
-    (values nil (length values))))
+  (let ((table (gethash table-name db)))
+    (unless (listp table)
+      (let* ((rows (base-table-rows table))
+             (values (if column-names
+                         (let ((column->idx (make-hash-table :test 'equal)))
+                           (loop for column in column-names
+                                 for idx from 0
+                                 do (setf (gethash column column->idx) idx))
+                           (mapcar (lambda (row)
+                                     (mapcar (lambda (column)
+                                               (nth (gethash column column->idx) row))
+                                             (base-table-columns table)))
+                                   values))
+                         values)))
+        (setf (base-table-rows table) (append values rows))
+        (values nil (length values))))))
 
 (defun sql-delete (db table-name values)
-  (let* ((table (gethash table-name db))
-         (rows (base-table-rows table)))
-    (setf (base-table-rows table) (nset-difference rows values :test 'equal)))
-  (values nil (length values)))
+  (let ((table (gethash table-name db)))
+    (unless (listp table)
+      (let* ((table (gethash table-name db))
+             (rows (base-table-rows table)))
+        (setf (base-table-rows table) (nset-difference rows values :test 'equal))
+        (values nil (length values))))))
