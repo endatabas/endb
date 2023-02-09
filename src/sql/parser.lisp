@@ -41,7 +41,7 @@
                                           :select :all :distinct :as :from :where :values
                                        :order :by :asc :desc :group :having :limit :offset
                                        :null :true :false :cross :join
-                                          :create :table :index :on :insert :into :unique :delete :drop
+                                          :create :table :index :on :insert :into :unique :delete :drop :view :if
                                        :case :when :then :else :end
                                           :and :or :not :exists :between :is :in :cast
                                           :union :except :intersect
@@ -210,10 +210,14 @@
   (select-list (select-list-element)
                (select-list :|,| select-list-element #'%rcons3))
 
+  (table-or-subquery
+   id
+   subquery)
+
   (table-list-element
-   (id)
-   (id :as id (%extract 0 2))
-   (id id))
+   (table-or-subquery)
+   (table-or-subquery :as id (%extract 0 2))
+   (table-or-subquery id))
 
   (table-list-separator
    (:|,|)
@@ -334,14 +338,22 @@
 
   (drop-table-stmt (:drop :table id (%extract :drop-table 2)))
 
-  (sql-stmt insert-stmt delete-stmt select-stmt create-table-stmt create-index-stmt drop-table-stmt))
+  (opt-if-exists
+   (:if :exists)
+   ())
+
+  (drop-view-stmt (:drop :view opt-if-exists id (%extract :drop-view 3)))
+
+  (create-view-stmt (:create :view id :as select-stmt (%extract :create-view 2 4)))
+
+  (sql-stmt insert-stmt delete-stmt select-stmt create-table-stmt create-index-stmt drop-table-stmt create-view-stmt drop-view-stmt))
 
 (defparameter *kw-table* (make-hash-table :test 'equalp))
 
 (dolist (kw '("SELECT" "ALL" "DISTINCT" "AS" "FROM" "WHERE" "VALUES"
               "ORDER" "BY" "ASC" "DESC" "GROUP" "HAVING" "LIMIT" "OFFSET"
               "NULL" "TRUE" "FALSE" "CROSS" "JOIN"
-              "CREATE" "TABLE" "INDEX" "ON" "INSERT" "INTO" "UNIQUE" "DELETE" "DROP"
+              "CREATE" "TABLE" "INDEX" "ON" "INSERT" "INTO" "UNIQUE" "DELETE" "DROP" "VIEW" "IF"
               "CASE" "WHEN" "THEN" "ELSE" "END"
               "AND" "OR" "NOT" "EXISTS" "BETWEEN" "IS" "IN" "CAST"
               "UNION" "EXCEPT" "INTERSECT"

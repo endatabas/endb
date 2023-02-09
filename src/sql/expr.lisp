@@ -7,7 +7,7 @@
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect
            #:sql-cast #:sql-nullif #:sql-abs
            #:sql-count-star #:sql-count #:sql-sum #:sql-avg #:sql-min #:sql-max
-           #:sql-create-table #:sql-drop-table #:sql-create-index #:sql-insert #:sql-delete
+           #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-insert #:sql-delete
            #:base-table-rows #:base-table-columns))
 (in-package :endb/sql/expr)
 
@@ -312,6 +312,14 @@
 
 (defun sql-drop-table (db table-name)
   (remhash table-name db)
+  (values nil t))
+
+(defun sql-create-view (db view-name query)
+  (setf (gethash view-name db) query)
+  (values nil t))
+
+(defun sql-drop-view (db view-name)
+  (remhash view-name db)
   (values nil t))
 
 (defun sql-create-index (db)

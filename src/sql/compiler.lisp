@@ -29,10 +29,12 @@
 
 (defun %base-table->cl (ctx table)
   (let ((db-table (gethash (symbol-name table) (cdr (assoc :db ctx)))))
-    (values `(endb/sql/expr:base-table-rows (gethash ,(symbol-name table) ,(cdr (assoc :db-sym ctx))))
-            (endb/sql/expr:base-table-columns db-table)
-            ()
-            (length (endb/sql/expr:base-table-rows db-table)))))
+    (if (listp db-table)
+        (%ast->cl-with-free-vars ctx db-table)
+        (values `(endb/sql/expr:base-table-rows (gethash ,(symbol-name table) ,(cdr (assoc :db-sym ctx))))
+                (endb/sql/expr:base-table-columns db-table)
+                ()
+                (length (endb/sql/expr:base-table-rows db-table))))))
 
 (defun %wrap-with-order-by-and-limit (src order-by limit offset)
   (let* ((src (if order-by
@@ -335,6 +337,16 @@
       args
     `(endb/sql/expr:sql-drop-table ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name))))
 
+(defmethod sql->cl (ctx (type (eql :create-view)) &rest args)
+  (destructuring-bind (table-name query)
+      args
+    `(endb/sql/expr:sql-create-view ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name) ',query)))
+
+(defmethod sql->cl (ctx (type (eql :drop-view)) &rest args)
+  (destructuring-bind (view-name)
+      args
+    `(endb/sql/expr:sql-drop-view ,(cdr (assoc :db-sym ctx)) ,(symbol-name view-name))))
+
 (defmethod sql->cl (ctx (type (eql :insert)) &rest args)
   (destructuring-bind (table-name values &key column-names)
       args
@@ -449,7 +461,7 @@
 (defun %interpretp (ast)
   (when (listp ast)
     (case (first ast)
-      ((:create-table :create-index :drop-table) t)
+      ((:create-table :create-index :drop-table :drop-view) t)
       (:insert (eq :values (first (third ast))))
       (:select (> (length (cdr (getf ast :from)))
                   *interpreter-from-limit*)))))
