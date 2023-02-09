@@ -69,21 +69,30 @@ target/slt: Makefile *.asd $(SOURCES) slt/*.lisp target/libsqllogictest$(SHARED_
 slt-test: target/slt
 	for test in $(SLT_TESTS); do $(SLT_ENV) ./$< --engine $(SLT_ENGINE) $(SLT_ARGS) $$test; done
 
-slt-test-select: SLT_TESTS = $(SLT_SELECT_TEST)
+slt-test-select: SLT_TESTS = $(SLT_SELECT_TESTS)
 slt-test-select: slt-test
 
 slt-test-random: SLT_TESTS = $(SLT_RANDOM_TESTS)
 slt-test-random: slt-test
 
 slt-test-index: SLT_TESTS = $(SLT_INDEX_TESTS)
+slt-test-index: SLT_ENV += SB_INTERPRET=1
 slt-test-index: slt-test
 
 slt-test-evidence: SLT_TESTS = $(SLT_EVIDENCE_TESTS)
-slt-test-evidence: SLT_ENV=ENDB_ENGINE_REPORTED_NAME=sqlite
+slt-test-evidence: SLT_ENV += ENDB_ENGINE_REPORTED_NAME=sqlite
 slt-test-evidence: slt-test
 
 slt-test-all: SLT_TESTS = $(shell find sqllogictest/test -iname *.test | grep -v evidence)
+slt-test-all: SLT_ENV += SB_INTERPRET=1
 slt-test-all: slt-test
+
+slt-test-ci: SLT_ENV += SLT_TIMING=1
+slt-test-ci:
+	$(SLT_ENV) make slt-test-select
+	$(SLT_ENV) make slt-test-evidence
+	$(SLT_ENV) make slt-test-random
+	$(SLT_ENV) make slt-test-index
 
 docker:
 	docker build -t endatabas/endb:latest .
@@ -94,4 +103,4 @@ run-docker: docker
 clean:
 	rm -rf target $(FASL_FILES)
 
-.PHONY: repl run run-binary test slt-test slt-test-all docker run-docker clean
+.PHONY: repl run run-binary test slt-test slt-test-select slt-test-random slt-test-index slt-test-evidence slt-test-all slt-test-ci docker run-docker clean
