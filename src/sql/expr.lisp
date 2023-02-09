@@ -2,11 +2,11 @@
   (:use :cl)
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
-           #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-%
+           #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->>
            #:sql-between #:sql-in #:sql-in-query #:sql-exists #:sql-coalesce
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect
            #:sql-cast #:sql-nullif #:sql-abs
-           #:sql-count-star #:sql-count #:sql-sum #:sql-avg #:sql-min #:sql-max
+           #:sql-count-star #:sql-count #:sql-sum #:sql-avg #:sql-min #:sql-max #:sql-total #:sql-group_concat
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
            #:base-table-rows #:base-table-columns
            #:sql-runtime-error))
@@ -68,6 +68,18 @@
       :null
       (>= x y)))
 
+(declaim (ftype (function (sql-number sql-number) sql-number) sql-<<))
+(defun sql-<< (x y)
+  (if (or (eq :null x) (eq :null y))
+      :null
+      (ash x y)))
+
+(declaim (ftype (function (sql-number sql-number) sql-number) sql->>))
+(defun sql->> (x y)
+  (if (or (eq :null x) (eq :null y))
+      :null
+      (ash x (- y))))
+
 (declaim (ftype (function (sql-boolean) sql-boolean) sql-not))
 (defun sql-not (x)
   (if (eq :null x)
@@ -97,11 +109,12 @@
         (first tail)
         :null)))
 
-(declaim (ftype (function (sql-value &optional sql-number) sql-value) sql-+))
+(declaim (ftype (function (sql-value &optional sql-value) sql-value) sql-+))
 (defun sql-+ (x &optional (y 0))
   (cond
     ((or (eq :null x) (eq :null y)) :null)
-    ((not (numberp x)) 0)
+    ((or (not (numberp x))
+         (not (numberp y))) 0)
     (t (+ x y))))
 
 (declaim (ftype (function (sql-number &optional sql-number) sql-number) sql--))
@@ -176,13 +189,16 @@
 (defun sql-cast (x type)
   (if (eq :null x)
       :null
-      (if (and (floatp x) (eq :integer type))
-          (round x)
-          (coerce x (ecase type
-                      (:integer 'integer)
-                      (:real 'real)
-                      ((:decimal :signed) 'number)
-                      (:varchar 'string))))))
+      (cond
+        ((and (floatp x)
+              (eq :integer type))
+         (round x))
+        ((eq :varchar type)
+         (princ-to-string x))
+        (t (coerce x (ecase type
+                       (:integer 'integer)
+                       (:real 'real)
+                       ((:decimal :signed) 'number)))))))
 
 (declaim (ftype (function (sql-value sql-value) sql-value) sql-nullif))
 (defun sql-nullif (x y)
@@ -206,7 +222,8 @@
 
 (declaim (ftype (function (sequence &key (:distinct boolean)) sql-number) sql-count-star))
 (defun sql-count-star (xs &key distinct)
-  (declare (ignore distinct))
+  (when distinct
+    (error 'sql-runtime-error :message "COUNT(*) does not support DISTINCT."))
   (length xs))
 
 (declaim (ftype (function (sequence &key (:distinct boolean)) sql-number) sql-count))
@@ -223,7 +240,8 @@
                                        (%sql-distinct xs)
                                        xs))))
     (if xs-no-nulls
-        (sql-/ (reduce #'sql-+ xs-no-nulls) (coerce (length xs-no-nulls) 'double-float))
+        (sql-/ (reduce #'sql-+ xs-no-nulls)
+               (coerce (length xs-no-nulls) 'double-float))
         :null)))
 
 (declaim (ftype (function (sequence &key (:distinct boolean)) sql-number) sql-sum))
@@ -235,6 +253,37 @@
         (reduce #'sql-+ xs-no-nulls)
         :null)))
 
+(declaim (ftype (function (sequence &key (:distinct boolean)) sql-number) sql-total))
+(defun sql-total (xs &key distinct)
+  (let ((xs-no-nulls (delete :null (if distinct
+                                       (%sql-distinct xs)
+                                       xs))))
+    (if xs-no-nulls
+        (reduce #'sql-+ xs-no-nulls)
+        0)))
+
+(declaim (ftype (function (sequence &rest t) sequence) sql-group_concat))
+(defun sql-group_concat (xs &rest args)
+  (multiple-value-bind (separator distinct)
+      (if (= 2 (length args))
+          (destructuring-bind (&key distinct)
+              args
+            (values "," distinct))
+          (destructuring-bind (separator &key distinct)
+              args
+            (when distinct
+              (error 'sql-runtime-error :message "GROUP_CONCAT with argument doesn't support DISTINCT."))
+            (values separator distinct)))
+    (let ((xs (reverse (delete :null (if distinct
+                                         (%sql-distinct xs)
+                                         xs)))))
+      (apply #'concatenate 'string
+             (loop for x in xs
+                   for y upto (length xs)
+                   collect (if (= y (1- (length xs)))
+                               (sql-cast x :varchar)
+                               (concatenate 'string (sql-cast x :varchar) separator)))))))
+
 (declaim (ftype (function (sequence &key (:distinct boolean)) sql-number) sql-min))
 (defun sql-min (xs &key distinct)
   (let ((xs-no-nulls (delete :null (if distinct
@@ -243,9 +292,15 @@
     (if xs-no-nulls
         (reduce
          (lambda (x y)
-           (if (sql-< x y)
-               x
-               y))
+           (let ((x (if (numberp x)
+                        x
+                        0))
+                 (y (if (numberp y)
+                        y
+                        0)))
+             (if (sql-< x y)
+                 x
+                 y)))
          xs-no-nulls)
         :null)))
 
@@ -257,9 +312,15 @@
     (if xs-no-nulls
         (reduce
          (lambda (x y)
-           (if (sql-> x y)
-               x
-               y))
+           (let ((x (if (numberp x)
+                        x
+                        0))
+                 (y (if (numberp y)
+                        y
+                        0)))
+             (if (sql-> x y)
+                 x
+                 y)))
          xs-no-nulls)
         :null)))
 

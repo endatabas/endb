@@ -13,17 +13,21 @@ CFLAGS = -g -Wall
 
 SLT_SOURCES = sqllogictest.c md5.c sqlite3.c
 SLT_ENGINE = endb
-SLT_TESTS = $(shell ls -1 sqllogictest/test/select*.test)
 SLT_ARGS = --verify
+SLT_ENV =
 
+SLT_SELECT_TESTS = $(shell ls -1 sqllogictest/test/select*.test)
+SLT_RANDOM_TESTS = $(shell ls -1 sqllogictest/test/random/*/slt_good_0.test)
+SLT_INDEX_TESTS = $(shell ls -1 sqllogictest/test/index/*/10/slt_good_0.test)
 SLT_EVIDENCE_TESTS = sqllogictest/test/evidence/in1.test \
 	sqllogictest/test/evidence/in2.test \
+	sqllogictest/test/evidence/slt_lang_aggfunc.test \
 	sqllogictest/test/evidence/slt_lang_createview.test \
 	sqllogictest/test/evidence/slt_lang_droptable.test \
 	sqllogictest/test/evidence/slt_lang_dropview.test \
 	sqllogictest/test/evidence/slt_lang_update.test
 
-SLT_ENV =
+SLT_TESTS = $(SLT_SELECT_TESTS)
 
 default: test target/endb
 
@@ -65,10 +69,13 @@ target/slt: Makefile *.asd $(SOURCES) slt/*.lisp target/libsqllogictest$(SHARED_
 slt-test: target/slt
 	for test in $(SLT_TESTS); do $(SLT_ENV) ./$< --engine $(SLT_ENGINE) $(SLT_ARGS) $$test; done
 
-slt-test-random: SLT_TESTS = $(shell ls -1 sqllogictest/test/random/*/slt_good_0.test)
+slt-test-select: SLT_TESTS = $(SLT_SELECT_TEST)
+slt-test-select: slt-test
+
+slt-test-random: SLT_TESTS = $(SLT_RANDOM_TESTS)
 slt-test-random: slt-test
 
-slt-test-index: SLT_TESTS = $(shell ls -1 sqllogictest/test/index/*/10/slt_good_0.test)
+slt-test-index: SLT_TESTS = $(SLT_INDEX_TESTS)
 slt-test-index: slt-test
 
 slt-test-evidence: SLT_TESTS = $(SLT_EVIDENCE_TESTS)

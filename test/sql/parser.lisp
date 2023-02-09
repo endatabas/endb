@@ -130,4 +130,6 @@ UNION
   (is (parse-sql "UPDATE t1 SET x=3, x=4, x=5"))
   (is (parse-sql "SELECT 1 IN t1"))
   (is (parse-sql "CREATE TEMP VIEW view2 AS SELECT x FROM t1 WHERE x>0"))
-  (is (parse-sql "INSERT OR REPLACE INTO view1 VALUES(2,'unknown')")))
+  (is (parse-sql "INSERT OR REPLACE INTO view1 VALUES(2,'unknown')"))
+  (is (parse-sql "SELECT x FROM t1 WHERE x NOT NULL ORDER BY x"))
+  (is (parse-sql "INSERT INTO t1 VALUES(1<<63,'true')")))

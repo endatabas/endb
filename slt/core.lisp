@@ -42,9 +42,10 @@
                                        (or (char> c #\~)
                                            (char< c #\ )))
                                  (princ-to-string value))))
-         (#\I (format nil "~D" (if (numberp value)
-                                   value
-                                   0)))
+         (#\I (format nil "~D" (cond
+                                 ((floatp value) (round value))
+                                 ((numberp value) value)
+                                 (t 0))))
          (#\R (format nil "~,3F" (if (numberp value)
                                      value
                                      0.0)))))))

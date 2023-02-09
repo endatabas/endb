@@ -38,19 +38,20 @@
 (yacc:define-parser *sql-parser*
   (:start-symbol sql-stmt)
   (:terminals (id float integer string binary
-                  :* :+ :- :/ :|| :% :< :> :<= :>= := :<> :|,| :|(| :|)| :|.|
+                  :>> :<< :* :+ :- :/ :|| :% :< :> :<= :>= := :<> :|,| :|(| :|)| :|.|
                   :select :all :distinct :as :from :where :values
                   :order :by :asc :desc :group :having :limit :offset
                   :null :true :false :cross :join
                   :create :table :index :on :insert :into :unique :delete :drop :view :if
-                  :temp :temporary :replace :update :set
+                  :temp :temporary :replace :update :set :indexed
                   :case :when :then :else :end
                   :and :or :not :exists :between :is :in :cast
                   :union :except :intersect
-                  :count :avg :sum :min :max))
+                  :count :avg :sum :min :max :total :group_concat))
   (:precedence ((:left :||)
                 (:left :* :/ :%)
                 (:left :+ :-)
+                (:left :<< :>>)
                 (:left :< :<= :> :>=)
                 (:left :is :between :in :<> :=)
                 (:right :not)
@@ -117,10 +118,16 @@
    :avg
    :sum
    :min
-   :max)
+   :max
+   :total
+   :group_concat)
 
   (function-expr
-   (:count :|(| :* :|)| (%extract :aggregate-function :count-star ()))
+   (:count :|(| all-distinct :* :|)| (lambda (count lp all-distinct star rp)
+                                       (declare (ignore count lp star rp))
+                                       (nconc (list :aggregate-function :count-star ())
+                                              (when (eq :distinct all-distinct)
+                                                (list :distinct t)))))
    (:count :|(| all-distinct expr :|)| (lambda (count lp all-distinct expr rp)
                                          (declare (ignore count lp rp))
                                          (nconc (list :aggregate-function :count (list expr))
@@ -165,11 +172,21 @@
   (cast-expr
    (:cast :|(| expr :as id :|)| (%extract :cast 2 4)))
 
+  (expr-not
+   (expr :not))
+
+  (not-null-expr
+   (expr-not :null (lambda (expr-not null)
+                     (declare (ignore null))
+                     (list :not (list :is :null (first expr-not))))))
+
   (expr (expr :* expr #'%i2p)
         (expr :/ expr #'%i2p)
         (expr :% expr #'%i2p)
         (expr :+ expr #'%i2p)
         (expr :- expr #'%i2p)
+        (expr :<< expr #'%i2p)
+        (expr :>> expr #'%i2p)
         (expr :< expr #'%i2p)
         (expr :<= expr #'%i2p)
         (expr :> expr #'%i2p)
@@ -179,6 +196,7 @@
         (:not expr)
         (expr :and expr #'%i2p)
         (expr :or expr #'%i2p)
+        not-null-expr
         cast-expr
         function-expr
         between-expr
@@ -221,8 +239,12 @@
   (select-list (select-list-element)
                (select-list :|,| select-list-element #'%rcons3))
 
+  (opt-not-indexed
+   (:not :indexed)
+   ())
+
   (table-or-subquery
-   id
+   (id opt-not-indexed #'%list-1)
    subquery)
 
   (table-list-element
@@ -389,11 +411,11 @@
               "ORDER" "BY" "ASC" "DESC" "GROUP" "HAVING" "LIMIT" "OFFSET"
               "NULL" "TRUE" "FALSE" "CROSS" "JOIN"
               "CREATE" "TABLE" "INDEX" "ON" "INSERT" "INTO" "UNIQUE" "DELETE" "DROP" "VIEW" "IF"
-              "TEMP" "TEMPORARY" "REPLACE" "UPDATE" "SET"
+              "TEMP" "TEMPORARY" "REPLACE" "UPDATE" "SET" "INDEXED"
               "CASE" "WHEN" "THEN" "ELSE" "END"
               "AND" "OR" "NOT" "EXISTS" "BETWEEN" "IS" "IN" "CAST"
               "UNION" "EXCEPT" "INTERSECT"
-              "COUNT" "AVG" "SUM" "MIN" "MAX"))
+              "COUNT" "AVG" "SUM" "MIN" "MAX" "TOTAL" "GROUP_CONCAT"))
   (setf (gethash kw *kw-table*) (intern kw :keyword)))
 
 (defvar *comma* (intern "," :keyword))
@@ -410,6 +432,9 @@
 (defvar *eq* (intern "=" :keyword))
 (defvar *lt* (intern "<" :keyword))
 (defvar *gt* (intern ">" :keyword))
+
+(defvar *ls* (intern "<<" :keyword))
+(defvar *rs* (intern ">>" :keyword))
 
 (defvar *ne* (intern "<>" :keyword))
 (defvar *lte* (intern "<=" :keyword))
@@ -478,13 +503,14 @@
                               (case (char in idx)
                                 (#\= (incf idx) (values *lte* *lte*))
                                 (#\> (incf idx) (values *ne* *ne*))
+                                (#\< (incf idx) (values *ls* *ls*))
                                 (t (values *lt* *lt*)))
                               (values *lt* *lt*)))
-                     (#\> (if (and (< idx (length in))
-                                   (eq #\= (char in idx)))
-                              (progn
-                                (incf idx)
-                                (values *gte* *gte*))
+                     (#\> (if (< idx (length in))
+                              (case (char in idx)
+                                (#\= (incf idx) (values *gte* *gte*))
+                                (#\> (incf idx) (values *rs* *rs*))
+                                (t (values *gt* *gt*)))
                               (values *gt* *gt*)))
                      (#\| (when (and (< idx (length in))
                                      (eq #\| (char in idx)))

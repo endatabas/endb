@@ -45,6 +45,13 @@
                   src)))
     src))
 
+(defun %resolve-order-by (order-by projection)
+  (loop for (col direction) in order-by
+        collect (list (if (symbolp col)
+                          (1+ (position (symbol-name col) projection :test 'equal))
+                          col)
+                      (or direction :asc))))
+
 (defun %and-clauses (expr)
   (if (and (listp expr)
            (eq :and (first expr)))
@@ -300,9 +307,10 @@
                  (src (if distinct
                           `(endb/sql/expr::%sql-distinct ,src)
                           src))
-                 (src (%wrap-with-order-by-and-limit src order-by limit offset))
-                 (select-star-projection (mapcar #'%unqualified-column-name full-projection)))
-            (values src (%select-projection select-list select-star-projection))))))))
+                 (select-star-projection (mapcar #'%unqualified-column-name full-projection))
+                 (select-projection (%select-projection select-list select-star-projection))
+                 (src (%wrap-with-order-by-and-limit src (%resolve-order-by order-by select-projection) limit offset)))
+            (values src select-projection)))))))
 
 (defun %values-projection (arity)
   (loop for idx from 1 upto arity
@@ -311,8 +319,10 @@
 (defmethod sql->cl (ctx (type (eql :values)) &rest args)
   (destructuring-bind (values-list &key order-by limit offset)
       args
-    (values (%wrap-with-order-by-and-limit (ast->cl ctx values-list) order-by limit offset)
-            (%values-projection (length (first values-list))))))
+    (let ((projection (%values-projection (length (first values-list)))))
+      (values (%wrap-with-order-by-and-limit (ast->cl ctx values-list)
+                                             (%resolve-order-by order-by projection) limit offset)
+              projection))))
 
 (defmethod sql->cl (ctx (type (eql :exists)) &rest args)
   (destructuring-bind (query)
@@ -322,30 +332,38 @@
 (defmethod sql->cl (ctx (type (eql :union)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit offset)
       args
-    (multiple-value-bind (lhs-src columns)
+    (multiple-value-bind (lhs-src projection)
         (ast->cl ctx lhs)
-      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-union ,lhs-src ,(ast->cl ctx rhs)) order-by limit offset) columns))))
+      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-union ,lhs-src ,(ast->cl ctx rhs))
+                                             (%resolve-order-by order-by projection) limit offset)
+              projection))))
 
 (defmethod sql->cl (ctx (type (eql :union-all)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit offset)
       args
     (multiple-value-bind (lhs-src projection)
         (ast->cl ctx lhs)
-      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-union-all ,lhs-src ,(ast->cl ctx rhs)) order-by limit offset) projection))))
+      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-union-all ,lhs-src ,(ast->cl ctx rhs))
+                                             (%resolve-order-by order-by projection) limit offset)
+              projection))))
 
 (defmethod sql->cl (ctx (type (eql :except)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit offset)
       args
     (multiple-value-bind (lhs-src projection)
         (ast->cl ctx lhs)
-      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-except ,lhs-src ,(ast->cl ctx rhs)) order-by limit offset) projection))))
+      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-except ,lhs-src ,(ast->cl ctx rhs))
+                                             (%resolve-order-by order-by projection) limit offset)
+              projection))))
 
 (defmethod sql->cl (ctx (type (eql :intersect)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit offset)
       args
     (multiple-value-bind (lhs-src projection)
         (ast->cl ctx lhs)
-      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-intersect ,lhs-src ,(ast->cl ctx rhs)) order-by limit offset) projection))))
+      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-intersect ,lhs-src ,(ast->cl ctx rhs))
+                                             (%resolve-order-by order-by projection) limit offset)
+              projection))))
 
 (defmethod sql->cl (ctx (type (eql :create-table)) &rest args)
   (destructuring-bind (table-name column-names)
@@ -450,9 +468,10 @@
           (fn-sym (%find-sql-expr-symbol fn))
           (aggregate-sym (gensym)))
       (assert fn-sym nil (format nil "Unknown aggregate function: ~A" fn))
-      (assert (<= (length args) 1) nil (format nil "Aggregates require max 1 argument, got: ~D" (length args)))
       (setf (gethash aggregate-sym aggregate-table) (ast->cl ctx (first args)))
-      `(,fn-sym ,aggregate-sym :distinct ,distinct))))
+      `(,fn-sym ,aggregate-sym ,@(loop for ast in (rest args)
+                                       collect (ast->cl ctx ast))
+                :distinct ,distinct))))
 
 (defmethod sql->cl (ctx (type (eql :case)) &rest args)
   (destructuring-bind (cases-or-expr &optional cases)
@@ -488,7 +507,8 @@
        ((some (lambda (x)
                 (or (%ast-function-call-p x)
                     (and (symbolp x)
-                         (not (keywordp x)))))
+                         (not (keywordp x)))
+                    (listp x)))
               ast)
         (cons 'list (loop for ast in ast
                           collect (ast->cl ctx ast))))
