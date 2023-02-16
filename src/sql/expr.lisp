@@ -49,29 +49,53 @@
 (defun sql-is (x y)
   (equal x y))
 
-(declaim (ftype (function (sql-number sql-number) sql-boolean) sql-<))
+(declaim (ftype (function (sql-value sql-value) sql-boolean) sql-<))
 (defun sql-< (x y)
-  (if (or (eq :null x) (eq :null y))
-      :null
-      (< x y)))
+  (cond
+    ((or (eq :null x) (eq :null y))
+     :null)
+    ((and (stringp x) (stringp y))
+     (not (null (string< x y))))
+    ((and (typep x 'local-time:date)
+          (typep y 'local-time:date))
+     (local-time:timestamp< x y))
+    (t (< x y))))
 
-(declaim (ftype (function (sql-number sql-number) sql-boolean) sql-<=))
+(declaim (ftype (function (sql-value sql-value) sql-boolean) sql-<=))
 (defun sql-<= (x y)
-  (if (or (eq :null x) (eq :null y))
-      :null
-      (<= x y)))
+  (cond
+    ((or (eq :null x) (eq :null y))
+     :null)
+    ((and (stringp x) (stringp y))
+     (not (null (string<= x y))))
+    ((and (typep x 'local-time:date)
+          (typep y 'local-time:date))
+     (local-time:timestamp<= x y))
+    (t (<= x y))))
 
-(declaim (ftype (function (sql-number sql-number) sql-boolean) sql->))
+(declaim (ftype (function (sql-value sql-value) sql-boolean) sql->))
 (defun sql-> (x y)
-  (if (or (eq :null x) (eq :null y))
-      :null
-      (> x y)))
+  (cond
+    ((or (eq :null x) (eq :null y))
+     :null)
+    ((and (stringp x) (stringp y))
+     (not (null (string> x y))))
+    ((and (typep x 'local-time:date)
+          (typep y 'local-time:date))
+     (local-time:timestamp> x y))
+    (t (> x y))))
 
-(declaim (ftype (function (sql-number sql-number) sql-boolean) sql->=))
+(declaim (ftype (function (sql-value sql-value) sql-boolean) sql->=))
 (defun sql->= (x y)
-  (if (or (eq :null x) (eq :null y))
-      :null
-      (>= x y)))
+  (cond
+    ((or (eq :null x) (eq :null y))
+     :null)
+    ((and (stringp x) (stringp y))
+     (not (null (string>= x y))))
+    ((and (typep x 'local-time:date)
+          (typep y 'local-time:date))
+     (local-time:timestamp>= x y))
+    (t (>= x y))))
 
 (declaim (ftype (function (sql-number sql-number) sql-number) sql-<<))
 (defun sql-<< (x y)
@@ -166,7 +190,7 @@
     (error 'sql-runtime-error :message "IN query must return single column."))
   (sql-in item (mapcar #'first xs)))
 
-(declaim (ftype (function (sql-number sql-number sql-number) sql-boolean) sql-between))
+(declaim (ftype (function (sql-value sql-value sql-value) sql-boolean) sql-between))
 (defun sql-between (expr lhs rhs)
   (sql-and (sql->= expr lhs) (sql-<= expr rhs)))
 
@@ -381,12 +405,12 @@
              (cond
                ((eq :null x) t)
                ((eq :null y) nil)
-               (t (< x y))))
+               (t (sql-< x y))))
            (desc (x y)
              (cond
                ((eq :null y) t)
                ((eq :null x) nil)
-               (t (> x y)))))
+               (t (sql-> x y)))))
     (sort rows (lambda (x y)
                  (loop for (idx direction) in order-by
                        for cmp = (ecase direction
