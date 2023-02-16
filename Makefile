@@ -27,9 +27,9 @@ SLT_EVIDENCE_TESTS = sqllogictest/test/evidence/in1.test \
 	sqllogictest/test/evidence/slt_lang_dropview.test \
 	sqllogictest/test/evidence/slt_lang_update.test
 
-SLT_TPCH_TESTS = $(shell ls -1 test/tpch/001/tpch.test)
-
 SLT_TESTS = $(SLT_SELECT_TESTS)
+
+TPCH_SF = 001
 
 default: test target/endb
 
@@ -89,8 +89,12 @@ slt-test-all: SLT_TESTS = $(shell find sqllogictest/test -iname *.test | grep -v
 slt-test-all: SLT_ENV += SB_INTERPRET=1
 slt-test-all: slt-test
 
-slt-test-tpch: SLT_TESTS = $(SLT_TPCH_TESTS)
-slt-test-tpch: slt-test
+target/tpch_$(TPCH_SF).test: test/tpch/tpch_schema.test test/tpch/$(TPCH_SF)/tpch_queries.test
+	rm -f $@
+	cat $^ > $@
+
+slt-test-tpch: SLT_TESTS = target/tpch.test
+slt-test-tpch: target/tpch_$(TPCH_SF).test slt-test
 
 slt-test-ci: SLT_ENV += SLT_TIMING=1
 slt-test-ci:
@@ -108,4 +112,4 @@ run-docker: docker
 clean:
 	rm -rf target $(FASL_FILES)
 
-.PHONY: repl run run-binary test slt-test slt-test-select slt-test-random slt-test-index slt-test-evidence slt-test-all slt-test-ci docker run-docker clean
+.PHONY: repl run run-binary test slt-test slt-test-select slt-test-random slt-test-index slt-test-evidence slt-test-all slt-test-tpch slt-test-ci docker run-docker clean
