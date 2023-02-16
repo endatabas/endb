@@ -3,7 +3,7 @@
   (:import-from :uiop))
 
 (defvar *date-scanner* (ppcre:create-scanner "^\\d\\d\\d\\d-\\d\\d-\\d\\d$"))
-(defvar *number-scanner* (ppcre:create-scanner "^\\d+(.\\d+)?$"))
+(defvar *number-scanner* (ppcre:create-scanner "^-?\\d+(.\\d+)?$"))
 (defvar *pipe-scanner* (ppcre:create-scanner "\\|"))
 
 (defun tpch-pipe-delimited-to-slt (file)

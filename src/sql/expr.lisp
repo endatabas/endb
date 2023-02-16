@@ -271,7 +271,7 @@
       :null
       (let ((y (1- y))
             (z (if z
-                   (1- z)
+                   z
                    (length x))))
         (if (and (< y (length x))
                  (<= z (length x)))
