@@ -251,12 +251,15 @@
    (:not :indexed)
    ())
 
+  (table
+   (id opt-not-indexed #'%list-1))
+
   (table-or-subquery
-   (id opt-not-indexed #'%list-1)
+   table
    subquery)
 
   (table-list-element
-   (table-or-subquery)
+   (table)
    (table-or-subquery :as id (%extract 0 2))
    (table-or-subquery id))
 
