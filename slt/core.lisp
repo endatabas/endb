@@ -30,6 +30,12 @@
 
 (defvar *endb-db-engine-reported-name* "postgresql")
 
+(cffi:defcfun "sqlite3_snprintf" :int
+  (size :size)
+  (str :pointer)
+  (control :string)
+  &rest)
+
 (defun %slt-format (value type)
   (cond
     ((eq :null value) "NULL")
@@ -46,9 +52,10 @@
                                  ((floatp value) (round value))
                                  ((numberp value) value)
                                  (t 0))))
-         (#\R (format nil "~,3F" (if (numberp value)
-                                     value
-                                     0.0)))))))
+         (#\R (if (numberp value)
+                  (cffi:with-foreign-pointer-as-string (s 32)
+                    (sqlite3-snprintf 32 s "%.3f" :double (coerce value 'double-float)))
+                "0.0"))))))
 
 (defun %slt-result (result zTypes pazResult pnResult)
   (let* ((n-used (* (length result) (length zTypes)))
