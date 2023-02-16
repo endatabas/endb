@@ -1,11 +1,13 @@
 (defpackage :endb/sql/expr
   (:use :cl)
+  (:import-from :cl-ppcre)
+  (:import-from :local-time)
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->>
            #:sql-between #:sql-in #:sql-in-query #:sql-exists #:sql-coalesce
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect
-           #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-like
+           #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-like #:sql-substring #:sql-strftime
            #:sql-count-star #:sql-count #:sql-sum #:sql-avg #:sql-min #:sql-max #:sql-total #:sql-group_concat
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
            #:base-table-rows #:base-table-columns
@@ -27,8 +29,11 @@
 (deftype sql-string ()
   `(or string sql-null))
 
+(deftype sql-date ()
+  `(or local-time:date sql-null))
+
 (deftype sql-value ()
-  `(or sql-null sql-boolean sql-number sql-string))
+  `(or sql-null sql-boolean sql-number sql-string sql-date))
 
 (declaim (ftype (function (sql-value sql-value) sql-boolean) sql-=))
 (defun sql-= (x y)
@@ -195,6 +200,8 @@
          (round x))
         ((eq :varchar type)
          (princ-to-string x))
+        ((eq :date type)
+         (sql-date x))
         (t (coerce x (ecase type
                        (:integer 'integer)
                        (:real 'real)
@@ -212,22 +219,38 @@
       :null
       (abs x)))
 
-(declaim (ftype (function (sql-string) sql-value) sql-date))
+(declaim (ftype (function (sql-string) sql-date) sql-date))
 (defun sql-date (x)
-  (declare (ignore x))
-  :null)
+  (coerce (local-time:parse-timestring x) 'local-time:timestamp))
 
 (declaim (ftype (function (sql-string sql-string) sql-boolean) sql-like))
 (defun sql-like (x pattern)
-  (declare (ignore x pattern)))
+  (if (or (eq :null x) (eq :null pattern))
+      :null
+      (let ((regex (concatenate 'string "^" (ppcre:regex-replace-all "%" pattern ".*") "$")))
+        (integerp (ppcre:scan regex x)))))
 
-(declaim (ftype (function (sql-string sql-value) sql-value) sql-strftime))
+(declaim (ftype (function (sql-string sql-date) sql-value) sql-strftime))
 (defun sql-strftime (format x)
-  (declare (ignore format x)))
+  (local-time:format-timestring nil
+                                x
+                                :format (if (equal "%Y" format)
+                                            '((:year 4))
+                                            (error 'sql-runtime-error
+                                                   :message (concatenate 'string "Unknown time format: " format)))))
 
-(declaim (ftype (function (sql-string sql-number sql-number) sql-value) sql-string))
-(defun sql-substring (x y z)
-  (subseq x (1- y) (1- z)))
+(declaim (ftype (function (sql-string sql-number &optional sql-number) sql-value) sql-string))
+(defun sql-substring (x y &optional z)
+  (if (or (eq :null x) (eq :null y) (eq :null z))
+      :null
+      (let ((y (1- y))
+            (z (if z
+                   (1- z)
+                   (length x))))
+        (if (and (< y (length x))
+                 (<= z (length x)))
+            (subseq x y z)
+            :null))))
 
 (declaim (ftype (function (sequence) sql-value) sql-scalar-subquery))
 (defun sql-scalar-subquery (rows)

@@ -103,6 +103,22 @@
   (is (equal '((2 1) (2 2) (1 1)) (endb/sql/expr::%sql-order-by (copy-list '((1 1) (2 2) (2 1))) '((1 :DESC) (2 :ASC)))))
   (is (equal '((2 2) (1 1) (2 1)) (endb/sql/expr::%sql-order-by (copy-list '((1 1) (2 2) (2 1))) '((2 :DESC))))))
 
+(test like
+  (is (eq t (sql-like "foo" "foo")))
+  (is (eq nil (sql-like "fo" "foo")))
+  (is (eq nil (sql-like "foo" "fo")))
+  (is (eq t (sql-like "foo" "fo%")))
+  (is (eq t (sql-like "foo" "%oo")))
+  (is (eq t (sql-like "foo" "%o%")))
+  (is (eq :null (sql-like :null "%o%")))
+  (is (eq :null (sql-like "foo" :null))))
+
+(test substring
+  (is (equal "foo" (sql-substring "foo" 1)))
+  (is (equal "oo" (sql-substring "foo" 2)))
+  (is (eq :null (sql-substring "foo" 4)))
+  (is (eq :null (sql-substring "foo" 1 5))))
+
 (test aggregates
   (is (= 6 (sql-sum '(1 2 3))))
   (is (eq :null (sql-sum '())))
