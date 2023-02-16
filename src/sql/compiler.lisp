@@ -277,7 +277,8 @@
                                                                     sum (case (when (listp src)
                                                                                 (first src))
                                                                           (endb/sql/expr:sql-= 10)
-                                                                          (endb/sql/expr:sql-in 2)
+                                                                          (endb/sql/expr:sql-in 5)
+                                                                          (endb/sql/expr:sql-in-query 2)
                                                                           (t 1))))))))
                                 (having-src (ast->cl ctx having))
                                 (limit (unless order-by
