@@ -37,9 +37,13 @@
 
 (declaim (ftype (function (sql-value sql-value) sql-boolean) sql-=))
 (defun sql-= (x y)
-  (if (or (eq :null x) (eq :null y))
-      :null
-      (equal x y)))
+  (cond
+    ((or (eq :null x) (eq :null y))
+     :null)
+    ((and (typep x 'local-time:date)
+          (typep y 'local-time:date))
+     (local-time:timestamp= x y))
+    (t (equal x y))))
 
 (declaim (ftype (function (sql-value sql-value) sql-boolean) sql-<>))
 (defun sql-<> (x y)
