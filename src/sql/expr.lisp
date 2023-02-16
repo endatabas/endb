@@ -143,7 +143,8 @@
   (cond
     ((or (eq :null x) (eq :null y)) :null)
     ((or (not (numberp x))
-         (not (numberp y))) 0)
+         (not (numberp y)))
+     0)
     (t (+ x y))))
 
 (declaim (ftype (function (sql-number &optional sql-number) sql-number) sql--))
