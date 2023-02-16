@@ -3,7 +3,8 @@ CREATE TABLE nation (
   n_nationkey INTEGER PRIMARY KEY,
   n_name      TEXT,
   n_regionkey INTEGER,
-  n_comment   TEXT
+  n_comment   TEXT,
+  FOREIGN KEY (n_regionkey) REFERENCES region(r_regionkey)
 )
 
 statement ok
@@ -34,7 +35,8 @@ CREATE TABLE supplier (
   s_nationkey INTEGER,
   s_phone     TEXT,
   s_acctbal   INTEGER,
-  s_comment   TEXT
+  s_comment   TEXT,
+  FOREIGN KEY (s_nationkey) REFERENCES nation(n_nationkey)
 )
 
 statement ok
@@ -43,7 +45,10 @@ CREATE TABLE partsupp (
   ps_suppkey    INTEGER,
   ps_availqty   INTEGER,
   ps_supplycost INTEGER,
-  ps_comment    TEXT
+  ps_comment    TEXT,
+  PRIMARY KEY (ps_partkey, ps_suppkey),
+  FOREIGN KEY (ps_suppkey) REFERENCES supplier(s_suppkey),
+  FOREIGN KEY (ps_partkey) REFERENCES part(p_partkey)
 )
 
 statement ok
@@ -55,7 +60,8 @@ CREATE TABLE customer (
   c_phone      TEXT,
   c_acctbal    INTEGER,
   c_mktsegment TEXT,
-  c_comment    TEXT
+  c_comment    TEXT,
+  FOREIGN KEY (c_nationkey) REFERENCES nation(n_nationkey)
 )
 
 statement ok
@@ -68,7 +74,8 @@ CREATE TABLE orders (
   o_orderpriority TEXT,
   o_clerk         TEXT,
   o_shippriority  INTEGER,
-  o_comment       TEXT
+  o_comment       TEXT,
+  FOREIGN KEY (o_custkey) REFERENCES customer(c_custkey)
 )
 
 statement ok
@@ -88,7 +95,10 @@ CREATE TABLE lineitem (
   l_receiptdate   DATE,
   l_shipinstruct  TEXT,
   l_shipmode      TEXT,
-  l_comment       TEXT
+  l_comment       TEXT,
+  PRIMARY KEY (l_orderkey, l_linenumber),
+  FOREIGN KEY (l_orderkey) REFERENCES orders(o_orderkey),
+  FOREIGN KEY (l_partkey, l_suppkey) REFERENCES partsupp(ps_partkey, ps_suppkey)
 )
 
 # end of schema

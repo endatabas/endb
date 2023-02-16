@@ -43,7 +43,7 @@
                   :order :by :asc :desc :group :having :limit :offset
                   :null :true :false :cross :join :left :outer
                   :create :table :index :on :insert :into :unique :delete :drop :view :if
-                  :temp :temporary :replace :update :set :indexed
+                  :temp :temporary :replace :update :set :indexed :primary :foreign :key :references
                   :case :when :then :else :end
                   :and :or :not :exists :between :is :in :cast :like
                   :union :except :intersect
@@ -378,17 +378,24 @@
                                             (append (list :update id update-col-list) where))))
 
   (opt-primary-key
-   (id id)
+   (:primary :key)
    ())
 
   (col-type
    (id)
    (id :|(| integer :|)|))
 
-  (col-def (id col-type opt-primary-key opt-unique #'%list-1))
+  (col-def
+   (id col-type opt-primary-key opt-unique #'%list-1)
+   (:primary :key :|(| id-list :|)| (%extract))
+   (:foreign :key :|(| id-list :|)| :references id :|(| id-list :|)| (%extract))
+   ())
 
   (col-def-list (col-def)
-                (col-def-list :|,| col-def #'%rcons3))
+                (col-def-list :|,| col-def (lambda (col-def-list comma col-def)
+                                             (if col-def
+                                                 (%rcons3 col-def-list comma col-def)
+                                                 col-def-list))))
 
   (opt-unique
    (:unique)
@@ -423,7 +430,7 @@
               "ORDER" "BY" "ASC" "DESC" "GROUP" "HAVING" "LIMIT" "OFFSET"
               "NULL" "TRUE" "FALSE" "CROSS" "JOIN" "LEFT" "OUTER"
               "CREATE" "TABLE" "INDEX" "ON" "INSERT" "INTO" "UNIQUE" "DELETE" "DROP" "VIEW" "IF"
-              "TEMP" "TEMPORARY" "REPLACE" "UPDATE" "SET" "INDEXED"
+              "TEMP" "TEMPORARY" "REPLACE" "UPDATE" "SET" "INDEXED" "PRIMARY" "FOREIGN" "KEY" "REFERENCES"
               "CASE" "WHEN" "THEN" "ELSE" "END"
               "AND" "OR" "NOT" "EXISTS" "BETWEEN" "IS" "IN" "CAST" "LIKE"
               "UNION" "EXCEPT" "INTERSECT"

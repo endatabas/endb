@@ -132,4 +132,14 @@ UNION
   (is (parse-sql "CREATE TEMP VIEW view2 AS SELECT x FROM t1 WHERE x>0"))
   (is (parse-sql "INSERT OR REPLACE INTO view1 VALUES(2,'unknown')"))
   (is (parse-sql "SELECT x FROM t1 WHERE x NOT NULL ORDER BY x"))
-  (is (parse-sql "INSERT INTO t1 VALUES(1<<63,'true')")))
+  (is (parse-sql "INSERT INTO t1 VALUES(1<<63,'true')"))
+  (is (parse-sql "CREATE TABLE partsupp (
+  ps_partkey    INTEGER,
+  ps_suppkey    INTEGER,
+  ps_availqty   INTEGER,
+  ps_supplycost INTEGER,
+  ps_comment    TEXT,
+  PRIMARY KEY (ps_partkey, ps_suppkey),
+  FOREIGN KEY (ps_suppkey) REFERENCES supplier(s_suppkey),
+  FOREIGN KEY (ps_partkey) REFERENCES part(p_partkey)
+)")))
