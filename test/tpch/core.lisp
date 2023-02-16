@@ -17,7 +17,8 @@
             (rows (loop for line = (read-line in nil)
                         while line
                         collect line)))
-        (format out "INSERT INTO ~a VALUES (~%" table-name)
+        (format out "~%statement ok~%")
+        (format out "INSERT INTO ~a VALUES " table-name)
         (loop for row in rows
               for idx from 0
               for cols = (ppcre:split *pipe-scanner* row)
@@ -35,7 +36,7 @@
                          do (princ ")" out))
               when (< idx (1- (length rows)))
                 do (princ "," out))
-        (format out "~%~%)~%")))))
+        (format out "~%~%")))))
 
 (defun main ()
   (let ((tbl-dir (or (uiop:getenv "ENDB_TPCH_TBL_DIR") "test/tpch/001/")))

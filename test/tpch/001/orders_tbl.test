@@ -1,5 +1,6 @@
-INSERT INTO orders VALUES (
 
+statement ok
+INSERT INTO orders VALUES 
   (1,370,'O',172799.49,date('1996-01-02'),'5-LOW','Clerk#000000951',0,'nstructions sleep furiously among '),
   (2,781,'O',38426.09,date('1996-12-01'),'1-URGENT','Clerk#000000880',0,' foxes. pending accounts at the pending, silent asymptot'),
   (3,1234,'F',205654.30,date('1993-10-14'),'5-LOW','Clerk#000000955',0,'sly final accounts boost. carefully regular ideas cajole carefully. depos'),
@@ -15001,4 +15002,3 @@ INSERT INTO orders VALUES (
   (59975,706,'F',59995.27,date('1993-12-22'),'5-LOW','Clerk#000000193',0,'. even packages affix fluffily against '),
   (60000,1426,'P',299401.61,date('1995-04-21'),'2-HIGH','Clerk#000000194',0,'usual frets use alongside of the furiou')
 
-)

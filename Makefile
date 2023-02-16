@@ -89,11 +89,12 @@ slt-test-all: SLT_TESTS = $(shell find sqllogictest/test -iname *.test | grep -v
 slt-test-all: SLT_ENV += SB_INTERPRET=1
 slt-test-all: slt-test
 
-target/tpch_$(TPCH_SF).test: test/tpch/tpch_schema.test test/tpch/$(TPCH_SF)/tpch_queries.test
+target/tpch_$(TPCH_SF).test: test/tpch/tpch_schema.test test/tpch/$(TPCH_SF)/*_tbl.test test/tpch/$(TPCH_SF)/tpch_queries.test
 	rm -f $@
 	cat $^ > $@
 
-slt-test-tpch: SLT_TESTS = target/tpch.test
+slt-test-tpch: SLT_TESTS = target/tpch_$(TPCH_SF).test
+slt-test-tpch: SLT_ENGINE = sqlite
 slt-test-tpch: target/tpch_$(TPCH_SF).test slt-test
 
 slt-test-ci: SLT_ENV += SLT_TIMING=1
