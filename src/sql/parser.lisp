@@ -41,11 +41,11 @@
                   :>> :<< :* :+ :- :/ :|| :% :< :> :<= :>= := :<> :|,| :|(| :|)| :|.|
                   :select :all :distinct :as :from :where :values
                   :order :by :asc :desc :group :having :limit :offset
-                  :null :true :false :cross :join
+                  :null :true :false :cross :join :left :outer
                   :create :table :index :on :insert :into :unique :delete :drop :view :if
                   :temp :temporary :replace :update :set :indexed
                   :case :when :then :else :end
-                  :and :or :not :exists :between :is :in :cast
+                  :and :or :not :exists :between :is :in :cast :like
                   :union :except :intersect
                   :count :avg :sum :min :max :total :group_concat))
   (:precedence ((:left :||)
@@ -53,7 +53,7 @@
                 (:left :+ :-)
                 (:left :<< :>>)
                 (:left :< :<= :> :>=)
-                (:left :is :between :in :<> :=)
+                (:left :is :between :in :<> := :like)
                 (:right :not)
                 (:left :and)
                 (:left :or)))
@@ -82,6 +82,12 @@
                              (eq :not (first expr-2)))
                         (list :not (list :is expr-1 (second  expr-2)))
                         (list :is expr-1 expr-2)))))
+
+  (like-expr
+   (expr :like expr #'%i2p)
+   (expr-not :like expr (lambda (expr-1 like expr-2)
+                          (declare (ignore like))
+                          (list :not (list :like (first expr-1) expr-2)))))
 
   (between-term
    (between-term :+ between-term #'%i2p)
@@ -197,7 +203,9 @@
         (expr :and expr #'%i2p)
         (expr :or expr #'%i2p)
         not-null-expr
+        like-expr
         cast-expr
+        like-exprx
         function-expr
         between-expr
         is-expr
@@ -256,12 +264,16 @@
    (:|,|)
    (:cross :join))
 
+  (opt-left-outer
+   (:left :outer)
+   ())
+
   (table-list
    (table-list-element)
    (:|(| table-list-element :cross :join table-list-element :|)| (%extract 1 4))
-   (table-list-element :join table-list-element :on expr (lambda (table-1 join table-2 on expr)
-                                                           (declare (ignore join on))
-                                                           (list (list :join table-1 table-2 :on expr))))
+   (table-list-element opt-left-outer :join table-list-element :on expr (lambda (table-1 opt-left-outer join table-2 on expr)
+                                                                          (declare (ignore opt-left-outer join on))
+                                                                          (list (list :join table-1 table-2 :on expr))))
    (table-list table-list-separator table-list-element #'%rcons3))
 
   (from
@@ -409,11 +421,11 @@
 
 (dolist (kw '("SELECT" "ALL" "DISTINCT" "AS" "FROM" "WHERE" "VALUES"
               "ORDER" "BY" "ASC" "DESC" "GROUP" "HAVING" "LIMIT" "OFFSET"
-              "NULL" "TRUE" "FALSE" "CROSS" "JOIN"
+              "NULL" "TRUE" "FALSE" "CROSS" "JOIN" "LEFT" "OUTER"
               "CREATE" "TABLE" "INDEX" "ON" "INSERT" "INTO" "UNIQUE" "DELETE" "DROP" "VIEW" "IF"
               "TEMP" "TEMPORARY" "REPLACE" "UPDATE" "SET" "INDEXED"
               "CASE" "WHEN" "THEN" "ELSE" "END"
-              "AND" "OR" "NOT" "EXISTS" "BETWEEN" "IS" "IN" "CAST"
+              "AND" "OR" "NOT" "EXISTS" "BETWEEN" "IS" "IN" "CAST" "LIKE"
               "UNION" "EXCEPT" "INTERSECT"
               "COUNT" "AVG" "SUM" "MIN" "MAX" "TOTAL" "GROUP_CONCAT"))
   (setf (gethash kw *kw-table*) (intern kw :keyword)))

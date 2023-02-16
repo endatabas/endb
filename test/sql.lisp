@@ -106,6 +106,11 @@
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 1 FROM t1 HAVING SUM(a) = 103")
+      (is (equal '((1)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT t1.a, x.a FROM t1, t1 AS x WHERE t1.a = x.a")
       (is (equal '((103 103)) result))
       (is (equal '("a" "a") columns)))
@@ -135,4 +140,9 @@
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT 1 IN (2)")
       (is (equal '((nil)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT SUM(t1.b) FROM t1 HAVING SUM(t1.b) = 204")
+      (is (equal '((204)) result))
       (is (equal '("column1") columns)))))

@@ -203,7 +203,7 @@
                      (append `(,@(loop for clause in where-clauses append `(when (eq t ,(where-clause-src clause)))))
                              (%selection-with-limit-offset->cl ctx selected-src limit offset))))))))
 
-(defun %group-by->cl (ctx from-tables where-clauses selected-src limit offset group-by having)
+(defun %group-by->cl (ctx from-tables where-clauses selected-src limit offset group-by having-src)
   (let* ((aggregate-table (cdr (assoc :aggregate-table ctx)))
          (group-by-projection (loop for g in group-by
                                     collect (ast->cl ctx g)))
@@ -221,7 +221,7 @@
     (append `(loop for ,(%unique-vars group-by-projection) being the hash-key
                      using (hash-value ,group-by-exprs-projection)
                        of ,group-by-src
-                   when (eq t ,(ast->cl ctx having)))
+                   when (eq t ,having-src))
             (%selection-with-limit-offset->cl ctx selected-src limit offset))))
 
 (defmethod sql->cl (ctx (type (eql :select)) &rest args)
@@ -279,6 +279,7 @@
                                                                           (endb/sql/expr:sql-= 10)
                                                                           (endb/sql/expr:sql-in 2)
                                                                           (t 1))))))))
+                                (having-src (ast->cl ctx having))
                                 (limit (unless order-by
                                          limit))
                                 (offset (unless order-by
@@ -286,7 +287,7 @@
                                 (group-by-needed-p (or group-by-p havingp (plusp (hash-table-count aggregate-table)))))
                            (values
                             (if group-by-needed-p
-                                (%group-by->cl ctx from-tables where-clauses selected-src limit offset group-by having)
+                                (%group-by->cl ctx from-tables where-clauses selected-src limit offset group-by having-src)
                                 (%from->cl ctx from-tables where-clauses selected-src limit offset))
                             full-projection))))))))
       (let* ((block-sym (gensym))
@@ -299,7 +300,7 @@
         (multiple-value-bind (src full-projection)
             (select->cl ctx from ())
           (let* ((src `(block ,block-sym
-                         (let (,@(when limit
+                         (let (,@(when (and limit (not order-by))
                                    (list `(,rows-sym 0)))
                                (,acc-sym))
                            ,src

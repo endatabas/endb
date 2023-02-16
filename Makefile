@@ -27,6 +27,8 @@ SLT_EVIDENCE_TESTS = sqllogictest/test/evidence/in1.test \
 	sqllogictest/test/evidence/slt_lang_dropview.test \
 	sqllogictest/test/evidence/slt_lang_update.test
 
+SLT_TPCH_TESTS = $(shell ls -1 test/tpch/001/tpch.test)
+
 SLT_TESTS = $(SLT_SELECT_TESTS)
 
 default: test target/endb
@@ -86,6 +88,9 @@ slt-test-evidence: slt-test
 slt-test-all: SLT_TESTS = $(shell find sqllogictest/test -iname *.test | grep -v evidence)
 slt-test-all: SLT_ENV += SB_INTERPRET=1
 slt-test-all: slt-test
+
+slt-test-tpch: SLT_TESTS = $(SLT_TPCH_TESTS)
+slt-test-tpch: slt-test
 
 slt-test-ci: SLT_ENV += SLT_TIMING=1
 slt-test-ci:

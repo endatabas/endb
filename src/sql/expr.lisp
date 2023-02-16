@@ -5,7 +5,7 @@
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->>
            #:sql-between #:sql-in #:sql-in-query #:sql-exists #:sql-coalesce
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect
-           #:sql-cast #:sql-nullif #:sql-abs
+           #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-like
            #:sql-count-star #:sql-count #:sql-sum #:sql-avg #:sql-min #:sql-max #:sql-total #:sql-group_concat
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
            #:base-table-rows #:base-table-columns
@@ -212,6 +212,23 @@
       :null
       (abs x)))
 
+(declaim (ftype (function (sql-string) sql-value) sql-date))
+(defun sql-date (x)
+  (declare (ignore x))
+  :null)
+
+(declaim (ftype (function (sql-string sql-string) sql-boolean) sql-like))
+(defun sql-like (x pattern)
+  (declare (ignore x pattern)))
+
+(declaim (ftype (function (sql-string sql-value) sql-value) sql-strftime))
+(defun sql-strftime (format x)
+  (declare (ignore format x)))
+
+(declaim (ftype (function (sql-string sql-number sql-number) sql-value) sql-string))
+(defun sql-substring (x y z)
+  (subseq x (1- y) (1- z)))
+
 (declaim (ftype (function (sequence) sql-value) sql-scalar-subquery))
 (defun sql-scalar-subquery (rows)
   (when (> 1 (length rows))
@@ -330,9 +347,10 @@
 
 (declaim (ftype (function (sequence t t) sequence) %sql-limit))
 (defun %sql-limit (rows limit offset)
-  (subseq rows (or offset 0) (if offset
-                                 (+ offset limit)
-                                 limit)))
+  (subseq rows (or offset 0) (min (length rows)
+                                  (if offset
+                                      (+ offset limit)
+                                      limit))))
 
 (declaim (ftype (function (sequence list) sequence) %sql-order-by))
 (defun %sql-order-by (rows order-by)
