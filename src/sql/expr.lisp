@@ -138,7 +138,7 @@
         (first tail)
         :null)))
 
-(declaim (ftype (function (sql-value &optional sql-value) sql-value) sql-+))
+(declaim (ftype (function (sql-value &optional sql-value) sql-number) sql-+))
 (defun sql-+ (x &optional (y 0))
   (cond
     ((or (eq :null x) (eq :null y)) :null)
