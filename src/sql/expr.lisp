@@ -223,7 +223,9 @@
               (eq :integer type))
          (round x))
         ((eq :varchar type)
-         (princ-to-string x))
+         (if (typep x 'sql-date)
+             (local-time:format-timestring nil x :format local-time:+rfc3339-format/date-only+)
+             (princ-to-string x)))
         ((eq :date type)
          (sql-date x))
         (t (coerce x (ecase type
