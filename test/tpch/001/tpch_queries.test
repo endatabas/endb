@@ -69,7 +69,7 @@ order by
 limit 100
 ----
 
-query IRTT nosort tpch-03
+query IRTI nosort tpch-03
 select
 	l_orderkey,
 	sum(l_extendedprice * (1 - l_discount)) as revenue,

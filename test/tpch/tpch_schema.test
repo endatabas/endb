@@ -23,7 +23,7 @@ CREATE TABLE part (
   p_type        TEXT,
   p_size        INTEGER,
   p_container   TEXT,
-  p_retailprice INTEGER,
+  p_retailprice REAL,
   p_comment     TEXT
 )
 
@@ -34,7 +34,7 @@ CREATE TABLE supplier (
   s_address   TEXT,
   s_nationkey INTEGER,
   s_phone     TEXT,
-  s_acctbal   INTEGER,
+  s_acctbal   REAL,
   s_comment   TEXT,
   FOREIGN KEY (s_nationkey) REFERENCES nation(n_nationkey)
 )
@@ -44,7 +44,7 @@ CREATE TABLE partsupp (
   ps_partkey    INTEGER,
   ps_suppkey    INTEGER,
   ps_availqty   INTEGER,
-  ps_supplycost INTEGER,
+  ps_supplycost REAL,
   ps_comment    TEXT,
   PRIMARY KEY (ps_partkey, ps_suppkey),
   FOREIGN KEY (ps_suppkey) REFERENCES supplier(s_suppkey),
@@ -58,7 +58,7 @@ CREATE TABLE customer (
   c_address    TEXT,
   c_nationkey  INTEGER,
   c_phone      TEXT,
-  c_acctbal    INTEGER,
+  c_acctbal    REAL,
   c_mktsegment TEXT,
   c_comment    TEXT,
   FOREIGN KEY (c_nationkey) REFERENCES nation(n_nationkey)
@@ -69,7 +69,7 @@ CREATE TABLE orders (
   o_orderkey      INTEGER PRIMARY KEY,
   o_custkey       INTEGER,
   o_orderstatus   TEXT,
-  o_totalprice    INTEGER,
+  o_totalprice    REAL,
   o_orderdate     DATE,
   o_orderpriority TEXT,
   o_clerk         TEXT,
@@ -84,10 +84,10 @@ CREATE TABLE lineitem (
   l_partkey       INTEGER,
   l_suppkey       INTEGER,
   l_linenumber    INTEGER,
-  l_quantity      INTEGER,
-  l_extendedprice INTEGER,
-  l_discount      INTEGER,
-  l_tax           INTEGER,
+  l_quantity      REAL,
+  l_extendedprice REAL,
+  l_discount      REAL,
+  l_tax           REAL,
   l_returnflag    TEXT,
   l_linestatus    TEXT,
   l_shipdate      DATE,
