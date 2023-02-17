@@ -5,7 +5,7 @@
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->>
-           #:sql-between #:sql-in #:sql-in-query #:sql-exists #:sql-coalesce
+           #:sql-between #:sql-in #:sql-exists #:sql-coalesce
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-like #:sql-substring #:sql-strftime
            #:sql-count-star #:sql-count #:sql-sum #:sql-avg #:sql-min #:sql-max #:sql-total #:sql-group_concat
@@ -188,12 +188,6 @@
                     (sql-or x result))))
             xs
             :initial-value nil)))
-
-(declaim (ftype (function (sql-value sequence) sql-boolean) sql-in-query))
-(defun sql-in-query (item xs)
-  (when (and xs (not (= 1 (length (first xs)))))
-    (error 'sql-runtime-error :message "IN query must return single column."))
-  (sql-in item (mapcar #'first xs)))
 
 (declaim (ftype (function (sql-value sql-value sql-value) sql-boolean) sql-between))
 (defun sql-between (expr lhs rhs)
