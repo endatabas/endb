@@ -68,7 +68,8 @@
 
 (defstruct where-clause
   src
-  free-vars)
+  free-vars
+  ast)
 
 (defun %binary-predicate-p (x)
   (and (listp x)
@@ -267,17 +268,20 @@
                                                                  (%ast->cl-with-free-vars ctx clause)
                                                                (declare (ignore projection))
                                                                (make-where-clause :src src
-                                                                                  :free-vars free-vars))))
+                                                                                  :free-vars free-vars
+                                                                                  :ast clause))))
                                 (from-tables (sort from-tables-acc #'< :key
                                                    (lambda (x)
                                                      (/ (from-table-size x)
                                                         (1+ (loop for clause in where-clauses
-                                                                  for src = (where-clause-src clause)
+                                                                  for ast = (where-clause-ast clause)
                                                                   when (subsetp (where-clause-free-vars clause) (from-table-vars x))
-                                                                    sum (case (when (listp src)
-                                                                                (first src))
-                                                                          (endb/sql/expr:sql-= 10)
-                                                                          (endb/sql/expr:sql-in 5)
+                                                                    sum (case (when (listp ast)
+                                                                                (first ast))
+                                                                          (:= 10)
+                                                                          (:in 5)
+                                                                          (:in-query 2)
+                                                                          (:exists 2)
                                                                           (t 1))))))))
                                 (having-src (ast->cl ctx having))
                                 (limit (unless order-by

@@ -501,7 +501,6 @@ where
 	)
 ----
 
-skipif endb
 query TITTRR nosort tpch-18
 select
 	c_name,
@@ -576,7 +575,6 @@ where
 	)
 ----
 
-skipif endb
 query TT nosort tpch-20
 select
 	s_name,
