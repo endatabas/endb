@@ -53,10 +53,16 @@
                       (or direction :asc))))
 
 (defun %and-clauses (expr)
-  (if (and (listp expr)
-           (eq :and (first expr)))
-      (append (%and-clauses (second expr))
-              (%and-clauses (third expr)))
+  (if (listp expr)
+      (case (first expr)
+        (:and (append (%and-clauses (second expr))
+                      (%and-clauses (third expr))))
+        (:or (append (list expr)
+                     (intersection (%and-clauses (second expr))
+                                   (%and-clauses (third expr))
+                                   :key #'prin1-to-string
+                                   :test 'equal)))
+        (t (list expr)))
       (list expr)))
 
 (defstruct from-table
