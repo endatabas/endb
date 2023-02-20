@@ -162,6 +162,13 @@
              do (return-from ,block-sym ,acc-sym)))
         `(do (push (list ,@selected-src) ,acc-sym)))))
 
+(defun %scan-where-clause-p (ast)
+  (if (listp ast)
+      (if (eq :not (first ast))
+          (%scan-where-clause-p (second ast))
+          (not (eq :exists (first ast))))
+      t))
+
 (defun %from->cl (ctx from-tables where-clauses selected-src &optional limit offset vars)
   (let* ((candidate-tables (remove-if-not (lambda (x)
                                             (subsetp (from-table-free-vars x) vars))
@@ -177,7 +184,8 @@
          (vars (append new-vars vars)))
     (multiple-value-bind (scan-clauses equi-join-clauses pushdown-clauses)
         (loop for c in where-clauses
-              if (subsetp (where-clause-free-vars c) new-vars)
+              if (and (subsetp (where-clause-free-vars c) new-vars)
+                      (%scan-where-clause-p (where-clause-ast c)))
                 collect c into scan-clauses
               else if (%equi-join-predicate-p vars (where-clause-src c))
                      collect c into equi-join-clauses
