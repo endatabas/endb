@@ -88,14 +88,14 @@
 
 (test arithmetic
   (is (eq :null (sql-+ 2 :null)))
-  (is (eq :null (sql-- :null)))
+  (is (eq :null (sql-unary- :null)))
   (is (eq :null (sql-* :null 3)))
   (is (eq :null (sql-/ :null 3)))
   (is (= 0 (sql-/ 2 3)))
   (is (= 0.5 (sql-/ 1 2.0)))
   (is (= 2 (sql-abs -2)))
   (is (eq :null (sql-abs :null)))
-  (is (= -2 (sql-- 2))))
+  (is (= -2 (sql-unary- 2))))
 
 (test sorting
   (is (equal '((:null) (1) (2)) (endb/sql/expr::%sql-order-by (copy-list '((2) (:null) (1))) '((1 :ASC)))))

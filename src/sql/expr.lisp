@@ -4,7 +4,7 @@
   (:import-from :local-time)
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
-           #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->>
+           #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-unary+ #:sql-unary-
            #:sql-between #:sql-in #:sql-exists #:sql-coalesce
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-like #:sql-substring #:sql-strftime
@@ -20,107 +20,137 @@
 (define-condition sql-runtime-error (error)
   ())
 
-(deftype sql-null ()
-  `(eql :null))
+(defmethod sql-= ((x (eql :null)) (y (eql :null)))
+  :null)
 
-(deftype sql-boolean ()
-  `(or boolean sql-null))
+(defmethod sql-= ((x (eql :null)) y)
+  :null)
 
-(deftype sql-number ()
-  `(or number sql-null))
+(defmethod sql-= (x (y (eql :null)))
+  :null)
 
-(deftype sql-string ()
-  `(or string sql-null))
+(defmethod sql-= ((x local-time:timestamp) (y local-time:timestamp))
+  (local-time:timestamp= x y))
 
-(deftype sql-date ()
-  `(or local-time:date sql-null))
+(defmethod sql-= ((x number) (y number))
+  (= x y))
 
-(deftype sql-value ()
-  `(or sql-null sql-boolean sql-number sql-string sql-date))
+(defmethod sql-= (x y)
+  (equal x y))
 
-(declaim (ftype (function (sql-value sql-value) sql-boolean) sql-=))
-(defun sql-= (x y)
-  (cond
-    ((or (eq :null x) (eq :null y))
-     :null)
-    ((and (typep x 'local-time:date)
-          (typep y 'local-time:date))
-     (local-time:timestamp= x y))
-    (t (equal x y))))
-
-(declaim (ftype (function (sql-value sql-value) sql-boolean) sql-<>))
 (defun sql-<> (x y)
   (sql-not (sql-= x y)))
 
-(declaim (ftype (function (sql-value sql-value) sql-boolean) sql-is))
-(defun sql-is (x y)
+(defmethod sql-is ((x local-time:timestamp) (y local-time:timestamp))
+  (local-time:timestamp= x y))
+
+(defmethod sql-is ((x number) (y number))
+  (= x y))
+
+(defmethod sql-is (x y)
   (equal x y))
 
-(declaim (ftype (function (sql-value sql-value) sql-boolean) sql-<))
-(defun sql-< (x y)
-  (cond
-    ((or (eq :null x) (eq :null y))
-     :null)
-    ((and (stringp x) (stringp y))
-     (not (null (string< x y))))
-    ((and (typep x 'local-time:date)
-          (typep y 'local-time:date))
-     (local-time:timestamp< x y))
-    (t (< x y))))
+(defmethod sql-< ((x (eql :null)) (y (eql :null)))
+  :null)
 
-(declaim (ftype (function (sql-value sql-value) sql-boolean) sql-<=))
-(defun sql-<= (x y)
-  (cond
-    ((or (eq :null x) (eq :null y))
-     :null)
-    ((and (stringp x) (stringp y))
-     (not (null (string<= x y))))
-    ((and (typep x 'local-time:date)
-          (typep y 'local-time:date))
-     (local-time:timestamp<= x y))
-    (t (<= x y))))
+(defmethod sql-< ((x (eql :null)) y)
+  :null)
 
-(declaim (ftype (function (sql-value sql-value) sql-boolean) sql->))
-(defun sql-> (x y)
-  (cond
-    ((or (eq :null x) (eq :null y))
-     :null)
-    ((and (stringp x) (stringp y))
-     (not (null (string> x y))))
-    ((and (typep x 'local-time:date)
-          (typep y 'local-time:date))
-     (local-time:timestamp> x y))
-    (t (> x y))))
+(defmethod sql-< (x (y (eql :null)))
+  :null)
 
-(declaim (ftype (function (sql-value sql-value) sql-boolean) sql->=))
-(defun sql->= (x y)
-  (cond
-    ((or (eq :null x) (eq :null y))
-     :null)
-    ((and (stringp x) (stringp y))
-     (not (null (string>= x y))))
-    ((and (typep x 'local-time:date)
-          (typep y 'local-time:date))
-     (local-time:timestamp>= x y))
-    (t (>= x y))))
+(defmethod sql-< ((x string) (y string))
+  (not (null (string< x y))))
 
-(declaim (ftype (function (sql-number sql-number) sql-number) sql-<<))
-(defun sql-<< (x y)
-  (if (or (eq :null x) (eq :null y))
-      :null
-      (ash x y)))
+(defmethod sql-< ((x local-time:timestamp) (y local-time:timestamp))
+  (local-time:timestamp< x y))
 
-(declaim (ftype (function (sql-number sql-number) sql-number) sql->>))
-(defun sql->> (x y)
-  (if (or (eq :null x) (eq :null y))
-      :null
-      (ash x (- y))))
+(defmethod sql-< ((x number) (y number))
+  (< x y))
 
-(declaim (ftype (function (sql-boolean) sql-boolean) sql-not))
-(defun sql-not (x)
-  (if (eq :null x)
-      :null
-      (not x)))
+(defmethod sql-<= ((x (eql :null)) (y (eql :null)))
+  :null)
+
+(defmethod sql-<= ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-<= (x (y (eql :null)))
+  :null)
+
+(defmethod sql-<= ((x string) (y string))
+  (not (null (string<= x y))))
+
+(defmethod sql-<= ((x local-time:timestamp) (y local-time:timestamp))
+  (local-time:timestamp<= x y))
+
+(defmethod sql-<= ((x number) (y number))
+  (<= x y))
+
+(defmethod sql-> ((x (eql :null)) (y (eql :null)))
+  :null)
+
+(defmethod sql-> ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-> (x (y (eql :null)))
+  :null)
+
+(defmethod sql-> ((x string) (y string))
+  (not (null (string> x y))))
+
+(defmethod sql-> ((x local-time:timestamp) (y local-time:timestamp))
+  (local-time:timestamp> x y))
+
+(defmethod sql-> ((x number) (y number))
+  (> x y))
+
+(defmethod sql->= ((x (eql :null)) (y (eql :null)))
+  :null)
+
+(defmethod sql->= ((x (eql :null)) y)
+  :null)
+
+(defmethod sql->= (x (y (eql :null)))
+  :null)
+
+(defmethod sql->= ((x string) (y string))
+  (not (null (string>= x y))))
+
+(defmethod sql->= ((x local-time:timestamp) (y local-time:timestamp))
+  (local-time:timestamp>= x y))
+
+(defmethod sql->= ((x number) (y number))
+  (>= x y))
+
+(defmethod sql-<< ((x (eql :null)) (y (eql :null)))
+  :null)
+
+(defmethod sql-<< ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-<< (x (y (eql :null)))
+  :null)
+
+(defmethod sql-<< ((x number) (y number))
+  (ash x y))
+
+(defmethod sql->> ((x (eql :null)) (y (eql :null)))
+  :null)
+
+(defmethod sql->> ((x (eql :null)) y)
+  :null)
+
+(defmethod sql->> (x (y (eql :null)))
+  :null)
+
+(defmethod sql->> ((x number) (y number))
+  (ash x (- y)))
+
+(defmethod sql-not ((x (eql :null)))
+  :null)
+
+(defmethod sql-not (x)
+  (not x))
 
 (defmacro sql-and (x y)
   (let ((x-sym (gensym)))
@@ -136,7 +166,6 @@
            (or ,y :null)
            (or ,x-sym ,y)))))
 
-(declaim (ftype (function (sql-value sql-value &rest sql-value) sql-value) sql-coalesce))
 (defun sql-coalesce (x y &rest args)
   (let ((tail (member-if-not (lambda (x)
                                (eq :null x))
@@ -145,43 +174,81 @@
         (first tail)
         :null)))
 
-(declaim (ftype (function (sql-value &optional sql-value) sql-number) sql-+))
-(defun sql-+ (x &optional (y 0))
-  (cond
-    ((or (eq :null x) (eq :null y)) :null)
-    ((or (not (numberp x))
-         (not (numberp y)))
-     0)
-    (t (+ x y))))
+(defmethod sql-unary+ ((x (eql :null)))
+  :null)
 
-(declaim (ftype (function (sql-number &optional sql-number) sql-number) sql--))
-(defun sql-- (x &optional (y 0 yp))
-  (if (or (eq :null x) (eq :null y))
-      :null
-      (if yp
-          (- x y)
-          (- x))))
+(defmethod sql-unary+ ((x number))
+  x)
 
-(declaim (ftype (function (sql-number sql-number) sql-number) sql-*))
-(defun sql-* (x y)
-  (if (or (eq :null x) (eq :null y))
-      :null
-      (* x y)))
+(defmethod sql-+ ((x (eql :null)) (y (eql :null)))
+  :null)
 
-(declaim (ftype (function (sql-number sql-number) sql-number) sql-/))
-(defun sql-/ (x y)
-  (cond
-    ((or (eq :null x) (eq :null y) (zerop y)) :null)
-    ((and (integerp x) (integerp y)) (truncate x y))
-    (t (/ x y))))
+(defmethod sql-+ ((x (eql :null)) y)
+  :null)
 
-(declaim (ftype (function (sql-number sql-number) sql-number) sql-%))
-(defun sql-% (x y)
-  (if (or (eq :null x) (eq :null y))
-      :null
-      (mod x y)))
+(defmethod sql-+ (x (y (eql :null)))
+  :null)
 
-(declaim (ftype (function (sql-value sequence) sql-boolean) sql-in))
+(defmethod sql-+ ((x number) (y number))
+  (+ x y))
+
+(defmethod sql-unary- ((x (eql :null)))
+  :null)
+
+(defmethod sql-unary- ((x number))
+  (- x))
+
+(defmethod sql-- ((x (eql :null)) (y (eql :null)))
+  :null)
+
+(defmethod sql-- ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-- (x (y (eql :null)))
+  :null)
+
+(defmethod sql-- ((x number) (y number))
+  (- x y))
+
+(defmethod sql-* ((x (eql :null)) (y (eql :null)))
+  :null)
+
+(defmethod sql-* ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-* (x (y (eql :null)))
+  :null)
+
+(defmethod sql-* ((x number) (y number))
+  (* x y))
+
+(defmethod sql-/ ((x (eql :null)) (y (eql :null)))
+  :null)
+
+(defmethod sql-/ ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-/ (x (y (eql :null)))
+  :null)
+
+(defmethod sql-/ ((x integer) (y integer))
+  (truncate x y))
+
+(defmethod sql-/ ((x number) (y number))
+  (/ x y))
+
+(defmethod sql-% ((x (eql :null)) (y (eql :null)))
+  :null)
+
+(defmethod sql-% ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-% (x (y (eql :null)))
+  :null)
+
+(defmethod sql-% ((x number) (y number))
+  (mod x y))
+
 (defun sql-in (item xs)
   (block in
     (reduce (lambda (x y)
@@ -192,31 +259,24 @@
             xs
             :initial-value nil)))
 
-(declaim (ftype (function (sql-value sql-value sql-value) sql-boolean) sql-between))
 (defun sql-between (expr lhs rhs)
   (sql-and (sql->= expr lhs) (sql-<= expr rhs)))
 
-(declaim (ftype (function (sequence) sql-boolean) sql-exists))
 (defun sql-exists (rows)
   (not (null rows)))
 
-(declaim (ftype (function (sequence sequence) sequence) sql-union))
 (defun sql-union (lhs rhs)
   (%sql-distinct (nunion lhs rhs :test 'equal)))
 
-(declaim (ftype (function (sequence sequence) sequence) sql-union-all))
 (defun sql-union-all (lhs rhs)
   (nconc lhs rhs))
 
-(declaim (ftype (function (sequence sequence) sequence) sql-except))
 (defun sql-except (lhs rhs)
   (%sql-distinct (nset-difference lhs rhs :test 'equal)))
 
-(declaim (ftype (function (sequence sequence) sequence) sql-intersect))
 (defun sql-intersect (lhs rhs)
   (%sql-distinct (nintersection lhs rhs :test 'equal)))
 
-(declaim (ftype (function (sql-value keyword) sql-value) sql-cast))
 (defun sql-cast (x type)
   (if (eq :null x)
       :null
@@ -225,7 +285,7 @@
               (eq :integer type))
          (round x))
         ((eq :varchar type)
-         (if (typep x 'sql-date)
+         (if (typep x 'local-time:date)
              (local-time:format-timestring nil x :format local-time:+rfc3339-format/date-only+)
              (princ-to-string x)))
         ((eq :date type)
@@ -235,31 +295,46 @@
                        (:real 'real)
                        ((:decimal :signed) 'number)))))))
 
-(declaim (ftype (function (sql-value sql-value) sql-value) sql-nullif))
 (defun sql-nullif (x y)
   (if (eq t (sql-= x y))
       :null
       x))
 
-(declaim (ftype (function (sql-number) sql-number) sql-abs))
-(defun sql-abs (x)
-  (if (eq :null x)
-      :null
-      (abs x)))
+(defmethod sql-abs ((x (eql :null)))
+  :null)
 
-(declaim (ftype (function (sql-string) sql-date) sql-date))
-(defun sql-date (x)
+(defmethod sql-abs ((x number))
+  (abs x))
+
+(defmethod sql-date ((x (eql :null)))
+  :null)
+
+(defmethod sql-date ((x string))
   (coerce (local-time:parse-timestring x) 'local-time:timestamp))
 
-(declaim (ftype (function (sql-string sql-string) sql-boolean) sql-like))
-(defun sql-like (x pattern)
-  (if (or (eq :null x) (eq :null pattern))
-      :null
-      (let ((regex (concatenate 'string "^" (ppcre:regex-replace-all "%" pattern ".*") "$")))
-        (integerp (ppcre:scan regex x)))))
+(defmethod sql-like ((x (eql :null)) (pattern (eql :null)))
+  :null)
 
-(declaim (ftype (function (sql-string sql-date) sql-value) sql-strftime))
-(defun sql-strftime (format x)
+(defmethod sql-like ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-like (x (y (eql :null)))
+  :null)
+
+(defmethod sql-like ((x string) (pattern string))
+  (let ((regex (concatenate 'string "^" (ppcre:regex-replace-all "%" pattern ".*") "$")))
+    (integerp (ppcre:scan regex x))))
+
+(defmethod sql-strftime ((format (eql :null)) (x (eql :null)))
+  :null)
+
+(defmethod sql-strftime ((format (eql :null)) x)
+  :null)
+
+(defmethod sql-strftime (format (x (eql :null)))
+  :null)
+
+(defmethod sql-strftime ((format string) (x local-time:timestamp))
   (local-time:format-timestring nil
                                 x
                                 :format (if (equal "%Y" format)
@@ -267,9 +342,20 @@
                                             (error 'sql-runtime-error
                                                    :message (concatenate 'string "Unknown time format: " format)))))
 
-(declaim (ftype (function (sql-string sql-number &optional sql-number) sql-value) sql-string))
-(defun sql-substring (x y &optional z)
-  (if (or (eq :null x) (eq :null y) (eq :null z))
+(defmethod sql-substring ((x (eql :null)) (y (eql :null)) &optional z)
+  (declare (ignore z))
+  :null)
+
+(defmethod sql-substring ((x (eql :null)) y &optional z)
+  (declare (ignore z))
+  :null)
+
+(defmethod sql-substring (x (y (eql :null)) &optional z)
+  (declare (ignore z))
+  :null)
+
+(defmethod sql-substring ((x string) (y number) &optional z)
+  (if (eq :null z)
       :null
       (let ((y (1- y))
             (z (if z
@@ -280,7 +366,6 @@
             (subseq x y z)
             :null))))
 
-(declaim (ftype (function (sequence) sql-value) sql-scalar-subquery))
 (defun sql-scalar-subquery (rows)
   (when (> 1 (length rows))
     (error 'sql-runtime-error :message "Scalar subquery must return max one row."))
@@ -288,13 +373,11 @@
       :null
       (caar rows)))
 
-(declaim (ftype (function (sequence &key (:distinct boolean)) sql-number) sql-count-star))
 (defun sql-count-star (xs &key distinct)
   (when distinct
     (error 'sql-runtime-error :message "COUNT(*) does not support DISTINCT."))
   (length xs))
 
-(declaim (ftype (function (sequence &key (:distinct boolean)) sql-number) sql-count))
 (defun sql-count (xs &key distinct)
   (count-if-not (lambda (x)
                   (eq :null x))
@@ -302,7 +385,6 @@
                     (%sql-distinct xs)
                     xs)))
 
-(declaim (ftype (function (sequence &key (:distinct boolean)) sql-number) sql-avg))
 (defun sql-avg (xs &key distinct)
   (let ((xs-no-nulls (delete :null (if distinct
                                        (%sql-distinct xs)
@@ -312,7 +394,6 @@
                (coerce (length xs-no-nulls) 'double-float))
         :null)))
 
-(declaim (ftype (function (sequence &key (:distinct boolean)) sql-number) sql-sum))
 (defun sql-sum (xs &key distinct)
   (let ((xs-no-nulls (delete :null (if distinct
                                        (%sql-distinct xs)
@@ -321,7 +402,6 @@
         (reduce #'sql-+ xs-no-nulls)
         :null)))
 
-(declaim (ftype (function (sequence &key (:distinct boolean)) sql-number) sql-total))
 (defun sql-total (xs &key distinct)
   (let ((xs-no-nulls (delete :null (if distinct
                                        (%sql-distinct xs)
@@ -330,7 +410,6 @@
         (reduce #'sql-+ xs-no-nulls)
         0)))
 
-(declaim (ftype (function (sequence &rest t) sequence) sql-group_concat))
 (defun sql-group_concat (xs &rest args)
   (multiple-value-bind (separator distinct)
       (if (= 2 (length args))
@@ -352,7 +431,6 @@
                                (sql-cast x :varchar)
                                (concatenate 'string (sql-cast x :varchar) separator)))))))
 
-(declaim (ftype (function (sequence &key (:distinct boolean)) sql-number) sql-min))
 (defun sql-min (xs &key distinct)
   (let ((xs-no-nulls (delete :null (if distinct
                                        (%sql-distinct xs)
@@ -372,7 +450,6 @@
          xs-no-nulls)
         :null)))
 
-(declaim (ftype (function (sequence &key (:distinct boolean)) sql-number) sql-max))
 (defun sql-max (xs &key distinct)
   (let ((xs-no-nulls (delete :null (if distinct
                                        (%sql-distinct xs)
@@ -392,18 +469,15 @@
          xs-no-nulls)
         :null)))
 
-(declaim (ftype (function (sequence) sequence) %sql-distinct))
 (defun %sql-distinct (rows)
   (delete-duplicates rows :test 'equal))
 
-(declaim (ftype (function (sequence t t) sequence) %sql-limit))
 (defun %sql-limit (rows limit offset)
   (subseq rows (or offset 0) (min (length rows)
                                   (if offset
                                       (+ offset limit)
                                       limit))))
 
-(declaim (ftype (function (sequence list) sequence) %sql-order-by))
 (defun %sql-order-by (rows order-by)
   (labels ((asc (x y)
              (cond
@@ -426,7 +500,6 @@
                        until (funcall cmp yv xv))))))
 
 
-(declaim (ftype (function (sequence number number) hash-table) %sql-group-by))
 (defun %sql-group-by (rows group-count group-expr-count)
   (let ((acc (make-hash-table :test 'equal)))
     (if (and (null rows) (zerop group-count))
