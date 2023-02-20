@@ -97,7 +97,7 @@ target/tpch_$(TPCH_SF).test: test/tpch/tpch_schema.test test/tpch/$(TPCH_SF)/*_t
 slt-test-tpch: SLT_TESTS = target/tpch_$(TPCH_SF).test
 slt-test-tpch: SLT_ENV += ENDB_ENGINE_REPORTED_NAME=endb ENDB_QUERY_TIMING=1 ENDB_VERBOSE=1
 slt-test-tpch: target/slt target/tpch_$(TPCH_SF).test
-	$(SLT_ENV) ./target/slt -e $(TPCH_REFERENCE_ENGINE) target/tpch_$(TPCH_SF).test > target/tpch_$(TPCH_SF)_sqlite.test
+	./target/slt -e $(TPCH_REFERENCE_ENGINE) target/tpch_$(TPCH_SF).test > target/tpch_$(TPCH_SF)_sqlite.test
 	$(SLT_ENV) ./target/slt -e $(SLT_ENGINE) $(SLT_ARGS) target/tpch_$(TPCH_SF)_sqlite.test
 
 slt-test-ci: SLT_ENV += SLT_TIMING=1
