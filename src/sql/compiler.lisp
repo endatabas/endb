@@ -129,22 +129,18 @@
                 collect rhs into in-vars
               finally
                  (return (values in-vars out-vars)))
-      (let ((src (if scan-clauses
-                     `(loop for ,(%unique-vars vars)
-                              in ,src
-                            ,@(loop for clause in scan-clauses append `(when (eq t ,(where-clause-src clause))))
-                            collect (list ,@vars))
-                     src))
+      (let ((index-sym (cdr (assoc :index-sym ctx)))
             (index-table-sym (gensym))
             (index-key-sym (gensym))
             (index-key-form `(list ',(gensym) ,@free-vars)))
         `(gethash (list ,@in-vars)
                   (let ((,index-key-sym ,index-key-form))
-                    (or (gethash ,index-key-sym ,(cdr (assoc :index-sym ctx)))
-                        (loop with ,index-table-sym = (setf (gethash ,index-key-sym ,(cdr (assoc :index-sym ctx)))
+                    (or (gethash ,index-key-sym ,index-sym)
+                        (loop with ,index-table-sym = (setf (gethash ,index-key-sym ,index-sym)
                                                             (make-hash-table :test 'equal))
                               for ,(%unique-vars vars)
                                 in ,src
+                              ,@(loop for clause in scan-clauses append `(when (eq t ,(where-clause-src clause))))
                               do (push (list ,@vars) (gethash (list ,@out-vars) ,index-table-sym))
                               finally (return ,index-table-sym)))))))))
 
