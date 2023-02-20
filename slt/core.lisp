@@ -282,10 +282,10 @@
                      (cffi:foreign-string-alloc (elt args n))))
              (setf (cffi:mem-aref argv :pointer argc)
                    (cffi:null-pointer))
-             #+sbcl (let ((sb-ext:*evaluator-mode* (if (uiop:getenv "SB_INTERPRET")
+             #+sbcl (let ((sb-ext:*evaluator-mode* (if (equal "1" (uiop:getenv "SB_INTERPRET"))
                                                        :interpret
                                                        sb-ext:*evaluator-mode*)))
-                      (if (uiop:getenv "SLT_TIMING")
+                      (if (equal "1" (uiop:getenv "SLT_TIMING"))
                           (time (sqllogictest-main argc argv))
                           (sqllogictest-main argc argv)))
              #-sbcl (if (uiop:getenv "SLT_TIMING")
