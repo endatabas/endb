@@ -360,6 +360,24 @@
                  (setf (gethash ,index-key-sym ,index-sym)
                        (not (null ,src))))))))))
 
+(defmethod sql->cl (ctx (type (eql :scalar-subquery)) &rest args)
+  (destructuring-bind (query)
+      args
+    (multiple-value-bind (src projection free-vars)
+        (%ast->cl-with-free-vars ctx query)
+      (declare (ignore projection))
+      (let* ((index-sym (cdr (assoc :index-sym ctx)))
+             (index-key-sym (gensym))
+             (index-key-form `(list ',(gensym) ,@free-vars)))
+        `(let* ((,index-key-sym ,index-key-form))
+           (endb/sql/expr:sql-scalar-subquery
+            (multiple-value-bind (result resultp)
+                (gethash ,index-key-sym ,index-sym)
+              (if resultp
+                  result
+                  (setf (gethash ,index-key-sym ,index-sym)
+                        ,src)))))))))
+
 (defmethod sql->cl (ctx (type (eql :union)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit offset)
       args

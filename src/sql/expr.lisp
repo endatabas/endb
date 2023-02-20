@@ -6,7 +6,7 @@
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->>
            #:sql-between #:sql-in #:sql-exists #:sql-coalesce
-           #:sql-union-all #:sql-union #:sql-except #:sql-intersect
+           #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-like #:sql-substring #:sql-strftime
            #:sql-count-star #:sql-count #:sql-sum #:sql-avg #:sql-min #:sql-max #:sql-total #:sql-group_concat
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
