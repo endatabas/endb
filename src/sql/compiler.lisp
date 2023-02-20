@@ -280,9 +280,15 @@
                                                                                 (first ast))
                                                                           (:= 10)
                                                                           (:in 5)
+                                                                          (:exists 5)
                                                                           ((:< :<= :> :>=) 3)
                                                                           (:in-query 2)
-                                                                          (:exists 2)
+                                                                          (:not (case (when (listp (second ast))
+                                                                                        (first (second ast)))
+                                                                                  (:in 5)
+                                                                                  (:exists 5)
+                                                                                  (:in-query 2)
+                                                                                  (t 1)))
                                                                           (t 1))))))))
                                 (having-src (ast->cl ctx having))
                                 (limit (unless order-by
@@ -333,7 +339,19 @@
 (defmethod sql->cl (ctx (type (eql :exists)) &rest args)
   (destructuring-bind (query)
       args
-    `(endb/sql/expr:sql-exists ,(ast->cl ctx (append query '(:limit 1))))))
+    (multiple-value-bind (src projection free-vars)
+        (%ast->cl-with-free-vars ctx (append query '(:limit 1)))
+      (declare (ignore projection))
+      (let* ((index-sym (cdr (assoc :index-sym ctx)))
+             (index-key-sym (gensym))
+             (index-key-form `(list ',(gensym) ,@free-vars)))
+        `(let* ((,index-key-sym ,index-key-form))
+           (multiple-value-bind (result resultp)
+               (gethash ,index-key-sym ,index-sym)
+             (if resultp
+                 result
+                 (setf (gethash ,index-key-sym ,index-sym)
+                       (not (null ,src))))))))))
 
 (defmethod sql->cl (ctx (type (eql :union)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit offset)
