@@ -1,6 +1,10 @@
 (defpackage :endb-test/tpch/core
+  (:import-from :local-time)
   (:import-from :ppcre)
   (:import-from :uiop))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (local-time:enable-read-macros))
 
 (defvar *date-scanner* (ppcre:create-scanner "^\\d\\d\\d\\d-\\d\\d-\\d\\d$"))
 (defvar *number-scanner* (ppcre:create-scanner "^-?\\d+(.\\d+)?$"))
@@ -28,7 +32,7 @@
                        for idx from 0
                        do (cond
                             ((ppcre:scan *number-scanner* col) (princ col out))
-                            ((ppcre:scan *date-scanner* col) (format out "date('~a')" col))
+                            ((ppcre:scan *date-scanner* col) (format out "@~a" col))
                             (t (format out "'~a'" col)))
                        if (< idx (1- (length cols)))
                          do (princ "," out)

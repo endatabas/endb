@@ -14,6 +14,9 @@
            #:sql-runtime-error))
 (in-package :endb/sql/expr)
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (local-time:enable-read-macros))
+
 (define-condition sql-runtime-error (error)
   ())
 
