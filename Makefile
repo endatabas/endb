@@ -104,6 +104,7 @@ slt-test-ci:
 	$(SLT_ENV) make slt-test-evidence
 	$(SLT_ENV) make slt-test-random
 	$(SLT_ENV) make slt-test-index
+	$(SLT_ENV) make slt-test-tpch
 
 docker:
 	docker build -t endatabas/endb:latest .
