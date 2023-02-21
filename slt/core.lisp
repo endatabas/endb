@@ -58,7 +58,7 @@
                                                                   0.0d0)
                                                               'double-float))))))))
 
-(defun %slt-result (result zTypes pazResult pnResult)
+(defun %slt-result (result zTypes pazResult pnResult &key nil-is-null)
   (let* ((n-used (* (length result) (length zTypes)))
          (az-result (cffi:foreign-alloc :pointer :count n-used)))
     (loop for row-offset from 0 by (length zTypes)
@@ -67,7 +67,9 @@
                    for col in row
                    for type across zTypes
                    do (setf (cffi:mem-aref az-result :pointer col-offset)
-                            (cffi:foreign-string-alloc (%slt-format col type)))))
+                            (cffi:foreign-string-alloc (%slt-format (if (and (null col) nil-is-null)
+                                                                        :null
+                                                                        col) type)))))
     (setf (cffi:mem-ref pnResult :int) n-used)
     (setf (cffi:mem-ref pazResult :pointer) az-result)))
 
@@ -120,7 +122,7 @@
   (let ((handle (gethash (cffi:pointer-address pConn) *connections*)))
     (if handle
         (progn
-          (%slt-result (sqlite:execute-to-list handle zSql) zTypes  pazResult pnResult)
+          (%slt-result (sqlite:execute-to-list handle zSql) zTypes pazResult pnResult :nil-is-null t)
           0)
         1)))
 
