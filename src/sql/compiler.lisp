@@ -243,6 +243,7 @@
       (:= 10)
       (:in 5)
       (:exists 5)
+      ((:between :like) 4)
       ((:< :<= :> :>=) 3)
       (:in-query 2)
       (:not (case (when (listp (second ast))
