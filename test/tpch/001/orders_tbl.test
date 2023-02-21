@@ -128,7 +128,10 @@ INSERT INTO orders VALUES
   (485,1006,'O',142389.70,date('1997-03-26'),'2-HIGH','Clerk#000000105',0,' regular ideas nag thinly furiously s'),
   (486,509,'O',286150.09,date('1996-03-11'),'4-NOT SPECIFIED','Clerk#000000803',0,'riously dolphins. fluffily ironic requ'),
   (487,1079,'F',88805.07,date('1992-08-18'),'1-URGENT','Clerk#000000086',0,'ithely unusual courts eat accordi'),
-  (512,631,'P',183939.48,date('1995-05-20'),'5-LOW','Clerk#000000814',0,'ding requests. carefully express theodolites was quickly. furious'),
+  (512,631,'P',183939.48,date('1995-05-20'),'5-LOW','Clerk#000000814',0,'ding requests. carefully express theodolites was quickly. furious')
+
+statement ok
+INSERT INTO orders VALUES 
   (513,607,'O',78769.71,date('1995-05-01'),'2-HIGH','Clerk#000000522',0,'regular packages. pinto beans cajole carefully against the even'),
   (514,749,'O',123202.51,date('1996-04-04'),'2-HIGH','Clerk#000000094',0,' cajole furiously. slyly final excuses cajole. slyly special instructions '),
   (515,1420,'F',177231.12,date('1993-08-29'),'4-NOT SPECIFIED','Clerk#000000700',0,'eposits are furiously furiously silent pinto beans. pending pack'),
@@ -256,7 +259,10 @@ INSERT INTO orders VALUES
   (997,1087,'O',39832.61,date('1997-05-19'),'2-HIGH','Clerk#000000651',0,'ly express depths. furiously final requests haggle furiously. carefu'),
   (998,317,'F',81009.81,date('1994-11-26'),'4-NOT SPECIFIED','Clerk#000000956',0,'ronic dolphins. ironic, bold ideas haggle furiously furious'),
   (999,602,'F',221018.87,date('1993-09-05'),'5-LOW','Clerk#000000464',0,'pitaphs sleep. regular accounts use. f'),
-  (1024,35,'O',248306.79,date('1997-12-23'),'5-LOW','Clerk#000000903',0,' blithely. even, express theodolites cajole slyly across'),
+  (1024,35,'O',248306.79,date('1997-12-23'),'5-LOW','Clerk#000000903',0,' blithely. even, express theodolites cajole slyly across')
+
+statement ok
+INSERT INTO orders VALUES 
   (1025,1027,'F',112960.50,date('1995-05-05'),'2-HIGH','Clerk#000000376',0,'ross the slyly final pa'),
   (1026,712,'O',49485.22,date('1997-06-04'),'5-LOW','Clerk#000000223',0,'s wake blithely. special acco'),
   (1027,1280,'F',145806.89,date('1992-06-03'),'3-MEDIUM','Clerk#000000241',0,'equests cajole. slyly final pinto bean'),
@@ -384,7 +390,10 @@ INSERT INTO orders VALUES
   (1509,625,'F',252994.90,date('1993-07-08'),'5-LOW','Clerk#000000770',0,'the regular ideas. regul'),
   (1510,523,'O',235151.19,date('1996-09-17'),'5-LOW','Clerk#000000128',0,'ld carefully. furiously final asymptotes haggle furiously'),
   (1511,785,'O',103042.07,date('1996-12-22'),'4-NOT SPECIFIED','Clerk#000000386',0,'ts above the depend'),
-  (1536,932,'O',8717.58,date('1997-01-26'),'3-MEDIUM','Clerk#000000117',0,'ges are! furiously final deposits cajole iron'),
+  (1536,932,'O',8717.58,date('1997-01-26'),'3-MEDIUM','Clerk#000000117',0,'ges are! furiously final deposits cajole iron')
+
+statement ok
+INSERT INTO orders VALUES 
   (1537,1076,'F',144582.24,date('1992-02-15'),'4-NOT SPECIFIED','Clerk#000000862',0,'g to the even deposits. ironic, final packages '),
   (1538,290,'O',214050.85,date('1995-06-18'),'4-NOT SPECIFIED','Clerk#000000258',0,' instructions. regular theod'),
   (1539,1118,'F',67801.22,date('1995-03-10'),'5-LOW','Clerk#000000840',0,'nstructions boost pa'),
@@ -512,7 +521,10 @@ INSERT INTO orders VALUES
   (2021,700,'O',41487.67,date('1995-07-15'),'1-URGENT','Clerk#000000155',0,'ong the furiously regular requests. unusual deposits wake fluffily inside'),
   (2022,619,'F',319320.43,date('1992-03-15'),'1-URGENT','Clerk#000000268',0,' dependencies sleep fluffily even, ironic deposits. express, silen'),
   (2023,1180,'F',181994.65,date('1992-05-06'),'5-LOW','Clerk#000000137',0,'ular courts engage according to the'),
-  (2048,169,'F',43446.23,date('1993-11-15'),'1-URGENT','Clerk#000000934',0,'s cajole after the blithely final accounts. f'),
+  (2048,169,'F',43446.23,date('1993-11-15'),'1-URGENT','Clerk#000000934',0,'s cajole after the blithely final accounts. f')
+
+statement ok
+INSERT INTO orders VALUES 
   (2049,298,'O',206620.70,date('1995-12-07'),'2-HIGH','Clerk#000000859',0,'ly regular requests thrash blithely about the fluffily even theodolites. r'),
   (2050,274,'F',289457.13,date('1994-06-02'),'4-NOT SPECIFIED','Clerk#000000821',0,'d accounts against the furiously regular packages use bli'),
   (2051,382,'O',104971.81,date('1996-03-18'),'4-NOT SPECIFIED','Clerk#000000333',0,'ctions sleep blithely. blithely regu'),
@@ -640,7 +652,10 @@ INSERT INTO orders VALUES
   (2533,496,'O',248797.75,date('1997-03-24'),'1-URGENT','Clerk#000000594',0,'ecial instructions. spec'),
   (2534,754,'O',265775.52,date('1996-07-17'),'3-MEDIUM','Clerk#000000332',0,'packages cajole ironic requests. furiously regular'),
   (2535,1202,'F',99020.66,date('1993-05-25'),'5-LOW','Clerk#000000296',0,'phins cajole beneath the fluffily express asymptotes. c'),
-  (2560,1309,'F',213993.64,date('1992-09-05'),'1-URGENT','Clerk#000000538',0,'atelets; quickly sly requests'),
+  (2560,1309,'F',213993.64,date('1992-09-05'),'1-URGENT','Clerk#000000538',0,'atelets; quickly sly requests')
+
+statement ok
+INSERT INTO orders VALUES 
   (2561,572,'O',180170.50,date('1997-11-14'),'1-URGENT','Clerk#000000861',0,'ual requests. unusual deposits cajole furiously pending, regular platelets. '),
   (2562,82,'F',196430.96,date('1992-08-01'),'1-URGENT','Clerk#000000467',0,'elets. pending dolphins promise slyly. bo'),
   (2563,613,'F',237151.86,date('1993-11-19'),'4-NOT SPECIFIED','Clerk#000000150',0,'sly even packages after the furio'),
@@ -768,7 +783,10 @@ INSERT INTO orders VALUES
   (3045,499,'O',146623.24,date('1995-09-27'),'1-URGENT','Clerk#000000405',0,' express courts sleep quickly special asymptotes. '),
   (3046,314,'O',170565.91,date('1995-11-30'),'2-HIGH','Clerk#000000522',0,'r deposits. platelets use furi'),
   (3047,247,'O',39892.35,date('1997-03-21'),'1-URGENT','Clerk#000000962',0,'as. slyly express deposits are dogged pearls. silent ide'),
-  (3072,226,'F',126150.96,date('1994-01-30'),'4-NOT SPECIFIED','Clerk#000000370',0,'ely final deposits cajole carefully. ironic, re'),
+  (3072,226,'F',126150.96,date('1994-01-30'),'4-NOT SPECIFIED','Clerk#000000370',0,'ely final deposits cajole carefully. ironic, re')
+
+statement ok
+INSERT INTO orders VALUES 
   (3073,1354,'F',207755.81,date('1994-01-08'),'3-MEDIUM','Clerk#000000404',0,'kly slyly bold accounts. express courts near the regular ideas sleep bli'),
   (3074,658,'F',111588.36,date('1992-11-01'),'5-LOW','Clerk#000000546',0,'yly even asymptotes shall have to haggle fluffily. deposits are'),
   (3075,1252,'F',41813.90,date('1994-05-07'),'3-MEDIUM','Clerk#000000433',0,'ackages: carefully unusual reques'),
@@ -896,7 +914,10 @@ INSERT INTO orders VALUES
   (3557,1192,'F',116288.27,date('1992-11-09'),'2-HIGH','Clerk#000000291',0,'ithely courts. furi'),
   (3558,265,'O',162598.01,date('1996-02-29'),'1-URGENT','Clerk#000000841',0,'around the furiously even requests. quickl'),
   (3559,1054,'F',55757.49,date('1992-10-24'),'3-MEDIUM','Clerk#000000634',0,'sly deposits. fluffily final ideas cajole careful'),
-  (3584,118,'O',101937.04,date('1997-08-11'),'1-URGENT','Clerk#000000760',0,'fully bold packages. fluffily final braids haggle final, ironic dolphins. b'),
+  (3584,118,'O',101937.04,date('1997-08-11'),'1-URGENT','Clerk#000000760',0,'fully bold packages. fluffily final braids haggle final, ironic dolphins. b')
+
+statement ok
+INSERT INTO orders VALUES 
   (3585,1381,'F',206416.27,date('1994-11-23'),'2-HIGH','Clerk#000000988',0,'regular asymptotes. bold pains above the carefully pending asymptot'),
   (3586,1201,'F',171227.96,date('1993-12-05'),'2-HIGH','Clerk#000000438',0,'he quickly final courts. carefully regular requests nag unusua'),
   (3587,775,'O',225119.62,date('1996-05-10'),'4-NOT SPECIFIED','Clerk#000000443',0,'ular patterns detect '),
@@ -1024,7 +1045,10 @@ INSERT INTO orders VALUES
   (4069,727,'F',286148.59,date('1992-05-13'),'3-MEDIUM','Clerk#000000359',0,'deposits: slyly bold ideas detect furiously. f'),
   (4070,284,'O',133677.58,date('1995-06-12'),'2-HIGH','Clerk#000000713',0,'xpress ideas poach ab'),
   (4071,1462,'O',75727.31,date('1996-09-15'),'4-NOT SPECIFIED','Clerk#000000486',0,'nal deposits. pending deposits d'),
-  (4096,1378,'F',100856.31,date('1992-07-03'),'4-NOT SPECIFIED','Clerk#000000706',0,'sits. quickly thin deposits x-ray blith'),
+  (4096,1378,'F',100856.31,date('1992-07-03'),'4-NOT SPECIFIED','Clerk#000000706',0,'sits. quickly thin deposits x-ray blith')
+
+statement ok
+INSERT INTO orders VALUES 
   (4097,85,'O',218589.15,date('1996-05-24'),'1-URGENT','Clerk#000000475',0,'ickly under the even accounts. even packages after the furiously express'),
   (4098,221,'O',83587.82,date('1996-11-05'),'4-NOT SPECIFIED','Clerk#000000491',0,'otes. quickly final requests after the stealthily ironic pinto bean'),
   (4099,161,'F',297452.57,date('1992-08-21'),'1-URGENT','Clerk#000000379',0,'r platelets. slyly regular requests cajole carefully against the'),
@@ -1152,7 +1176,10 @@ INSERT INTO orders VALUES
   (4581,778,'F',119792.47,date('1992-09-04'),'4-NOT SPECIFIED','Clerk#000000687',0,'ges. carefully pending accounts use furiously abo'),
   (4582,184,'O',30356.19,date('1996-07-04'),'1-URGENT','Clerk#000000638',0,'g the furiously regular pac'),
   (4583,217,'F',325377.79,date('1994-09-25'),'3-MEDIUM','Clerk#000000240',0,'equests. slyly even platelets was qui'),
-  (4608,796,'F',237969.57,date('1994-06-17'),'1-URGENT','Clerk#000000259',0,'y even instructions detect slyly asymptotes. blithely final packa'),
+  (4608,796,'F',237969.57,date('1994-06-17'),'1-URGENT','Clerk#000000259',0,'y even instructions detect slyly asymptotes. blithely final packa')
+
+statement ok
+INSERT INTO orders VALUES 
   (4609,1325,'O',92624.01,date('1996-12-05'),'3-MEDIUM','Clerk#000000239',0,'hang slyly slyly expre'),
   (4610,259,'F',204812.77,date('1993-06-18'),'5-LOW','Clerk#000000616',0,'e carefully express pinto'),
   (4611,286,'F',263391.24,date('1993-01-10'),'2-HIGH','Clerk#000000152',0,'. furiously regular instructions haggle dolphins. even instructions det'),
@@ -1280,7 +1307,10 @@ INSERT INTO orders VALUES
   (5093,776,'F',249888.04,date('1993-09-03'),'3-MEDIUM','Clerk#000000802',0,'ully ironic theodolites sleep above the furiously ruthless instructions. bli'),
   (5094,1051,'F',103588.23,date('1993-03-29'),'4-NOT SPECIFIED','Clerk#000000406',0,'uickly pending deposits haggle quickly ide'),
   (5095,952,'F',275920.02,date('1992-04-22'),'2-HIGH','Clerk#000000964',0,'accounts are carefully! slyly even packages wake slyly a'),
-  (5120,155,'O',33217.93,date('1996-06-05'),'1-URGENT','Clerk#000000332',0,'against the slyly express requests. furiousl'),
+  (5120,155,'O',33217.93,date('1996-06-05'),'1-URGENT','Clerk#000000332',0,'against the slyly express requests. furiousl')
+
+statement ok
+INSERT INTO orders VALUES 
   (5121,1328,'F',229899.02,date('1992-05-11'),'4-NOT SPECIFIED','Clerk#000000736',0,'gular requests. furiously final pearls against the permanent, thin courts s'),
   (5122,688,'O',131621.44,date('1996-02-10'),'5-LOW','Clerk#000000780',0,'blithely. slyly ironic deposits nag. excuses s'),
   (5123,97,'O',14822.35,date('1998-02-10'),'1-URGENT','Clerk#000000776',0,'ic requests. furiously ironic packages grow above the express, ironic inst'),
@@ -1408,7 +1438,10 @@ INSERT INTO orders VALUES
   (5605,346,'O',278023.41,date('1996-08-22'),'2-HIGH','Clerk#000000538',0,'sleep carefully final packages. dependencies wake slyly. theodol'),
   (5606,1486,'O',330692.08,date('1996-11-12'),'5-LOW','Clerk#000000688',0,'uriously express pinto beans. packages sh'),
   (5607,911,'F',29084.44,date('1992-01-01'),'4-NOT SPECIFIED','Clerk#000000137',0,'c requests promise quickly fluffily ironic deposits. caref'),
-  (5632,784,'O',106861.13,date('1996-02-05'),'1-URGENT','Clerk#000000508',0,'ons. blithely pending pinto beans thrash. furiously busy theodoli'),
+  (5632,784,'O',106861.13,date('1996-02-05'),'1-URGENT','Clerk#000000508',0,'ons. blithely pending pinto beans thrash. furiously busy theodoli')
+
+statement ok
+INSERT INTO orders VALUES 
   (5633,775,'O',302286.82,date('1998-05-31'),'3-MEDIUM','Clerk#000000841',0,'cial deposits wake final, final'),
   (5634,677,'O',147338.82,date('1996-07-31'),'3-MEDIUM','Clerk#000000915',0,'out the accounts. carefully ironic ideas are slyly. sheaves could h'),
   (5635,686,'F',273995.47,date('1992-08-16'),'3-MEDIUM','Clerk#000000734',0,'nal platelets sleep daringly. idle, final accounts about '),
@@ -1536,7 +1569,10 @@ INSERT INTO orders VALUES
   (6117,167,'F',183526.40,date('1992-12-22'),'1-URGENT','Clerk#000000763',0,'always. special dec'),
   (6118,1270,'O',170763.15,date('1997-03-26'),'5-LOW','Clerk#000000720',0,'equests wake blithely fluffily ironic deposits. a'),
   (6119,1093,'F',79171.18,date('1992-07-04'),'2-HIGH','Clerk#000000354',0,'s wake above the blithely idle accounts. pending, regular package'),
-  (6144,244,'F',115377.95,date('1994-06-22'),'1-URGENT','Clerk#000000444',0,'es against the carefully express '),
+  (6144,244,'F',115377.95,date('1994-06-22'),'1-URGENT','Clerk#000000444',0,'es against the carefully express ')
+
+statement ok
+INSERT INTO orders VALUES 
   (6145,856,'O',26852.63,date('1998-04-12'),'5-LOW','Clerk#000000211',0,'ts boost carefully furiously express deposi'),
   (6146,160,'O',92229.34,date('1995-12-01'),'5-LOW','Clerk#000000362',0,'ges except the blithely express somas hag'),
   (6147,869,'O',182519.92,date('1995-10-02'),'1-URGENT','Clerk#000000134',0,'carefully special acco'),
@@ -1664,7 +1700,10 @@ INSERT INTO orders VALUES
   (6629,1094,'F',198981.29,date('1994-01-26'),'1-URGENT','Clerk#000000153',0,'s deposits. blithely special Tiresias thrash '),
   (6630,800,'O',324687.23,date('1996-12-05'),'2-HIGH','Clerk#000000006',0,'carefully even asymptotes. furiously bold platelets are along'),
   (6631,481,'O',214850.36,date('1995-09-06'),'3-MEDIUM','Clerk#000000819',0,'ithely. even frets around the regula'),
-  (6656,754,'F',229247.93,date('1994-05-16'),'1-URGENT','Clerk#000000497',0,' multipliers grow furiously. blithely express courts integr'),
+  (6656,754,'F',229247.93,date('1994-05-16'),'1-URGENT','Clerk#000000497',0,' multipliers grow furiously. blithely express courts integr')
+
+statement ok
+INSERT INTO orders VALUES 
   (6657,463,'F',41401.44,date('1992-01-03'),'4-NOT SPECIFIED','Clerk#000000820',0,'ously among the blithely pending dependencies. blithely pending theo'),
   (6658,1486,'O',42751.67,date('1996-06-29'),'5-LOW','Clerk#000000453',0,'uests sleep furiously regular pinto beans. carefully even foxes boost fur'),
   (6659,164,'O',78331.25,date('1998-01-12'),'4-NOT SPECIFIED','Clerk#000000467',0,'e. carefully unusual deposits use s'),
@@ -1792,7 +1831,10 @@ INSERT INTO orders VALUES
   (7141,5,'O',271505.25,date('1996-07-19'),'5-LOW','Clerk#000000400',0,'ns sleep blithely. blithely ironi'),
   (7142,1456,'O',165343.16,date('1995-07-22'),'1-URGENT','Clerk#000000232',0,'ove the fluffily bold instructions. permanent hockey playe'),
   (7143,403,'O',1952.69,date('1997-10-23'),'4-NOT SPECIFIED','Clerk#000000928',0,'oxes? carefully regular ideas '),
-  (7168,613,'O',318482.19,date('1997-12-18'),'3-MEDIUM','Clerk#000000023',0,'ending deposits. even depths along the even sentiments integrate carefull'),
+  (7168,613,'O',318482.19,date('1997-12-18'),'3-MEDIUM','Clerk#000000023',0,'ending deposits. even depths along the even sentiments integrate carefull')
+
+statement ok
+INSERT INTO orders VALUES 
   (7169,107,'F',203088.44,date('1993-03-27'),'3-MEDIUM','Clerk#000000971',0,'final dependencies cajole. d'),
   (7170,31,'O',145617.42,date('1997-10-31'),'4-NOT SPECIFIED','Clerk#000000422',0,'r packages nag furiously. fluffily ir'),
   (7171,377,'F',283904.20,date('1995-02-14'),'3-MEDIUM','Clerk#000000548',0,'arefully regular deposits are closely express'),
@@ -1920,7 +1962,10 @@ INSERT INTO orders VALUES
   (7653,1306,'F',159466.80,date('1992-02-28'),'3-MEDIUM','Clerk#000000964',0,'olites haggle according to the furiousl'),
   (7654,908,'F',176363.63,date('1993-02-11'),'2-HIGH','Clerk#000000173',0,'al tithes in place of '),
   (7655,280,'F',56494.41,date('1993-02-13'),'2-HIGH','Clerk#000000671',0,'s impress among the ironically regular courts. theodolites wak'),
-  (7680,1318,'P',315518.21,date('1995-04-09'),'4-NOT SPECIFIED','Clerk#000000501',0,'. stealthy asymptotes use carefully carefully regular '),
+  (7680,1318,'P',315518.21,date('1995-04-09'),'4-NOT SPECIFIED','Clerk#000000501',0,'. stealthy asymptotes use carefully carefully regular ')
+
+statement ok
+INSERT INTO orders VALUES 
   (7681,1030,'F',57896.71,date('1993-12-19'),'5-LOW','Clerk#000000962',0,'ic foxes? express packages according to the slyly special'),
   (7682,1273,'O',54290.21,date('1997-10-11'),'5-LOW','Clerk#000000083',0,'ests. dugouts after the slyly regular packages wake carefully final d'),
   (7683,535,'O',190907.97,date('1998-02-26'),'1-URGENT','Clerk#000000430',0,'ly final deposits nod caref'),
@@ -2048,7 +2093,10 @@ INSERT INTO orders VALUES
   (8165,223,'F',230848.54,date('1994-10-16'),'5-LOW','Clerk#000000180',0,'nusual, unusual pinto beans wake slyly against the fluff'),
   (8166,553,'O',339654.01,date('1997-02-06'),'4-NOT SPECIFIED','Clerk#000000763',0,' blithely idle ideas affix careful'),
   (8167,805,'F',103238.73,date('1992-08-05'),'1-URGENT','Clerk#000000193',0,'ular asymptotes use carefully even requests. quickly ironic '),
-  (8192,340,'F',67515.90,date('1995-01-07'),'3-MEDIUM','Clerk#000000140',0,'usly even requests.'),
+  (8192,340,'F',67515.90,date('1995-01-07'),'3-MEDIUM','Clerk#000000140',0,'usly even requests.')
+
+statement ok
+INSERT INTO orders VALUES 
   (8193,19,'O',220727.61,date('1997-08-09'),'2-HIGH','Clerk#000000878',0,'pecial foxes. carefully regular requests sleep furiou'),
   (8194,340,'O',55935.05,date('1996-01-01'),'3-MEDIUM','Clerk#000000216',0,'se slyly quickly regular instructions. slyly special'),
   (8195,283,'F',203192.77,date('1995-01-07'),'3-MEDIUM','Clerk#000000778',0,'y final packages cajole carefully ironic excuses. even as'),
@@ -2176,7 +2224,10 @@ INSERT INTO orders VALUES
   (8677,476,'F',42009.81,date('1992-10-08'),'2-HIGH','Clerk#000000041',0,'ly. furiously ironic accounts hag'),
   (8678,298,'F',142413.44,date('1992-10-01'),'5-LOW','Clerk#000000093',0,'grouches. ironic id'),
   (8679,569,'F',122926.86,date('1992-05-07'),'3-MEDIUM','Clerk#000000898',0,' are quickly. accounts haggle. dolphins b'),
-  (8704,553,'O',278121.42,date('1995-07-01'),'3-MEDIUM','Clerk#000000625',0,'furiously bold packages according t'),
+  (8704,553,'O',278121.42,date('1995-07-01'),'3-MEDIUM','Clerk#000000625',0,'furiously bold packages according t')
+
+statement ok
+INSERT INTO orders VALUES 
   (8705,1471,'O',102340.60,date('1996-03-18'),'1-URGENT','Clerk#000000553',0,'al packages. fluffily pending theodolites around the'),
   (8706,334,'O',304143.15,date('1996-07-06'),'1-URGENT','Clerk#000000937',0,'as cajole against the blithe packages. express requests nag quickly. slyl'),
   (8707,977,'O',175711.26,date('1997-12-04'),'1-URGENT','Clerk#000000011',0,'xpress ideas breach slyly for the car'),
@@ -2304,7 +2355,10 @@ INSERT INTO orders VALUES
   (9189,1069,'O',109530.95,date('1996-12-02'),'3-MEDIUM','Clerk#000000501',0,'r waters haggle furiously fluffily ironic id'),
   (9190,460,'O',272754.44,date('1998-03-03'),'2-HIGH','Clerk#000000196',0,'side of the permanently ironic courts unwind'),
   (9191,535,'O',21182.03,date('1996-03-24'),'3-MEDIUM','Clerk#000000095',0,'final packages wake carefully. '),
-  (9216,643,'O',147294.33,date('1995-04-15'),'3-MEDIUM','Clerk#000000320',0,'its nag regular deposits. slyly even reques'),
+  (9216,643,'O',147294.33,date('1995-04-15'),'3-MEDIUM','Clerk#000000320',0,'its nag regular deposits. slyly even reques')
+
+statement ok
+INSERT INTO orders VALUES 
   (9217,1489,'O',117161.58,date('1997-05-26'),'1-URGENT','Clerk#000000051',0,' above the blithely regular d'),
   (9218,241,'O',31407.74,date('1997-12-10'),'4-NOT SPECIFIED','Clerk#000000795',0,'hely regular foxes are alongside of the furiously regular deposit'),
   (9219,412,'F',205446.61,date('1994-09-29'),'5-LOW','Clerk#000000382',0,'nst the furiously regular dinos. regular asymptotes against the slyly fina'),
@@ -2432,7 +2486,10 @@ INSERT INTO orders VALUES
   (9701,112,'F',277385.28,date('1993-02-28'),'5-LOW','Clerk#000000399',0,'bold deposits cajole furiously bold requests. even excuses'),
   (9702,1201,'O',182347.71,date('1996-08-22'),'3-MEDIUM','Clerk#000000852',0,'tions haggle slyly among the ironic theodolites. blithel'),
   (9703,1126,'F',28954.25,date('1994-10-07'),'5-LOW','Clerk#000000101',0,'realms wake. express, ironic accou'),
-  (9728,826,'F',39398.24,date('1993-07-03'),'5-LOW','Clerk#000000647',0,'ng requests. fluffily enticing re'),
+  (9728,826,'F',39398.24,date('1993-07-03'),'5-LOW','Clerk#000000647',0,'ng requests. fluffily enticing re')
+
+statement ok
+INSERT INTO orders VALUES 
   (9729,970,'O',162532.59,date('1996-07-06'),'3-MEDIUM','Clerk#000000148',0,'ndencies about the care'),
   (9730,143,'O',278148.33,date('1997-03-04'),'5-LOW','Clerk#000000743',0,' final dependencies doze furiously slyly silent ideas? furiousl'),
   (9731,283,'F',21613.76,date('1993-10-21'),'5-LOW','Clerk#000000586',0,' dolphins nag slyly even deposits-- blithely '),
@@ -2560,7 +2617,10 @@ INSERT INTO orders VALUES
   (10213,1288,'F',42898.55,date('1995-02-18'),'2-HIGH','Clerk#000000845',0,'ly ironic dependencies. final excuses acros'),
   (10214,913,'O',145287.98,date('1996-01-30'),'2-HIGH','Clerk#000000991',0,'encies after the deposits sleep furiously bold packages. even deposits '),
   (10215,1031,'O',156012.73,date('1996-08-17'),'1-URGENT','Clerk#000000770',0,'pecial instructions. fluffily regular packa'),
-  (10240,691,'F',41343.99,date('1994-05-16'),'4-NOT SPECIFIED','Clerk#000000109',0,'al accounts are along the unusual packages. unusual, even platelets use slyl'),
+  (10240,691,'F',41343.99,date('1994-05-16'),'4-NOT SPECIFIED','Clerk#000000109',0,'al accounts are along the unusual packages. unusual, even platelets use slyl')
+
+statement ok
+INSERT INTO orders VALUES 
   (10241,271,'O',54454.72,date('1997-09-30'),'5-LOW','Clerk#000000366',0,'y unusual asymptotes. regular dependencies wake fluffily about the'),
   (10242,101,'F',193761.97,date('1993-12-13'),'3-MEDIUM','Clerk#000000234',0,'s was slyly alongside of the deposits.'),
   (10243,385,'O',72189.37,date('1995-12-25'),'2-HIGH','Clerk#000000844',0,'nic requests. boldly regular deposits haggle blithely. orbits integrate '),
@@ -2688,7 +2748,10 @@ INSERT INTO orders VALUES
   (10725,1444,'O',77193.41,date('1998-04-09'),'5-LOW','Clerk#000000505',0,' carefully unusual sauternes after the fluffily regular foxes use pending,'),
   (10726,164,'F',215356.45,date('1993-04-25'),'4-NOT SPECIFIED','Clerk#000000210',0,' regular dependencies. quickly spe'),
   (10727,496,'F',311532.26,date('1992-08-05'),'5-LOW','Clerk#000000396',0,'nusual pinto beans. special, pending requests breach slyly fina'),
-  (10752,199,'O',223930.05,date('1995-09-11'),'1-URGENT','Clerk#000000610',0,'ic accounts. carefully ironic courts against the caref'),
+  (10752,199,'O',223930.05,date('1995-09-11'),'1-URGENT','Clerk#000000610',0,'ic accounts. carefully ironic courts against the caref')
+
+statement ok
+INSERT INTO orders VALUES 
   (10753,1430,'F',20768.66,date('1994-05-02'),'1-URGENT','Clerk#000000218',0,'ously ironic packag'),
   (10754,1061,'F',229997.58,date('1993-03-18'),'5-LOW','Clerk#000000827',0,'r pinto beans sleep even '),
   (10755,1435,'F',132981.98,date('1993-07-15'),'1-URGENT','Clerk#000000257',0,'se furiously excuses. always unusual packages above the furiously unusual de'),
@@ -2816,7 +2879,10 @@ INSERT INTO orders VALUES
   (11237,1423,'O',155158.38,date('1996-06-16'),'4-NOT SPECIFIED','Clerk#000000627',0,'e the carefully special ideas inte'),
   (11238,535,'O',126764.00,date('1996-07-23'),'1-URGENT','Clerk#000000809',0,'gular foxes run after the even instructions. regular instructions wake. unu'),
   (11239,475,'F',310241.51,date('1992-02-10'),'1-URGENT','Clerk#000000240',0,'e regular, even excuses.'),
-  (11264,676,'O',152483.91,date('1996-09-02'),'4-NOT SPECIFIED','Clerk#000000227',0,'usly silent deposits. carefully unusual asymptotes ha'),
+  (11264,676,'O',152483.91,date('1996-09-02'),'4-NOT SPECIFIED','Clerk#000000227',0,'usly silent deposits. carefully unusual asymptotes ha')
+
+statement ok
+INSERT INTO orders VALUES 
   (11265,905,'O',88998.81,date('1997-05-20'),'3-MEDIUM','Clerk#000000427',0,'ias. carefully pending platel'),
   (11266,292,'O',13609.27,date('1997-08-10'),'4-NOT SPECIFIED','Clerk#000000315',0,'lets nag about the carefully special packages. ironic sheaves '),
   (11267,548,'F',45572.31,date('1992-02-15'),'5-LOW','Clerk#000000096',0,' wake slyly even deposits. c'),
@@ -2944,7 +3010,10 @@ INSERT INTO orders VALUES
   (11749,818,'O',75180.45,date('1998-02-17'),'5-LOW','Clerk#000000819',0,' excuses boost against the final pai'),
   (11750,823,'O',117385.37,date('1997-03-05'),'2-HIGH','Clerk#000000801',0,' furiously packages. carefully silent instruc'),
   (11751,1282,'O',150450.18,date('1996-05-23'),'1-URGENT','Clerk#000000605',0,'uickly express pinto beans. blithely bold foxes use above the dep'),
-  (11776,386,'F',90162.21,date('1992-02-25'),'5-LOW','Clerk#000000548',0,'ck theodolites integrate furiously along the bold deposits. even, pending '),
+  (11776,386,'F',90162.21,date('1992-02-25'),'5-LOW','Clerk#000000548',0,'ck theodolites integrate furiously along the bold deposits. even, pending ')
+
+statement ok
+INSERT INTO orders VALUES 
   (11777,271,'F',56387.90,date('1994-12-26'),'5-LOW','Clerk#000000292',0,'g dependencies; quickly dogged courts wake quick'),
   (11778,217,'O',102865.25,date('1997-03-28'),'5-LOW','Clerk#000000253',0,'ss the final, unusual packages. quickly quick theodolites haggle. slyl'),
   (11779,1045,'F',183456.75,date('1993-06-30'),'4-NOT SPECIFIED','Clerk#000000740',0,'according to the care'),
@@ -3072,7 +3141,10 @@ INSERT INTO orders VALUES
   (12261,1126,'F',362237.85,date('1993-10-24'),'5-LOW','Clerk#000000279',0,'ccounts use quickly about the furiously bold foxes. furiously final '),
   (12262,1441,'O',139469.07,date('1995-12-11'),'5-LOW','Clerk#000000886',0,'efully. slyly final theodolit'),
   (12263,550,'O',161275.31,date('1995-07-07'),'2-HIGH','Clerk#000000566',0,'ts sleep across the carefully bold instruc'),
-  (12288,1153,'O',125448.87,date('1996-11-06'),'1-URGENT','Clerk#000000183',0,'slyly regular deposits above the foxes are at the packages-'),
+  (12288,1153,'O',125448.87,date('1996-11-06'),'1-URGENT','Clerk#000000183',0,'slyly regular deposits above the foxes are at the packages-')
+
+statement ok
+INSERT INTO orders VALUES 
   (12289,421,'O',128835.39,date('1995-12-25'),'5-LOW','Clerk#000000269',0,' even deposits. ironic, regular deposits haggle blith'),
   (12290,1304,'O',103022.30,date('1995-07-10'),'3-MEDIUM','Clerk#000000947',0,'ully pending instructions boost slyly furiously '),
   (12291,740,'O',19328.06,date('1998-03-23'),'1-URGENT','Clerk#000000074',0,'al deposits. warhorses inte'),
@@ -3200,7 +3272,10 @@ INSERT INTO orders VALUES
   (12773,817,'F',304639.93,date('1995-01-12'),'5-LOW','Clerk#000000670',0,'s, pending ideas. fluffily ironic deposits cajole blithely furiously unusual'),
   (12774,1108,'F',60657.84,date('1992-10-10'),'1-URGENT','Clerk#000000067',0,'ounts. quickly final requests '),
   (12775,979,'O',127678.72,date('1996-10-15'),'5-LOW','Clerk#000000553',0,'s the quickly unusual '),
-  (12800,11,'F',302431.56,date('1993-05-23'),'5-LOW','Clerk#000000898',0,'. slyly final accounts cajole i'),
+  (12800,11,'F',302431.56,date('1993-05-23'),'5-LOW','Clerk#000000898',0,'. slyly final accounts cajole i')
+
+statement ok
+INSERT INTO orders VALUES 
   (12801,1412,'O',226079.43,date('1997-08-28'),'3-MEDIUM','Clerk#000000582',0,'bove the fluffily express asymptot'),
   (12802,1481,'O',233609.74,date('1998-03-02'),'1-URGENT','Clerk#000000774',0,'ounts. special, pending ideas cajole pe'),
   (12803,392,'F',27391.77,date('1993-02-26'),'4-NOT SPECIFIED','Clerk#000000876',0,'sly final accounts use slyly final accounts. blithe'),
@@ -3328,7 +3403,10 @@ INSERT INTO orders VALUES
   (13285,406,'O',8165.39,date('1995-05-17'),'4-NOT SPECIFIED','Clerk#000000312',0,'r packages. silent, even '),
   (13286,1114,'O',81226.73,date('1995-10-12'),'2-HIGH','Clerk#000000186',0,'osits. slyly express requests promise quickly. bold, final asymptote'),
   (13287,895,'O',168246.03,date('1997-03-10'),'3-MEDIUM','Clerk#000000335',0,'e theodolites. blithely even deposits dazzle care'),
-  (13312,1324,'O',80963.75,date('1996-11-04'),'1-URGENT','Clerk#000000904',0,'final accounts wake slyl'),
+  (13312,1324,'O',80963.75,date('1996-11-04'),'1-URGENT','Clerk#000000904',0,'final accounts wake slyl')
+
+statement ok
+INSERT INTO orders VALUES 
   (13313,1438,'F',254146.32,date('1994-07-17'),'4-NOT SPECIFIED','Clerk#000000036',0,'d platelets. slyly express requests print carefully across the quickl'),
   (13314,412,'F',226838.60,date('1994-05-14'),'2-HIGH','Clerk#000000842',0,'ajole stealthily even deposits. furiously express foxes was evenly r'),
   (13315,449,'O',192954.51,date('1996-10-16'),'2-HIGH','Clerk#000000759',0,'thinly ironic accoun'),
@@ -3456,7 +3534,10 @@ INSERT INTO orders VALUES
   (13797,272,'O',227061.71,date('1996-08-26'),'1-URGENT','Clerk#000000379',0,'usly silent theodolites wake slyly across'),
   (13798,1298,'O',123932.29,date('1996-02-12'),'1-URGENT','Clerk#000000778',0,'fluffily special, bol'),
   (13799,994,'F',142646.96,date('1993-12-02'),'1-URGENT','Clerk#000000945',0,'g according to the regularly even requests. carefully bold accoun'),
-  (13824,1096,'F',115028.49,date('1994-12-28'),'5-LOW','Clerk#000000604',0,'equests. slow, sly ideas cajole fu'),
+  (13824,1096,'F',115028.49,date('1994-12-28'),'5-LOW','Clerk#000000604',0,'equests. slow, sly ideas cajole fu')
+
+statement ok
+INSERT INTO orders VALUES 
   (13825,56,'F',174217.02,date('1994-03-22'),'2-HIGH','Clerk#000000038',0,'ests. slyly express pin'),
   (13826,232,'O',160230.62,date('1997-02-22'),'3-MEDIUM','Clerk#000000053',0,'ost packages. slyly pending requests are c'),
   (13827,479,'F',44465.43,date('1993-06-21'),'5-LOW','Clerk#000000455',0,'busily close requests. ironic, even pinto beans use furiously requests. c'),
@@ -3584,7 +3665,10 @@ INSERT INTO orders VALUES
   (14309,1382,'F',103342.31,date('1994-01-31'),'1-URGENT','Clerk#000000753',0,'s haggle furiously against the carefully final asymptotes. blith'),
   (14310,1393,'O',59609.50,date('1997-09-13'),'5-LOW','Clerk#000000627',0,'p furiously evenly final requests. even, ironic excuses are'),
   (14311,1412,'F',46918.86,date('1994-08-02'),'1-URGENT','Clerk#000000916',0,'nic pinto beans along the enticingly final reque'),
-  (14336,760,'F',172716.15,date('1994-11-19'),'2-HIGH','Clerk#000000699',0,'eodolites cajole carefully. quickly ironic foxes about the fluffily ironic'),
+  (14336,760,'F',172716.15,date('1994-11-19'),'2-HIGH','Clerk#000000699',0,'eodolites cajole carefully. quickly ironic foxes about the fluffily ironic')
+
+statement ok
+INSERT INTO orders VALUES 
   (14337,299,'O',280177.62,date('1997-10-09'),'4-NOT SPECIFIED','Clerk#000000949',0,' special ideas into the silently quick dep'),
   (14338,752,'F',97316.04,date('1993-02-01'),'5-LOW','Clerk#000000658',0,'l accounts. quickly special packages h'),
   (14339,1199,'O',209018.11,date('1997-07-23'),'4-NOT SPECIFIED','Clerk#000000303',0,'ar theodolites after the express, final pinto beans engage car'),
@@ -3712,7 +3796,10 @@ INSERT INTO orders VALUES
   (14821,1435,'O',322002.95,date('1998-06-12'),'2-HIGH','Clerk#000000630',0,'n packages are furiously ironic ideas. d'),
   (14822,473,'O',182443.15,date('1996-03-26'),'2-HIGH','Clerk#000000675',0,'es. even, special request'),
   (14823,832,'F',190065.85,date('1994-02-13'),'5-LOW','Clerk#000000844',0,' slyly final accounts: packages integrate quickly along the packages'),
-  (14848,256,'O',115009.62,date('1996-10-17'),'5-LOW','Clerk#000000567',0,'warthogs use furiously across the'),
+  (14848,256,'O',115009.62,date('1996-10-17'),'5-LOW','Clerk#000000567',0,'warthogs use furiously across the')
+
+statement ok
+INSERT INTO orders VALUES 
   (14849,739,'O',82597.02,date('1997-02-07'),'3-MEDIUM','Clerk#000000123',0,' cajole fluffily against the final, reg'),
   (14850,1348,'O',227401.85,date('1997-12-04'),'1-URGENT','Clerk#000000960',0,' quickly regular braids. ironic, regular accounts are carefully'),
   (14851,175,'F',229811.50,date('1992-05-12'),'4-NOT SPECIFIED','Clerk#000000075',0,'. blithely regular requests wake blithely after the furiously final accou'),
@@ -3840,7 +3927,10 @@ INSERT INTO orders VALUES
   (15333,511,'O',254832.54,date('1996-02-11'),'5-LOW','Clerk#000000556',0,'ckly pending instructions. slow, regular packages solve special the'),
   (15334,1246,'O',303093.32,date('1996-02-08'),'4-NOT SPECIFIED','Clerk#000000927',0,'o the slyly even requests. furiously unusual plate'),
   (15335,1346,'F',175169.57,date('1993-09-18'),'3-MEDIUM','Clerk#000000071',0,'ccounts after the fluffily silent i'),
-  (15360,1075,'O',97332.65,date('1997-11-10'),'4-NOT SPECIFIED','Clerk#000000208',0,' unusual theodolites cajole? carefully'),
+  (15360,1075,'O',97332.65,date('1997-11-10'),'4-NOT SPECIFIED','Clerk#000000208',0,' unusual theodolites cajole? carefully')
+
+statement ok
+INSERT INTO orders VALUES 
   (15361,1141,'F',51125.15,date('1994-11-24'),'1-URGENT','Clerk#000000239',0,' along the express,'),
   (15362,383,'F',54582.89,date('1993-12-03'),'1-URGENT','Clerk#000000615',0,'fully pending requests unwind accounts. express, furi'),
   (15363,1319,'O',88125.92,date('1997-07-07'),'5-LOW','Clerk#000000068',0,'ggle final, even courts. furiously even packages engag'),
@@ -3968,7 +4058,10 @@ INSERT INTO orders VALUES
   (15845,589,'O',172044.11,date('1996-11-23'),'5-LOW','Clerk#000000915',0,'n foxes sleep slyly among the foxes. slyly ironic dependencies s'),
   (15846,47,'F',118713.85,date('1993-05-05'),'2-HIGH','Clerk#000000208',0,' ironic requests sleep carefully even instructions. quickly silent t'),
   (15847,805,'O',287838.96,date('1996-07-09'),'2-HIGH','Clerk#000000750',0,'y special packages ki'),
-  (15872,188,'F',101969.67,date('1992-10-31'),'4-NOT SPECIFIED','Clerk#000000210',0,'nusual instructions. blithely silent accoun'),
+  (15872,188,'F',101969.67,date('1992-10-31'),'4-NOT SPECIFIED','Clerk#000000210',0,'nusual instructions. blithely silent accoun')
+
+statement ok
+INSERT INTO orders VALUES 
   (15873,1360,'F',17611.75,date('1994-07-18'),'4-NOT SPECIFIED','Clerk#000000016',0,'sly quick packages sleep slyly evenly final packages. furiously eve'),
   (15874,436,'O',90057.48,date('1996-05-07'),'1-URGENT','Clerk#000000625',0,'ly across the quickly pending pinto bean'),
   (15875,809,'O',161658.46,date('1996-09-01'),'3-MEDIUM','Clerk#000000367',0,'al accounts. even foxes may a'),
@@ -4096,7 +4189,10 @@ INSERT INTO orders VALUES
   (16357,715,'F',52749.00,date('1993-01-28'),'4-NOT SPECIFIED','Clerk#000000846',0,' platelets are idly above the furiously express packages. quickly special depo'),
   (16358,319,'F',60662.00,date('1993-12-26'),'4-NOT SPECIFIED','Clerk#000000125',0,'ly. ironic, bold requests among the accounts affix sometimes express requests'),
   (16359,758,'F',202543.29,date('1992-05-15'),'1-URGENT','Clerk#000000584',0,' the blithely ironic accounts: slyly pendi'),
-  (16384,613,'O',19455.92,date('1997-08-14'),'2-HIGH','Clerk#000000375',0,'round the carefully ironic accounts doze silent, final theodolite'),
+  (16384,613,'O',19455.92,date('1997-08-14'),'2-HIGH','Clerk#000000375',0,'round the carefully ironic accounts doze silent, final theodolite')
+
+statement ok
+INSERT INTO orders VALUES 
   (16385,92,'F',26170.83,date('1994-06-28'),'4-NOT SPECIFIED','Clerk#000000051',0,'unts. furiously fina'),
   (16386,1126,'O',166693.09,date('1996-12-23'),'3-MEDIUM','Clerk#000000692',0,'jole quickly against the regular accounts. final, regular notornis are depo'),
   (16387,1043,'O',72432.33,date('1998-03-08'),'5-LOW','Clerk#000000438',0,'ts detect slyly around the slyly pending requests. furious'),
@@ -4224,7 +4320,10 @@ INSERT INTO orders VALUES
   (16869,214,'O',172054.82,date('1998-01-13'),'1-URGENT','Clerk#000000374',0,'ts sleep slyly stealthily final pinto beans. slyly final packages detect '),
   (16870,1162,'F',158725.53,date('1994-01-11'),'5-LOW','Clerk#000000072',0,'g. requests above the'),
   (16871,946,'F',107915.25,date('1994-07-15'),'5-LOW','Clerk#000000762',0,'leep. foxes nag slyly: blithely even theodolites cajole around the c'),
-  (16896,728,'O',166766.72,date('1997-04-25'),'5-LOW','Clerk#000000814',0,'al ideas boost slyly. dolphins wake regular, regular pinto beans. spec'),
+  (16896,728,'O',166766.72,date('1997-04-25'),'5-LOW','Clerk#000000814',0,'al ideas boost slyly. dolphins wake regular, regular pinto beans. spec')
+
+statement ok
+INSERT INTO orders VALUES 
   (16897,754,'F',181764.22,date('1992-06-16'),'4-NOT SPECIFIED','Clerk#000000554',0,' regular packages cajole blithely. bold'),
   (16898,1181,'O',84688.31,date('1995-10-29'),'5-LOW','Clerk#000000091',0,'quests. deposits cajole across the iro'),
   (16899,832,'O',70481.32,date('1998-06-23'),'1-URGENT','Clerk#000000733',0,' eat carefully. pending foxes x-ray fluffily according to the'),
@@ -4352,7 +4451,10 @@ INSERT INTO orders VALUES
   (17381,922,'F',141295.02,date('1993-08-15'),'2-HIGH','Clerk#000000411',0,'ully. final instructions after the stealthily even packages wake fluffily r'),
   (17382,422,'O',112373.31,date('1995-07-05'),'4-NOT SPECIFIED','Clerk#000000484',0,'nal instructions run furiously regular deposits. carefully quiet dugouts '),
   (17383,1498,'O',268606.09,date('1996-03-29'),'3-MEDIUM','Clerk#000000052',0,' wake carefully about the asymptotes. blithely close instructions alo'),
-  (17408,1447,'F',145954.22,date('1994-05-28'),'4-NOT SPECIFIED','Clerk#000000704',0,' about the blithely pending theod'),
+  (17408,1447,'F',145954.22,date('1994-05-28'),'4-NOT SPECIFIED','Clerk#000000704',0,' about the blithely pending theod')
+
+statement ok
+INSERT INTO orders VALUES 
   (17409,770,'F',230159.95,date('1993-08-18'),'4-NOT SPECIFIED','Clerk#000000423',0,'ccounts are furiously silent excuses. request'),
   (17410,449,'F',115603.10,date('1993-09-02'),'5-LOW','Clerk#000000790',0,'ests. deposits cajole always. blithely even package'),
   (17411,721,'F',128516.04,date('1994-08-22'),'4-NOT SPECIFIED','Clerk#000000918',0,'nusual instructions sleep. carefully pending depths nag carefully accor'),
@@ -4480,7 +4582,10 @@ INSERT INTO orders VALUES
   (17893,1342,'F',49713.19,date('1992-03-23'),'5-LOW','Clerk#000000054',0,'re slyly in place of the blithely express deposits. packages wake about t'),
   (17894,751,'F',84724.01,date('1992-12-21'),'3-MEDIUM','Clerk#000000053',0,'kages. carefully pending ideas sleep carefully carefully '),
   (17895,194,'O',199667.80,date('1996-08-13'),'2-HIGH','Clerk#000000339',0,'osits run along the s'),
-  (17920,394,'O',278601.15,date('1998-02-03'),'1-URGENT','Clerk#000000570',0,'uests. slyly regular accounts cajole qu'),
+  (17920,394,'O',278601.15,date('1998-02-03'),'1-URGENT','Clerk#000000570',0,'uests. slyly regular accounts cajole qu')
+
+statement ok
+INSERT INTO orders VALUES 
   (17921,1061,'O',176623.22,date('1998-07-28'),'3-MEDIUM','Clerk#000000970',0,'equests sleep carefully arou'),
   (17922,772,'F',30320.54,date('1994-10-02'),'2-HIGH','Clerk#000000277',0,'f the requests. final, ironic dugouts was. special foxes'),
   (17923,224,'O',150267.30,date('1998-07-05'),'5-LOW','Clerk#000000683',0,'fully ironic foxes. unusual, ironi'),
@@ -4608,7 +4713,10 @@ INSERT INTO orders VALUES
   (18405,976,'F',179399.51,date('1994-01-08'),'3-MEDIUM','Clerk#000000017',0,'earls atop the slyly ironic instructions wake blithely final ideas. doggedly'),
   (18406,620,'F',73456.61,date('1994-04-15'),'2-HIGH','Clerk#000000633',0,'even packages are slyly about the furiously ironic reque'),
   (18407,916,'F',25505.35,date('1992-10-23'),'2-HIGH','Clerk#000000995',0,'s are. fluffily pending accounts affix final, regular'),
-  (18432,1352,'F',246330.37,date('1995-03-13'),'2-HIGH','Clerk#000000065',0,'ly. blithely express packages integrate '),
+  (18432,1352,'F',246330.37,date('1995-03-13'),'2-HIGH','Clerk#000000065',0,'ly. blithely express packages integrate ')
+
+statement ok
+INSERT INTO orders VALUES 
   (18433,163,'O',129815.16,date('1998-04-15'),'4-NOT SPECIFIED','Clerk#000000573',0,'g the quickly unusual packages. reg'),
   (18434,985,'O',134633.55,date('1997-07-03'),'5-LOW','Clerk#000000245',0,'heodolites wake according to the blithely final foxes. s'),
   (18435,7,'O',181756.27,date('1996-03-16'),'5-LOW','Clerk#000000988',0,'nusual excuses sleep across the even packages. regular excuses affix. f'),
@@ -4736,7 +4844,10 @@ INSERT INTO orders VALUES
   (18917,892,'F',34232.10,date('1992-05-04'),'1-URGENT','Clerk#000000427',0,'regular accounts. pending, ironic pinto beans wake slyly furi'),
   (18918,439,'F',48426.44,date('1992-10-28'),'4-NOT SPECIFIED','Clerk#000000766',0,'ag carefully accounts. instr'),
   (18919,361,'F',41666.42,date('1994-06-29'),'5-LOW','Clerk#000000746',0,'round the carefully regular deposits hag'),
-  (18944,523,'O',175577.85,date('1996-10-28'),'2-HIGH','Clerk#000000237',0,'ys. blithely ironic accounts nag above the theodolites. slyly ironic braids wa'),
+  (18944,523,'O',175577.85,date('1996-10-28'),'2-HIGH','Clerk#000000237',0,'ys. blithely ironic accounts nag above the theodolites. slyly ironic braids wa')
+
+statement ok
+INSERT INTO orders VALUES 
   (18945,577,'F',212917.58,date('1994-01-18'),'3-MEDIUM','Clerk#000000835',0,'ly according to the f'),
   (18946,748,'F',51006.08,date('1993-05-05'),'1-URGENT','Clerk#000000480',0,'re carefully. asymptotes wake. furiously pending i'),
   (18947,1252,'O',149287.22,date('1997-07-13'),'2-HIGH','Clerk#000000113',0,'le fluffily slyly special forges. regular deposits about the fu'),
@@ -4864,7 +4975,10 @@ INSERT INTO orders VALUES
   (19429,1318,'F',213337.82,date('1994-08-25'),'4-NOT SPECIFIED','Clerk#000000329',0,'ts boost except the furiously express ideas. fluffily express acc'),
   (19430,583,'F',130429.17,date('1993-11-14'),'1-URGENT','Clerk#000000060',0,' blithely carefully pending packages. slyly pending accounts detect furious'),
   (19431,415,'F',164591.97,date('1994-05-24'),'4-NOT SPECIFIED','Clerk#000000104',0,'uriously ironic foxes. slyly special i'),
-  (19456,1202,'O',233433.07,date('1996-07-06'),'5-LOW','Clerk#000000600',0,' dinos haggle quickly. silent, final requests wake blithely. sl'),
+  (19456,1202,'O',233433.07,date('1996-07-06'),'5-LOW','Clerk#000000600',0,' dinos haggle quickly. silent, final requests wake blithely. sl')
+
+statement ok
+INSERT INTO orders VALUES 
   (19457,250,'F',117171.06,date('1994-07-13'),'2-HIGH','Clerk#000000810',0,'nic dependencies wake alongside of the deposit'),
   (19458,178,'O',165911.36,date('1996-05-25'),'2-HIGH','Clerk#000000410',0,'nto beans haggle abou'),
   (19459,1073,'O',48324.32,date('1996-08-26'),'2-HIGH','Clerk#000000470',0,'fully regular instructions; carefully special theodolites believe agai'),
@@ -4992,7 +5106,10 @@ INSERT INTO orders VALUES
   (19941,1054,'F',190942.54,date('1993-11-26'),'4-NOT SPECIFIED','Clerk#000000972',0,'le across the carefully pending deposits. silent packages are. dogged de'),
   (19942,503,'O',70875.20,date('1998-04-15'),'2-HIGH','Clerk#000000011',0,'ly. regular deposits are quickly furiously special platelets. furiously '),
   (19943,40,'F',42347.52,date('1994-11-25'),'1-URGENT','Clerk#000000985',0,'nusual requests nag hockey players. deposits boost doggedly i'),
-  (19968,136,'O',359373.75,date('1997-12-07'),'4-NOT SPECIFIED','Clerk#000000765',0,'ideas cajole carefully. braids integrate carefully regular pl'),
+  (19968,136,'O',359373.75,date('1997-12-07'),'4-NOT SPECIFIED','Clerk#000000765',0,'ideas cajole carefully. braids integrate carefully regular pl')
+
+statement ok
+INSERT INTO orders VALUES 
   (19969,1022,'O',97909.45,date('1997-05-21'),'3-MEDIUM','Clerk#000000487',0,'even pinto beans integrate furiously ironically '),
   (19970,1469,'O',229154.06,date('1996-11-19'),'2-HIGH','Clerk#000000762',0,'o beans believe furiously. carefully even requests sleep furiously aft'),
   (19971,109,'O',254519.96,date('1996-06-27'),'4-NOT SPECIFIED','Clerk#000000265',0,'furiously unusual, final theodolites. final requ'),
@@ -5120,7 +5237,10 @@ INSERT INTO orders VALUES
   (20453,859,'P',179192.43,date('1995-03-11'),'3-MEDIUM','Clerk#000000577',0,'counts sleep according to the quickly express e'),
   (20454,58,'F',56644.46,date('1995-04-05'),'2-HIGH','Clerk#000000579',0,'ncies. furiously silent p'),
   (20455,182,'F',231783.76,date('1993-06-29'),'1-URGENT','Clerk#000000542',0,'ove the furiously ironi'),
-  (20480,488,'F',190528.78,date('1994-01-30'),'3-MEDIUM','Clerk#000000932',0,'ial, even requests use slowly about the foxes. even p'),
+  (20480,488,'F',190528.78,date('1994-01-30'),'3-MEDIUM','Clerk#000000932',0,'ial, even requests use slowly about the foxes. even p')
+
+statement ok
+INSERT INTO orders VALUES 
   (20481,958,'O',85979.61,date('1997-11-10'),'5-LOW','Clerk#000000209',0,'ular platelets cajole quickly above the slyly ironic asymptote'),
   (20482,1132,'O',226156.58,date('1995-07-19'),'3-MEDIUM','Clerk#000000194',0,'arefully. fluffily reg'),
   (20483,1483,'F',106205.74,date('1993-01-10'),'5-LOW','Clerk#000000072',0,' packages among the carefully unusual theodolites sleep instructions. fluffil'),
@@ -5248,7 +5368,10 @@ INSERT INTO orders VALUES
   (20965,1240,'F',181511.69,date('1994-12-21'),'1-URGENT','Clerk#000000052',0,'out the fluffily regul'),
   (20966,643,'F',184100.55,date('1993-09-19'),'5-LOW','Clerk#000000368',0,' waters affix carefully carefully ironic sentiments. furiou'),
   (20967,301,'P',219976.43,date('1995-03-16'),'2-HIGH','Clerk#000000138',0,'anent excuses haggle after the packages. packa'),
-  (20992,836,'F',90694.79,date('1992-08-05'),'2-HIGH','Clerk#000000053',0,'onic theodolites. furiously regular dependencies are about the p'),
+  (20992,836,'F',90694.79,date('1992-08-05'),'2-HIGH','Clerk#000000053',0,'onic theodolites. furiously regular dependencies are about the p')
+
+statement ok
+INSERT INTO orders VALUES 
   (20993,1462,'O',46520.13,date('1996-01-24'),'2-HIGH','Clerk#000000812',0,'ly regular instructions. furiously final orbits cajole. '),
   (20994,907,'O',181612.37,date('1996-04-12'),'1-URGENT','Clerk#000000240',0,'nal dependencies need to are blithely regular theodolites. f'),
   (20995,139,'F',112188.95,date('1992-03-28'),'3-MEDIUM','Clerk#000000778',0,' dependencies promise carefully. express, ironic accounts print; '),
@@ -5376,7 +5499,10 @@ INSERT INTO orders VALUES
   (21477,337,'P',216395.26,date('1995-05-22'),'5-LOW','Clerk#000000650',0,'ic accounts nag above the ironic de'),
   (21478,1061,'F',303657.83,date('1992-03-03'),'5-LOW','Clerk#000000452',0,'he blithely even foxes. slyly final deposits boost slyly according'),
   (21479,385,'F',98748.20,date('1994-08-29'),'3-MEDIUM','Clerk#000000282',0,'out the quickly express asymptotes run slyly bo'),
-  (21504,83,'O',184886.29,date('1997-11-06'),'3-MEDIUM','Clerk#000000802',0,'unusual, stealthy requests are quickly among the slyly unusua'),
+  (21504,83,'O',184886.29,date('1997-11-06'),'3-MEDIUM','Clerk#000000802',0,'unusual, stealthy requests are quickly among the slyly unusua')
+
+statement ok
+INSERT INTO orders VALUES 
   (21505,80,'F',269780.48,date('1992-12-04'),'5-LOW','Clerk#000000067',0,'tions haggle up the caref'),
   (21506,976,'F',183580.67,date('1994-06-08'),'3-MEDIUM','Clerk#000000425',0,'ully pending requests wake carefully along the furiously pending accounts. '),
   (21507,1054,'O',128337.81,date('1997-06-15'),'3-MEDIUM','Clerk#000000837',0,'usly slyly pending packages. slyly bold requests wake u'),
@@ -5504,7 +5630,10 @@ INSERT INTO orders VALUES
   (21989,1363,'F',264723.01,date('1995-02-11'),'5-LOW','Clerk#000000597',0,' carefully pending deposits cajole furiousl'),
   (21990,695,'F',103669.59,date('1992-08-23'),'3-MEDIUM','Clerk#000000303',0,'nstructions. final, even pinto '),
   (21991,904,'O',44025.84,date('1997-05-13'),'5-LOW','Clerk#000000797',0,'accounts. ironic, pending deposits nag furiously sl'),
-  (22016,169,'O',287711.47,date('1996-08-08'),'4-NOT SPECIFIED','Clerk#000000658',0,'sly, regular deposits boost carefully. f'),
+  (22016,169,'O',287711.47,date('1996-08-08'),'4-NOT SPECIFIED','Clerk#000000658',0,'sly, regular deposits boost carefully. f')
+
+statement ok
+INSERT INTO orders VALUES 
   (22017,998,'F',99207.93,date('1994-12-24'),'3-MEDIUM','Clerk#000000427',0,'yly alongside of the carefully ironic packages.'),
   (22018,146,'O',138552.38,date('1996-06-04'),'5-LOW','Clerk#000000125',0,' carefully permanent platelets. special requests wake instead of the care'),
   (22019,604,'O',72250.18,date('1995-10-30'),'4-NOT SPECIFIED','Clerk#000000684',0,'ously. unusual deposits wake. furiously bold foxes sleep bold, bold'),
@@ -5632,7 +5761,10 @@ INSERT INTO orders VALUES
   (22501,493,'F',105604.37,date('1993-05-19'),'2-HIGH','Clerk#000000849',0,' carefully. blithely furious platelets hang carefull'),
   (22502,946,'O',168912.62,date('1998-03-11'),'3-MEDIUM','Clerk#000000444',0,'ending theodolites are after the fluffily d'),
   (22503,251,'O',30303.96,date('1997-12-15'),'1-URGENT','Clerk#000000137',0,'r foxes. even, pending pinto beans hinder quickly above the fluffil'),
-  (22528,1160,'O',109423.44,date('1995-11-12'),'2-HIGH','Clerk#000000539',0,'ic accounts could sleep carefully furiously special packages.'),
+  (22528,1160,'O',109423.44,date('1995-11-12'),'2-HIGH','Clerk#000000539',0,'ic accounts could sleep carefully furiously special packages.')
+
+statement ok
+INSERT INTO orders VALUES 
   (22529,968,'F',112480.82,date('1993-05-08'),'3-MEDIUM','Clerk#000000843',0,' final pearls. ironically ironic packages cajole blithely ironic, pending '),
   (22530,883,'O',58701.18,date('1997-01-20'),'1-URGENT','Clerk#000000724',0,'usual warthogs sleep'),
   (22531,37,'O',188883.37,date('1995-11-20'),'5-LOW','Clerk#000000362',0,'e unusual, regular pinto beans: slyly regular dolphins mold ca'),
@@ -5760,7 +5892,10 @@ INSERT INTO orders VALUES
   (23013,236,'F',193441.80,date('1993-06-29'),'2-HIGH','Clerk#000000702',0,'l instructions impress above the slyly silen'),
   (23014,511,'O',42290.17,date('1995-10-18'),'4-NOT SPECIFIED','Clerk#000000017',0,'ake across the busily bold pinto beans. even warhorses nag. '),
   (23015,782,'F',109383.43,date('1992-01-12'),'3-MEDIUM','Clerk#000000142',0,'es. regular, final packages haggle slyly under the'),
-  (23040,1357,'O',118484.41,date('1997-07-30'),'2-HIGH','Clerk#000000865',0,'atelets cajole slyly ironic, regular deposits. bli'),
+  (23040,1357,'O',118484.41,date('1997-07-30'),'2-HIGH','Clerk#000000865',0,'atelets cajole slyly ironic, regular deposits. bli')
+
+statement ok
+INSERT INTO orders VALUES 
   (23041,880,'F',223697.93,date('1993-07-21'),'5-LOW','Clerk#000000789',0,'beans. furiously ironic accounts eat carefully pending deposits. caref'),
   (23042,919,'F',39576.36,date('1994-04-27'),'3-MEDIUM','Clerk#000000247',0,'ly bold packages impress slyly. da'),
   (23043,94,'P',115889.56,date('1995-05-02'),'3-MEDIUM','Clerk#000000813',0,'special frets sleep slyly carefully unusu'),
@@ -5888,7 +6023,10 @@ INSERT INTO orders VALUES
   (23525,1009,'O',165831.15,date('1996-12-02'),'3-MEDIUM','Clerk#000000913',0,'final ideas against the ideas wake qui'),
   (23526,395,'O',112614.35,date('1998-05-22'),'5-LOW','Clerk#000000901',0,'nic ideas. furiously final dinos b'),
   (23527,1303,'O',15505.09,date('1997-07-19'),'4-NOT SPECIFIED','Clerk#000000241',0,'express, regular platelets are according to the'),
-  (23552,1018,'O',118836.44,date('1998-01-19'),'5-LOW','Clerk#000000889',0,', special instructions mold regular foxes. slyly regular asymptotes ma'),
+  (23552,1018,'O',118836.44,date('1998-01-19'),'5-LOW','Clerk#000000889',0,', special instructions mold regular foxes. slyly regular asymptotes ma')
+
+statement ok
+INSERT INTO orders VALUES 
   (23553,685,'O',178160.61,date('1998-05-13'),'3-MEDIUM','Clerk#000000391',0,'luffily express deposits use carefully. express, regular package'),
   (23554,544,'O',133203.07,date('1996-12-04'),'1-URGENT','Clerk#000000278',0,'ly ironic dependencies. fluffily permanent courts are sl'),
   (23555,1469,'F',312432.71,date('1992-12-12'),'2-HIGH','Clerk#000000517',0,'regular packages wa'),
@@ -6016,7 +6154,10 @@ INSERT INTO orders VALUES
   (24037,425,'O',87106.53,date('1996-10-01'),'3-MEDIUM','Clerk#000000229',0,'hockey players after the special epitaphs dete'),
   (24038,973,'O',123460.18,date('1995-06-21'),'2-HIGH','Clerk#000000622',0,'s. furiously even packages cajole; carefully ironi'),
   (24039,1189,'F',119446.14,date('1992-07-18'),'4-NOT SPECIFIED','Clerk#000000799',0,'r foxes. unusual dolphins are f'),
-  (24064,35,'F',150777.45,date('1993-07-26'),'3-MEDIUM','Clerk#000000020',0,'ithely final foxes. furiously final instructi'),
+  (24064,35,'F',150777.45,date('1993-07-26'),'3-MEDIUM','Clerk#000000020',0,'ithely final foxes. furiously final instructi')
+
+statement ok
+INSERT INTO orders VALUES 
   (24065,799,'O',150337.65,date('1997-03-13'),'4-NOT SPECIFIED','Clerk#000000012',0,'thely alongside of the ironic, even asymptotes. regular waters los'),
   (24066,397,'F',182046.63,date('1992-04-14'),'2-HIGH','Clerk#000000411',0,'ly regular requests? furiously unusual i'),
   (24067,745,'F',248388.97,date('1992-08-23'),'2-HIGH','Clerk#000000872',0,'en platelets integrate carefully fluffily special packages. carefully '),
@@ -6144,7 +6285,10 @@ INSERT INTO orders VALUES
   (24549,727,'O',83476.46,date('1997-03-23'),'4-NOT SPECIFIED','Clerk#000000462',0,'lyly unusual accounts nag blithely carefully regular asymptotes. accounts are.'),
   (24550,1136,'O',150617.49,date('1996-10-24'),'1-URGENT','Clerk#000000978',0,'even accounts sleep'),
   (24551,1295,'O',332472.53,date('1997-01-07'),'5-LOW','Clerk#000000867',0,'ions. slyly pending accoun'),
-  (24576,164,'F',128616.15,date('1992-12-12'),'4-NOT SPECIFIED','Clerk#000000208',0,'cross the final, regular accounts slee'),
+  (24576,164,'F',128616.15,date('1992-12-12'),'4-NOT SPECIFIED','Clerk#000000208',0,'cross the final, regular accounts slee')
+
+statement ok
+INSERT INTO orders VALUES 
   (24577,1139,'F',115629.77,date('1993-03-02'),'3-MEDIUM','Clerk#000000491',0,'nooze fluffily alongside of the quickly pend'),
   (24578,544,'O',68186.91,date('1996-09-30'),'2-HIGH','Clerk#000000660',0,'uriously even requests. regular accounts hag'),
   (24579,877,'F',242138.55,date('1992-11-19'),'2-HIGH','Clerk#000000460',0,'r theodolites. blithely final ideas haggle quickly. never ironic depende'),
@@ -6272,7 +6416,10 @@ INSERT INTO orders VALUES
   (25061,952,'O',187634.96,date('1995-12-19'),'3-MEDIUM','Clerk#000000200',0,' cajole ironic, final pinto b'),
   (25062,772,'F',101660.52,date('1993-10-31'),'1-URGENT','Clerk#000000084',0,'onic ideas are ironic, ironic accounts. i'),
   (25063,209,'F',37911.97,date('1994-06-30'),'4-NOT SPECIFIED','Clerk#000000170',0,'eat enticingly entici'),
-  (25088,739,'O',160430.44,date('1998-06-20'),'2-HIGH','Clerk#000000907',0,'al pinto beans use blithely. slyly p'),
+  (25088,739,'O',160430.44,date('1998-06-20'),'2-HIGH','Clerk#000000907',0,'al pinto beans use blithely. slyly p')
+
+statement ok
+INSERT INTO orders VALUES 
   (25089,640,'O',89653.76,date('1998-07-30'),'2-HIGH','Clerk#000000683',0,'ter the express, even ideas cajole along the unusual account'),
   (25090,1097,'F',113870.23,date('1993-05-16'),'4-NOT SPECIFIED','Clerk#000000854',0,'e ironic foxes. carefully final excuses wake blithely quickly'),
   (25091,806,'F',67625.86,date('1993-02-20'),'3-MEDIUM','Clerk#000000166',0,'old sauternes nag furiously a'),
@@ -6400,7 +6547,10 @@ INSERT INTO orders VALUES
   (25573,1315,'F',247571.00,date('1993-11-05'),'4-NOT SPECIFIED','Clerk#000000344',0,' cajole carefully final deposits. special, busy accounts sleep flu'),
   (25574,1148,'F',238229.54,date('1994-03-13'),'4-NOT SPECIFIED','Clerk#000000044',0,'nic ideas use carefully above the even, express requests. quickly '),
   (25575,1192,'F',177294.17,date('1992-05-30'),'4-NOT SPECIFIED','Clerk#000000967',0,'lyly fluffily ironic realms. requests wake about the ironic requests. ideas na'),
-  (25600,652,'O',148984.44,date('1998-07-17'),'2-HIGH','Clerk#000000713',0,' blithely final deposits. regular, iro'),
+  (25600,652,'O',148984.44,date('1998-07-17'),'2-HIGH','Clerk#000000713',0,' blithely final deposits. regular, iro')
+
+statement ok
+INSERT INTO orders VALUES 
   (25601,722,'F',151224.94,date('1994-01-06'),'3-MEDIUM','Clerk#000000683',0,'carefully even deposits grow sometimes. ideas are furiously express'),
   (25602,823,'O',128606.14,date('1996-03-01'),'3-MEDIUM','Clerk#000000644',0,'ly slyly ironic deposits. platelets wake carefully carefully '),
   (25603,103,'F',150121.55,date('1995-03-06'),'5-LOW','Clerk#000000817',0,'hely after the slyly pendi'),
@@ -6528,7 +6678,10 @@ INSERT INTO orders VALUES
   (26085,326,'O',74883.25,date('1998-01-08'),'3-MEDIUM','Clerk#000000454',0,'ealthy, silent packages sleep after the fluffily special foxes. regular, f'),
   (26086,377,'O',73298.49,date('1997-06-26'),'5-LOW','Clerk#000000955',0,'blithely dependencies. blithely ev'),
   (26087,905,'O',78601.83,date('1996-10-13'),'4-NOT SPECIFIED','Clerk#000000500',0,'beans cajole carefully ironic requests. final account'),
-  (26112,1435,'O',67955.94,date('1998-03-18'),'4-NOT SPECIFIED','Clerk#000000433',0,'s detect quickly alo'),
+  (26112,1435,'O',67955.94,date('1998-03-18'),'4-NOT SPECIFIED','Clerk#000000433',0,'s detect quickly alo')
+
+statement ok
+INSERT INTO orders VALUES 
   (26113,160,'O',239608.66,date('1998-07-15'),'5-LOW','Clerk#000000571',0,'ins sleep. blithely bold pinto beans haggle slyly care'),
   (26114,794,'O',127650.12,date('1997-09-08'),'5-LOW','Clerk#000000047',0,'e special foxes boost regular accounts. always final requests kindle car'),
   (26115,128,'O',293689.10,date('1996-11-06'),'4-NOT SPECIFIED','Clerk#000000681',0,'ely across the furiously final deposits: slyly pending pinto b'),
@@ -6656,7 +6809,10 @@ INSERT INTO orders VALUES
   (26597,1459,'F',158793.58,date('1995-01-14'),'2-HIGH','Clerk#000000355',0,'furiously. ironic platelets sleep around t'),
   (26598,361,'O',80383.31,date('1997-09-23'),'5-LOW','Clerk#000000943',0,'pending, express instructions sleep slyly ideas. silent, unusu'),
   (26599,395,'O',11507.89,date('1997-05-13'),'2-HIGH','Clerk#000000821',0,'ly ironic foxes. slyly ironic platelets nod carefully along the furiously sp'),
-  (26624,797,'O',197320.15,date('1997-02-21'),'2-HIGH','Clerk#000000930',0,'iously careful idea'),
+  (26624,797,'O',197320.15,date('1997-02-21'),'2-HIGH','Clerk#000000930',0,'iously careful idea')
+
+statement ok
+INSERT INTO orders VALUES 
   (26625,334,'O',32570.35,date('1995-10-16'),'4-NOT SPECIFIED','Clerk#000000026',0,'y ironic deposits cajole furiously along the pinto bea'),
   (26626,1468,'F',81389.99,date('1994-11-14'),'3-MEDIUM','Clerk#000000757',0,'ly bold asymptotes. i'),
   (26627,313,'F',148183.43,date('1994-10-31'),'3-MEDIUM','Clerk#000000382',0,'p around the somas! requests affix idly'),
@@ -6784,7 +6940,10 @@ INSERT INTO orders VALUES
   (27109,307,'F',82257.98,date('1992-02-09'),'1-URGENT','Clerk#000000412',0,'sual foxes. blithely ironic accounts against the permanent dugouts '),
   (27110,1069,'O',124692.24,date('1996-04-12'),'5-LOW','Clerk#000000063',0,'gle furiously after the carefully pending packages. quickly ironic dec'),
   (27111,1114,'F',162279.12,date('1994-03-12'),'2-HIGH','Clerk#000000128',0,'blithely unusual foxes should haggle: fluffily pending requests a'),
-  (27136,865,'O',226895.25,date('1998-04-26'),'3-MEDIUM','Clerk#000000167',0,'sts wake carefully acr'),
+  (27136,865,'O',226895.25,date('1998-04-26'),'3-MEDIUM','Clerk#000000167',0,'sts wake carefully acr')
+
+statement ok
+INSERT INTO orders VALUES 
   (27137,542,'F',258661.28,date('1992-01-01'),'2-HIGH','Clerk#000000881',0,' regular deposits. deposits in place of '),
   (27138,1049,'F',183385.71,date('1992-05-31'),'2-HIGH','Clerk#000000583',0,'ular deposits boost '),
   (27139,902,'F',98470.57,date('1994-11-02'),'5-LOW','Clerk#000000881',0,'he regular deposits. car'),
@@ -6912,7 +7071,10 @@ INSERT INTO orders VALUES
   (27621,605,'O',55393.84,date('1997-10-10'),'4-NOT SPECIFIED','Clerk#000000475',0,'al deposits. even requests cajole around the quickly regular depende'),
   (27622,631,'F',76857.16,date('1995-02-07'),'3-MEDIUM','Clerk#000000644',0,'uts after the dependencies sleep above the furiously even requ'),
   (27623,1168,'O',223579.92,date('1996-02-06'),'2-HIGH','Clerk#000000751',0,' pearls cajole carefully along the carefully expr'),
-  (27648,575,'F',57052.82,date('1994-08-30'),'4-NOT SPECIFIED','Clerk#000000955',0,'lar pinto beans. express, silent platelets impress. slyly'),
+  (27648,575,'F',57052.82,date('1994-08-30'),'4-NOT SPECIFIED','Clerk#000000955',0,'lar pinto beans. express, silent platelets impress. slyly')
+
+statement ok
+INSERT INTO orders VALUES 
   (27649,209,'O',40747.12,date('1996-02-06'),'5-LOW','Clerk#000000660',0,'asymptotes? unusual, bold packages nag. slyly final package'),
   (27650,259,'F',1771.25,date('1992-07-13'),'1-URGENT','Clerk#000000784',0,'slyly regular requests. slyly bold theodolites afte'),
   (27651,1028,'O',211810.57,date('1997-11-18'),'3-MEDIUM','Clerk#000000134',0,'ial deposits. caref'),
@@ -7040,7 +7202,10 @@ INSERT INTO orders VALUES
   (28133,788,'O',131582.32,date('1998-03-16'),'4-NOT SPECIFIED','Clerk#000000308',0,'lly above the furiously even dependen'),
   (28134,604,'O',136122.20,date('1997-03-23'),'3-MEDIUM','Clerk#000000845',0,'ular accounts. dependencies are slyly. bold '),
   (28135,893,'F',114965.18,date('1994-09-26'),'1-URGENT','Clerk#000000567',0,'wake slyly ironic excuses. fluffily express accounts'),
-  (28160,1139,'O',198379.26,date('1997-08-20'),'4-NOT SPECIFIED','Clerk#000000141',0,'ndencies. even requests haggle blithely ironic packages. accounts accordin'),
+  (28160,1139,'O',198379.26,date('1997-08-20'),'4-NOT SPECIFIED','Clerk#000000141',0,'ndencies. even requests haggle blithely ironic packages. accounts accordin')
+
+statement ok
+INSERT INTO orders VALUES 
   (28161,632,'F',333642.39,date('1994-06-16'),'4-NOT SPECIFIED','Clerk#000000373',0,'ackages. even hockey players cajole slyly even id'),
   (28162,517,'F',148299.21,date('1993-10-04'),'4-NOT SPECIFIED','Clerk#000000938',0,'mong the ironic, special theodolites. ir'),
   (28163,869,'F',163200.71,date('1994-08-11'),'5-LOW','Clerk#000000729',0,'nic, ironic accounts! regular, '),
@@ -7168,7 +7333,10 @@ INSERT INTO orders VALUES
   (28645,332,'F',145263.45,date('1993-10-15'),'3-MEDIUM','Clerk#000000090',0,'nt tithes. slyly pending excuses cajole. blithely regular courts nag int'),
   (28646,886,'O',107697.76,date('1997-06-11'),'4-NOT SPECIFIED','Clerk#000000507',0,'ular requests. regular requests haggle across the dependencies. express, i'),
   (28647,1351,'F',924.33,date('1994-03-15'),'1-URGENT','Clerk#000000803',0,'along the slyly unusual foxes sleep bol'),
-  (28672,1181,'O',67600.84,date('1995-12-09'),'5-LOW','Clerk#000000314',0,' courts are quickly careful'),
+  (28672,1181,'O',67600.84,date('1995-12-09'),'5-LOW','Clerk#000000314',0,' courts are quickly careful')
+
+statement ok
+INSERT INTO orders VALUES 
   (28673,1091,'O',16163.73,date('1997-10-29'),'5-LOW','Clerk#000000553',0,'arefully pending hockey players affix slyly finally even courts. dep'),
   (28674,76,'O',89797.28,date('1995-08-16'),'2-HIGH','Clerk#000000541',0,'y regular pinto beans sleep slyly enticing foxes. blithe'),
   (28675,1279,'F',201137.66,date('1994-10-09'),'1-URGENT','Clerk#000000635',0,'refully above the slyly even req'),
@@ -7296,7 +7464,10 @@ INSERT INTO orders VALUES
   (29157,358,'O',29138.31,date('1997-02-06'),'1-URGENT','Clerk#000000497',0,'iously bold orbits cajole carefully blithely express requests. accounts ar'),
   (29158,667,'O',439687.23,date('1995-10-21'),'2-HIGH','Clerk#000000525',0,'lessly quiet deposits across the furiously ironi'),
   (29159,1069,'O',46278.80,date('1997-05-01'),'4-NOT SPECIFIED','Clerk#000000691',0,' regular requests wake carefully ab'),
-  (29184,628,'F',25547.89,date('1992-06-30'),'1-URGENT','Clerk#000000104',0,'unusual ideas boost furiously slyly final asymptotes. accounts are q'),
+  (29184,628,'F',25547.89,date('1992-06-30'),'1-URGENT','Clerk#000000104',0,'unusual ideas boost furiously slyly final asymptotes. accounts are q')
+
+statement ok
+INSERT INTO orders VALUES 
   (29185,994,'F',242764.22,date('1993-01-21'),'2-HIGH','Clerk#000000396',0,'kly quickly even deposits. excuses against the ruthles'),
   (29186,565,'O',57301.91,date('1998-04-11'),'4-NOT SPECIFIED','Clerk#000000005',0,'latelets boost quickly fluffily quick accounts. regular, ironic dep'),
   (29187,1150,'F',345377.31,date('1994-08-01'),'5-LOW','Clerk#000000593',0,'ly bold instructions. slyly regular ideas sleep daringly among t'),
@@ -7424,7 +7595,10 @@ INSERT INTO orders VALUES
   (29669,76,'O',41499.28,date('1996-03-09'),'2-HIGH','Clerk#000000966',0,'bove the carefully expre'),
   (29670,1304,'F',12832.31,date('1994-03-07'),'5-LOW','Clerk#000000251',0,'nic packages. fluffily regular packages are furiously; instruction'),
   (29671,485,'F',202823.33,date('1993-03-23'),'1-URGENT','Clerk#000000083',0,'regular foxes unwind slyly. quickly regular '),
-  (29696,1348,'O',80618.75,date('1996-07-02'),'1-URGENT','Clerk#000000043',0,'uriously even dolphins nod furiously. fluffy'),
+  (29696,1348,'O',80618.75,date('1996-07-02'),'1-URGENT','Clerk#000000043',0,'uriously even dolphins nod furiously. fluffy')
+
+statement ok
+INSERT INTO orders VALUES 
   (29697,490,'O',71674.19,date('1997-03-03'),'1-URGENT','Clerk#000000537',0,'tegrate blithely theo'),
   (29698,175,'O',34614.47,date('1996-06-27'),'2-HIGH','Clerk#000000878',0,'eans wake carefully along the close, final requests. ironi'),
   (29699,838,'O',201389.31,date('1996-02-24'),'1-URGENT','Clerk#000000199',0,'ests. final, special ideas sleep'),
@@ -7552,7 +7726,10 @@ INSERT INTO orders VALUES
   (30181,1373,'O',64824.45,date('1996-07-15'),'4-NOT SPECIFIED','Clerk#000000519',0,'ves. carefully ironic requests are carefully special ideas. carefull'),
   (30182,802,'F',24092.12,date('1995-01-09'),'3-MEDIUM','Clerk#000000139',0,'inal requests. carefully ironic deposits'),
   (30183,476,'O',179491.94,date('1997-06-10'),'5-LOW','Clerk#000000454',0,'s about the quickly special instructi'),
-  (30208,298,'F',354579.92,date('1992-07-17'),'5-LOW','Clerk#000000063',0,'hely ironic ideas at the furiously regular hoc'),
+  (30208,298,'F',354579.92,date('1992-07-17'),'5-LOW','Clerk#000000063',0,'hely ironic ideas at the furiously regular hoc')
+
+statement ok
+INSERT INTO orders VALUES 
   (30209,1061,'F',71069.26,date('1994-10-31'),'2-HIGH','Clerk#000000920',0,'ffily pending excuses nag fluffily. furiously even pac'),
   (30210,767,'O',154277.94,date('1998-03-01'),'2-HIGH','Clerk#000000021',0,'beans. blithely final foxes cajole carefully after the slyly final accounts'),
   (30211,1000,'F',250118.97,date('1993-06-08'),'3-MEDIUM','Clerk#000000901',0,'uriously ironic patterns doubt requests. slyly express asymptotes na'),
@@ -7680,7 +7857,10 @@ INSERT INTO orders VALUES
   (30693,1468,'O',144152.19,date('1997-02-05'),'3-MEDIUM','Clerk#000000409',0,'nto beans about the final accounts haggle quickly about the slyly pe'),
   (30694,122,'F',19442.76,date('1992-02-17'),'5-LOW','Clerk#000000963',0,'s the blithely idle waters. '),
   (30695,1202,'O',111369.84,date('1998-02-20'),'3-MEDIUM','Clerk#000000594',0,'rate furiously. even instructions wake finally ironic theodolit'),
-  (30720,1033,'F',205577.51,date('1992-09-28'),'5-LOW','Clerk#000000139',0,'es. permanently final excuse'),
+  (30720,1033,'F',205577.51,date('1992-09-28'),'5-LOW','Clerk#000000139',0,'es. permanently final excuse')
+
+statement ok
+INSERT INTO orders VALUES 
   (30721,370,'O',43017.94,date('1996-01-12'),'5-LOW','Clerk#000000914',0,'y silent accounts are. quickly'),
   (30722,694,'F',38310.11,date('1993-06-05'),'5-LOW','Clerk#000000041',0,'eas alongside of the regular, bold deposits kindle among the quickl'),
   (30723,649,'O',69257.03,date('1996-04-29'),'2-HIGH','Clerk#000000334',0,'ages sleep. slyly final packages sle'),
@@ -7808,7 +7988,10 @@ INSERT INTO orders VALUES
   (31205,130,'O',182771.96,date('1996-07-30'),'5-LOW','Clerk#000000819',0,'the furiously special deposits sleep carefully '),
   (31206,232,'F',111369.05,date('1993-02-05'),'1-URGENT','Clerk#000000418',0,'le. furiously even multipliers sleep carefully quickly regular accounts.'),
   (31207,1147,'F',46339.67,date('1994-06-21'),'4-NOT SPECIFIED','Clerk#000000984',0,'beans wake slowly above the car'),
-  (31232,1282,'F',119993.60,date('1992-08-30'),'2-HIGH','Clerk#000000583',0,'en deposits nag alongside of the quickly final accounts. unusual, s'),
+  (31232,1282,'F',119993.60,date('1992-08-30'),'2-HIGH','Clerk#000000583',0,'en deposits nag alongside of the quickly final accounts. unusual, s')
+
+statement ok
+INSERT INTO orders VALUES 
   (31233,197,'O',201805.80,date('1995-09-25'),'5-LOW','Clerk#000000042',0,'jole across the silent, unusual foxes. blithely ironic requests use s'),
   (31234,1417,'F',53253.44,date('1994-12-14'),'4-NOT SPECIFIED','Clerk#000000380',0,'after the pending packages. final requests ha'),
   (31235,1181,'O',157121.17,date('1996-07-26'),'3-MEDIUM','Clerk#000000996',0,'ons impress furiously final pinto '),
@@ -7936,7 +8119,10 @@ INSERT INTO orders VALUES
   (31717,983,'O',89845.10,date('1997-11-07'),'2-HIGH','Clerk#000000237',0,'quests cajole quickly carefully express accounts. accounts grow. slyly'),
   (31718,1471,'F',83646.89,date('1993-11-28'),'5-LOW','Clerk#000000612',0,'sits sleep carefully. carefully blithe excuses snooze carefully final req'),
   (31719,52,'O',298812.24,date('1997-03-13'),'4-NOT SPECIFIED','Clerk#000000428',0,'the furiously final platelets sleep carefully slyly final asymptotes. bold, i'),
-  (31744,386,'F',251246.75,date('1992-09-10'),'3-MEDIUM','Clerk#000000816',0,'tions-- pending, regular platelets against the evenly regular accounts wak'),
+  (31744,386,'F',251246.75,date('1992-09-10'),'3-MEDIUM','Clerk#000000816',0,'tions-- pending, regular platelets against the evenly regular accounts wak')
+
+statement ok
+INSERT INTO orders VALUES 
   (31745,466,'F',106608.72,date('1993-10-16'),'2-HIGH','Clerk#000000931',0,'ges. slyly final instructions are carefully alongside of the unusual deposits'),
   (31746,1133,'O',108800.85,date('1997-05-11'),'2-HIGH','Clerk#000000738',0,'inal, regular platelets haggle carefully a'),
   (31747,121,'F',167645.52,date('1995-02-03'),'3-MEDIUM','Clerk#000000792',0,'ys wake alongside of the ironic requests. fu'),
@@ -8064,7 +8250,10 @@ INSERT INTO orders VALUES
   (32229,556,'F',230507.38,date('1993-08-31'),'2-HIGH','Clerk#000000870',0,'uffily. regular, regular packages hang carefully; bold ideas will n'),
   (32230,193,'F',83185.56,date('1992-08-20'),'2-HIGH','Clerk#000000648',0,'lithely regular gifts. ironic requests'),
   (32231,1168,'F',353334.19,date('1992-11-02'),'5-LOW','Clerk#000000917',0,'t the furiously regular ideas believe along the'),
-  (32256,200,'O',80730.79,date('1998-06-02'),'3-MEDIUM','Clerk#000000027',0,'tegrate furiously accounts. furiousl'),
+  (32256,200,'O',80730.79,date('1998-06-02'),'3-MEDIUM','Clerk#000000027',0,'tegrate furiously accounts. furiousl')
+
+statement ok
+INSERT INTO orders VALUES 
   (32257,1180,'O',99534.02,date('1997-10-03'),'3-MEDIUM','Clerk#000000786',0,'y ironic dolphins nag carefully regular pinto beans. slyly special deposits pr'),
   (32258,28,'O',59954.11,date('1997-01-29'),'5-LOW','Clerk#000000597',0,'jole slyly furiously special platelets. slyly bold foxes slee'),
   (32259,724,'O',189710.88,date('1996-01-16'),'2-HIGH','Clerk#000000726',0,'tions detect. express, expre'),
@@ -8192,7 +8381,10 @@ INSERT INTO orders VALUES
   (32741,1024,'F',298590.61,date('1994-02-16'),'5-LOW','Clerk#000000924',0,'fluffily regular accounts '),
   (32742,409,'O',123732.99,date('1998-05-17'),'5-LOW','Clerk#000000963',0,'sleep quickly quickly ironic packages. special, final pinto beans boost fluff'),
   (32743,385,'F',95901.83,date('1993-05-08'),'1-URGENT','Clerk#000000613',0,'gular, regular foxes. slyly pending deposits around'),
-  (32768,1265,'O',214504.91,date('1997-08-05'),'4-NOT SPECIFIED','Clerk#000000953',0,'al requests haggle. final, express ideas lose fluf'),
+  (32768,1265,'O',214504.91,date('1997-08-05'),'4-NOT SPECIFIED','Clerk#000000953',0,'al requests haggle. final, express ideas lose fluf')
+
+statement ok
+INSERT INTO orders VALUES 
   (32769,1000,'O',93737.29,date('1997-01-22'),'2-HIGH','Clerk#000000956',0,'y final requests haggle? qui'),
   (32770,1186,'O',226224.41,date('1996-01-28'),'3-MEDIUM','Clerk#000000034',0,' furious requests. blithely blithe foxes '),
   (32771,29,'O',191338.49,date('1997-01-12'),'1-URGENT','Clerk#000000607',0,'ckly slyly pending cour'),
@@ -8320,7 +8512,10 @@ INSERT INTO orders VALUES
   (33253,82,'O',66566.39,date('1995-12-01'),'4-NOT SPECIFIED','Clerk#000000312',0,'uests according to the regular dinos engage blithely s'),
   (33254,1085,'O',113912.98,date('1995-11-04'),'4-NOT SPECIFIED','Clerk#000000141',0,'silently bold excuses along the quickly ironic multipliers affix quickly acco'),
   (33255,595,'F',219258.03,date('1993-06-25'),'1-URGENT','Clerk#000000627',0,'ial ideas affix furiously unusual ideas-- slyl'),
-  (33280,1085,'O',189079.41,date('1998-03-24'),'3-MEDIUM','Clerk#000000623',0,'ronic packages. regular asymptotes cajole fluffily around the sometim'),
+  (33280,1085,'O',189079.41,date('1998-03-24'),'3-MEDIUM','Clerk#000000623',0,'ronic packages. regular asymptotes cajole fluffily around the sometim')
+
+statement ok
+INSERT INTO orders VALUES 
   (33281,1211,'F',73503.15,date('1992-10-25'),'4-NOT SPECIFIED','Clerk#000000623',0,'uriously unusual reque'),
   (33282,499,'O',119094.37,date('1998-06-15'),'4-NOT SPECIFIED','Clerk#000000608',0,' ironic, regular ideas. fl'),
   (33283,1204,'F',294267.96,date('1993-03-21'),'3-MEDIUM','Clerk#000000231',0,'ully unusual ideas; carefully even accounts haggl'),
@@ -8448,7 +8643,10 @@ INSERT INTO orders VALUES
   (33765,1292,'O',180742.02,date('1997-05-10'),'1-URGENT','Clerk#000000331',0,'ans. ironic requests snooze blithely: '),
   (33766,436,'O',112918.54,date('1998-06-30'),'2-HIGH','Clerk#000000018',0,' regular ideas. quickly regular excuses haggle. furiously regular packages d'),
   (33767,878,'F',42192.13,date('1994-04-11'),'4-NOT SPECIFIED','Clerk#000000726',0,'furiously? quickly ironic dependencies sleep quickly slyly regular excuses. b'),
-  (33792,770,'O',80259.25,date('1997-04-03'),'2-HIGH','Clerk#000000006',0,'l dependencies integrate. regular courts try to poach doggedly. silently '),
+  (33792,770,'O',80259.25,date('1997-04-03'),'2-HIGH','Clerk#000000006',0,'l dependencies integrate. regular courts try to poach doggedly. silently ')
+
+statement ok
+INSERT INTO orders VALUES 
   (33793,1457,'F',122390.33,date('1992-06-28'),'1-URGENT','Clerk#000000233',0,'es. slyly daring accounts are along the ac'),
   (33794,1069,'F',272916.42,date('1995-02-23'),'1-URGENT','Clerk#000000853',0,'tegrate across the accounts. blithely even ideas a'),
   (33795,1111,'O',253496.81,date('1996-09-09'),'1-URGENT','Clerk#000000662',0,'ding to the packages. f'),
@@ -8576,7 +8774,10 @@ INSERT INTO orders VALUES
   (34277,1292,'O',101978.88,date('1997-08-21'),'4-NOT SPECIFIED','Clerk#000000616',0,'lay blithely along the furiously bold deposits. quickly bold requests'),
   (34278,712,'O',140262.78,date('1997-02-19'),'3-MEDIUM','Clerk#000000968',0,'pecial deposits. furiously regular ideas cajole along th'),
   (34279,694,'F',230118.66,date('1992-03-29'),'4-NOT SPECIFIED','Clerk#000000395',0,'posits sleep. final foxes cajole carefully regular, pending Tiresias.'),
-  (34304,1216,'F',14629.98,date('1994-03-09'),'3-MEDIUM','Clerk#000000196',0,' quickly final idea'),
+  (34304,1216,'F',14629.98,date('1994-03-09'),'3-MEDIUM','Clerk#000000196',0,' quickly final idea')
+
+statement ok
+INSERT INTO orders VALUES 
   (34305,830,'F',144671.58,date('1993-02-20'),'1-URGENT','Clerk#000000378',0,'ious excuses. ideas boost quickly. slyly pending'),
   (34306,494,'O',254539.41,date('1997-01-26'),'4-NOT SPECIFIED','Clerk#000000761',0,'ages haggle furiously regular excuses. even foxes about the furiou'),
   (34307,1282,'F',71293.98,date('1993-03-19'),'3-MEDIUM','Clerk#000000367',0,'olites. slyly ironic dependencies breach sl'),
@@ -8704,7 +8905,10 @@ INSERT INTO orders VALUES
   (34789,49,'O',239938.68,date('1996-10-24'),'5-LOW','Clerk#000000640',0,'lly ironic ideas haggl'),
   (34790,415,'O',230496.07,date('1997-12-13'),'1-URGENT','Clerk#000000802',0,'fully ironic somas are furiously against the sly'),
   (34791,100,'P',200763.59,date('1995-05-08'),'3-MEDIUM','Clerk#000000103',0,' the blithely regular foxes. accounts wake. blith'),
-  (34816,809,'F',118505.86,date('1993-11-06'),'4-NOT SPECIFIED','Clerk#000000594',0,' foxes. fluffily express dolphins sleep. ironic packages h'),
+  (34816,809,'F',118505.86,date('1993-11-06'),'4-NOT SPECIFIED','Clerk#000000594',0,' foxes. fluffily express dolphins sleep. ironic packages h')
+
+statement ok
+INSERT INTO orders VALUES 
   (34817,1037,'F',15184.28,date('1994-04-13'),'2-HIGH','Clerk#000000257',0,'ly express pearls across the final foxes sleep pendi'),
   (34818,295,'O',231910.16,date('1996-02-22'),'5-LOW','Clerk#000000612',0,'ter the quickly final asymptotes. bold ideas nag s'),
   (34819,1388,'O',51067.12,date('1997-11-30'),'5-LOW','Clerk#000000438',0,' furiously. carefully s'),
@@ -8832,7 +9036,10 @@ INSERT INTO orders VALUES
   (35301,373,'F',133957.73,date('1992-12-22'),'5-LOW','Clerk#000000372',0,'e bold requests. bold id'),
   (35302,529,'F',253194.77,date('1993-06-08'),'3-MEDIUM','Clerk#000000900',0,'olites. regular packages use above the even, pen'),
   (35303,821,'O',68548.63,date('1998-02-24'),'4-NOT SPECIFIED','Clerk#000000628',0,'of the excuses. blithely regular e'),
-  (35328,1418,'F',174083.56,date('1993-07-08'),'1-URGENT','Clerk#000000582',0,'y ironic pinto beans; fluffily final ideas nag furio'),
+  (35328,1418,'F',174083.56,date('1993-07-08'),'1-URGENT','Clerk#000000582',0,'y ironic pinto beans; fluffily final ideas nag furio')
+
+statement ok
+INSERT INTO orders VALUES 
   (35329,628,'O',19827.19,date('1997-03-21'),'1-URGENT','Clerk#000000655',0,'ronic foxes boost blithely across the ironic dolphins. fu'),
   (35330,1085,'F',94016.86,date('1994-04-11'),'1-URGENT','Clerk#000000359',0,'s against the slyly bold deposits '),
   (35331,1138,'O',85413.97,date('1997-05-09'),'2-HIGH','Clerk#000000051',0,'fully according to the quickly even deposits. furious'),
@@ -8960,7 +9167,10 @@ INSERT INTO orders VALUES
   (35813,1207,'F',200557.92,date('1994-04-22'),'1-URGENT','Clerk#000000338',0,'e express, regular theo'),
   (35814,223,'F',242528.92,date('1992-03-28'),'2-HIGH','Clerk#000000078',0,'ct-- regular, regular foxes haggle '),
   (35815,610,'F',118558.98,date('1992-10-28'),'3-MEDIUM','Clerk#000000801',0,'usual deposits. deposits sleep even, final ideas. slyly '),
-  (35840,199,'F',100089.14,date('1993-05-30'),'2-HIGH','Clerk#000000220',0,'into beans nod carefully along the ironic waters'),
+  (35840,199,'F',100089.14,date('1993-05-30'),'2-HIGH','Clerk#000000220',0,'into beans nod carefully along the ironic waters')
+
+statement ok
+INSERT INTO orders VALUES 
   (35841,947,'O',235812.27,date('1995-05-09'),'3-MEDIUM','Clerk#000000119',0,'riously special requests among the final instructions sleep a'),
   (35842,1058,'F',117860.24,date('1992-05-25'),'2-HIGH','Clerk#000000475',0,'furiously special instructions cajol'),
   (35843,1192,'O',133741.36,date('1997-11-19'),'2-HIGH','Clerk#000000809',0,'y special orbits boost slyly silent foxes. packag'),
@@ -9088,7 +9298,10 @@ INSERT INTO orders VALUES
   (36325,1274,'O',76299.92,date('1997-01-03'),'2-HIGH','Clerk#000000628',0,'the quickly express ideas. carefully bold'),
   (36326,373,'F',3544.97,date('1993-06-30'),'4-NOT SPECIFIED','Clerk#000000638',0,'e slyly. furiously bold accounts sleep finally packages. bli'),
   (36327,515,'F',135286.12,date('1994-10-28'),'5-LOW','Clerk#000000933',0,'ickly: carefully dogged dependencies cajole slyly. pinto beans sleep'),
-  (36352,941,'F',74613.83,date('1995-03-10'),'5-LOW','Clerk#000001000',0,'ic, regular deposits nag: furiously even accoun'),
+  (36352,941,'F',74613.83,date('1995-03-10'),'5-LOW','Clerk#000001000',0,'ic, regular deposits nag: furiously even accoun')
+
+statement ok
+INSERT INTO orders VALUES 
   (36353,1345,'O',201086.50,date('1996-08-11'),'4-NOT SPECIFIED','Clerk#000000197',0,' the furiously daring dugouts. blithely bold instructions cajole'),
   (36354,1472,'F',196123.44,date('1992-06-06'),'3-MEDIUM','Clerk#000000618',0,'ges. slyly regular accounts sleep: express, final requests haggle slyly regula'),
   (36355,632,'F',249195.68,date('1994-12-03'),'3-MEDIUM','Clerk#000000602',0,'counts are fluffily. regular, even accounts wake furiousl'),
@@ -9216,7 +9429,10 @@ INSERT INTO orders VALUES
   (36837,487,'O',277736.44,date('1997-06-18'),'4-NOT SPECIFIED','Clerk#000000457',0,'furiously according to the slyly final accou'),
   (36838,1484,'F',330348.13,date('1994-04-09'),'5-LOW','Clerk#000000179',0,'equests haggle fluffily above the sometim'),
   (36839,1141,'O',117384.16,date('1996-11-13'),'2-HIGH','Clerk#000000740',0,'s detect. quickly pending theodolites sleep. furiously final foxe'),
-  (36864,320,'F',243040.12,date('1992-07-30'),'5-LOW','Clerk#000000134',0,'ake closely along the '),
+  (36864,320,'F',243040.12,date('1992-07-30'),'5-LOW','Clerk#000000134',0,'ake closely along the ')
+
+statement ok
+INSERT INTO orders VALUES 
   (36865,565,'O',110296.96,date('1997-08-29'),'4-NOT SPECIFIED','Clerk#000000117',0,'e bold, even asymptotes. excuses wake slyly ironic platelets. fluffily ironi'),
   (36866,731,'F',172151.54,date('1993-03-25'),'5-LOW','Clerk#000000855',0,'uriously. furiously express theodolites cajole unusual, even '),
   (36867,760,'F',266374.09,date('1994-09-06'),'2-HIGH','Clerk#000000221',0,'s. furiously regular accounts cajole slyly fi'),
@@ -9344,7 +9560,10 @@ INSERT INTO orders VALUES
   (37349,361,'F',217176.35,date('1993-02-16'),'1-URGENT','Clerk#000000906',0,'es are. slyly regular ideas cajole slyly f'),
   (37350,328,'F',37977.69,date('1992-05-21'),'1-URGENT','Clerk#000000102',0,'ng to the furiously even platel'),
   (37351,52,'F',9493.31,date('1992-09-13'),'4-NOT SPECIFIED','Clerk#000000603',0,'y ironic foxes play furiously dogged'),
-  (37376,739,'F',142626.99,date('1994-01-30'),'4-NOT SPECIFIED','Clerk#000000215',0,'ecial deposits. regular'),
+  (37376,739,'F',142626.99,date('1994-01-30'),'4-NOT SPECIFIED','Clerk#000000215',0,'ecial deposits. regular')
+
+statement ok
+INSERT INTO orders VALUES 
   (37377,1267,'F',207110.89,date('1992-01-21'),'3-MEDIUM','Clerk#000000476',0,'usly regular packages haggle blithely around the unusual'),
   (37378,94,'O',178972.85,date('1997-12-20'),'3-MEDIUM','Clerk#000000063',0,'heodolites sleep furiously depen'),
   (37379,922,'O',189413.49,date('1996-06-28'),'4-NOT SPECIFIED','Clerk#000000538',0,'as wake. regular asymptotes use slyly about the quickly silen'),
@@ -9472,7 +9691,10 @@ INSERT INTO orders VALUES
   (37861,1331,'O',110593.62,date('1995-12-29'),'4-NOT SPECIFIED','Clerk#000000160',0,'s cajole furiously. blithely bold asympto'),
   (37862,1349,'F',243991.35,date('1994-01-13'),'4-NOT SPECIFIED','Clerk#000000188',0,'fully even platelet'),
   (37863,364,'P',98466.62,date('1995-02-25'),'2-HIGH','Clerk#000000227',0,'ly even theodolites wake carefully alongside of the slyly special deposits. f'),
-  (37888,173,'F',87817.85,date('1994-12-23'),'1-URGENT','Clerk#000000072',0,'kly regular requests. daringly express deposits are. carefully'),
+  (37888,173,'F',87817.85,date('1994-12-23'),'1-URGENT','Clerk#000000072',0,'kly regular requests. daringly express deposits are. carefully')
+
+statement ok
+INSERT INTO orders VALUES 
   (37889,547,'O',77931.55,date('1996-07-12'),'3-MEDIUM','Clerk#000000626',0,'ccounts boost thinly. idly specia'),
   (37890,283,'O',165619.05,date('1996-07-07'),'2-HIGH','Clerk#000000541',0,' requests thrash carefully carefully silent accounts. q'),
   (37891,514,'O',304580.89,date('1995-10-21'),'2-HIGH','Clerk#000000299',0,' ironic, regular platelets wak'),
@@ -9600,7 +9822,10 @@ INSERT INTO orders VALUES
   (38373,281,'O',206391.92,date('1997-10-10'),'2-HIGH','Clerk#000000979',0,' ironic asymptotes wake blit'),
   (38374,1405,'P',201846.21,date('1995-05-19'),'3-MEDIUM','Clerk#000000130',0,'even instructions sleep carefully. fluffily regular '),
   (38375,964,'O',18787.90,date('1996-05-19'),'3-MEDIUM','Clerk#000000176',0,'azzle slyly bold foxes. carefully regular requests are quic'),
-  (38400,34,'F',191519.56,date('1994-12-15'),'4-NOT SPECIFIED','Clerk#000000883',0,'yly bold instructions. bold, regular packages sl'),
+  (38400,34,'F',191519.56,date('1994-12-15'),'4-NOT SPECIFIED','Clerk#000000883',0,'yly bold instructions. bold, regular packages sl')
+
+statement ok
+INSERT INTO orders VALUES 
   (38401,403,'O',85919.42,date('1998-07-03'),'2-HIGH','Clerk#000000186',0,'e. even requests haggle blithely'),
   (38402,892,'O',238505.72,date('1996-09-12'),'2-HIGH','Clerk#000000027',0,'dolites. quickly pen'),
   (38403,58,'P',139162.78,date('1995-05-22'),'5-LOW','Clerk#000000107',0,'ironic packages haggle. fluffily quick packag'),
@@ -9728,7 +9953,10 @@ INSERT INTO orders VALUES
   (38885,313,'O',38759.49,date('1997-09-09'),'2-HIGH','Clerk#000000472',0,' even excuses. slyly id'),
   (38886,1348,'F',108949.25,date('1994-08-08'),'2-HIGH','Clerk#000000591',0,'eans nag around the furiously special dependencies. final d'),
   (38887,1339,'F',220992.24,date('1994-10-25'),'1-URGENT','Clerk#000000816',0,'ounts cajole quickly. furiousl'),
-  (38912,949,'F',285636.13,date('1992-10-29'),'5-LOW','Clerk#000000376',0,'unts haggle furiously. quickly regular instructions wake slyly agains'),
+  (38912,949,'F',285636.13,date('1992-10-29'),'5-LOW','Clerk#000000376',0,'unts haggle furiously. quickly regular instructions wake slyly agains')
+
+statement ok
+INSERT INTO orders VALUES 
   (38913,967,'F',24259.22,date('1994-09-07'),'4-NOT SPECIFIED','Clerk#000000373',0,'slyly regular reques'),
   (38914,1426,'F',96262.50,date('1992-05-31'),'3-MEDIUM','Clerk#000000505',0,'g excuses. fluffily regular packages sleep slyly request'),
   (38915,452,'F',241435.60,date('1994-09-18'),'3-MEDIUM','Clerk#000000734',0,' deposits sleep blithely regular foxes. regular deposits are caref'),
@@ -9856,7 +10084,10 @@ INSERT INTO orders VALUES
   (39397,16,'F',97282.25,date('1993-10-12'),'3-MEDIUM','Clerk#000000686',0,'ully regular dependencies. furious foxes breach. quickly eve'),
   (39398,56,'O',68356.61,date('1998-07-23'),'3-MEDIUM','Clerk#000000120',0,'s. final platelets sleep among the carefully fin'),
   (39399,454,'F',140599.46,date('1992-12-18'),'3-MEDIUM','Clerk#000000222',0,'p slyly. requests wake carefully blithely silent foxes. never pendi'),
-  (39424,1208,'O',37399.23,date('1997-04-12'),'5-LOW','Clerk#000000690',0,'c requests about the carefully regular foxes wake carefully final fo'),
+  (39424,1208,'O',37399.23,date('1997-04-12'),'5-LOW','Clerk#000000690',0,'c requests about the carefully regular foxes wake carefully final fo')
+
+statement ok
+INSERT INTO orders VALUES 
   (39425,442,'F',238651.07,date('1992-08-17'),'1-URGENT','Clerk#000000239',0,'ng pinto beans? sometimes unus'),
   (39426,316,'F',201345.62,date('1994-05-27'),'1-URGENT','Clerk#000000771',0,' the final accounts. unusual foxe'),
   (39427,478,'F',220539.32,date('1993-12-12'),'2-HIGH','Clerk#000000740',0,'sts above the even Tiresias inte'),
@@ -9984,7 +10215,10 @@ INSERT INTO orders VALUES
   (39909,470,'P',199456.46,date('1995-02-25'),'5-LOW','Clerk#000000263',0,'ctions sleep blithely regular instructions. final'),
   (39910,763,'F',193998.95,date('1992-08-19'),'1-URGENT','Clerk#000000144',0,'ending, even escapades. pinto beans could have to'),
   (39911,1178,'O',70983.48,date('1996-01-08'),'4-NOT SPECIFIED','Clerk#000000518',0,'cuses cajole according to the '),
-  (39936,1354,'O',43424.24,date('1998-06-15'),'4-NOT SPECIFIED','Clerk#000000027',0,'efully silent deposits haggle slyly dar'),
+  (39936,1354,'O',43424.24,date('1998-06-15'),'4-NOT SPECIFIED','Clerk#000000027',0,'efully silent deposits haggle slyly dar')
+
+statement ok
+INSERT INTO orders VALUES 
   (39937,16,'P',310673.97,date('1995-05-24'),'3-MEDIUM','Clerk#000000650',0,'fluffily bold foxes. ironic packages use blithely regular'),
   (39938,868,'F',146436.29,date('1992-06-11'),'2-HIGH','Clerk#000000403',0,'inal accounts. fluffily pending dugouts haggle packages. carefull'),
   (39939,421,'F',186552.96,date('1992-07-27'),'5-LOW','Clerk#000000622',0,'usly pending dependencies. packages above the fluffy, bold packages sle'),
@@ -10112,7 +10346,10 @@ INSERT INTO orders VALUES
   (40421,1009,'F',77477.42,date('1992-10-11'),'1-URGENT','Clerk#000000891',0,'eans use slyly about the ideas. specia'),
   (40422,938,'O',97425.54,date('1995-07-19'),'1-URGENT','Clerk#000000174',0,' deposits. carefully ironic frays after the regular requests hag'),
   (40423,1127,'O',136395.66,date('1998-07-11'),'1-URGENT','Clerk#000000001',0,'raids use furiously. regular pinto beans according to the furiously spec'),
-  (40448,590,'O',189319.84,date('1997-08-25'),'5-LOW','Clerk#000000936',0,' special, regular ideas. express requests sleep carefull'),
+  (40448,590,'O',189319.84,date('1997-08-25'),'5-LOW','Clerk#000000936',0,' special, regular ideas. express requests sleep carefull')
+
+statement ok
+INSERT INTO orders VALUES 
   (40449,1409,'O',58623.62,date('1998-05-17'),'4-NOT SPECIFIED','Clerk#000000318',0,' regular deposits are idly '),
   (40450,431,'F',124479.69,date('1992-07-26'),'4-NOT SPECIFIED','Clerk#000000593',0,'packages. even instructio'),
   (40451,754,'O',111704.19,date('1997-09-04'),'2-HIGH','Clerk#000000884',0,'requests boost quickly above the requests. bold courts above th'),
@@ -10240,7 +10477,10 @@ INSERT INTO orders VALUES
   (40933,1289,'F',92495.58,date('1992-05-28'),'2-HIGH','Clerk#000000477',0,' blithely bold foxes. regular packages engage throu'),
   (40934,986,'O',187906.98,date('1995-11-14'),'4-NOT SPECIFIED','Clerk#000000870',0,'furiously ironic excuses. furiously even requests detect slyly blithely regul'),
   (40935,713,'O',84137.41,date('1996-06-02'),'3-MEDIUM','Clerk#000000419',0,' fluffily bold theodolites sleep slyly carefully ironic accounts'),
-  (40960,278,'O',260264.60,date('1998-05-05'),'2-HIGH','Clerk#000000437',0,'counts boost fluffily along the regular theodolites? ca'),
+  (40960,278,'O',260264.60,date('1998-05-05'),'2-HIGH','Clerk#000000437',0,'counts boost fluffily along the regular theodolites? ca')
+
+statement ok
+INSERT INTO orders VALUES 
   (40961,1349,'P',44356.29,date('1995-03-31'),'3-MEDIUM','Clerk#000000217',0,'usly even excuses behind the blithely silent courts sleep s'),
   (40962,523,'F',191681.20,date('1995-02-21'),'1-URGENT','Clerk#000000461',0,'ts wake: boldly unusual packages d'),
   (40963,734,'O',230189.52,date('1997-04-04'),'5-LOW','Clerk#000000349',0,'thy decoys. blithely express accounts hagg'),
@@ -10368,7 +10608,10 @@ INSERT INTO orders VALUES
   (41445,61,'O',392172.90,date('1996-02-08'),'4-NOT SPECIFIED','Clerk#000000411',0,' theodolites haggle fluffily. special depos'),
   (41446,313,'F',94981.03,date('1994-11-03'),'4-NOT SPECIFIED','Clerk#000000933',0,'unts. blithely express pinto beans are blithely deposits? '),
   (41447,922,'O',97153.94,date('1997-04-01'),'3-MEDIUM','Clerk#000000267',0,'ly permanent ideas along the carefully even accounts boos'),
-  (41472,296,'F',173483.13,date('1993-01-24'),'5-LOW','Clerk#000000913',0,'ending sauternes cajole carefully slyly '),
+  (41472,296,'F',173483.13,date('1993-01-24'),'5-LOW','Clerk#000000913',0,'ending sauternes cajole carefully slyly ')
+
+statement ok
+INSERT INTO orders VALUES 
   (41473,80,'O',42518.45,date('1997-09-29'),'4-NOT SPECIFIED','Clerk#000000349',0,'regular hockey players boost. pinto beans sleep blithely abo'),
   (41474,584,'F',172888.05,date('1994-04-21'),'4-NOT SPECIFIED','Clerk#000000510',0,'ending excuses. ironic instructions cajole regularly quickly ironic ins'),
   (41475,1153,'O',237168.38,date('1998-04-29'),'3-MEDIUM','Clerk#000000075',0,' furiously quickly even re'),
@@ -10496,7 +10739,10 @@ INSERT INTO orders VALUES
   (41957,878,'O',253592.57,date('1997-12-28'),'3-MEDIUM','Clerk#000000995',0,'otes cajole furiously! even courts are busily. carefully even'),
   (41958,1258,'O',248777.88,date('1997-05-25'),'4-NOT SPECIFIED','Clerk#000000889',0,'st carefully regular pinto beans. doggedly even ideas use fur'),
   (41959,479,'F',113460.41,date('1993-04-29'),'1-URGENT','Clerk#000000761',0,'ickly pending theodolites. quickly fluffy a'),
-  (41984,202,'O',188020.58,date('1997-01-31'),'2-HIGH','Clerk#000000372',0,' hinder around the regular packages. carefully stealthy packages wake regula'),
+  (41984,202,'O',188020.58,date('1997-01-31'),'2-HIGH','Clerk#000000372',0,' hinder around the regular packages. carefully stealthy packages wake regula')
+
+statement ok
+INSERT INTO orders VALUES 
   (41985,73,'O',186193.73,date('1996-07-12'),'4-NOT SPECIFIED','Clerk#000000541',0,'lyly pending theodolites. regu'),
   (41986,826,'F',101202.18,date('1993-02-14'),'2-HIGH','Clerk#000000026',0,'he carefully pending d'),
   (41987,505,'O',136076.39,date('1995-10-22'),'4-NOT SPECIFIED','Clerk#000000085',0,'uriously special excuses run alon'),
@@ -10624,7 +10870,10 @@ INSERT INTO orders VALUES
   (42469,937,'F',204615.32,date('1992-11-09'),'4-NOT SPECIFIED','Clerk#000000309',0,' requests dazzle carefully. '),
   (42470,1471,'O',182612.13,date('1998-06-10'),'5-LOW','Clerk#000000038',0,'counts mold blithely. quickly bold accounts was fluffily. regular, eve'),
   (42471,683,'F',299163.99,date('1992-03-10'),'5-LOW','Clerk#000000167',0,'foxes nag after the instructions: express e'),
-  (42496,976,'O',43795.27,date('1997-01-28'),'4-NOT SPECIFIED','Clerk#000000218',0,'al foxes use at the sl'),
+  (42496,976,'O',43795.27,date('1997-01-28'),'4-NOT SPECIFIED','Clerk#000000218',0,'al foxes use at the sl')
+
+statement ok
+INSERT INTO orders VALUES 
   (42497,751,'O',79435.22,date('1996-04-28'),'1-URGENT','Clerk#000000483',0,'y across the deposits. bold theodolit'),
   (42498,235,'F',77799.45,date('1993-01-29'),'5-LOW','Clerk#000000805',0,'al dolphins. bold, unusual pa'),
   (42499,428,'O',38027.66,date('1995-08-24'),'5-LOW','Clerk#000000031',0,' even requests haggle about the carefully special deposits. furiously '),
@@ -10752,7 +11001,10 @@ INSERT INTO orders VALUES
   (42981,158,'F',134504.02,date('1994-05-31'),'1-URGENT','Clerk#000000700',0,'quickly regular pinto beans. fluffily regular deposits wake fur'),
   (42982,224,'F',229159.48,date('1992-07-28'),'5-LOW','Clerk#000000509',0,'above the carefully special accounts unwind final hoc'),
   (42983,773,'O',38400.81,date('1997-06-28'),'2-HIGH','Clerk#000000111',0,'lithely according to the final asymptotes. pearls '),
-  (43008,1235,'O',153581.83,date('1996-10-26'),'5-LOW','Clerk#000000050',0,'final deposits should affix carefully. quickly regular in'),
+  (43008,1235,'O',153581.83,date('1996-10-26'),'5-LOW','Clerk#000000050',0,'final deposits should affix carefully. quickly regular in')
+
+statement ok
+INSERT INTO orders VALUES 
   (43009,1217,'F',2939.22,date('1994-05-31'),'2-HIGH','Clerk#000000825',0,'s wake regular accounts. brave, pending p'),
   (43010,221,'F',119091.96,date('1992-10-10'),'1-URGENT','Clerk#000000325',0,' blithely regular requests kindle carefully-- packages among the blithel'),
   (43011,299,'O',242837.18,date('1996-05-02'),'2-HIGH','Clerk#000000291',0,'etect furiously sly epitaphs. slyly regular requests are blithe'),
@@ -10880,7 +11132,10 @@ INSERT INTO orders VALUES
   (43493,958,'F',257570.50,date('1992-05-11'),'2-HIGH','Clerk#000000243',0,'d the bold, regular instructions. bold requ'),
   (43494,913,'F',122147.47,date('1992-01-04'),'3-MEDIUM','Clerk#000000771',0,' silent packages ca'),
   (43495,881,'O',246433.66,date('1996-10-28'),'4-NOT SPECIFIED','Clerk#000000961',0,'sly pending accounts. slyly r'),
-  (43520,1408,'O',217064.15,date('1998-02-08'),'3-MEDIUM','Clerk#000000523',0,'xpress packages are blithely a'),
+  (43520,1408,'O',217064.15,date('1998-02-08'),'3-MEDIUM','Clerk#000000523',0,'xpress packages are blithely a')
+
+statement ok
+INSERT INTO orders VALUES 
   (43521,287,'F',92370.71,date('1994-05-03'),'3-MEDIUM','Clerk#000000651',0,'; fluffily ironic ideas believe slyly quickly regular '),
   (43522,866,'F',39810.04,date('1994-01-25'),'4-NOT SPECIFIED','Clerk#000000432',0,'ic ideas against the deposits sleep unusual, regular foxes. ironic, un'),
   (43523,1349,'F',94634.01,date('1992-05-24'),'3-MEDIUM','Clerk#000000076',0,' packages according to the quickly final gifts nod furiously ironic '),
@@ -11008,7 +11263,10 @@ INSERT INTO orders VALUES
   (44005,406,'F',7859.33,date('1993-09-04'),'3-MEDIUM','Clerk#000000269',0,'e requests. pending pinto bean'),
   (44006,802,'O',43763.61,date('1998-02-10'),'3-MEDIUM','Clerk#000000175',0,'ag carefully. quickly ironic instructions detect eve'),
   (44007,155,'O',49740.09,date('1995-05-31'),'3-MEDIUM','Clerk#000000008',0,'ic, sly hockey players wake slyly ab'),
-  (44032,697,'F',219866.73,date('1993-03-30'),'5-LOW','Clerk#000000849',0,'the blithely regula'),
+  (44032,697,'F',219866.73,date('1993-03-30'),'5-LOW','Clerk#000000849',0,'the blithely regula')
+
+statement ok
+INSERT INTO orders VALUES 
   (44033,1370,'F',59313.16,date('1992-01-11'),'1-URGENT','Clerk#000000109',0,'requests nag quickly express requests. express pinto beans hag'),
   (44034,1078,'O',168009.12,date('1996-06-16'),'3-MEDIUM','Clerk#000000814',0,'deposits are carefully. furiously idle instru'),
   (44035,1174,'F',20174.01,date('1992-02-21'),'2-HIGH','Clerk#000000718',0,'fter the sly requests. even, even pinto beans do'),
@@ -11136,7 +11394,10 @@ INSERT INTO orders VALUES
   (44517,940,'F',205740.54,date('1994-04-24'),'3-MEDIUM','Clerk#000000883',0,'ound the carefully express accounts boost slyly sp'),
   (44518,97,'O',104361.68,date('1996-07-11'),'4-NOT SPECIFIED','Clerk#000000979',0,'regular deposits wake fluffily regular, express somas. blithely reg'),
   (44519,1303,'F',200349.98,date('1993-05-20'),'2-HIGH','Clerk#000000677',0,'regularly furiously unusual deposits. final foxes wake slyl'),
-  (44544,1243,'O',202117.58,date('1998-03-04'),'1-URGENT','Clerk#000000154',0,'ing to the bold requests. sl'),
+  (44544,1243,'O',202117.58,date('1998-03-04'),'1-URGENT','Clerk#000000154',0,'ing to the bold requests. sl')
+
+statement ok
+INSERT INTO orders VALUES 
   (44545,37,'O',144657.43,date('1998-01-10'),'5-LOW','Clerk#000000701',0,'-- sometimes regular waters affix quickly. fluff'),
   (44546,637,'F',140613.51,date('1993-03-25'),'1-URGENT','Clerk#000000936',0,'ronic packages cajole. carefully quiet platelets cajole above '),
   (44547,712,'O',112411.28,date('1995-04-27'),'1-URGENT','Clerk#000000492',0,' regular depths. furiou'),
@@ -11264,7 +11525,10 @@ INSERT INTO orders VALUES
   (45029,547,'F',142822.97,date('1993-07-04'),'2-HIGH','Clerk#000000141',0,'x carefully slyly unusual pinto beans. carefully fina'),
   (45030,293,'F',227308.45,date('1993-07-25'),'2-HIGH','Clerk#000000230',0,'uffily final accounts. carefully '),
   (45031,526,'F',162889.75,date('1992-11-23'),'5-LOW','Clerk#000000557',0,'yly around the always special acc'),
-  (45056,574,'F',230889.52,date('1994-10-24'),'1-URGENT','Clerk#000000732',0,' deposits. slyly pending requests s'),
+  (45056,574,'F',230889.52,date('1994-10-24'),'1-URGENT','Clerk#000000732',0,' deposits. slyly pending requests s')
+
+statement ok
+INSERT INTO orders VALUES 
   (45057,1097,'O',231431.83,date('1997-03-19'),'5-LOW','Clerk#000000441',0,'egular packages. ironic Tir'),
   (45058,221,'O',220623.13,date('1997-01-13'),'4-NOT SPECIFIED','Clerk#000000697',0,'iously final accounts-- quickly fi'),
   (45059,124,'F',239264.56,date('1995-02-04'),'4-NOT SPECIFIED','Clerk#000000905',0,' accounts. enticingly express requests boost. bli'),
@@ -11392,7 +11656,10 @@ INSERT INTO orders VALUES
   (45541,250,'O',155441.14,date('1998-04-21'),'3-MEDIUM','Clerk#000000101',0,'ress, bold hockey players shall hav'),
   (45542,1420,'F',172974.76,date('1993-02-08'),'2-HIGH','Clerk#000000831',0,'ep carefully ironic packages. quickly even r'),
   (45543,607,'F',193059.61,date('1995-02-03'),'5-LOW','Clerk#000000302',0,'have to integrate slyly according to the quickl'),
-  (45568,1258,'O',220659.67,date('1998-04-01'),'2-HIGH','Clerk#000000038',0,'ithely ironic deposits. special tithes ought to sleep furi'),
+  (45568,1258,'O',220659.67,date('1998-04-01'),'2-HIGH','Clerk#000000038',0,'ithely ironic deposits. special tithes ought to sleep furi')
+
+statement ok
+INSERT INTO orders VALUES 
   (45569,1052,'O',100131.64,date('1997-04-26'),'3-MEDIUM','Clerk#000000806',0,'counts are blithely carefully ironic instructions. blithely final packages c'),
   (45570,250,'F',135534.32,date('1993-08-10'),'1-URGENT','Clerk#000000421',0,'elets nag carefully ac'),
   (45571,841,'F',249686.53,date('1992-09-24'),'3-MEDIUM','Clerk#000000918',0,'dencies across the express accounts detect bold instruction'),
@@ -11520,7 +11787,10 @@ INSERT INTO orders VALUES
   (46053,799,'F',78195.09,date('1992-09-14'),'2-HIGH','Clerk#000000405',0,'cial dependencies haggle permanently among the fin'),
   (46054,1447,'F',137317.78,date('1992-12-01'),'4-NOT SPECIFIED','Clerk#000000019',0,'gular dependencies use slyly furiously pending instruct'),
   (46055,800,'F',295378.64,date('1992-06-03'),'3-MEDIUM','Clerk#000000874',0,'uffily about the platelets. furious'),
-  (46080,1012,'O',199364.16,date('1997-09-21'),'4-NOT SPECIFIED','Clerk#000000411',0,'! fluffily even deposits above the slyly regular reques'),
+  (46080,1012,'O',199364.16,date('1997-09-21'),'4-NOT SPECIFIED','Clerk#000000411',0,'! fluffily even deposits above the slyly regular reques')
+
+statement ok
+INSERT INTO orders VALUES 
   (46081,164,'F',152691.69,date('1992-06-29'),'4-NOT SPECIFIED','Clerk#000000904',0,' beans about the slyly ironic deposits nag'),
   (46082,610,'O',195132.90,date('1998-02-24'),'1-URGENT','Clerk#000000125',0,'. regular theodolites cajole about the sile'),
   (46083,1018,'F',64204.11,date('1993-09-14'),'5-LOW','Clerk#000000441',0,'instructions haggle carefully ironic packages. blithely express foxes are unus'),
@@ -11648,7 +11918,10 @@ INSERT INTO orders VALUES
   (46565,455,'O',366528.14,date('1995-06-23'),'4-NOT SPECIFIED','Clerk#000000833',0,'efully final platelets affix abo'),
   (46566,805,'F',211653.59,date('1992-04-10'),'3-MEDIUM','Clerk#000000062',0,'ses wake furiously regular, ruthless requests. express,'),
   (46567,160,'O',66789.23,date('1998-04-15'),'2-HIGH','Clerk#000000282',0,'breach furiously above the quickl'),
-  (46592,209,'F',120740.20,date('1994-08-04'),'1-URGENT','Clerk#000000298',0,'jole carefully carefully special req'),
+  (46592,209,'F',120740.20,date('1994-08-04'),'1-URGENT','Clerk#000000298',0,'jole carefully carefully special req')
+
+statement ok
+INSERT INTO orders VALUES 
   (46593,1003,'O',20938.42,date('1998-06-08'),'3-MEDIUM','Clerk#000000701',0,' to the bold dugouts. slyly unusua'),
   (46594,1489,'O',82657.72,date('1998-04-05'),'1-URGENT','Clerk#000000029',0,' ironic foxes are slyly against the fin'),
   (46595,689,'O',114054.78,date('1998-06-10'),'4-NOT SPECIFIED','Clerk#000000668',0,'ake. pending theodolites'),
@@ -11776,7 +12049,10 @@ INSERT INTO orders VALUES
   (47077,509,'O',264185.65,date('1996-06-25'),'2-HIGH','Clerk#000000488',0,'s requests engage pending '),
   (47078,265,'F',227422.32,date('1993-04-20'),'3-MEDIUM','Clerk#000000984',0,'counts. carefully express asymptotes alongside of t'),
   (47079,469,'O',248825.56,date('1995-12-17'),'1-URGENT','Clerk#000000527',0,'accounts. deposits '),
-  (47104,518,'F',119721.25,date('1992-06-23'),'5-LOW','Clerk#000000171',0,'gular, regular accounts. bold, final pinto beans according'),
+  (47104,518,'F',119721.25,date('1992-06-23'),'5-LOW','Clerk#000000171',0,'gular, regular accounts. bold, final pinto beans according')
+
+statement ok
+INSERT INTO orders VALUES 
   (47105,167,'O',177737.93,date('1996-05-20'),'3-MEDIUM','Clerk#000000443',0,' deposits nag blithely. unusual ideas nag carefully. bli'),
   (47106,1456,'O',199160.42,date('1995-10-26'),'3-MEDIUM','Clerk#000000866',0,'ticingly ironic accounts. quickly final depths are.'),
   (47107,1294,'O',181177.75,date('1996-02-21'),'5-LOW','Clerk#000000681',0,'e the idly final pack'),
@@ -11904,7 +12180,10 @@ INSERT INTO orders VALUES
   (47589,1114,'O',142269.16,date('1997-04-13'),'4-NOT SPECIFIED','Clerk#000000350',0,' instructions. final, pending '),
   (47590,28,'O',155236.61,date('1997-07-04'),'2-HIGH','Clerk#000000719',0,'uriously ironic accounts. even'),
   (47591,823,'F',125040.01,date('1992-01-03'),'1-URGENT','Clerk#000000497',0,'eas nag furiously bravely regular depths. even i'),
-  (47616,779,'O',64356.65,date('1997-10-12'),'4-NOT SPECIFIED','Clerk#000000183',0,'e closely against the car'),
+  (47616,779,'O',64356.65,date('1997-10-12'),'4-NOT SPECIFIED','Clerk#000000183',0,'e closely against the car')
+
+statement ok
+INSERT INTO orders VALUES 
   (47617,421,'F',267440.22,date('1994-12-09'),'4-NOT SPECIFIED','Clerk#000000849',0,'r the carefully regular theodolites. excuses sleep furiousl'),
   (47618,1201,'O',285707.10,date('1996-09-25'),'4-NOT SPECIFIED','Clerk#000000790',0,'s the furiously express accounts haggle quickly blithely blithe ex'),
   (47619,388,'F',37744.88,date('1992-03-22'),'1-URGENT','Clerk#000000765',0,'ly. blithely express requests integrate blithely. pinto beans '),
@@ -12032,7 +12311,10 @@ INSERT INTO orders VALUES
   (48101,1366,'O',146910.39,date('1995-09-13'),'2-HIGH','Clerk#000000816',0,'t! accounts integrate carefully. bravely final requests are bl'),
   (48102,1072,'F',42972.77,date('1992-02-07'),'2-HIGH','Clerk#000000288',0,' final accounts. slyly express requests sublate furiously about '),
   (48103,568,'O',209339.22,date('1996-07-09'),'2-HIGH','Clerk#000000017',0,'xes was stealthily ironi'),
-  (48128,1360,'F',181075.99,date('1992-04-12'),'3-MEDIUM','Clerk#000000683',0,'beans haggle above the blithely even accounts. theodolites lose carefully at t'),
+  (48128,1360,'F',181075.99,date('1992-04-12'),'3-MEDIUM','Clerk#000000683',0,'beans haggle above the blithely even accounts. theodolites lose carefully at t')
+
+statement ok
+INSERT INTO orders VALUES 
   (48129,259,'O',39440.12,date('1997-11-09'),'3-MEDIUM','Clerk#000000822',0,'carefully regular pinto beans. slyly ironic packages us'),
   (48130,1402,'O',171549.36,date('1997-11-06'),'1-URGENT','Clerk#000000506',0,'ions. carefully pending deposits across the fluffily even depe'),
   (48131,925,'O',39438.99,date('1998-02-16'),'4-NOT SPECIFIED','Clerk#000000104',0,'posits wake carefully. carefully even theodolit'),
@@ -12160,7 +12442,10 @@ INSERT INTO orders VALUES
   (48613,107,'O',134174.94,date('1996-06-20'),'2-HIGH','Clerk#000000097',0,'ccounts. quickly final platelets was express'),
   (48614,697,'F',103136.27,date('1992-06-01'),'1-URGENT','Clerk#000000349',0,'ly unusual pinto beans. furiously regular accounts slee'),
   (48615,1078,'F',170847.80,date('1992-12-04'),'5-LOW','Clerk#000000545',0,'t have to integrate special requests. ironic, pending deposi'),
-  (48640,730,'O',90332.38,date('1996-01-28'),'5-LOW','Clerk#000000295',0,' deposits sleep. fur'),
+  (48640,730,'O',90332.38,date('1996-01-28'),'5-LOW','Clerk#000000295',0,' deposits sleep. fur')
+
+statement ok
+INSERT INTO orders VALUES 
   (48641,782,'O',75597.04,date('1995-12-06'),'2-HIGH','Clerk#000000809',0,'s. quickly ironic requests wake against the fluffily regular pin'),
   (48642,239,'F',252256.09,date('1993-02-02'),'2-HIGH','Clerk#000000319',0,'tes are furiously even packages. pe'),
   (48643,41,'F',316843.65,date('1992-10-19'),'3-MEDIUM','Clerk#000000980',0,'pecial realms cajole careful'),
@@ -12288,7 +12573,10 @@ INSERT INTO orders VALUES
   (49125,1186,'F',182177.29,date('1994-03-30'),'4-NOT SPECIFIED','Clerk#000000468',0,'ously express warhorses. slyly final foxes above the final, final '),
   (49126,1465,'O',134100.82,date('1995-07-11'),'5-LOW','Clerk#000000344',0,'. final, special foxes cajole. blithely u'),
   (49127,1021,'P',60609.79,date('1995-03-31'),'3-MEDIUM','Clerk#000000536',0,'e slyly special deposi'),
-  (49152,73,'O',199449.48,date('1997-08-19'),'3-MEDIUM','Clerk#000000065',0,'heodolites: excuses a'),
+  (49152,73,'O',199449.48,date('1997-08-19'),'3-MEDIUM','Clerk#000000065',0,'heodolites: excuses a')
+
+statement ok
+INSERT INTO orders VALUES 
   (49153,118,'F',40692.58,date('1992-07-29'),'3-MEDIUM','Clerk#000000667',0,'cuses. busily ironic theodolites cajole. slyly silent dolphins a'),
   (49154,220,'F',236472.06,date('1994-03-07'),'3-MEDIUM','Clerk#000000524',0,'riously ironic packages boost fluffily after the ironic, even accounts. blith'),
   (49155,1283,'F',219008.31,date('1993-09-19'),'5-LOW','Clerk#000000905',0,' are carefully around the furiously final requests.'),
@@ -12416,7 +12704,10 @@ INSERT INTO orders VALUES
   (49637,505,'F',39669.16,date('1992-06-13'),'3-MEDIUM','Clerk#000000631',0,' the regular, quiet instructions wake fluffily after the special d'),
   (49638,121,'F',261064.01,date('1993-08-08'),'3-MEDIUM','Clerk#000000066',0,'ts. slyly special platelets cajole furi'),
   (49639,1009,'F',48404.07,date('1993-10-23'),'2-HIGH','Clerk#000000831',0,'g furiously across t'),
-  (49664,1189,'F',181990.14,date('1994-03-20'),'1-URGENT','Clerk#000000193',0,'tect carefully final deposits. blithely pending requests boost carefully ab'),
+  (49664,1189,'F',181990.14,date('1994-03-20'),'1-URGENT','Clerk#000000193',0,'tect carefully final deposits. blithely pending requests boost carefully ab')
+
+statement ok
+INSERT INTO orders VALUES 
   (49665,1385,'O',219422.99,date('1996-03-24'),'2-HIGH','Clerk#000000772',0,'y even ideas are. packa'),
   (49666,142,'F',148993.75,date('1994-08-07'),'5-LOW','Clerk#000000402',0,'foxes? blithely regular deposits are carefully'),
   (49667,691,'O',270258.30,date('1996-07-26'),'4-NOT SPECIFIED','Clerk#000000396',0,'al accounts boost. pendi'),
@@ -12544,7 +12835,10 @@ INSERT INTO orders VALUES
   (50149,1090,'F',110703.66,date('1994-04-02'),'3-MEDIUM','Clerk#000000978',0,'he ironic requests. even, '),
   (50150,1267,'O',273213.99,date('1996-05-12'),'1-URGENT','Clerk#000000530',0,'thin the blithely unusual ideas. regular, special accounts hag'),
   (50151,835,'O',175866.61,date('1998-05-08'),'5-LOW','Clerk#000000484',0,'y regular dependencies. escapades boo'),
-  (50176,1006,'F',60836.76,date('1993-02-26'),'2-HIGH','Clerk#000000200',0,' to the regular, silent requests. unusual, '),
+  (50176,1006,'F',60836.76,date('1993-02-26'),'2-HIGH','Clerk#000000200',0,' to the regular, silent requests. unusual, ')
+
+statement ok
+INSERT INTO orders VALUES 
   (50177,61,'O',158904.56,date('1998-03-07'),'4-NOT SPECIFIED','Clerk#000000034',0,' deposits sleep on the slyly sly instructions. quickly ironic requests w'),
   (50178,434,'F',46146.14,date('1992-04-22'),'1-URGENT','Clerk#000000008',0,'sly even packages. carefully special accounts'),
   (50179,317,'O',99802.35,date('1998-04-05'),'2-HIGH','Clerk#000000497',0,'lithely unusual bra'),
@@ -12672,7 +12966,10 @@ INSERT INTO orders VALUES
   (50661,175,'O',112869.46,date('1996-10-21'),'4-NOT SPECIFIED','Clerk#000000785',0,'pending pinto beans; pinto beans among the never ironic the'),
   (50662,1300,'O',89875.89,date('1997-03-15'),'5-LOW','Clerk#000000720',0,'fily bold asymptotes. furiously unusual '),
   (50663,1495,'F',155929.51,date('1993-11-10'),'1-URGENT','Clerk#000000351',0,'s haggle regularly. slyl'),
-  (50688,73,'O',167324.96,date('1995-12-17'),'1-URGENT','Clerk#000000391',0,' sleep slyly unusual foxes. blithely even requests according t'),
+  (50688,73,'O',167324.96,date('1995-12-17'),'1-URGENT','Clerk#000000391',0,' sleep slyly unusual foxes. blithely even requests according t')
+
+statement ok
+INSERT INTO orders VALUES 
   (50689,271,'F',106528.47,date('1994-06-19'),'3-MEDIUM','Clerk#000000111',0,'ges. orbits are. blithely'),
   (50690,1447,'F',150903.63,date('1993-10-19'),'1-URGENT','Clerk#000000655',0,'lithely silent ideas. p'),
   (50691,643,'O',158325.97,date('1997-05-22'),'4-NOT SPECIFIED','Clerk#000000823',0,'onic instructions thrash furiously special accounts. even accounts hagg'),
@@ -12800,7 +13097,10 @@ INSERT INTO orders VALUES
   (51173,181,'F',188543.86,date('1992-11-16'),'1-URGENT','Clerk#000000436',0,'usily special accounts according to the carefully pending p'),
   (51174,416,'O',279221.38,date('1997-05-08'),'4-NOT SPECIFIED','Clerk#000000589',0,'odolites wake slyly? careful'),
   (51175,1228,'F',167335.74,date('1992-08-15'),'2-HIGH','Clerk#000000285',0,'. regular, close sheaves boost furiously always unusual deposits. quic'),
-  (51200,626,'O',311634.17,date('1995-11-19'),'3-MEDIUM','Clerk#000000295',0,'ly. final pinto beans haggle regular deposits. careful'),
+  (51200,626,'O',311634.17,date('1995-11-19'),'3-MEDIUM','Clerk#000000295',0,'ly. final pinto beans haggle regular deposits. careful')
+
+statement ok
+INSERT INTO orders VALUES 
   (51201,607,'O',76346.06,date('1995-12-17'),'2-HIGH','Clerk#000000644',0,'requests. stealthily regular dependencies'),
   (51202,1358,'F',145358.77,date('1992-04-14'),'2-HIGH','Clerk#000000043',0,'ag. ideas sleep stealthily. furious'),
   (51203,446,'O',13500.63,date('1995-12-22'),'2-HIGH','Clerk#000000685',0,' furious instructions affix sl'),
@@ -12928,7 +13228,10 @@ INSERT INTO orders VALUES
   (51685,613,'F',69543.10,date('1992-04-14'),'4-NOT SPECIFIED','Clerk#000000341',0,'s will was along the regular, pending deposits. furiously special '),
   (51686,1186,'O',127522.35,date('1997-02-10'),'4-NOT SPECIFIED','Clerk#000000222',0,' boost among the deposits. slyly iron'),
   (51687,1294,'O',194482.48,date('1995-09-12'),'5-LOW','Clerk#000000858',0,'al accounts instead of the regula'),
-  (51712,430,'O',124597.68,date('1997-08-09'),'1-URGENT','Clerk#000000290',0,'ly express pinto beans. idly special instructions ar'),
+  (51712,430,'O',124597.68,date('1997-08-09'),'1-URGENT','Clerk#000000290',0,'ly express pinto beans. idly special instructions ar')
+
+statement ok
+INSERT INTO orders VALUES 
   (51713,1090,'P',259340.73,date('1995-03-20'),'4-NOT SPECIFIED','Clerk#000000341',0,'pinto beans after the quickly pending instructions '),
   (51714,614,'F',203358.71,date('1994-09-06'),'4-NOT SPECIFIED','Clerk#000000999',0,'platelets sublate against the express,'),
   (51715,1421,'O',315933.23,date('1996-01-27'),'5-LOW','Clerk#000000491',0,'ideas. ironic, final requests haggle quickly blithely ironic asympt'),
@@ -13056,7 +13359,10 @@ INSERT INTO orders VALUES
   (52197,143,'F',153535.38,date('1992-08-05'),'1-URGENT','Clerk#000000825',0,'usual deposits wake. fo'),
   (52198,1055,'O',330655.57,date('1996-05-28'),'2-HIGH','Clerk#000000394',0,'y after the furiously final dinos! theodo'),
   (52199,1468,'F',68638.57,date('1995-01-27'),'3-MEDIUM','Clerk#000000333',0,' carefully fluffily ironic'),
-  (52224,1241,'O',11861.41,date('1997-06-03'),'2-HIGH','Clerk#000000636',0,' haggle after the quickly reg'),
+  (52224,1241,'O',11861.41,date('1997-06-03'),'2-HIGH','Clerk#000000636',0,' haggle after the quickly reg')
+
+statement ok
+INSERT INTO orders VALUES 
   (52225,706,'F',158967.58,date('1992-04-13'),'1-URGENT','Clerk#000000959',0,'efully unusual packages. ironic, silent foxes nag alongside of the fluffily'),
   (52226,1361,'F',53982.25,date('1994-11-02'),'1-URGENT','Clerk#000000916',0,'symptotes. ironic instructions sleep never.'),
   (52227,1276,'F',175805.12,date('1994-02-13'),'3-MEDIUM','Clerk#000000123',0,'ress asymptotes. ironically ironic requests among the quic'),
@@ -13184,7 +13490,10 @@ INSERT INTO orders VALUES
   (52709,679,'F',77858.35,date('1994-10-13'),'4-NOT SPECIFIED','Clerk#000000357',0,'yly unusual requests. regular, special instructions sle'),
   (52710,841,'F',67608.22,date('1993-11-01'),'5-LOW','Clerk#000000678',0,'carefully express pinto beans. fluffily express'),
   (52711,1073,'O',315832.64,date('1995-09-24'),'4-NOT SPECIFIED','Clerk#000000823',0,'ns detect slyly foxes. blithely b'),
-  (52736,739,'O',124587.73,date('1998-06-09'),'2-HIGH','Clerk#000000780',0,'gular instructions across the blithely unusual asymptotes u'),
+  (52736,739,'O',124587.73,date('1998-06-09'),'2-HIGH','Clerk#000000780',0,'gular instructions across the blithely unusual asymptotes u')
+
+statement ok
+INSERT INTO orders VALUES 
   (52737,1118,'F',146416.09,date('1993-11-09'),'4-NOT SPECIFIED','Clerk#000000754',0,'ronic foxes use blithely. regular, final accounts us'),
   (52738,823,'O',25813.46,date('1996-08-06'),'4-NOT SPECIFIED','Clerk#000000666',0,'old ideas. carefully special requests are blithely. quickly final '),
   (52739,610,'F',27015.61,date('1994-01-10'),'4-NOT SPECIFIED','Clerk#000000548',0,'r accounts promise furiously thin deposits. fin'),
@@ -13312,7 +13621,10 @@ INSERT INTO orders VALUES
   (53221,1432,'F',268693.22,date('1992-02-27'),'4-NOT SPECIFIED','Clerk#000000234',0,'kages. slyly regular waters haggle slyly slyly pending p'),
   (53222,1460,'F',1799.10,date('1994-10-20'),'5-LOW','Clerk#000000992',0,'s might are blithel'),
   (53223,1390,'F',251060.31,date('1992-07-15'),'5-LOW','Clerk#000000209',0,'even foxes. final, unusual depo'),
-  (53248,382,'F',268488.72,date('1993-10-30'),'1-URGENT','Clerk#000000016',0,' ideas alongside of the theodolites e'),
+  (53248,382,'F',268488.72,date('1993-10-30'),'1-URGENT','Clerk#000000016',0,' ideas alongside of the theodolites e')
+
+statement ok
+INSERT INTO orders VALUES 
   (53249,1309,'F',58382.85,date('1992-09-15'),'5-LOW','Clerk#000000203',0,'ously about the ironic pinto beans-- blithely unusual dol'),
   (53250,770,'O',179928.92,date('1996-11-26'),'2-HIGH','Clerk#000000283',0,'d packages. carefully regular '),
   (53251,899,'F',33723.51,date('1995-03-28'),'1-URGENT','Clerk#000000579',0,'carefully furiously regular deposits. slyly speci'),
@@ -13440,7 +13752,10 @@ INSERT INTO orders VALUES
   (53733,352,'O',206539.56,date('1997-02-21'),'5-LOW','Clerk#000000363',0,'ress instructions against the '),
   (53734,1219,'O',53011.92,date('1997-03-13'),'1-URGENT','Clerk#000000013',0,'r packages haggle around the quickly unusual ins'),
   (53735,1495,'O',10371.28,date('1997-01-21'),'1-URGENT','Clerk#000000791',0,'-- permanent frays cajole slyly epitaphs'),
-  (53760,37,'O',156160.33,date('1996-03-19'),'3-MEDIUM','Clerk#000000746',0,'haggle. quickly special requests are pe'),
+  (53760,37,'O',156160.33,date('1996-03-19'),'3-MEDIUM','Clerk#000000746',0,'haggle. quickly special requests are pe')
+
+statement ok
+INSERT INTO orders VALUES 
   (53761,1361,'O',71277.46,date('1995-04-12'),'2-HIGH','Clerk#000000708',0,'. blithe packages haggle slyly af'),
   (53762,481,'F',117287.06,date('1992-06-02'),'1-URGENT','Clerk#000000026',0,'ts haggle quickly alo'),
   (53763,157,'O',104203.16,date('1996-06-16'),'3-MEDIUM','Clerk#000000513',0,'ilent instructions up the slyly e'),
@@ -13568,7 +13883,10 @@ INSERT INTO orders VALUES
   (54245,53,'P',106578.32,date('1995-03-25'),'3-MEDIUM','Clerk#000000828',0,'into beans haggle blithely against the platelets. closely pending pack'),
   (54246,1099,'F',45727.63,date('1993-06-30'),'1-URGENT','Clerk#000000141',0,'s. final, express theodolites wake requests. regular req'),
   (54247,193,'O',246090.44,date('1997-04-16'),'1-URGENT','Clerk#000000404',0,'ep blithely ironic deposits? fluffily express requests wake '),
-  (54272,266,'O',73321.98,date('1997-08-12'),'4-NOT SPECIFIED','Clerk#000000559',0,'l packages. regular, bold deposi'),
+  (54272,266,'O',73321.98,date('1997-08-12'),'4-NOT SPECIFIED','Clerk#000000559',0,'l packages. regular, bold deposi')
+
+statement ok
+INSERT INTO orders VALUES 
   (54273,1273,'O',135497.11,date('1998-05-15'),'4-NOT SPECIFIED','Clerk#000000944',0,'kly pending packages ac'),
   (54274,1402,'F',208798.86,date('1993-11-24'),'4-NOT SPECIFIED','Clerk#000000061',0,'lyly final pinto beans; blithely blithe instructions are quickly blithely even'),
   (54275,887,'F',64784.74,date('1993-01-03'),'5-LOW','Clerk#000000656',0,'sily even packages detect according to the enticingly regular d'),
@@ -13696,7 +14014,10 @@ INSERT INTO orders VALUES
   (54757,940,'F',79191.41,date('1992-12-01'),'1-URGENT','Clerk#000000946',0,'e regular, special foxes breach above the final, pending instructions. dep'),
   (54758,1372,'F',19236.81,date('1994-11-09'),'4-NOT SPECIFIED','Clerk#000000735',0,'r deposits. decoys cajole slyly against the regular, pending accounts'),
   (54759,464,'F',164894.42,date('1994-05-09'),'1-URGENT','Clerk#000000007',0,'te the furiously pending packages sleep after the blithely pending accoun'),
-  (54784,637,'F',70994.96,date('1992-01-26'),'4-NOT SPECIFIED','Clerk#000000671',0,'s packages cajole carefully. pending foxes acc'),
+  (54784,637,'F',70994.96,date('1992-01-26'),'4-NOT SPECIFIED','Clerk#000000671',0,'s packages cajole carefully. pending foxes acc')
+
+statement ok
+INSERT INTO orders VALUES 
   (54785,1015,'O',146659.54,date('1996-06-21'),'4-NOT SPECIFIED','Clerk#000000698',0,' quickly slyly final foxes. final pa'),
   (54786,226,'F',156518.31,date('1992-01-12'),'4-NOT SPECIFIED','Clerk#000000033',0,' furiously accounts. slyly bold multipl'),
   (54787,910,'F',112069.01,date('1995-02-25'),'2-HIGH','Clerk#000000263',0,'lites. requests need to l'),
@@ -13824,7 +14145,10 @@ INSERT INTO orders VALUES
   (55269,196,'F',253397.92,date('1993-03-08'),'3-MEDIUM','Clerk#000000899',0,'egular requests use along the final platelets. slyly final platelets detect'),
   (55270,1000,'F',172992.03,date('1993-01-23'),'3-MEDIUM','Clerk#000000196',0,'kages against the pinto beans haggle express, final asymp'),
   (55271,496,'P',205930.19,date('1995-03-12'),'3-MEDIUM','Clerk#000000881',0,'counts. even, final ideas about the ironic requests detec'),
-  (55296,1421,'F',75300.65,date('1992-10-19'),'5-LOW','Clerk#000000974',0,'rding to the furiously final platelets sleep alongside o'),
+  (55296,1421,'F',75300.65,date('1992-10-19'),'5-LOW','Clerk#000000974',0,'rding to the furiously final platelets sleep alongside o')
+
+statement ok
+INSERT INTO orders VALUES 
   (55297,1336,'F',237703.54,date('1993-10-20'),'3-MEDIUM','Clerk#000000762',0,'l, bold theodolites. slyly pending accounts a'),
   (55298,274,'F',72417.61,date('1994-08-03'),'1-URGENT','Clerk#000000043',0,' beans across the q'),
   (55299,908,'F',80725.23,date('1992-03-31'),'5-LOW','Clerk#000000768',0,'lly regular theodolites are among the furiously bold accounts. slyly unusual '),
@@ -13952,7 +14276,10 @@ INSERT INTO orders VALUES
   (55781,1324,'O',62577.01,date('1996-12-04'),'2-HIGH','Clerk#000000444',0,'ing accounts haggle against the fluffily express pinto beans. ironic, '),
   (55782,1339,'O',59717.14,date('1997-07-24'),'5-LOW','Clerk#000000610',0,'inal, final accounts about the '),
   (55783,1415,'O',79340.48,date('1996-07-12'),'3-MEDIUM','Clerk#000000160',0,'ss the express foxes. unusual, '),
-  (55808,1207,'F',260339.26,date('1995-02-15'),'4-NOT SPECIFIED','Clerk#000000384',0,' even dolphins wake carefully theodolites. slyly even pinto beans '),
+  (55808,1207,'F',260339.26,date('1995-02-15'),'4-NOT SPECIFIED','Clerk#000000384',0,' even dolphins wake carefully theodolites. slyly even pinto beans ')
+
+statement ok
+INSERT INTO orders VALUES 
   (55809,1133,'O',146704.89,date('1995-09-11'),'1-URGENT','Clerk#000000196',0,' furiously regular instructions. final attai'),
   (55810,649,'O',257421.66,date('1996-04-08'),'3-MEDIUM','Clerk#000000295',0,'ic dependencies sleep carefully final theodolites. blithely even platelets'),
   (55811,845,'O',72367.26,date('1998-06-06'),'2-HIGH','Clerk#000000952',0,'ole quickly carefully ironic foxes: ideas across the furiously bold pinto'),
@@ -14080,7 +14407,10 @@ INSERT INTO orders VALUES
   (56293,392,'F',145600.83,date('1993-01-06'),'4-NOT SPECIFIED','Clerk#000000171',0,'ccounts wake carefully across'),
   (56294,1294,'O',214708.01,date('1998-02-02'),'3-MEDIUM','Clerk#000000035',0,'l deposits. blithely ironic grouches '),
   (56295,1009,'F',124139.22,date('1995-02-24'),'5-LOW','Clerk#000000426',0,'ronic dependencies after the furi'),
-  (56320,679,'O',124061.19,date('1997-08-31'),'5-LOW','Clerk#000000616',0,'g, even foxes integrate blithely fluffily regular pack'),
+  (56320,679,'O',124061.19,date('1997-08-31'),'5-LOW','Clerk#000000616',0,'g, even foxes integrate blithely fluffily regular pack')
+
+statement ok
+INSERT INTO orders VALUES 
   (56321,424,'F',316056.46,date('1993-04-17'),'1-URGENT','Clerk#000000669',0,'g dependencies. unus'),
   (56322,127,'O',152161.13,date('1995-10-01'),'3-MEDIUM','Clerk#000000031',0,'arefully slyly fina'),
   (56323,1213,'O',187979.89,date('1996-12-13'),'1-URGENT','Clerk#000000769',0,'nic, bold accounts. furiously'),
@@ -14208,7 +14538,10 @@ INSERT INTO orders VALUES
   (56805,287,'F',274018.73,date('1992-06-06'),'2-HIGH','Clerk#000000286',0,'ual packages poach alo'),
   (56806,349,'O',85179.13,date('1997-10-31'),'3-MEDIUM','Clerk#000000831',0,'uctions. regular, e'),
   (56807,907,'F',91689.65,date('1994-04-22'),'2-HIGH','Clerk#000000113',0,'. fluffily regular packages haggle furiously acros'),
-  (56832,1150,'O',161962.53,date('1997-03-01'),'4-NOT SPECIFIED','Clerk#000000036',0,'requests sleep quickly. blithely special deposits '),
+  (56832,1150,'O',161962.53,date('1997-03-01'),'4-NOT SPECIFIED','Clerk#000000036',0,'requests sleep quickly. blithely special deposits ')
+
+statement ok
+INSERT INTO orders VALUES 
   (56833,1223,'F',159655.69,date('1994-09-06'),'3-MEDIUM','Clerk#000000266',0,'quickly final requests are above the furiously ironic dep'),
   (56834,1294,'P',143728.36,date('1995-05-02'),'2-HIGH','Clerk#000000716',0,'furiously above the carefully unusual deposi'),
   (56835,637,'F',166342.74,date('1993-02-21'),'4-NOT SPECIFIED','Clerk#000000315',0,'tions use furiously according to the regular asy'),
@@ -14336,7 +14669,10 @@ INSERT INTO orders VALUES
   (57317,424,'O',23761.19,date('1995-12-25'),'3-MEDIUM','Clerk#000000842',0,'posits haggle slyly against the'),
   (57318,50,'F',223735.22,date('1993-01-11'),'3-MEDIUM','Clerk#000000221',0,'e along the even, even ideas. final requests wake blithely. regula'),
   (57319,514,'F',193303.45,date('1992-10-18'),'5-LOW','Clerk#000000725',0,'ic grouches sleep thin deposits. packages after the pending, si'),
-  (57344,571,'F',69719.15,date('1993-09-25'),'2-HIGH','Clerk#000000650',0,'y above the slyly even accounts. slyly bold deposits'),
+  (57344,571,'F',69719.15,date('1993-09-25'),'2-HIGH','Clerk#000000650',0,'y above the slyly even accounts. slyly bold deposits')
+
+statement ok
+INSERT INTO orders VALUES 
   (57345,1408,'O',132998.04,date('1998-07-17'),'4-NOT SPECIFIED','Clerk#000000830',0,'iously ironic asymptotes boost quickly. even ideas doze quickly a'),
   (57346,1498,'F',50050.53,date('1992-01-31'),'2-HIGH','Clerk#000000344',0,'requests affix furiously. silent instructions cajol'),
   (57347,262,'O',191964.02,date('1996-12-09'),'5-LOW','Clerk#000000377',0,'ccounts. carefully ironic accounts nag carefully busy frays. care'),
@@ -14464,7 +14800,10 @@ INSERT INTO orders VALUES
   (57829,800,'F',79126.58,date('1994-03-06'),'3-MEDIUM','Clerk#000000285',0,'al, regular pinto beans. slyly regular asymptotes haggle. pending, ironic acc'),
   (57830,91,'O',110841.38,date('1995-08-24'),'3-MEDIUM','Clerk#000000772',0,'o beans affix carefully. quickly pending deposits ca'),
   (57831,265,'O',178288.06,date('1996-10-10'),'2-HIGH','Clerk#000000316',0,'fully final asymptotes haggle'),
-  (57856,676,'F',51333.42,date('1994-02-13'),'3-MEDIUM','Clerk#000000570',0,' after the regular, ironic accounts. blithely ironic excuses along th'),
+  (57856,676,'F',51333.42,date('1994-02-13'),'3-MEDIUM','Clerk#000000570',0,' after the regular, ironic accounts. blithely ironic excuses along th')
+
+statement ok
+INSERT INTO orders VALUES 
   (57857,661,'F',303399.76,date('1993-05-02'),'2-HIGH','Clerk#000000504',0,'courts haggle bold, ironic accounts. foxes w'),
   (57858,928,'O',246457.72,date('1995-10-31'),'1-URGENT','Clerk#000000181',0,'ake around the packages. deposits are blithely final request'),
   (57859,790,'O',294466.65,date('1997-05-26'),'1-URGENT','Clerk#000000192',0,'ully final pinto beans during the slyly final '),
@@ -14592,7 +14931,10 @@ INSERT INTO orders VALUES
   (58341,604,'F',3221.16,date('1995-02-09'),'4-NOT SPECIFIED','Clerk#000000694',0,'ross the express instruction'),
   (58342,547,'P',198469.14,date('1995-04-02'),'2-HIGH','Clerk#000000143',0,'e across the bold, expres'),
   (58343,43,'F',184778.27,date('1994-01-10'),'4-NOT SPECIFIED','Clerk#000000333',0,'uickly above the blithely final packages? spec'),
-  (58368,1352,'F',237598.61,date('1992-07-10'),'2-HIGH','Clerk#000000121',0,'ely special requests after the slyly ruthless p'),
+  (58368,1352,'F',237598.61,date('1992-07-10'),'2-HIGH','Clerk#000000121',0,'ely special requests after the slyly ruthless p')
+
+statement ok
+INSERT INTO orders VALUES 
   (58369,1411,'F',120845.25,date('1992-08-31'),'2-HIGH','Clerk#000000467',0,'s. dinos snooze slyly furiously final dependencies. quickly dogged depos'),
   (58370,1222,'F',137851.22,date('1992-04-02'),'5-LOW','Clerk#000000220',0,' around the quickly even accounts. blithely express requests according to'),
   (58371,260,'F',366479.63,date('1993-05-12'),'3-MEDIUM','Clerk#000000645',0,'se around the blithely final deposits. furiously regular deposits'),
@@ -14720,7 +15062,10 @@ INSERT INTO orders VALUES
   (58853,374,'F',39822.10,date('1992-05-14'),'1-URGENT','Clerk#000000932',0,'unts. slyly bold Tiresias w'),
   (58854,1225,'F',239478.65,date('1993-04-25'),'1-URGENT','Clerk#000000612',0,'regular platelets wake furiously furiously bold foxes.'),
   (58855,575,'F',84326.17,date('1993-11-01'),'3-MEDIUM','Clerk#000000604',0,'requests boost slyly unusual accounts. regular, final'),
-  (58880,1330,'F',201213.06,date('1995-01-08'),'3-MEDIUM','Clerk#000000313',0,'ly express packages. care'),
+  (58880,1330,'F',201213.06,date('1995-01-08'),'3-MEDIUM','Clerk#000000313',0,'ly express packages. care')
+
+statement ok
+INSERT INTO orders VALUES 
   (58881,560,'O',312748.19,date('1996-03-01'),'4-NOT SPECIFIED','Clerk#000000367',0,' the slyly ruthless packages n'),
   (58882,323,'F',29720.38,date('1994-03-29'),'1-URGENT','Clerk#000000918',0,'f the slyly pending accounts haggle fluffily about the'),
   (58883,1291,'F',237823.70,date('1992-08-13'),'5-LOW','Clerk#000000104',0,'ckly regular accounts cajole slyly. slyly iro'),
@@ -14848,7 +15193,10 @@ INSERT INTO orders VALUES
   (59365,937,'F',141737.49,date('1994-12-08'),'3-MEDIUM','Clerk#000000535',0,'efully against the bold, express excuses. blithely even requests snooz'),
   (59366,148,'P',202743.32,date('1995-04-23'),'2-HIGH','Clerk#000000161',0,'ic theodolites detect above the ironic packages-- pinto '),
   (59367,64,'O',244282.09,date('1996-09-27'),'2-HIGH','Clerk#000000319',0,'ages use furiously pending dependenc'),
-  (59392,115,'F',203982.07,date('1993-06-27'),'3-MEDIUM','Clerk#000000604',0,'carefully even asymptotes boost quic'),
+  (59392,115,'F',203982.07,date('1993-06-27'),'3-MEDIUM','Clerk#000000604',0,'carefully even asymptotes boost quic')
+
+statement ok
+INSERT INTO orders VALUES 
   (59393,1174,'F',247675.80,date('1993-11-21'),'3-MEDIUM','Clerk#000000576',0,'ic asymptotes haggle even, unusual packages. regularly ironic packages n'),
   (59394,1129,'O',210330.16,date('1997-06-26'),'1-URGENT','Clerk#000000484',0,'platelets integrate. blithely regular theodolites haggle blithely. '),
   (59395,499,'F',44176.67,date('1992-04-23'),'1-URGENT','Clerk#000000450',0,'ithely special ideas along the fluffily final deposits nag in place of the car'),
@@ -14976,7 +15324,10 @@ INSERT INTO orders VALUES
   (59877,667,'F',96214.77,date('1993-05-26'),'1-URGENT','Clerk#000000654',0,'ly final accounts haggle upon the blithely final pin'),
   (59878,1147,'F',254529.11,date('1992-05-29'),'2-HIGH','Clerk#000000360',0,'ironic asymptotes wake slyly! quickly close '),
   (59879,470,'F',57566.87,date('1994-03-10'),'4-NOT SPECIFIED','Clerk#000000205',0,'al packages are slyly about the theodolit'),
-  (59904,772,'F',65146.49,date('1992-03-25'),'5-LOW','Clerk#000000486',0,'s. furiously ironic '),
+  (59904,772,'F',65146.49,date('1992-03-25'),'5-LOW','Clerk#000000486',0,'s. furiously ironic ')
+
+statement ok
+INSERT INTO orders VALUES 
   (59905,475,'F',151664.46,date('1992-04-15'),'2-HIGH','Clerk#000000684',0,'counts haggle furiously even packages. even, e'),
   (59906,505,'F',181481.12,date('1993-05-21'),'2-HIGH','Clerk#000000313',0,'as are according to the carefully final foxes. fluffily'),
   (59907,715,'O',231964.11,date('1997-01-09'),'5-LOW','Clerk#000000730',0,'deposits hinder furiously. final deposits hinder bli'),
@@ -15001,4 +15352,5 @@ INSERT INTO orders VALUES
   (59974,761,'O',63273.39,date('1995-12-05'),'2-HIGH','Clerk#000000862',0,'counts. even, ironic packages cajole ironic '),
   (59975,706,'F',59995.27,date('1993-12-22'),'5-LOW','Clerk#000000193',0,'. even packages affix fluffily against '),
   (60000,1426,'P',299401.61,date('1995-04-21'),'2-HIGH','Clerk#000000194',0,'usual frets use alongside of the furiou')
+
 

@@ -128,7 +128,10 @@ INSERT INTO part VALUES
   (125,'mint ivory saddle peach midnight','Manufacturer#1','Brand#12','STANDARD BRUSHED BRASS',17,'WRAP BAG',1025.12,'kages against'),
   (126,'burnished black blue metallic orchid','Manufacturer#4','Brand#45','MEDIUM BRUSHED NICKEL',4,'LG BAG',1026.12,'es sleep al'),
   (127,'royal coral orchid spring sky','Manufacturer#5','Brand#52','SMALL BURNISHED NICKEL',14,'LG JAR',1027.12,'lithely expr'),
-  (128,'dark burlywood burnished snow sky','Manufacturer#2','Brand#22','PROMO PLATED TIN',5,'SM BAG',1028.12,'e of the furiously ex'),
+  (128,'dark burlywood burnished snow sky','Manufacturer#2','Brand#22','PROMO PLATED TIN',5,'SM BAG',1028.12,'e of the furiously ex')
+
+statement ok
+INSERT INTO part VALUES 
   (129,'grey spring chiffon thistle lime','Manufacturer#1','Brand#15','LARGE POLISHED TIN',20,'SM JAR',1029.12,' careful'),
   (130,'gainsboro powder cyan pale rosy','Manufacturer#2','Brand#23','SMALL PLATED NICKEL',26,'LG BOX',1030.13,'ake slyly'),
   (131,'tomato moccasin cyan brown goldenrod','Manufacturer#5','Brand#52','STANDARD ANODIZED BRASS',43,'MED DRUM',1031.13,'nts wake dar'),
@@ -256,7 +259,10 @@ INSERT INTO part VALUES
   (253,'blanched ghost turquoise burlywood spring','Manufacturer#4','Brand#45','PROMO ANODIZED TIN',16,'LG PKG',1153.25,'he even, re'),
   (254,'navy light red royal olive','Manufacturer#4','Brand#44','MEDIUM PLATED TIN',10,'MED JAR',1154.25,'ly at t'),
   (255,'aquamarine seashell grey navy white','Manufacturer#2','Brand#21','LARGE ANODIZED NICKEL',24,'JUMBO CAN',1155.25,'fter the c'),
-  (256,'royal cream lawn purple powder','Manufacturer#3','Brand#32','LARGE BURNISHED TIN',2,'SM DRUM',1156.25,'bove the fur'),
+  (256,'royal cream lawn purple powder','Manufacturer#3','Brand#32','LARGE BURNISHED TIN',2,'SM DRUM',1156.25,'bove the fur')
+
+statement ok
+INSERT INTO part VALUES 
   (257,'blue gainsboro maroon green burnished','Manufacturer#4','Brand#41','ECONOMY POLISHED COPPER',11,'SM JAR',1157.25,'riously final foxes'),
   (258,'royal frosted blue pale dim','Manufacturer#4','Brand#43','STANDARD ANODIZED COPPER',18,'WRAP DRUM',1158.25,'leep blith'),
   (259,'ghost puff sky linen burnished','Manufacturer#2','Brand#23','SMALL BURNISHED BRASS',41,'WRAP PACK',1159.25,'l platelets. evenly '),
@@ -384,7 +390,10 @@ INSERT INTO part VALUES
   (381,'sienna peach wheat linen tomato','Manufacturer#5','Brand#53','ECONOMY ANODIZED COPPER',37,'LG CASE',1281.38,'ons. furiousl'),
   (382,'honeydew ghost lace plum sky','Manufacturer#4','Brand#41','LARGE POLISHED BRASS',4,'SM CAN',1282.38,'blithely '),
   (383,'seashell tan purple almond coral','Manufacturer#2','Brand#23','SMALL BRUSHED COPPER',45,'SM PACK',1283.38,'telet'),
-  (384,'papaya thistle rosy rose puff','Manufacturer#4','Brand#43','STANDARD BURNISHED TIN',2,'WRAP CAN',1284.38,'blithel'),
+  (384,'papaya thistle rosy rose puff','Manufacturer#4','Brand#43','STANDARD BURNISHED TIN',2,'WRAP CAN',1284.38,'blithel')
+
+statement ok
+INSERT INTO part VALUES 
   (385,'snow chocolate ivory lemon magenta','Manufacturer#1','Brand#12','STANDARD PLATED TIN',41,'WRAP JAR',1285.38,'nts wake '),
   (386,'red blanched thistle bisque wheat','Manufacturer#1','Brand#13','STANDARD PLATED STEEL',4,'SM BOX',1286.38,'ests. final a'),
   (387,'smoke white metallic sky firebrick','Manufacturer#3','Brand#34','LARGE BRUSHED COPPER',23,'WRAP CASE',1287.38,'gular w'),
@@ -512,7 +521,10 @@ INSERT INTO part VALUES
   (509,'tomato cornsilk chartreuse blue magenta','Manufacturer#1','Brand#13','MEDIUM BRUSHED NICKEL',30,'MED CAN',1409.50,'eposits. slyly'),
   (510,'blush thistle orchid red lace','Manufacturer#4','Brand#43','SMALL PLATED NICKEL',25,'JUMBO PACK',1410.51,'al platelets. iro'),
   (511,'red pale plum orchid moccasin','Manufacturer#1','Brand#15','STANDARD BRUSHED COPPER',2,'LG JAR',1411.51,'ss package'),
-  (512,'firebrick azure mint chocolate wheat','Manufacturer#5','Brand#51','PROMO ANODIZED COPPER',18,'LG PACK',1412.51,'dolphins cajo'),
+  (512,'firebrick azure mint chocolate wheat','Manufacturer#5','Brand#51','PROMO ANODIZED COPPER',18,'LG PACK',1412.51,'dolphins cajo')
+
+statement ok
+INSERT INTO part VALUES 
   (513,'mint thistle chiffon magenta salmon','Manufacturer#3','Brand#32','MEDIUM BRUSHED STEEL',10,'WRAP CAN',1413.51,' after th'),
   (514,'rosy sienna purple light rose','Manufacturer#4','Brand#42','LARGE POLISHED BRASS',10,'JUMBO BOX',1414.51,'omise'),
   (515,'cream navajo drab dark peru','Manufacturer#5','Brand#53','MEDIUM PLATED TIN',37,'WRAP BOX',1415.51,'ular asymptotes im'),
@@ -640,7 +652,10 @@ INSERT INTO part VALUES
   (637,'brown smoke sandy honeydew antique','Manufacturer#5','Brand#51','LARGE BURNISHED NICKEL',48,'JUMBO CASE',1537.63,'oxes after the blithel'),
   (638,'lace royal pink cornsilk antique','Manufacturer#5','Brand#54','SMALL PLATED TIN',37,'JUMBO PACK',1538.63,' carefully. blithely '),
   (639,'black plum tomato cornflower medium','Manufacturer#2','Brand#25','STANDARD POLISHED BRASS',33,'SM BAG',1539.63,'s cajole quickly. care'),
-  (640,'grey seashell bisque indian deep','Manufacturer#1','Brand#12','MEDIUM BRUSHED TIN',20,'WRAP CASE',1540.64,'ly regular acco'),
+  (640,'grey seashell bisque indian deep','Manufacturer#1','Brand#12','MEDIUM BRUSHED TIN',20,'WRAP CASE',1540.64,'ly regular acco')
+
+statement ok
+INSERT INTO part VALUES 
   (641,'mint saddle yellow sienna frosted','Manufacturer#5','Brand#55','MEDIUM PLATED COPPER',18,'SM JAR',1541.64,' bold instr'),
   (642,'moccasin ghost sandy goldenrod cornsilk','Manufacturer#4','Brand#43','ECONOMY BRUSHED BRASS',12,'MED PACK',1542.64,' bold packages bey'),
   (643,'frosted chocolate dodger honeydew ghost','Manufacturer#3','Brand#32','MEDIUM POLISHED STEEL',8,'MED DRUM',1543.64,'refully fina'),
@@ -768,7 +783,10 @@ INSERT INTO part VALUES
   (765,'thistle red smoke chartreuse orange','Manufacturer#3','Brand#35','STANDARD BRUSHED BRASS',3,'WRAP BAG',1665.76,'ly regular pint'),
   (766,'midnight sienna orange gainsboro black','Manufacturer#2','Brand#24','MEDIUM BURNISHED NICKEL',20,'MED PACK',1666.76,'inal ideas. asy'),
   (767,'blush firebrick misty blanched purple','Manufacturer#2','Brand#24','LARGE POLISHED TIN',50,'MED DRUM',1667.76,'ts. carefully unu'),
-  (768,'maroon gainsboro seashell hot sandy','Manufacturer#4','Brand#43','LARGE BRUSHED COPPER',41,'SM DRUM',1668.76,'olites haggle: car'),
+  (768,'maroon gainsboro seashell hot sandy','Manufacturer#4','Brand#43','LARGE BRUSHED COPPER',41,'SM DRUM',1668.76,'olites haggle: car')
+
+statement ok
+INSERT INTO part VALUES 
   (769,'tomato royal firebrick turquoise cream','Manufacturer#2','Brand#24','MEDIUM BRUSHED TIN',8,'LG CASE',1669.76,'ake carefull'),
   (770,'lemon yellow coral deep lime','Manufacturer#2','Brand#25','LARGE BRUSHED TIN',7,'SM PACK',1670.77,'ave ideas. '),
   (771,'plum maroon lavender tan firebrick','Manufacturer#1','Brand#15','SMALL BURNISHED TIN',17,'LG DRUM',1671.77,' cajole slyly fina'),
@@ -896,7 +914,10 @@ INSERT INTO part VALUES
   (893,'dark moccasin bisque cyan azure','Manufacturer#1','Brand#14','PROMO BRUSHED STEEL',9,'LG JAR',1793.89,'ly regular '),
   (894,'chocolate blue smoke azure sandy','Manufacturer#3','Brand#35','SMALL BURNISHED TIN',43,'MED BAG',1794.89,'s. carefully expr'),
   (895,'thistle azure magenta mint burnished','Manufacturer#4','Brand#41','MEDIUM BRUSHED STEEL',17,'SM BOX',1795.89,'eaves might'),
-  (896,'peach ivory rose honeydew lace','Manufacturer#4','Brand#43','PROMO ANODIZED TIN',7,'LG CASE',1796.89,'e across'),
+  (896,'peach ivory rose honeydew lace','Manufacturer#4','Brand#43','PROMO ANODIZED TIN',7,'LG CASE',1796.89,'e across')
+
+statement ok
+INSERT INTO part VALUES 
   (897,'misty olive purple cream red','Manufacturer#4','Brand#41','SMALL BRUSHED COPPER',26,'SM JAR',1797.89,'cajole bli'),
   (898,'olive burlywood royal cream drab','Manufacturer#4','Brand#45','PROMO POLISHED NICKEL',8,'WRAP BAG',1798.89,'e against the pack'),
   (899,'gainsboro dim misty violet coral','Manufacturer#2','Brand#25','SMALL ANODIZED NICKEL',50,'WRAP CASE',1799.89,'lithely pending excuse'),
@@ -1024,7 +1045,10 @@ INSERT INTO part VALUES
   (1021,'navy wheat gainsboro red light','Manufacturer#3','Brand#33','PROMO ANODIZED TIN',46,'JUMBO BAG',922.02,'ckages above th'),
   (1022,'slate mint plum drab khaki','Manufacturer#1','Brand#13','SMALL BURNISHED COPPER',33,'WRAP CAN',923.02,'sly quickly '),
   (1023,'grey blanched mint firebrick snow','Manufacturer#2','Brand#24','PROMO POLISHED COPPER',50,'SM CASE',924.02,'ideas use slyly. care'),
-  (1024,'maroon sienna puff ghost chiffon','Manufacturer#5','Brand#55','SMALL POLISHED COPPER',2,'MED PACK',925.02,'ges ar'),
+  (1024,'maroon sienna puff ghost chiffon','Manufacturer#5','Brand#55','SMALL POLISHED COPPER',2,'MED PACK',925.02,'ges ar')
+
+statement ok
+INSERT INTO part VALUES 
   (1025,'olive pale steel peru coral','Manufacturer#2','Brand#25','STANDARD ANODIZED COPPER',25,'LG DRUM',926.02,'ilent '),
   (1026,'slate smoke hot lawn red','Manufacturer#4','Brand#41','ECONOMY ANODIZED TIN',47,'SM CAN',927.02,'counts maintain theo'),
   (1027,'powder aquamarine papaya floral puff','Manufacturer#3','Brand#31','PROMO ANODIZED NICKEL',9,'JUMBO BAG',928.02,'riously ironic platel'),
@@ -1152,7 +1176,10 @@ INSERT INTO part VALUES
   (1149,'peru sky almond aquamarine drab','Manufacturer#4','Brand#42','STANDARD POLISHED BRASS',35,'MED BOX',1050.14,'s wake furiousl'),
   (1150,'orange tomato maroon puff pale','Manufacturer#2','Brand#21','LARGE POLISHED TIN',20,'WRAP CAN',1051.15,' theodol'),
   (1151,'drab cyan orange blush forest','Manufacturer#4','Brand#44','ECONOMY POLISHED NICKEL',23,'MED PACK',1052.15,'ts sleep '),
-  (1152,'navy turquoise antique bisque cyan','Manufacturer#5','Brand#52','PROMO BRUSHED TIN',32,'LG BAG',1053.15,'s boos'),
+  (1152,'navy turquoise antique bisque cyan','Manufacturer#5','Brand#52','PROMO BRUSHED TIN',32,'LG BAG',1053.15,'s boos')
+
+statement ok
+INSERT INTO part VALUES 
   (1153,'black metallic tomato khaki rosy','Manufacturer#5','Brand#54','MEDIUM BRUSHED TIN',35,'LG CAN',1054.15,'uction'),
   (1154,'peach peru black pale floral','Manufacturer#1','Brand#15','STANDARD BURNISHED NICKEL',8,'JUMBO DRUM',1055.15,' express'),
   (1155,'light honeydew moccasin spring turquoise','Manufacturer#2','Brand#22','MEDIUM PLATED STEEL',40,'LG BOX',1056.15,'sits about the slyl'),
@@ -1280,7 +1307,10 @@ INSERT INTO part VALUES
   (1277,'grey floral cream purple green','Manufacturer#3','Brand#31','PROMO BURNISHED STEEL',48,'JUMBO DRUM',1178.27,'pinto beans cajol'),
   (1278,'steel floral orange moccasin mint','Manufacturer#4','Brand#43','STANDARD PLATED STEEL',13,'JUMBO JAR',1179.27,'f the '),
   (1279,'steel papaya chocolate indian antique','Manufacturer#2','Brand#24','STANDARD BRUSHED STEEL',40,'WRAP PACK',1180.27,'. slyly '),
-  (1280,'peach red violet floral snow','Manufacturer#3','Brand#35','PROMO PLATED NICKEL',37,'SM DRUM',1181.28,' deposits sleep blith'),
+  (1280,'peach red violet floral snow','Manufacturer#3','Brand#35','PROMO PLATED NICKEL',37,'SM DRUM',1181.28,' deposits sleep blith')
+
+statement ok
+INSERT INTO part VALUES 
   (1281,'pale saddle almond misty lemon','Manufacturer#4','Brand#44','STANDARD BURNISHED STEEL',41,'LG PKG',1182.28,'its detect. b'),
   (1282,'peach sienna frosted navajo tan','Manufacturer#1','Brand#14','STANDARD POLISHED TIN',33,'WRAP PACK',1183.28,'gular asymptot'),
   (1283,'drab burnished white black lavender','Manufacturer#2','Brand#22','PROMO BURNISHED BRASS',7,'JUMBO DRUM',1184.28,'lyly even ideas! even'),
@@ -1408,7 +1438,10 @@ INSERT INTO part VALUES
   (1405,'white antique aquamarine dim ivory','Manufacturer#3','Brand#33','ECONOMY POLISHED BRASS',14,'LG CAN',1306.40,'ress p'),
   (1406,'almond misty chiffon dodger goldenrod','Manufacturer#3','Brand#34','STANDARD BRUSHED STEEL',26,'JUMBO CAN',1307.40,' final p'),
   (1407,'cornflower peru seashell orchid beige','Manufacturer#5','Brand#55','PROMO ANODIZED NICKEL',25,'LG CAN',1308.40,'ilent fox'),
-  (1408,'misty moccasin forest floral cream','Manufacturer#1','Brand#12','STANDARD BURNISHED BRASS',17,'JUMBO CAN',1309.40,'e. esca'),
+  (1408,'misty moccasin forest floral cream','Manufacturer#1','Brand#12','STANDARD BURNISHED BRASS',17,'JUMBO CAN',1309.40,'e. esca')
+
+statement ok
+INSERT INTO part VALUES 
   (1409,'floral goldenrod medium chocolate mint','Manufacturer#2','Brand#22','SMALL BURNISHED COPPER',11,'SM BAG',1310.40,'xes about '),
   (1410,'pink orchid lemon firebrick olive','Manufacturer#4','Brand#43','SMALL ANODIZED COPPER',44,'LG PACK',1311.41,'ke fu'),
   (1411,'firebrick pink grey saddle peach','Manufacturer#5','Brand#55','PROMO BRUSHED NICKEL',2,'JUMBO DRUM',1312.41,'are sl'),
@@ -1536,7 +1569,10 @@ INSERT INTO part VALUES
   (1533,'sky violet magenta steel slate','Manufacturer#1','Brand#12','MEDIUM PLATED TIN',48,'MED PKG',1434.53,'s wake carefully e'),
   (1534,'puff mint dodger hot seashell','Manufacturer#2','Brand#24','MEDIUM BURNISHED TIN',48,'MED PKG',1435.53,'nts ar'),
   (1535,'burlywood thistle royal blush ghost','Manufacturer#3','Brand#31','LARGE BURNISHED NICKEL',5,'WRAP CASE',1436.53,'s. blithely unusual d'),
-  (1536,'brown thistle magenta wheat blanched','Manufacturer#2','Brand#24','PROMO ANODIZED BRASS',50,'MED BOX',1437.53,'p blithely ironic '),
+  (1536,'brown thistle magenta wheat blanched','Manufacturer#2','Brand#24','PROMO ANODIZED BRASS',50,'MED BOX',1437.53,'p blithely ironic ')
+
+statement ok
+INSERT INTO part VALUES 
   (1537,'orange tan medium drab midnight','Manufacturer#2','Brand#21','ECONOMY POLISHED STEEL',33,'LG JAR',1438.53,'ly regula'),
   (1538,'drab khaki lavender bisque plum','Manufacturer#3','Brand#35','SMALL ANODIZED STEEL',43,'WRAP DRUM',1439.53,' unusual '),
   (1539,'yellow orchid blue olive lavender','Manufacturer#5','Brand#54','SMALL POLISHED TIN',46,'WRAP CASE',1440.53,'y furiou'),
@@ -1664,7 +1700,10 @@ INSERT INTO part VALUES
   (1661,'metallic sky chiffon plum steel','Manufacturer#3','Brand#34','ECONOMY ANODIZED COPPER',41,'SM PKG',1562.66,'fluffily final account'),
   (1662,'black linen ghost coral magenta','Manufacturer#1','Brand#11','ECONOMY BRUSHED STEEL',34,'MED PKG',1563.66,' impress furiou'),
   (1663,'yellow blue slate hot honeydew','Manufacturer#2','Brand#23','PROMO ANODIZED COPPER',2,'WRAP PACK',1564.66,' instructions. '),
-  (1664,'antique brown tan red mint','Manufacturer#2','Brand#22','SMALL ANODIZED BRASS',31,'MED CASE',1565.66,'xpress Tiresia'),
+  (1664,'antique brown tan red mint','Manufacturer#2','Brand#22','SMALL ANODIZED BRASS',31,'MED CASE',1565.66,'xpress Tiresia')
+
+statement ok
+INSERT INTO part VALUES 
   (1665,'seashell almond frosted medium blanched','Manufacturer#4','Brand#45','STANDARD BURNISHED BRASS',27,'WRAP DRUM',1566.66,'sts after the'),
   (1666,'chiffon saddle snow ghost blanched','Manufacturer#3','Brand#35','LARGE PLATED BRASS',24,'WRAP PKG',1567.66,'egular instructions.'),
   (1667,'pale firebrick cornflower cyan violet','Manufacturer#3','Brand#34','SMALL ANODIZED STEEL',23,'LG BAG',1568.66,'er the blithely f'),
@@ -1792,7 +1831,10 @@ INSERT INTO part VALUES
   (1789,'lavender chartreuse turquoise rose peach','Manufacturer#2','Brand#21','PROMO PLATED STEEL',29,'WRAP PKG',1690.78,'e slyly silen'),
   (1790,'blush peru gainsboro dodger sandy','Manufacturer#3','Brand#32','ECONOMY PLATED COPPER',31,'MED CAN',1691.79,'special '),
   (1791,'smoke coral floral turquoise goldenrod','Manufacturer#1','Brand#14','LARGE BRUSHED NICKEL',18,'WRAP PACK',1692.79,'ic ins'),
-  (1792,'red rose brown saddle steel','Manufacturer#4','Brand#42','SMALL PLATED TIN',30,'SM PACK',1693.79,' fluffily above the bl'),
+  (1792,'red rose brown saddle steel','Manufacturer#4','Brand#42','SMALL PLATED TIN',30,'SM PACK',1693.79,' fluffily above the bl')
+
+statement ok
+INSERT INTO part VALUES 
   (1793,'turquoise thistle purple salmon dim','Manufacturer#1','Brand#13','ECONOMY BURNISHED NICKEL',27,'LG PKG',1694.79,'lar deposits doze '),
   (1794,'slate green blush thistle linen','Manufacturer#3','Brand#32','ECONOMY BRUSHED NICKEL',11,'SM PKG',1695.79,'ages. sl'),
   (1795,'beige thistle smoke moccasin rose','Manufacturer#4','Brand#43','ECONOMY ANODIZED TIN',13,'MED JAR',1696.79,'ly special ac'),
@@ -1920,7 +1962,10 @@ INSERT INTO part VALUES
   (1917,'blush lemon steel peach gainsboro','Manufacturer#4','Brand#41','PROMO ANODIZED NICKEL',9,'MED BOX',1818.91,'wake quickly reg'),
   (1918,'khaki almond wheat peru maroon','Manufacturer#2','Brand#24','LARGE ANODIZED NICKEL',38,'JUMBO BOX',1819.91,' fluffily regular p'),
   (1919,'moccasin frosted rosy lace goldenrod','Manufacturer#3','Brand#32','SMALL BRUSHED STEEL',39,'WRAP BOX',1820.91,'hy ideas wil'),
-  (1920,'papaya cornsilk light ghost orange','Manufacturer#2','Brand#24','STANDARD POLISHED NICKEL',26,'LG DRUM',1821.92,'carefully against the '),
+  (1920,'papaya cornsilk light ghost orange','Manufacturer#2','Brand#24','STANDARD POLISHED NICKEL',26,'LG DRUM',1821.92,'carefully against the ')
+
+statement ok
+INSERT INTO part VALUES 
   (1921,'frosted beige olive blue navajo','Manufacturer#4','Brand#45','LARGE BRUSHED STEEL',6,'LG BOX',1822.92,'unts are careful'),
   (1922,'seashell antique royal indian chartreuse','Manufacturer#5','Brand#52','PROMO BRUSHED NICKEL',32,'SM DRUM',1823.92,'sts. '),
   (1923,'purple brown drab burlywood puff','Manufacturer#1','Brand#12','STANDARD BURNISHED STEEL',8,'WRAP JAR',1824.92,'ter the carefull'),
@@ -2001,4 +2046,5 @@ INSERT INTO part VALUES
   (1998,'steel plum violet almond mint','Manufacturer#2','Brand#25','LARGE BURNISHED TIN',37,'WRAP PACK',1899.99,'deas '),
   (1999,'frosted cornflower ghost lime smoke','Manufacturer#2','Brand#25','LARGE BURNISHED BRASS',35,'SM PKG',1900.99,'l ideas! carefully ru'),
   (2000,'wheat blush green puff tan','Manufacturer#1','Brand#12','PROMO ANODIZED STEEL',46,'SM BAG',902.00,'ajole carefully')
+
 

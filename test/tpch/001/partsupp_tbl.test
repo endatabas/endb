@@ -128,7 +128,10 @@ INSERT INTO partsupp VALUES
   (32,33,2203,406.03,'es? slyly enticing dugouts haggle carefully. regular packages alongside of the asymptotes are carefull'),
   (32,58,467,109.34,'ainst the unusual braids nod fluffily packages. regular packages nod among the slyly express'),
   (32,83,7975,747.14,'final foxes boost furiously pending packages. quickly regular depths promise blithely accoun'),
-  (32,8,7938,856.09,'s integrate according to the even dependencies. carefully regular reque'),
+  (32,8,7938,856.09,'s integrate according to the even dependencies. carefully regular reque')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (33,34,4028,891.46,', pending requests affix slyly. slyly ironic deposits wake accounts. express accounts sleep slowly. ironic, express accounts run carefully fluffily final dependencies. furiously unusual ideas'),
   (33,59,4410,929.05,' packages sleep carefully. slyly final instructions boost. slyly even requests among the carefully pending platelets wake along the final accounts. quickly expre'),
   (33,84,1287,310.76,'dolites above the slyly express deposits try to haggle blithely special gifts. blithely ironic reque'),
@@ -256,7 +259,10 @@ INSERT INTO partsupp VALUES
   (64,65,5567,228.61,'y even instructions. unusual requests serve slyly. special foxes sleep quickly. fluffily ir'),
   (64,90,4542,398.92,'. quickly final ideas cajole carefully among the blithely silent requests. sometimes ironic accounts nag furiously against the pending instructions. f'),
   (64,15,9110,602.65,' ironic accounts are carefully carefully final accounts. slyly ironic packa'),
-  (64,40,2064,25.77,' quickly regular ideas. carefully final requests snooze carefully regular, regular instructions. stealthily final pi'),
+  (64,40,2064,25.77,' quickly regular ideas. carefully final requests snooze carefully regular, regular instructions. stealthily final pi')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (65,66,2918,846.26,'inal, even foxes cajole. furiously final dolphins hang quickly ironic foxes. furiously special packages alongside of the bold foxes solve above the carefully final instructio'),
   (65,91,1779,393.63,'ully after the quickly regular ideas. ironic, final multipliers above the carefully bold deposits breach slyly furiously express deposits. unusual accounts haggle carefully idea'),
   (65,16,2054,503.10,'e express excuses. ironic, even accounts across the reg'),
@@ -384,7 +390,10 @@ INSERT INTO partsupp VALUES
   (96,97,5739,202.06,'re. slyly regular theodolites breach slyly even dinos. fluffily regular asymptotes haggle slyly. fluffily bold courts affix furiously. regular requests '),
   (96,22,4942,571.30,'e carefully. bold packages sleep against the furiously express requests. express foxes above the dependencies use quickly according to the slyly expres'),
   (96,47,9985,672.29,'ecial instructions-- blithely silent theodolites play. even, silent accounts sleep. blithely silent requests haggle final, f'),
-  (96,72,7250,587.08,'efully ironic foxes. regular, final pinto beans boost above the express a'),
+  (96,72,7250,587.08,'efully ironic foxes. regular, final pinto beans boost above the express a')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (97,98,6371,129.77,'fluffily unusual accounts. slyly regular theodolites integrate furiou'),
   (97,23,2390,458.34,' carefully unusual pinto beans; even deposits detect furiously'),
   (97,48,2618,239.34,'al theodolites are daringly requests. warhorses sleep blithely requests. special accounts cajole slyly deposits. a'),
@@ -512,7 +521,10 @@ INSERT INTO partsupp VALUES
   (128,29,6982,425.29,'ironic asymptotes. fluffily ironic packages use. ironic, regular ideas are in place of the quickly silent deposits. final, bold gifts across the ironic, regular pac'),
   (128,55,7602,224.49,'xcuses. blithely unusual theodolites use slyly carefully even warthogs. slyly even dugouts haggle slyly final, express pinto beans. furiously bold packages thrash requests? slyly unusual packages '),
   (128,81,3766,947.16,'arefully regular packages boost regularly. accounts are according to the blithely even dependencies. slyly silent accounts doubt slyl'),
-  (128,7,7023,875.78,' furiously quickly regular pinto beans. always special requests are. quickly regular deposits are furiously. slyly unusual theodolites haggle evenly; furiously special deposits wa'),
+  (128,7,7023,875.78,' furiously quickly regular pinto beans. always special requests are. quickly regular deposits are furiously. slyly unusual theodolites haggle evenly; furiously special deposits wa')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (129,30,5721,129.69,'ully express requests above the ironic, final requests cajole slyly along the quickly special packages. sl'),
   (129,56,7242,200.26,'es across the furious escapades wake quickly slyly e'),
   (129,82,5299,330.59,'final sentiments affix atop the silent foxes. busy pinto beans cajole. slyly final pinto beans haggle against the carefully expres'),
@@ -640,7 +652,10 @@ INSERT INTO partsupp VALUES
   (160,61,2434,525.73,'lithely. furiously silent theodolites after the ca'),
   (160,87,8324,999.93,'ly final instructions. closely final deposits nag furiously alongside of the furiously dogged theodolites. blithely unusual theodolites are furi'),
   (160,13,6034,733.59,' furiously against the final instructions. silent accounts sleep blithely after the boldly final requests. ex'),
-  (160,39,6872,872.20,'ions are carefully. carefully express foxes nag slyly before the carefully final excuses. accounts after the furiously ironic packages are furio'),
+  (160,39,6872,872.20,'ions are carefully. carefully express foxes nag slyly before the carefully final excuses. accounts after the furiously ironic packages are furio')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (161,62,9365,790.03,'scapades. packages use. slyly final accounts haggle across the quickly final th'),
   (161,88,8421,394.05,'cial ideas. ironic instructions eat blithely slyly special packages. furiously final packages alongside of the furiously final instructions boost carefully against the quickly '),
   (161,14,9679,688.47,'ns. blithely express requests sleep slyly foxes. blithely unusual ideas '),
@@ -768,7 +783,10 @@ INSERT INTO partsupp VALUES
   (192,93,606,198.69,'inal platelets integrate regular accounts. accounts wake ironic, silent accounts. slyly unusual accounts kindle carefully-'),
   (192,19,2656,916.16,'uickly. slyly bold ideas affix special, close theodolites. ironic, pending requests use carefully. blithely regular '),
   (192,45,1811,359.59,'ly carefully special asymptotes. furiously pending instructions haggle blithely bravely pending requests. carefully f'),
-  (192,71,8305,861.23,'s against the carefully regular foxes haggle fluffily across the pending accounts. blithely final packages sleep after the furiously ironic theodolites. quickly bold r'),
+  (192,71,8305,861.23,'s against the carefully regular foxes haggle fluffily across the pending accounts. blithely final packages sleep after the furiously ironic theodolites. quickly bold r')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (193,94,6184,335.98,' quickly bold deposits cajole furiously ruthless courts. carefully'),
   (193,20,4762,606.19,'ns sleep against the furiously regular asymptotes. carefully even asymptotes across the daringly final packages sleep fluf'),
   (193,46,385,571.71,'ons. slyly ironic deposits wake furiously ironic, unus'),
@@ -896,7 +914,10 @@ INSERT INTO partsupp VALUES
   (224,25,7119,745.97,'ole among the quickly ironic packages. carefully even frays doze. slyly pending ideas detect fluffily slyly final theodolites.'),
   (224,52,7374,252.76,'ven packages sleep fluffily above the blithely bold deposits. carefully unusual packages about the blithely express deposits haggle blithely furio'),
   (224,79,1227,673.82,'usly regular accounts. fluffily final instructions according to the slyly ironic theodolites poach blithely final frets. daringly ironic requests boost blithely darin'),
-  (224,6,9097,404.64,'dolites nag carefully across the unusual, regular foxes. stealthily ironic dolphins use sl'),
+  (224,6,9097,404.64,'dolites nag carefully across the unusual, regular foxes. stealthily ironic dolphins use sl')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (225,26,6101,775.45,'ess pinto beans are slyly above the final theodolites. blithely final grouches are quickly since the deposits. regular account'),
   (225,53,4421,116.17,'s above the requests. quiet, silent asymptotes across the pending theodolites haggle'),
   (225,80,5365,617.35,'arefully regular dependencies along the slyly regular ideas wake about the carefully unusual d'),
@@ -1024,7 +1045,10 @@ INSERT INTO partsupp VALUES
   (256,57,7261,583.85,'arefully regular requests. fluffily special packages are about the quickly bold foxes. blithely bold platelets cajole across the f'),
   (256,84,1240,822.40,' regular multipliers wake carefully regular platelets. slyly even packages cajole quickly. quick'),
   (256,11,9145,33.72,' boost pinto beans. unusual, slow excuses thrash furiously. carefully pending theodolites wake among the quickly iron'),
-  (256,38,4423,511.49,'ly up the pinto beans. carefully even packages boost finally. bold, express deposits along the fluffily silent instructions na'),
+  (256,38,4423,511.49,'ly up the pinto beans. carefully even packages boost finally. bold, express deposits along the fluffily silent instructions na')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (257,58,5042,391.32,'rs sleep carefully against the silent instructions. carefully bold instructions haggle. fluffily pending deposits sleep busily.'),
   (257,85,276,612.44,'among the packages. thinly special packages sleep. blithely ironic packages are furiously around the furiously even packages. carefully unusual accounts nag bold dolphins. blithely ironic depend'),
   (257,12,8951,657.66,'final, careful deposits poach fluffily against the permanently pending pinto beans. slyly express platelets us'),
@@ -1152,7 +1176,10 @@ INSERT INTO partsupp VALUES
   (288,89,1353,915.77,'sits integrate carefully quickly pending platelets. carefully special de'),
   (288,16,9337,814.16,'riously busy requests. quickly pending accounts sleep furiously past the regula'),
   (288,43,7811,361.02,'lithely at the ironic, pending courts. even, regular requests cajole slyly final asymptotes. even '),
-  (288,70,8056,6.69,'re carefully special deposits. final pinto beans among the slyly regular'),
+  (288,70,8056,6.69,'re carefully special deposits. final pinto beans among the slyly regular')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (289,90,8148,884.14,'er the ironic deposits. blithely regular theodolites integrate around the even multipliers. final, special accounts was after the express deposits. carefully special packages solve quic'),
   (289,17,4570,715.63,'its integrate carefully slyly ironic frets. blithely express packages along the '),
   (289,44,2659,822.55,'carefully regular instructions. pinto beans near the furiously bold depend'),
@@ -1280,7 +1307,10 @@ INSERT INTO partsupp VALUES
   (320,21,1322,324.25,'use quickly. even requests are slyly permanently unusual platelets. final accounts after the packages impress slyly according to the excuses. regularly regular deposi'),
   (320,49,9604,309.83,' deposits. slyly daring ideas haggle pending, regular platelets. final requests integr'),
   (320,77,7644,663.54,'slyly. regular foxes after the quietly even requests grow above the quickly bold packages. carefully pending packages affix slyly fin'),
-  (320,5,1129,433.78,'after the slyly final deposits solve slyly after the pending asymptotes. theodolites maintain always after the ironic packages. furiously pending deposits boost furiously abo'),
+  (320,5,1129,433.78,'after the slyly final deposits solve slyly after the pending asymptotes. theodolites maintain always after the ironic packages. furiously pending deposits boost furiously abo')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (321,22,2538,42.75,' ironic pinto beans. unusual, regular excuses hang boldly furiously final grouches. blithely busy reque'),
   (321,50,429,466.22,' foxes haggle ironic instructions. slyly ironic deposits toward the regular deposits sleep final deposits. regular packages haggle slyly near the blithely e'),
   (321,78,5325,833.34,'d pinto beans. even, idle deposits wake. carefully regular deposits nag blithely even attainments. fluff'),
@@ -1408,7 +1438,10 @@ INSERT INTO partsupp VALUES
   (352,53,1751,757.34,'ongside of the regular deposits cajole fluffily around the ev'),
   (352,81,6905,534.11,'ual patterns dazzle quickly along the never even excuse'),
   (352,9,3116,899.22,'yly regular platelets. unusual, even warhorses cajole furiously across the expres'),
-  (352,37,2576,422.98,'ove the silent, regular multipliers. sheaves doubt. instructions haggle furiously among the fluffily final warthogs. instructions according t'),
+  (352,37,2576,422.98,'ove the silent, regular multipliers. sheaves doubt. instructions haggle furiously among the fluffily final warthogs. instructions according t')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (353,54,8705,250.61,'unusual deposits boost slyly against the final, regular packages. final, pending instruc'),
   (353,82,6230,491.76,'s. permanently unusual requests among the slyly ironic instructions wake despite the fluffily even pinto beans? carefully final packages against the quickly regular dependencies cajole '),
   (353,10,8479,425.50,' pinto beans cajole. final accounts about the even foxes boost deposits. blithely pending patterns are fluffily quickly final ideas. final accounts sleep bl'),
@@ -1536,7 +1569,10 @@ INSERT INTO partsupp VALUES
   (384,85,3933,753.69,'ns. sauternes detect quickly after the quickly final accounts. pending deposits haggle slyly among the dinos. blithely final ideas wake? always unusual pearls among the'),
   (384,13,5772,45.13,'l theodolites solve fluffily above the unusual ideas. fluffily unusual deposits nag among the furiously ironic forges. slyly brave dolphins haggle slyly bravely pending warhorses. caref'),
   (384,41,7321,564.83,'ges. regular dolphins according to the pending dependencies are slyly bold packages. regular, quiet excuses doze. slyly quiet packages boost quickly'),
-  (384,69,5218,820.88,'es haggle furiously against the fluffily final instructions. slyly final request'),
+  (384,69,5218,820.88,'es haggle furiously against the fluffily final instructions. slyly final request')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (385,86,2378,383.05,'ld foxes solve. ironic, final ideas doze quickly final deposits. slyly special '),
   (385,14,595,539.23,'egular pinto beans eat slyly along the final accounts. fluffily regular requests cajole above the express packages. idly regular ideas across the slyly daring accounts ar'),
   (385,42,8387,129.69,'ongside of the slyly regular theodolites nag slyly blithely ironic requests. regular accounts haggle carefully against the special pearls?'),
@@ -1664,7 +1700,10 @@ INSERT INTO partsupp VALUES
   (416,17,4241,813.99,'of the pending, even requests could lose slyly regular ideas. slyly final dependencies use-- furiousl'),
   (416,46,2414,615.06,'s cajole blithely over the carefully ironic asymptotes. furiously final ideas use carefully stealthi'),
   (416,75,8089,735.30,'ges grow slyly regular accounts. quickly regular instructions boost. regular theodolites against the blithely regular accounts cajole after the deposits? ironic requests'),
-  (416,4,2185,624.82,'uriously final dolphins. regular instructions are. carefully even accounts use furiously along the blithely regular accounts. pending foxes boost permanently about the carefully unusual req'),
+  (416,4,2185,624.82,'uriously final dolphins. regular instructions are. carefully even accounts use furiously along the blithely regular accounts. pending foxes boost permanently about the carefully unusual req')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (417,18,2485,948.27,'lithely special packages sleep blithely along the furiously final excuses. regular excuses wake. theodolites '),
   (417,47,6391,625.61,'ses. regular, unusual ideas affix. slowly regular deposits affix blithely ironic platelets. blithely regular excuses haggle quickly. quickly regular depths snooze. fur'),
   (417,76,2896,287.83,'ongside of the bold hockey players. carefully regular deposits s'),
@@ -1792,7 +1831,10 @@ INSERT INTO partsupp VALUES
   (448,49,1683,641.77,'efully pending packages wake stealthily furiously express packages. carefully silent accounts haggle blithely. final accounts are. bold accounts integrate. bold asymptotes wake sl'),
   (448,78,1777,133.27,'y around the even, bold accounts. carefully bold theodolites boost alongside of the slyly regular reque'),
   (448,7,138,355.79,'wake above the express instructions. carefully final requests use fluffily final instructions. quickly even ideas along the final packag'),
-  (448,36,9993,994.80,'d the unusual requests. blithely pending excuses wake fluffily unusual, special deposits. bold accounts haggle. blithely ironic packages haggle furiously. sauternes '),
+  (448,36,9993,994.80,'d the unusual requests. blithely pending excuses wake fluffily unusual, special deposits. bold accounts haggle. blithely ironic packages haggle furiously. sauternes ')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (449,50,7428,369.58,'ully ironic pinto beans. unusual deposits instead of the furiously unusual pinto beans grow blithely special forges. regular deposits wake carefully after the carefull'),
   (449,79,218,934.62,'old accounts haggle carefully. pending dependencies haggle fluffily quickly regular accounts; carefully special pinto beans haggle. waters cajole bold '),
   (449,8,9763,35.69,'carefully regular foxes cajole at the blithely ironic reque'),
@@ -1920,7 +1962,10 @@ INSERT INTO partsupp VALUES
   (480,81,2289,940.16,'ully bold excuses cajole regular, silent accounts. regular, pending sentiments boost furiously. fluffily express ideas x-ray requests. deposits are fluffily '),
   (480,10,2496,130.96,'blithely slyly express excuses. pending accounts haggle. pending deposits poach carefully. ironic theodolites haggle quickly theodolites? fluffily pending accounts sleep afte'),
   (480,39,1163,542.64,' excuses wake blithely above the requests. never regular packages according to the blithely bold '),
-  (480,68,5383,430.28,' somas after the pending deposits doubt blithely ironic, final ideas'),
+  (480,68,5383,430.28,' somas after the pending deposits doubt blithely ironic, final ideas')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (481,82,8117,142.08,'s nag carefully according to the slyly final platelets. carefully ironic ideas among the pending requests was among the special packages. somas run unusual, silent f'),
   (481,11,1764,516.40,' pending, even depths cajole furiously ironic packages. furiously enticing pinto beans cajole fin'),
   (481,40,7951,916.08,'rthogs. ironic, ironic somas haggle carefully even, ironic accounts. thinly regular requests above the ironic packages wake slyly furiously silent accounts. dogged requests nag regular'),
@@ -2048,7 +2093,10 @@ INSERT INTO partsupp VALUES
   (512,13,3546,131.59,'tes sleep. final, regular foxes nag blithely since the accounts. instructions engage fluffily above the quickly pending accounts. slyly ironic platelets use '),
   (512,43,7627,33.00,'ely brave instructions above the blithely enticing requests cajole according to the furiously express dependencies. furiously thin ide'),
   (512,73,3640,421.57,'ed deposits. even accounts are blithely. quickly regular theodolites sleep even foxes. ironic dependencies sleep blithely among the furiously brave h'),
-  (512,3,8928,578.30,'e slyly bold packages. fluffily regular instructions impress carefully final notornis. slyly special theodolites cajole even req'),
+  (512,3,8928,578.30,'e slyly bold packages. fluffily regular instructions impress carefully final notornis. slyly special theodolites cajole even req')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (513,14,5666,378.65,' even accounts. fluffily bold pinto beans was furiously according to the regular, blithe accounts. blithely fin'),
   (513,44,9502,565.61,'instructions nag quickly blithely brave ideas. deposits will have to sleep slyly express deposits. idly even instructions between the furiously even dependencies dazzle blithely alongs'),
   (513,74,378,869.94,', special foxes according to the blithely special accounts use among '),
@@ -2176,7 +2224,10 @@ INSERT INTO partsupp VALUES
   (544,45,7143,761.96,'thely regular packages haggle boldly slyly silent accounts. boldly regular accounts integrate; requests wake dependencies. careful decoys nag quickly evenly special '),
   (544,75,5555,188.10,'out the carefully fluffy requests. accounts boost bold courts. furiously final instructions cajole. bold, idle deposits serve along the special accounts. furio'),
   (544,5,9843,804.77,'wake furiously across the blithely ironic requests. fluffily final deposits boost carefully fluffily final instructions. carefully iron'),
-  (544,35,7770,476.82,'regular asymptotes are fluffily final ideas. slyly pending platelets above the pending, final requests boost furiously special deposits. pinto beans detect? theodolites sleep near the furiously e'),
+  (544,35,7770,476.82,'regular asymptotes are fluffily final ideas. slyly pending platelets above the pending, final requests boost furiously special deposits. pinto beans detect? theodolites sleep near the furiously e')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (545,46,7790,168.10,' carefully along the fluffily ironic dependencies. carefully silent deposits are slyly furiously unusual requests. ironic, silent pinto beans'),
   (545,76,8547,258.26,'ily regular accounts. furiously even pinto beans detect carefully. foxes affix furiously among the blithely r'),
   (545,6,7282,77.43,'packages use-- ironic foxes sleep slyly with the unusual, regular requests. fluffily ironic platelets are carefully. ne'),
@@ -2304,7 +2355,10 @@ INSERT INTO partsupp VALUES
   (576,77,3715,474.25,'ly furiously express theodolites. furiously ironic theodolites sleep among the slyly special ideas. carefully regular packages use waters. '),
   (576,7,5860,839.14,'equests x-ray slyly final packages. blithely even excuses after the eve'),
   (576,37,5711,675.89,'e furiously according to the furiously even deposit'),
-  (576,67,831,181.83,'structions. bold deposits nod fluffily. regular theodolites alongside of the slyly final packages x-ray around the quickly bol'),
+  (576,67,831,181.83,'structions. bold deposits nod fluffily. regular theodolites alongside of the slyly final packages x-ray around the quickly bol')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (577,78,4109,224.49,'. furiously ironic deposits boost blithely across the ruthless, even excuses. quickly pending deposits dazzle carefully according to the even deposits. carefully '),
   (577,8,4194,967.63,' against the slyly regular deposits affix quickly around the furiously final ideas. quickly ironic requests use furiously about the unusual pinto beans. express, ironic depos'),
   (577,38,9072,373.75,'ges detect quickly final requests. unusual pinto beans sleep furiously'),
@@ -2432,7 +2486,10 @@ INSERT INTO partsupp VALUES
   (608,9,9733,663.31,'l, ironic dugouts nag carefully ironic, regular dependencies. caref'),
   (608,40,3974,560.02,' pinto beans wake carefully after the deposits. bravely final accounts are slyly above the fluffily bold warthogs. quickl'),
   (608,71,6686,808.36,'riously. special, final deposits according to the slyly close asymptotes breach slyly up the ideas. blithely regular dependencies affix carefully according to the slyly regular dolphins. ironic depe'),
-  (608,2,1627,878.41,'odolites cajole slyly outside the pending, even platelets. unusual accounts cajole. furiously express packages snooze fluffily. furiously final deposits use across the furiously regular accou'),
+  (608,2,1627,878.41,'odolites cajole slyly outside the pending, even platelets. unusual accounts cajole. furiously express packages snooze fluffily. furiously final deposits use across the furiously regular accou')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (609,10,2599,326.99,'gular deposits. even, regular theodolites haggle against the requests. slyly pending re'),
   (609,41,8000,500.20,'ut the always final deposits. ironic asymptotes detect above the furiously ironic deposits. bold, ironic excuses impress slyly against'),
   (609,72,4133,508.60,'blithely express deposits alongside of the slyly final packages wake ideas. furiously even patterns detect quickly theodolites. carefully regular pinto beans wake carefully dolphins'),
@@ -2560,7 +2617,10 @@ INSERT INTO partsupp VALUES
   (640,41,6547,766.26,'as detect even dinos. bold, bold requests haggle slyly. quickly express accounts after the deposits sleep blithely final dependencies. regular, pending re'),
   (640,72,8428,535.48,'ular deposits. hockey players cajole furiously even theodolites. furiously final dolphins among the ideas solve furiously after the regular ideas. even packages believe. blithely final theodo'),
   (640,3,9574,9.86,'ickly idle accounts. carefully unusual accounts lose quickly along the s'),
-  (640,34,670,124.86,'usly express asymptotes wake blithely slyly busy dolphins. silent instructions '),
+  (640,34,670,124.86,'usly express asymptotes wake blithely slyly busy dolphins. silent instructions ')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (641,42,488,934.55,'al ideas detect blithely slyly busy theodolites. furiously even pinto beans nag furiously along the unusual accounts. slyly special instr'),
   (641,73,7434,811.54,' pearls. final, dogged dependencies against the furiously ironic pinto beans might affix blithely idle notornis. pending theodolites unwind furiously. slyly ironic requests above the bold, unusual'),
   (641,4,1432,253.67,'s about the furiously unusual pains cajole blithely after the theodolites. slyly special requests sleep: regular foxes are slyly express'),
@@ -2688,7 +2748,10 @@ INSERT INTO partsupp VALUES
   (672,73,73,464.89,'lly final packages sleep carefully silent accounts. sly hockey players are against the pending ideas'),
   (672,4,4345,348.56,'ording to the carefully bold pinto beans. enticing, unusual sentim'),
   (672,35,7170,270.96,'e excuses; final patterns sleep furiously slyly express dependencies. blithely ironic requests across the ironic courts haggle slyly along the ex'),
-  (672,66,4968,787.19,'efully regular pinto beans. slyly ironic dependencies boost fluffily ideas. quickly even deposits boost. furiously express'),
+  (672,66,4968,787.19,'efully regular pinto beans. slyly ironic dependencies boost fluffily ideas. quickly even deposits boost. furiously express')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (673,74,9038,618.93,'ackages wake carefully against the finally final requests. carefully even requests maintain carefully along'),
   (673,5,8210,991.12,'ounts boost carefully after the even, ironic deposits. fluffily regular ideas sleep slyly reque'),
   (673,36,8205,545.53,'eans are. carefully even foxes after the carefully final accounts detect furiously around the even foxes. quickly unusual epitaphs nag blithely between the regular id'),
@@ -2816,7 +2879,10 @@ INSERT INTO partsupp VALUES
   (704,5,5245,630.65,'ular packages are carefully among the express requests. blithely ironic orbits sleep. quickl'),
   (704,37,1116,128.11,'sts. slyly express ideas haggle. quickly regular ideas affix quickly among the furiously pending sauternes. idle deposits about the slyly special requests'),
   (704,69,7507,482.09,'al patterns wake slyly blithely even packages. pinto beans haggle furiously. carefully '),
-  (704,1,3391,814.35,'deposits boost according to the fluffily express deposits. permanently bold dolphins nag. carefully unu'),
+  (704,1,3391,814.35,'deposits boost according to the fluffily express deposits. permanently bold dolphins nag. carefully unu')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (705,6,7977,665.13,'ickly even accounts. express requests wake fluffily: slow, express requests along the close dependencies cajole blithely ironic instructions. slyly pending deposits wake blithely bold pinto'),
   (705,38,1674,102.28,' asymptotes. quickly ironic pearls sleep. patterns cajole: ironic, unusual accounts cajole furiously according to the packages; f'),
   (705,70,1087,30.49,'ses wake carefully ironic accounts. stealthily regular excuses haggle carefully. fluffy accounts according to the fluffi'),
@@ -2944,7 +3010,10 @@ INSERT INTO partsupp VALUES
   (736,37,7236,872.53,' beans. carefully quiet requests among the slyly even theodolites nag after the express theodolites. carefully special accounts play above the final dependencies. '),
   (736,69,5233,327.72,' express packages according to the furiously regular pinto beans cajole packages-- slyly special accounts integrate carefully along the busily ironic requests. regular, regular'),
   (736,1,7431,694.25,'y alongside of the warhorses. carefully regular packages wake special escapades. furiou'),
-  (736,33,3956,10.65,'yly express packages are across the regular dolphins. blithely regular excuses nag at the furiously final dolphins. pinto beans hang special asymptotes. ironic dependencies according to the'),
+  (736,33,3956,10.65,'yly express packages are across the regular dolphins. blithely regular excuses nag at the furiously final dolphins. pinto beans hang special asymptotes. ironic dependencies according to the')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (737,38,2639,449.00,'ntain above the ironic dugouts. special, bold foxes are across the bold pinto beans. regular packages use blithely along the quickly i'),
   (737,70,4834,72.02,'refully. final foxes about the ironic accounts are quickly re'),
   (737,2,1213,917.31,'r packages nag furiously blithely final courts? carefully even tithes across '),
@@ -3072,7 +3141,10 @@ INSERT INTO partsupp VALUES
   (768,69,9252,155.42,'y final sentiments. ironic, express theodolites use carefully. pinto beans boost packages. furiously fina'),
   (768,1,2578,999.77,'ep carefully between the quickly special deposits. quickly regular platelets use slyly thinly ironic excuses. quickly regular ideas poach. ideas haggle across the car'),
   (768,33,6847,4.28,'eas against the regular asymptotes wake quickly against the quickly regular foxes. fluffily regular pinto beans boost carefully. slyly ironic package'),
-  (768,65,3977,335.32,'ts. special pinto beans according to the carefully ironic notornis use carefully toward the blithely unusual pinto beans. accounts boost quickly. carefully final platelets unwind blithely'),
+  (768,65,3977,335.32,'ts. special pinto beans according to the carefully ironic notornis use carefully toward the blithely unusual pinto beans. accounts boost quickly. carefully final platelets unwind blithely')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (769,70,7177,519.39,'accounts. brave deposits are. blithely furious requests are. regular accounts kindle. foxes haggle blithely slyly'),
   (769,2,4513,220.61,' players. carefully express deposits cajole fluffily quickly sly foxes. even platelets haggle evenly quickly idle packages. slyly stealthy accounts haggle above the dependencies. sheaves wake. bli'),
   (769,34,4774,689.65,'t about the furiously final requests. requests cajole carefully ev'),
@@ -3200,7 +3272,10 @@ INSERT INTO partsupp VALUES
   (800,1,7051,111.21,'c, express ideas cajole after the slyly regular instructions. deposits haggle furiously slyly ironic platelets. slyly even accoun'),
   (800,33,2455,270.23,'uriously silent dolphins. foxes sleep blithely among the enticingly final instructions. '),
   (800,65,7184,524.93,'the special frays. ironic requests before the quickly pending requests nag furiously according to th'),
-  (800,97,8994,450.34,'ions use carefully along the final asymptotes. blithely unusual package'),
+  (800,97,8994,450.34,'ions use carefully along the final asymptotes. blithely unusual package')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (801,2,1441,704.88,'s. silent requests nag quickly against the furiou'),
   (801,35,5236,886.84,' boost regularly even, express requests. dogged excuses wake closely pending decoys: carefully regular accounts cajole furiously. blithely unusual accounts a'),
   (801,68,2046,95.36,'ges among the blithely unusual packages cajole across the pending, special requests. express packages along the unusual ideas sleep even instructions. blith'),
@@ -3328,7 +3403,10 @@ INSERT INTO partsupp VALUES
   (832,33,3657,942.78,'ions detect carefully. ironic requests detect after the furi'),
   (832,66,7531,195.32,'iously brave ideas wake slyly: hockey players between the pending, silent packages might cajole deposits. furiously special theodolites above the quickly pending deposits sleep after the pen'),
   (832,99,2365,306.10,'he slyly ironic deposits nag fluffily special deposits. accounts thrash quickly'),
-  (832,32,7125,51.55,' wake furiously ironic deposits. quickly even ideas grow careful'),
+  (832,32,7125,51.55,' wake furiously ironic deposits. quickly even ideas grow careful')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (833,34,461,505.63,'s doubt furiously ironic deposits. quickly final platelets sleep. slyly even accounts use quickly above the quickly bold deposits. carefully unusual dependencies affix along '),
   (833,67,2550,787.33,'eans boost regular, bold pinto beans. even platelets haggle slyly slyly pending instructions. deposits haggle idly enticingly s'),
   (833,100,5532,94.68,' requests snooze fluffily along the furiously thin deposits. ironic accounts haggle across the b'),
@@ -3456,7 +3534,10 @@ INSERT INTO partsupp VALUES
   (864,65,6309,180.05,' ought to wake furiously. ironic accounts lose. slyly f'),
   (864,98,9226,404.16,'ress fluffily furious packages. furiously final requests hang. final, regular theodolites detect blithely. express accounts according to the slyly spe'),
   (864,31,7303,714.43,'s. slyly unusual foxes boost carefully among the carefu'),
-  (864,64,1238,640.78,'ress packages. carefully quiet theodolites wake according to the accounts. furiousl'),
+  (864,64,1238,640.78,'ress packages. carefully quiet theodolites wake according to the accounts. furiousl')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (865,66,1248,447.31,'usy deposits use furiously carefully bold escapades. silently silent dolphins nag slyly special theodolites. furiously quiet ideas wake pe'),
   (865,99,7153,684.98,'wake furiously blithely regular deposits. carefully silent theodolites are furiously among the final, even instructions. instructions along the fluffily ironic platelets poach according to the blit'),
   (865,32,9385,72.11,'y slyly pending deposits. carefully regular deposits nag carefully around the blithely bold instr'),
@@ -3584,7 +3665,10 @@ INSERT INTO partsupp VALUES
   (896,97,5966,132.12,'carefully final deposits cajole carefully among the ir'),
   (896,30,6567,22.07,'furiously even dolphins. quickly pending accounts sleep: furiously ironic frets haggle furiously slyly regular requests. ideas across the sometimes express ideas integrate furiously against'),
   (896,63,6849,594.88,'pecial dependencies across the accounts haggle carefully across the carefu'),
-  (896,96,7655,382.96,'c deposits wake carefully unusual pinto beans. regular, ironic requests wake furiously according to the special packages. warthogs affix slyly during the f'),
+  (896,96,7655,382.96,'c deposits wake carefully unusual pinto beans. regular, ironic requests wake furiously according to the special packages. warthogs affix slyly during the f')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (897,98,9271,33.17,'he blithely regular requests. even packages sleep carefully even pinto beans: blithely special '),
   (897,31,7779,236.90,'. instructions are blithely blithely silent accounts. carefully regular requests haggle requests. express packages could print. quickly final foxes alongsid'),
   (897,64,3436,851.96,'ven deposits. regular sauternes across the ironic, special instructions serve alongside of the fluffily pending requests. final id'),
@@ -3712,7 +3796,10 @@ INSERT INTO partsupp VALUES
   (928,29,5625,955.61,'aggle blithely. final asymptotes use platelets. carefully bold accounts across the regular packages are quickly against the carefully regular platelets. slyly pending ideas integrate blithely caref'),
   (928,63,2735,174.04,'final depths alongside of the carefully even foxes are carefully according to the special requests; carefully bo'),
   (928,97,8960,332.87,'ously along the furiously regular theodolites. sometimes regular packages grow slyly among the regular, bold wa'),
-  (928,31,8459,358.84,'the theodolites. blithely special instructions dazzle blithely platelets! carefully specia'),
+  (928,31,8459,358.84,'the theodolites. blithely special instructions dazzle blithely platelets! carefully specia')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (929,30,4399,344.34,'the express, unusual pinto beans. carefully ironic deposits sleep blithely: dugouts around the deposits haggle carefully above the blithely '),
   (929,64,4584,244.63,'ect slyly above the quickly regular packages. regular accounts are blithely above the final instructions. fluffily furious requests cajole? carefully regular requests at th'),
   (929,98,4462,765.37,'r the furiously even requests. quickly special accounts boost quickly about th'),
@@ -3840,7 +3927,10 @@ INSERT INTO partsupp VALUES
   (960,61,4313,643.01,'g packages sleep special packages. packages detect furiously'),
   (960,95,9336,97.80,'ajole fluffily according to the ironic, thin excuses! unusual instructions about the even, regular theodolites wake idly around the final, pendin'),
   (960,29,6882,628.62,' instructions integrate blithely. carefully pending dependencies sleep blithely. special, ironic reques'),
-  (960,63,9481,971.38,'p always even packages! slyly silent asymptotes use slyly ironic instructions. blithely pending platelets would haggle carefully carefully ironic ideas. slowly ruthless deposits promise f'),
+  (960,63,9481,971.38,'p always even packages! slyly silent asymptotes use slyly ironic instructions. blithely pending platelets would haggle carefully carefully ironic ideas. slowly ruthless deposits promise f')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (961,62,7983,477.86,'ing to the carefully even ideas. pains believe furious'),
   (961,96,3420,533.88,'ockey players. regular requests across the fluffily pending accounts eat furiously along t'),
   (961,30,9194,8.14,'lphins sleep carefully. close, express requests integrate quickly according to th'),
@@ -3968,7 +4058,10 @@ INSERT INTO partsupp VALUES
   (992,93,5880,13.83,', bold ideas are fluffily bold foxes. final deposits are bravely brave requests! furio'),
   (992,27,1364,2.05,'s the even, final multipliers. unusual packages according to the never final excuses kindle blithely even asymptotes. permanently special r'),
   (992,61,1935,699.02,'requests! quickly express accounts sleep under the pending requests; blithely silent accounts against the carefully sly packages cajole across the carefully silent packages. blith'),
-  (992,95,6691,317.08,'posits above the deposits are against the blithely regular pearls. packages sle'),
+  (992,95,6691,317.08,'posits above the deposits are against the blithely regular pearls. packages sle')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (993,94,6688,743.58,'cial instructions haggle furiously across the quickly bold packages. furiously final package'),
   (993,28,35,40.94,'ress requests nag regular, pending deposits. ironically pending requests are after the final theodolites; '),
   (993,62,6925,19.77,' instructions haggle furiously. carefully special requests boost quickly even platelets. blithely ironic dependencies sleep among the packages. slyly pen'),
@@ -4096,7 +4189,10 @@ INSERT INTO partsupp VALUES
   (1024,25,9824,649.03,'lms. furiously pending theodolites according to the unusual, brave theodolites nag quietly outside t'),
   (1024,60,8268,332.72,'uriously ironic accounts. quickly bold packages nag quickly according to the ideas. brave deposits nag fluffily across the sp'),
   (1024,95,396,807.22,' requests affix regular requests. final pinto beans with the ideas must have to cajole fluffily express requests. quickly ironic theodoli'),
-  (1024,30,8182,576.69,'yly express theodolites. deposits hinder during the unusual, silent theodolites. carefully unusual packages are: deposits boost quickly. ruthless'),
+  (1024,30,8182,576.69,'yly express theodolites. deposits hinder during the unusual, silent theodolites. carefully unusual packages are: deposits boost quickly. ruthless')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1025,26,6647,310.87,', ironic forges. quickly special packages detect carefully accounts. slyly permanent frets print carefully. car'),
   (1025,61,961,206.47,'s. furiously unusual packages haggle? fluffily even deposits sleep furiously about the carefully final patterns. fluffily pending m'),
   (1025,96,2114,860.89,' requests wake final requests. furiously thin platelets print '),
@@ -4224,7 +4320,10 @@ INSERT INTO partsupp VALUES
   (1056,57,4170,900.63,'sits are carefully express requests. blithe, regular deposits wake carefully. excuses sleep quickly slyly even pinto beans.'),
   (1056,92,9062,184.30,'nto beans. carefully ruthless foxes haggle carefully. even deposits boost quickly. furiously final asymptotes sleep quickly against the furiously special '),
   (1056,27,1084,789.48,'accounts. even accounts sleep permanently slyly unusual requests! bold, final packages cajole slyly r'),
-  (1056,62,4742,162.82,'. bold ideas sleep slyly. carefully express courts wake. dogged accounts '),
+  (1056,62,4742,162.82,'. bold ideas sleep slyly. carefully express courts wake. dogged accounts ')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1057,58,4661,526.77,'ep. deposits are blithely. slyly special dependencies kindle. platelets sublate silent, regular requests. furiously ironic accounts are furiously even packages. pen'),
   (1057,93,9062,481.63,'eep carefully even packages! ironic foxes integrate. slyly bold deposits '),
   (1057,28,586,956.94,'es. dependencies cajole daringly unusual accounts. silent packages boost carefully blithely special requests. thinly ironic ideas sleep after the final packages. regular, express '),
@@ -4352,7 +4451,10 @@ INSERT INTO partsupp VALUES
   (1088,89,2418,725.39,'sts! blithely ironic ideas wake furiously against the unusual asymptotes. regular grouches sleep blithely. '),
   (1088,24,2932,46.80,'odolites. blithely even Tiresias after the busily regular accounts cajole alongside of the ironic, bold accounts. ironic foxes cajole above the bold deposits. accounts haggle slyly slyly '),
   (1088,59,4598,624.40,'accounts haggle quickly across the ironic accounts. furiously regular accounts print. foxes cajole furiously at the fluffily express requests. bold, final pack'),
-  (1088,94,584,911.87,'slyly. thin deposits haggle blithely. permanently pending excuses according to the furiously express requests are carefully '),
+  (1088,94,584,911.87,'slyly. thin deposits haggle blithely. permanently pending excuses according to the furiously express requests are carefully ')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1089,90,4013,209.91,'uses across the furiously pending requests poach according to the accounts. regula'),
   (1089,25,7407,721.58,'efully blithely unusual pinto beans. blithely sly ideas integrate above the final, special '),
   (1089,60,4192,923.88,'hes boost fluffily special courts. quickly unusual theodolites cajole. carefully express packages sleep carefully. carefully special deposits sleep. special'),
@@ -4480,7 +4582,10 @@ INSERT INTO partsupp VALUES
   (1120,21,4386,51.63,'unusual requests. furiously unusual waters are furiously fluffily ironic instructions. even accounts sleep care'),
   (1120,57,9022,906.08,'the carefully ironic deposits. carefully regular dependenc'),
   (1120,93,3633,867.49,'y regular, unusual instructions. stealthily regular theodolites use along the furiously express deposits. blithely silent forges cajole final, unusual foxes. doggedly regular requests hag'),
-  (1120,29,4894,646.35,' across the final, pending warthogs. carefully final accounts lose finally along the carefully ruthless instructions. regular, ex'),
+  (1120,29,4894,646.35,' across the final, pending warthogs. carefully final accounts lose finally along the carefully ruthless instructions. regular, ex')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1121,22,5116,299.21,'nstructions. quickly ironic requests are until the requests? slyly regular deposits sleep. quickly fin'),
   (1121,58,9262,114.98,' pending requests x-ray slyly final deposits; accounts print carefully above the furiously pending dependencies. slyly pending theodolites sublate quickly alongside of the ironic, bold requests. ex'),
   (1121,94,6525,615.53,'onic asymptotes use slyly after the quickly regular pinto beans. carefully bold deposits cajole '),
@@ -4608,7 +4713,10 @@ INSERT INTO partsupp VALUES
   (1152,53,1078,515.76,'ly ironic theodolites. blithe, ironic ideas along the final requests boost regular platelets. blithely'),
   (1152,89,7302,187.19,'uickly ironic packages nag furiously express foxes. furiously even ideas print. even excuses use about the regular p'),
   (1152,25,2669,404.44,'times express requests. theodolites integrate. quickly ironic theodolites use slyly even accounts. even requests at the quickly even accounts use nev'),
-  (1152,61,1269,417.37,'y even courts-- blithely regular foxes nag slyly. instructions impress blithely express, regular deposits. slyly regular pinto beans nea'),
+  (1152,61,1269,417.37,'y even courts-- blithely regular foxes nag slyly. instructions impress blithely express, regular deposits. slyly regular pinto beans nea')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1153,54,5746,15.23,'y quickly silent requests. slyly sly asymptotes wake fluffily furiously final ideas; slyly bold foxes unwind thinly express deposits. deposits unwind among the furiously '),
   (1153,90,9015,528.39,'uickly since the quickly regular theodolites. carefully express instructions around the final deposits are idly'),
   (1153,26,554,707.02,' instructions cajole along the regularly final accounts. quickly ironic pi'),
@@ -4736,7 +4844,10 @@ INSERT INTO partsupp VALUES
   (1184,85,8329,168.82,'. carefully final requests nag furiously even escapades. regular requests alongside of the slyly express dependencies use caref'),
   (1184,21,6469,357.97,'onic accounts sublate carefully even packages. quickly bold deposits haggle carefully slyly unusual multipliers. accounts'),
   (1184,57,3067,706.48,' across the slyly final packages. regular deposits maintain furiously ironic requests. special packages nag above the carefully'),
-  (1184,93,845,881.12,'lites across the carefully ironic theodolites eat fluffily among the slyly silent requests. regular, unusual asymptotes haggle carefully. busily silent braid'),
+  (1184,93,845,881.12,'lites across the carefully ironic theodolites eat fluffily among the slyly silent requests. regular, unusual asymptotes haggle carefully. busily silent braid')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1185,86,8084,998.75,'. special, even dependencies are slyly. furiously unusual accounts wake quickly accor'),
   (1185,22,1601,885.47,'ronic, ironic packages: pending deposits according to the pend'),
   (1185,58,4664,43.85,'y. bold dolphins unwind carefully. carefully regular courts eat furiously after the unusual packages. blith'),
@@ -4864,7 +4975,10 @@ INSERT INTO partsupp VALUES
   (1216,17,7947,6.04,'eep. blithe requests hang blithely. furiously even requests cajole around the slyly even escapades. quickly fin'),
   (1216,54,8558,831.47,'ly express packages lose enticingly final deposits. slyly express deposits are carefully ideas. slyly ironic accounts a'),
   (1216,91,6769,658.22,'ly final requests use. bold foxes nag furiously at the blithely final instructions. regular, express frets are fluffily against the daring ideas. c'),
-  (1216,28,7064,7.53,'olites boost carefully according to the furiously ironic platelets. fluffily final ideas nag even frets-- quickly final courts after the quickly ironic packages det'),
+  (1216,28,7064,7.53,'olites boost carefully according to the furiously ironic platelets. fluffily final ideas nag even frets-- quickly final courts after the quickly ironic packages det')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1217,18,510,998.55,'riously. ideas promise carefully about the ironic, pending packages. ironic, bold packages along the stealthily pending excuses wake furiously slyly b'),
   (1217,55,6476,460.68,'uctions cajole among the carefully close excuses. packages alongside of the fluffily ironic dugouts should are slyly ironic pinto beans. bold foxes cajole alongside of the furiously regul'),
   (1217,92,9570,530.39,'ts are. ironic instructions nag alongside of the bold accounts. carefully unusual'),
@@ -4992,7 +5106,10 @@ INSERT INTO partsupp VALUES
   (1248,49,3751,558.81,'tions breach slyly even, pending ideas. carefully ironic packages across the excuses should affix idly against the blithely unusual instructions. b'),
   (1248,86,9823,423.20,'s run fluffily. furiously bold accounts kindle agai'),
   (1248,23,8913,113.95,'ns sleep quickly along the slyly unusual asymptotes: furiously bold re'),
-  (1248,60,5338,254.21,'ove the slyly ironic accounts. even pinto beans solve at the furiously ironic packages. even, pending instructions boost ex'),
+  (1248,60,5338,254.21,'ove the slyly ironic accounts. even pinto beans solve at the furiously ironic packages. even, pending instructions boost ex')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1249,50,1558,35.79,' wake even requests. furiously even excuses sleep theodolites. doggedly bold instructions across the furiously bo'),
   (1249,87,2390,366.28,'its wake carefully slyly pending deposits. furiously final instructions thrash carefully regular excuses. regular id'),
   (1249,24,9548,352.40,'. carefully express accounts use fluffily. slyly ironic requests sleep slyly regular deposits. accounts cajole blithely. express deposits integ'),
@@ -5120,7 +5237,10 @@ INSERT INTO partsupp VALUES
   (1280,81,3309,864.18,'aring foxes across the blithely bold accounts wake after the slyly special packages. blithely ironic packages affix doggedly. furiously ex'),
   (1280,18,9144,912.86,'t packages. blithely express attainments maintain furiously. blithely final requests x-ray blithely. unusual, unusual packages sleep quickly even requests. idly bold packages al'),
   (1280,55,4334,954.72,'. accounts sleep furiously. blithely special instructions doze. slyly special dependencies haggle fluffily. regular, final accounts use after the blithely final depos'),
-  (1280,92,4862,182.84,'sly special packages. slyly ironic accounts thrash fluffily? furiously busy requests ar'),
+  (1280,92,4862,182.84,'sly special packages. slyly ironic accounts thrash fluffily? furiously busy requests ar')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1281,82,54,251.28,'ages. carefully even deposits sleep. foxes boost slyly against the final theodolites. doggedly silent ideas h'),
   (1281,19,2654,765.12,'elets. slyly bold deposits believe against the ironic, final dependencies. slyly bold deposits was carefully about the blithely final requests. bold packages use to the pending court'),
   (1281,56,9480,400.13,'t the quickly special pains. unusual, ironic excuses doubt ironical'),
@@ -5248,7 +5368,10 @@ INSERT INTO partsupp VALUES
   (1312,13,9379,941.90,'ns. excuses cajole slyly. slyly final warhorses prin'),
   (1312,51,6731,481.57,'ring accounts nag fluffily along the furiously regular requests. final foxes about the slyly special dependencies impress cl'),
   (1312,89,5645,973.72,'pending requests. blithely unusual ideas integrate furiously above the ironic requests. accounts nag. furiously regular deposits sleep ironically regular frays! accounts'),
-  (1312,27,5646,867.88,'are about the requests. quickly regular epitaphs nag. blithely even ideas sublate slyly. unusual dependencies sleep. final instructions boost blithely across the pending packages. thinly ev'),
+  (1312,27,5646,867.88,'are about the requests. quickly regular epitaphs nag. blithely even ideas sublate slyly. unusual dependencies sleep. final instructions boost blithely across the pending packages. thinly ev')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1313,14,270,220.35,'the carefully express deposits. fluffy deposits haggle '),
   (1313,52,7835,307.45,'ggle. slowly ironic deposits wake-- regular deposits thrash carefully ironic foxes. fluffily regular ideas nag slyly above the carefully pending foxes. slyly final platelets wake blithely a'),
   (1313,90,9271,670.28,'anently express packages. furiously bold accounts cajole. final accounts cajole slyly among the foxes. carefully final requests sleep carefully. fluffily express packages boost across the furiously'),
@@ -5376,7 +5499,10 @@ INSERT INTO partsupp VALUES
   (1344,45,9449,985.11,', regular accounts. fluffily final accounts against the special, regular dolphins detect blithely about the c'),
   (1344,83,7046,447.18,'totes wake furiously. carefully even dependencies use against the ironic foxes. furiously ironic p'),
   (1344,21,3803,513.95,'dolites cajole. silent requests across the slyly final foxes are care'),
-  (1344,59,3935,726.73,'ronic packages. furiously bold packages are. sile'),
+  (1344,59,3935,726.73,'ronic packages. furiously bold packages are. sile')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1345,46,604,594.31,'l instructions. ironic, pending deposits run blithely furiously regular accounts. pending ideas among the sl'),
   (1345,84,5455,727.30,'al excuses sleep across the furiously express accounts. furiously unusual pinto beans wake furiously ironic accounts. ca'),
   (1345,22,9597,47.76,'c accounts. silent pinto beans cajole slyly. regular foxes across the even, regular packages are doggedly after the ideas. carefully close foxes'),
@@ -5504,7 +5630,10 @@ INSERT INTO partsupp VALUES
   (1376,77,6059,975.68,'y bold requests boost regular foxes. unusual pinto beans unwind after the blithely regular accounts. blithely regular frets eat carefully. quickly ironic ideas nag furi'),
   (1376,15,2402,737.10,'quickly blithely regular instructions. carefully even packages boost regular deposits. carefully even packages haggl'),
   (1376,53,8067,912.31,' beans about the enticingly even accounts are boldly across the express foxes. ironic accounts about the carefully slow theodolites kindle furiously aft'),
-  (1376,91,4071,716.33,'kly above the blithely bold packages. blithely final packages boost carefully regular accounts. blithely unusual accounts cajole blithely across the slyl'),
+  (1376,91,4071,716.33,'kly above the blithely bold packages. blithely final packages boost carefully regular accounts. blithely unusual accounts cajole blithely across the slyl')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1377,78,2319,532.02,'sly special ideas use slyly quickly regular accounts. quickly final foxes cajole after the pending, special packages. requests are qu'),
   (1377,16,25,703.86,'lithely along the evenly ironic deposits. furiously ironic instructions snooze.'),
   (1377,54,6216,675.63,' accounts? slyly final accounts are across the final deposits. slyly final packages according to the excuses print furiously regular ideas.'),
@@ -5632,7 +5761,10 @@ INSERT INTO partsupp VALUES
   (1408,9,2559,792.74,'ites above the blithely pending requests haggle s'),
   (1408,48,7752,13.66,'counts. accounts wake blithely. blithely ironic reques'),
   (1408,87,5009,12.44,'carefully express ideas sleep blithely against the regular, regular theodolites. regular orbits sleep blithely. slyly special pi'),
-  (1408,26,322,579.44,'furiously even somas. furiously ironic dolphins wake furiously around the finally unusual deposits. regularly unusual packages after the accounts unwind slyly re'),
+  (1408,26,322,579.44,'furiously even somas. furiously ironic dolphins wake furiously around the finally unusual deposits. regularly unusual packages after the accounts unwind slyly re')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1409,10,133,639.74,'dolphins. fluffily final ideas sleep slyly even theodolites. slyly bold deposits along the carefully sly pac'),
   (1409,49,8885,979.46,'eodolites: blithely bold foxes haggle quickly against the bold theodolites. requests sleep blithely. quickly special deposits sleep blithely furiously pending packages. regular platelets haggl'),
   (1409,88,2360,283.68,'requests haggle blithely ironic excuses. deposits kindle carefully idle instructions. '),
@@ -5760,7 +5892,10 @@ INSERT INTO partsupp VALUES
   (1440,41,5109,544.58,'are ironic, sly packages. bold platelets haggle carefully. blithely ruthless '),
   (1440,80,6324,121.24,'sts. carefully ironic requests wake carefully. fluffily special requests use fluffily express requests. pendin'),
   (1440,19,4641,903.94,'ress theodolites. slyly express asymptotes integrate quickly among the carefully'),
-  (1440,58,1213,879.58,'alongside of the quickly even accounts. quickly unusual accounts grow quickly carefully regular pinto beans. regular pinto beans lose? blithely fina'),
+  (1440,58,1213,879.58,'alongside of the quickly even accounts. quickly unusual accounts grow quickly carefully regular pinto beans. regular pinto beans lose? blithely fina')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1441,42,6300,14.22,'unwind furiously about the ironic courts. unusual deposits wake slyly above the blithely bold theodolites. blithely regular requests according to the slyly final requests sleep furiou'),
   (1441,81,3547,413.31,'nal accounts. ironic, pending deposits cajole carefully fluffily ironic platelets. idle requests sleep special, regular accounts: final, unusual requests hang slyly around the furious'),
   (1441,20,3216,716.56,'es: blithely special theodolites detect furiously above the fluffily regular deposits. careful'),
@@ -5888,7 +6023,10 @@ INSERT INTO partsupp VALUES
   (1472,73,8842,973.65,'d dependencies. blithely ironic requests haggle. carefully ironic instructions'),
   (1472,12,9900,618.65,'bout the pending packages. regular ideas sublate carefully packages. carefully unusual asymptotes are slyly'),
   (1472,51,6006,212.48,'ngside of the requests sleep quickly above the carefully final accou'),
-  (1472,90,3872,917.16,' ironic, final orbits. deposits sleep carefully carefully express frets. platelets engage regularl'),
+  (1472,90,3872,917.16,' ironic, final orbits. deposits sleep carefully carefully express frets. platelets engage regularl')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1473,74,6672,177.21,'s boost along the furiously final pinto beans. fluffily silent platelets sleep slyly slyly ironic courts. sauternes integrate furiously f'),
   (1473,13,722,496.90,'ts promise furiously final requests. pinto beans use regularly. unusual'),
   (1473,52,1112,897.04,'. ironic pinto beans cajole furiously furiously express dolphins. slyly unusual orbits mold above the blithely regular packages. requests wake blithely among the account'),
@@ -6016,7 +6154,10 @@ INSERT INTO partsupp VALUES
   (1504,5,410,753.73,'g, even excuses wake above the quickly special pinto beans. blithely express excuses wake furiously carefully special foxes. furiously ironic depths sleep carefully final accounts. packages caj'),
   (1504,45,5701,694.92,'s. ironic instructions are final, silent deposits. express dinos around the blithely express requests wake slyly furiously regular ideas. carefully final asym'),
   (1504,85,910,407.49,'eposits; fluffily ironic theodolites sleep carefully ev'),
-  (1504,25,9044,668.14,'pecial theodolites. blithely express packages haggle evenly. blithely special deposits doubt furiously furiou'),
+  (1504,25,9044,668.14,'pecial theodolites. blithely express packages haggle evenly. blithely special deposits doubt furiously furiou')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1505,6,7917,877.72,'ackages. slyly unusual asymptotes doubt courts. carefully bold'),
   (1505,46,3050,758.58,'s sleep express packages. ironic ideas wake. furiously pending instructions would us'),
   (1505,86,7102,389.49,'uests. even requests after the sometimes special pinto beans cajole blithely '),
@@ -6144,7 +6285,10 @@ INSERT INTO partsupp VALUES
   (1536,37,3717,321.65,'telets. slyly regular courts affix fluffily regular courts. furiously final deposits according to the furiously final courts grow eve'),
   (1536,77,3629,512.35,'equests. courts nag slyly regular, ironic depths. quickly ironic depos'),
   (1536,17,8090,811.02,'onic instructions should nag slyly. regular theodolites are after the quickly quiet theodolites. evenly regular ideas boost against the pinto beans. carefully bold accounts acros'),
-  (1536,57,9634,644.75,'according to the slyly ironic packages. quickly slow packages sleep: ironic instructions haggle among the carefully unusual dependencies. slyly ironic accounts are flu'),
+  (1536,57,9634,644.75,'according to the slyly ironic packages. quickly slow packages sleep: ironic instructions haggle among the carefully unusual dependencies. slyly ironic accounts are flu')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1537,38,6507,242.24,'fily final packages sleep quickly regular requests. regular, express accounts might are carefully. doggedly special braids use slyly fluffily qui'),
   (1537,78,8905,671.69,'l requests. furiously final accounts alongside of the regular accounts '),
   (1537,18,58,608.64,'ely bold pinto beans. quickly ironic braids cajole furiously fluffily final instructions. express '),
@@ -6272,7 +6416,10 @@ INSERT INTO partsupp VALUES
   (1568,69,1251,824.17,'al foxes serve slyly careful foxes. ironic, express depo'),
   (1568,9,8837,863.20,'ar dependencies are stealthily busy foxes. carefully final fo'),
   (1568,49,470,501.00,'accounts. carefully final grouches cajole furiously quickly ironic accounts. instructions haggle above the final, even packages. unusual gifts boost. dolphins are qui'),
-  (1568,89,1895,899.23,'ages integrate carefully alongside of the requests. quietly special ideas haggle blithely after the furiously bold hockey pla'),
+  (1568,89,1895,899.23,'ages integrate carefully alongside of the requests. quietly special ideas haggle blithely after the furiously bold hockey pla')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1569,70,7228,552.77,'notornis alongside of the dolphins affix silently above the escapades. slyly stealthy Tiresias after the fur'),
   (1569,10,6858,908.78,'y bold frays. instructions haggle slyly: regular, ironic instructions across the packages integrate fluffily '),
   (1569,50,6769,295.91,'. courts are blithely slyly unusual packages. quickly even attainments cajole. careful'),
@@ -6400,7 +6547,10 @@ INSERT INTO partsupp VALUES
   (1600,1,3836,965.26,'counts wake blithely pending accounts. slyly ironic deposits sleep blithely among the furiously bold ideas. epitaphs'),
   (1600,41,4463,469.03,'its. express, special pinto beans sleep fluffily quickly special sauternes. de'),
   (1600,81,9605,78.17,'slyly close deposits-- slyly ironic pinto beans integrate. carefully ironic warhorses against the fluffily express requests sublate since the fluffily final packages. ideas run furiously after the'),
-  (1600,21,874,324.34,'ifts integrate above the final ideas. fluffily express pinto beans hag'),
+  (1600,21,874,324.34,'ifts integrate above the final ideas. fluffily express pinto beans hag')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1601,2,5505,873.81,'ites. furiously even packages haggle slyly even deposits. regular, even deposits use carefully final accounts'),
   (1601,43,9546,856.43,'y pending requests nag slyly about the carefully regular deposits. express instructions are express foxes. furiously special acco'),
   (1601,84,2987,471.28,'haggle about the slyly ironic requests. slyly even instructions cajole slyly above the quickly final packages. slyly '),
@@ -6528,7 +6678,10 @@ INSERT INTO partsupp VALUES
   (1632,33,5870,683.27,'onic packages. ironic instructions affix blithely according to the regular d'),
   (1632,74,1419,302.67,'y final theodolites use fluffily. slyly regular asymptotes cajole quickly regular pinto beans. carefully even deposits should haggle slyly blithely bold requests. close, exp'),
   (1632,15,942,282.53,'es. carefully pending excuses are quietly furiously regular requests. express, ironic accounts cajole across the blithely even packages. furiously express requests wake '),
-  (1632,56,6044,367.07,'tly express instructions. permanent packages cajole permanently. dolphins boost furiously final pinto beans. final, regular pinto beans dazzle unusual packages; furiously final accounts cajol'),
+  (1632,56,6044,367.07,'tly express instructions. permanent packages cajole permanently. dolphins boost furiously final pinto beans. final, regular pinto beans dazzle unusual packages; furiously final accounts cajol')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1633,34,129,711.48,'c instructions are blithely. carefully ironic instructions unwind blithely. sly'),
   (1633,75,2412,957.75,'ithely final requests hinder blithely carefully silent packages. f'),
   (1633,16,1466,178.52,'s. express accounts nag silent, even orbits. furiously express gif'),
@@ -6656,7 +6809,10 @@ INSERT INTO partsupp VALUES
   (1664,65,4636,192.61,'furiously ironic deposits use above the daringly regular deposits. accounts integrate blithely quickly regular requests. final pi'),
   (1664,6,236,611.40,'ual foxes run carefully final foxes; special packages use among the blithely final deposits. dogged ideas sleep blithely. furiously dogged instructions sleep against the '),
   (1664,47,1638,307.54,'ironic accounts. blithely even requests kindle blithely. carefully regular instructions according to the express deposits are silent asymptotes. caref'),
-  (1664,88,6847,231.37,' excuses use fluffily regular deposits. regular pinto beans unwind permanently among the final, special packages. slyly express requests boost. blithely even packages nag blithely fluffily specia'),
+  (1664,88,6847,231.37,' excuses use fluffily regular deposits. regular pinto beans unwind permanently among the final, special packages. slyly express requests boost. blithely even packages nag blithely fluffily specia')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1665,66,8722,736.45,'s the final, even requests. quickly ironic theodolites among the final dependencies integrate fluffily'),
   (1665,7,377,988.35,'en requests sleep fluffily across the instructions. blithely final deposits alongside of the fluffily even theodolites kindle after the busy deposits. slowly bold ideas cajo'),
   (1665,48,6025,902.21,'sual asymptotes. permanently express theodolites cajole. blithely final deposits wake-- pending ideas boost quickly about the pending packages. carefully expre'),
@@ -6784,7 +6940,10 @@ INSERT INTO partsupp VALUES
   (1696,97,6084,851.62,'ly regular accounts are above the slyly unusual theodolites. silent, regular packages about the'),
   (1696,38,4554,694.68,' furiously silent, final deposits. slyly silent somas maintain furiously despite the carefully regular asymptotes. quickly even packages grow blithely along the unusual, regular '),
   (1696,79,3998,341.26,'g deposits. slyly final theodolites among the slyly ironic hockey players cajole after the carefully final dolphins. even, unusual foxes hagg'),
-  (1696,20,6697,500.49,'telets. asymptotes sleep busily unusual Tiresias. regular, bold accounts use since the ironic pinto b'),
+  (1696,20,6697,500.49,'telets. asymptotes sleep busily unusual Tiresias. regular, bold accounts use since the ironic pinto b')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1697,98,2464,310.27,'ideas. furiously unusual packages cajole ruthlessly after the carefully'),
   (1697,39,4240,120.72,'e furiously hockey players: slyly regular epitaphs use across the carefully even accounts. final Tiresias sleep blithely blithely final ideas. regular accounts are carefully. stealth'),
   (1697,80,7503,245.46,'bold requests about the brave requests thrash even, final requests. blithely final requests affix carefully pending accounts? requests along the blithely even '),
@@ -6912,7 +7071,10 @@ INSERT INTO partsupp VALUES
   (1728,29,584,586.82,'lithely quickly bold deposits. slyly ironic ideas across the furiously pending foxes cajole carefully carefully special deposits. regular platelets haggle special, ironic ideas. silent packag'),
   (1728,71,2322,734.66,', silent ideas sleep fluffily. furiously express warthogs thrash slyly dinos. th'),
   (1728,13,3629,989.77,'gly regular theodolites. even accounts x-ray blithely according to the slyly final theodolites. quickly pending ideas along the pending dolphins unwind carefully iron'),
-  (1728,55,5849,850.32,'regular, express foxes haggle carefully about the carefully pending gifts. express pinto beans are slyly. '),
+  (1728,55,5849,850.32,'regular, express foxes haggle carefully about the carefully pending gifts. express pinto beans are slyly. ')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1729,30,4803,712.38,'ial, pending deposits. ironic, regular deposits affix blithely. dinos integrate according to the slyly ironic packages. quickly ironic deposits alongside of th'),
   (1729,72,6442,105.20,'riously. deposits sleep. regular foxes alongside of the quickly bold foxes haggle furiously around the slyly express '),
   (1729,14,1302,74.62,'ular theodolites are deposits. blithely special Tiresias nag blithely. furiously regular deposits slee'),
@@ -7040,7 +7202,10 @@ INSERT INTO partsupp VALUES
   (1760,61,1335,958.82,'e furiously unusual, ironic ideas. slyly blithe deposits hinder. regular packages according to the slyly ironic instructions cajole furiously ironic'),
   (1760,3,9189,76.94,'posits across the silent, bold packages are slyly regular requests. silently even waters shall haggle. furiousl'),
   (1760,45,2352,749.94,'cajole slyly outside the decoys. quickly unusual foxes nag even packages. quickly express pinto beans against the quickly final requests was ironic sauternes. blithely express de'),
-  (1760,87,2134,74.05,'he furiously pending accounts. fluffily ironic deposits detect carefully on the accounts. ironic deposits boost fluffily u'),
+  (1760,87,2134,74.05,'he furiously pending accounts. fluffily ironic deposits detect carefully on the accounts. ironic deposits boost fluffily u')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1761,62,2428,75.00,' requests boost platelets. blithely regular platelets must haggle. furiously final dolphins boost. special, bold accounts alongsi'),
   (1761,4,785,87.56,'fully final foxes affix unusual, final requests. carefully final dependencies about the special theodolites boost carefully regular requests. slyly ironic waters wak'),
   (1761,46,9264,376.45,'structions use quickly. final ideas haggle. blithely express pinto beans unwind after the furiously bold frets. carefully pending requests cajol'),
@@ -7168,7 +7333,10 @@ INSERT INTO partsupp VALUES
   (1792,93,7227,6.54,'posits boost quickly about the pending instructions. boldly unusua'),
   (1792,35,2212,279.11,'r, special instructions haggle furiously according to the final dependencies. fluffily final accounts cajole. carefully pending accounts cajole carefully.'),
   (1792,77,1913,839.70,'ns. carefully bold requests sleep unusual, regular dependencies. quickly unusual excuses across the express deposits cajole thin platelets. slyly bold accounts detect quickly. ca'),
-  (1792,19,6252,143.30,'ly across the slyly pending attainments. slyly special pinto beans boost blithely even pinto beans. bli'),
+  (1792,19,6252,143.30,'ly across the slyly pending attainments. slyly special pinto beans boost blithely even pinto beans. bli')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1793,94,9846,131.94,'slyly ironic requests. carefully even deposits sleep furiously carefully pending requests. pending asymptotes use blithely. fluffily pending asymptotes use special, fina'),
   (1793,36,5136,999.92,'lets grow carefully. slyly silent ideas about the foxes nag blithely ironi'),
   (1793,78,3391,588.68,' beans wake above the slyly final accounts; slyly bold pains use slyly special multipliers. regular packages sleep blithely. regu'),
@@ -7296,7 +7464,10 @@ INSERT INTO partsupp VALUES
   (1824,25,5596,929.06,'tions. doggedly regular instructions sleep above the never ironic requests. blithely bold'),
   (1824,68,7577,367.50,'ely after the slyly special waters. daringly ironic requests use blithely furiously bold requests. pending ideas after the slyly ironic ac'),
   (1824,11,7004,28.76,'ions. blithely even foxes alongside of the foxes hinder against the enticing hockey players. instructions are quickly at the quickly even requests. furiously final accounts hang '),
-  (1824,54,1421,32.98,'e sometimes final deposits are evenly final frays: final courts wake quickly. ironic, bold instructions integrate carefully bold, regular'),
+  (1824,54,1421,32.98,'e sometimes final deposits are evenly final frays: final courts wake quickly. ironic, bold instructions integrate carefully bold, regular')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1825,26,2270,148.09,'instructions haggle slyly. carefully final requests wake carefully. slyly ironic requests sleep blithely even accounts. blithely even requests wake carefully ironic deposits. blithely unusual ac'),
   (1825,69,4932,649.48,'ses haggle. slyly ironic deposits doubt slyly slyly special packages. fluffily bold orbits boost pending requests. accounts above the furiously final instructions x-ray furiously after the'),
   (1825,12,417,815.26,'according to the slyly brave foxes. excuses cajole slyly slyly special platelets: carefully p'),
@@ -7424,7 +7595,10 @@ INSERT INTO partsupp VALUES
   (1856,57,7134,665.98,'ests. bold instructions serve permanently unusual foxes. ironically regular requests can haggle along the slyly ironic requests. quickly even Tiresias haggle at the silent platelet'),
   (1856,100,2050,445.67,'ven foxes should wake quickly about the blithely p'),
   (1856,43,6083,989.99,'ests around the slyly unusual deposits kindle according to the pending deposits-- ironic instructions against the blithely permanent pearl'),
-  (1856,86,766,587.58,' poach slyly among the blithely regular instructions. blithely unusual accounts mold slyly; bold accounts w'),
+  (1856,86,766,587.58,' poach slyly among the blithely regular instructions. blithely unusual accounts mold slyly; bold accounts w')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1857,58,8314,428.05,'y final warthogs. final frets affix slyly. finally ironic requests use permanently along the quickly unusual packages. quickly regula'),
   (1857,1,6540,578.81,'haggle permanently against the theodolites. slyly ironic platelets print blithely regular instructions. silent instructions sleep. bo'),
   (1857,44,2456,8.87,'ly careful ideas use quickly. slyly final deposits serve across the deposits. furiously ironic requests cajole slyly quickly pending deposits. quickl'),
@@ -7552,7 +7726,10 @@ INSERT INTO partsupp VALUES
   (1888,89,6777,297.23,'usly according to the slyly regular requests. furiously regular packages boost fluffily-- furiously regular instructions nag even pinto beans? stealthily br'),
   (1888,32,8829,781.94,'he carefully even requests sleep evenly about the ironic instructions. accounts about the packages cajole quickly carefully dogged dependencies. slyly even ideas use. quickly'),
   (1888,75,9696,280.76,'according to the furiously final tithes are carefully after the fluffily regular excuses. slyly bold asymptotes are blithely fluffily blithe accounts. bli'),
-  (1888,18,162,699.14,'leep quickly. carefully ironic pinto beans after the quickly regular '),
+  (1888,18,162,699.14,'leep quickly. carefully ironic pinto beans after the quickly regular ')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1889,90,6330,392.91,' enticing packages. blithely even theodolites are carefully quickly bold accounts? slyly ironic frets cajole alongside of the regular packages. f'),
   (1889,33,3382,484.46,'s. pinto beans cajole. sometimes final requests x-ray. blithely ironic warhorses cajo'),
   (1889,76,9824,574.10,' boost permanently. fluffily even theodolites use. furiously unusual accounts cajole boldly above the furiously final frets.'),
@@ -7680,7 +7857,10 @@ INSERT INTO partsupp VALUES
   (1920,21,5249,735.54,' requests. furiously regular requests integrate carefully. blit'),
   (1920,65,7651,746.84,' deposits. quickly regular theodolites are final instructions. warhorses detect ironic pinto beans. fluffily regular requests sleep carefully after the slyly expres'),
   (1920,9,9214,901.33,'e furiously bold requests. ironic ideas wake idly. bold deposits are special packages. carefully final accounts hag'),
-  (1920,53,3846,948.49,' cajole furiously after the fluffily ironic accounts. furiously pending packages sleep blithely. deposits haggle regularly. furiously ironi'),
+  (1920,53,3846,948.49,' cajole furiously after the fluffily ironic accounts. furiously pending packages sleep blithely. deposits haggle regularly. furiously ironi')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1921,22,175,312.29,'ithely bold dolphins. carefully regular excuses are slyly quickly unusu'),
   (1921,66,8386,85.46,'y bold packages. carefully special foxes sublate slyly. blithely bold instructions are slyly above the regular foxes. fluffily s'),
   (1921,10,2383,44.81,' the finally regular ideas haggle blithely about the instructions; furio'),
@@ -7808,7 +7988,10 @@ INSERT INTO partsupp VALUES
   (1952,53,8180,376.65,'y special packages nag furiously regular accounts. blithely final requests boost unusual, unusual theodolites. fluffily pending ideas according to the brave a'),
   (1952,97,8886,870.10,'fluffily ironic pinto beans? slyly unusual packages are furiously above the quickly even excuses. sometimes thin braids along the blithely ironic pinto beans cajole slyly about the ironic,'),
   (1952,41,3716,443.40,'silently accounts. bold, ironic pinto beans detect across the bold, pending excuses. furiously ironi'),
-  (1952,85,5299,916.39,' affix carefully special accounts. carefully special foxes across the theodolites boost boldly after the even, even accounts. fluffily regular reque'),
+  (1952,85,5299,916.39,' affix carefully special accounts. carefully special foxes across the theodolites boost boldly after the even, even accounts. fluffily regular reque')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1953,54,1900,345.28,'luffily careful deposits; quickly even theodolites about the '),
   (1953,98,8441,190.50,' even requests. fluffily ironic dolphins are about the regular instructions! accounts are across the ironic, final platelets. unusual deposits haggle closely across the blithe'),
   (1953,42,8479,169.34,' to the slyly regular packages. fluffily ironic accounts promise special, regular asymptotes. slyly special instructions along the final p'),
@@ -7936,7 +8119,10 @@ INSERT INTO partsupp VALUES
   (1984,85,4661,623.76,'xpress deposits cajole blithely against the even packages. ironic requests are fluffily. blithely expr'),
   (1984,29,6524,142.71,'st the carefully special depths haggle furiously against'),
   (1984,73,4988,138.95,'efully about the carefully ironic instructions. even accounts believe carefully. express accounts'),
-  (1984,17,6850,948.25,'ffily express excuses print above the slyly even dependencies. pending, flu'),
+  (1984,17,6850,948.25,'ffily express excuses print above the slyly even dependencies. pending, flu')
+
+statement ok
+INSERT INTO partsupp VALUES 
   (1985,86,7737,267.44,'blithely unusual requests boost thin deposits. slyly express theodolites cajole again'),
   (1985,30,6773,541.50,'l ideas integrate. furiously unusual patterns after the furiously ironic requests wake slyly about the regular deposits. carefully final requests are ironi'),
   (1985,74,9004,301.49,'efully unusual requests doze slyly. furiously final warthog'),
@@ -8001,4 +8187,5 @@ INSERT INTO partsupp VALUES
   (2000,45,3410,231.06,'regular foxes detect furiously carefully bold ideas-- carefully silent accounts boost quickly even '),
   (2000,89,2642,558.65,'final accounts wake express theodolites? slyly regular forges sleep bravely against the finally even pi'),
   (2000,33,8414,798.67,'yly ironic dependencies. blithely final theodolites sleep. furiously ironic accounts wake carefully across the express, regular requests. carefully regul')
+
 

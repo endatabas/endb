@@ -128,7 +128,10 @@ INSERT INTO customer VALUES
   (125,'Customer#000000125',',wSZXdVR xxIIfm9s8ITyLl3kgjT6UC07GY0Y',19,'29-261-996-3120',-234.12,'FURNITURE','x-ray finally after the packages? regular requests c'),
   (126,'Customer#000000126','ha4EHmbx3kg DYCsP6DFeUOmavtQlHhcfaqr',22,'32-755-914-7592',1001.39,'HOUSEHOLD','s about the even instructions boost carefully furiously ironic pearls. ruthless, '),
   (127,'Customer#000000127','Xyge4DX2rXKxXyye1Z47LeLVEYMLf4Bfcj',21,'31-101-672-2951',9280.71,'MACHINERY','ic, unusual theodolites nod silently after the final, ironic instructions: pending r'),
-  (128,'Customer#000000128','AmKUMlJf2NRHcKGmKjLS',4,'14-280-874-8044',-986.96,'HOUSEHOLD','ing packages integrate across the slyly unusual dugouts. blithely silent ideas sublate carefully. blithely expr'),
+  (128,'Customer#000000128','AmKUMlJf2NRHcKGmKjLS',4,'14-280-874-8044',-986.96,'HOUSEHOLD','ing packages integrate across the slyly unusual dugouts. blithely silent ideas sublate carefully. blithely expr')
+
+statement ok
+INSERT INTO customer VALUES 
   (129,'Customer#000000129','q7m7rbMM0BpaCdmxloCgBDRCleXsXkdD8kf',7,'17-415-148-7416',9127.27,'HOUSEHOLD',' unusual deposits boost carefully furiously silent ideas. pending accounts cajole slyly across'),
   (130,'Customer#000000130','RKPx2OfZy0Vn 8wGWZ7F2EAvmMORl1k8iH',9,'19-190-993-9281',5073.58,'HOUSEHOLD','ix slowly. express packages along the furiously ironic requests integrate daringly deposits. fur'),
   (131,'Customer#000000131','jyN6lAjb1FtH10rMC,XzlWyCBrg75',11,'21-840-210-3572',8595.53,'HOUSEHOLD','jole special packages. furiously final dependencies about the furiously speci'),
@@ -256,7 +259,10 @@ INSERT INTO customer VALUES
   (253,'Customer#000000253','naGyIRPFPH E',15,'25-461-140-9884',9139.52,'AUTOMOBILE',' regular deposits sleep against the accounts. foxes cajole carefully special '),
   (254,'Customer#000000254','vQ,pEzMQaFgJzK4TJ2eA',1,'11-451-622-6325',1915.35,'MACHINERY','equests. carefully ironic deposits detect carefully abo'),
   (255,'Customer#000000255','I8Wz9sJBZTnEFG08lhcbfTZq3S',3,'13-924-679-8287',3196.07,'BUILDING','ges mold. bold, regular courts boost furiously at the '),
-  (256,'Customer#000000256','eJ6AggYh80JMEzZNwYK4CIC2flT',10,'20-229-271-4429',1299.92,'HOUSEHOLD','ld boost about the carefully ironic foxes. slyly special packages cajole alongside of the slyly final accounts. q'),
+  (256,'Customer#000000256','eJ6AggYh80JMEzZNwYK4CIC2flT',10,'20-229-271-4429',1299.92,'HOUSEHOLD','ld boost about the carefully ironic foxes. slyly special packages cajole alongside of the slyly final accounts. q')
+
+statement ok
+INSERT INTO customer VALUES 
   (257,'Customer#000000257','LyIa26EXYaSU',7,'17-816-687-2155',-339.85,'AUTOMOBILE','s cajole quickly along the ironic pinto beans: even, regular foxes are '),
   (258,'Customer#000000258','7VbADek8qYezQYotxNUmnNI',12,'22-278-425-9944',6022.27,'MACHINERY','about the regular, bold accounts; pending packages use furiously stealthy warhorses. bold accounts sleep fur'),
   (259,'Customer#000000259','kwh9i86Wj1Zq14nwTdhxapIkLEI',5,'15-907-674-2046',3335.29,'HOUSEHOLD','furiously unusual instructions. s'),
@@ -384,7 +390,10 @@ INSERT INTO customer VALUES
   (381,'Customer#000000381','w3zVseYDbjBbzLld',5,'15-860-208-7093',9931.71,'BUILDING','t regular, bold accounts. carefully quick packages haggle. care'),
   (382,'Customer#000000382','UdgAMamK5JnSykA,ZPfR5W5zRFatDUye',8,'18-942-650-6657',6269.42,'AUTOMOBILE','. blithely express notornis according to the blithely even requests are never fina'),
   (383,'Customer#000000383','iBIHYgXvVDpu6qq7FlqXVcAIDAzv4qs',2,'12-868-920-9034',-849.44,'MACHINERY','slyly express ideas haggle blithely unusual dugouts. ironic pinto beans are ironic ideas.'),
-  (384,'Customer#000000384','kDDMb3ML nUSu2Sn7CUHyZVedAFUx9',9,'19-271-453-8361',-614.30,'HOUSEHOLD','olites. express, unusual dolphins cajole carefully about the '),
+  (384,'Customer#000000384','kDDMb3ML nUSu2Sn7CUHyZVedAFUx9',9,'19-271-453-8361',-614.30,'HOUSEHOLD','olites. express, unusual dolphins cajole carefully about the ')
+
+statement ok
+INSERT INTO customer VALUES 
   (385,'Customer#000000385','zJvPI24TSPpiFzYfu3RvTKQ9',3,'13-741-675-6890',2457.09,'AUTOMOBILE','rs. blithely ironic deposits nag furiously across the furiously ironic accounts. bold deposits sleep express'),
   (386,'Customer#000000386','DeQxsCxixT8RQ7JV6mddRYGDGQ2WM94',24,'34-193-143-1425',232.01,'BUILDING','counts. blithely permanent deposits wake slyly! unusual, even theodolites u'),
   (387,'Customer#000000387','Yj 9g1mNu00rKRkc1ovOmptsPI',18,'28-694-363-3673',3404.23,'HOUSEHOLD','oach. blithely regular instructions sublate across the quickly regular ideas. qui'),
@@ -512,7 +521,10 @@ INSERT INTO customer VALUES
   (509,'Customer#000000509','LHLR0IKQJHVF1 0UvBNPLq0',4,'14-115-338-1002',7885.50,'FURNITURE','ily! requests cajole fluffily. slyly regular waters na'),
   (510,'Customer#000000510','r6f34uxtNID YBuAXpO94BKyqjkM0qmT5n0Rmd9L',5,'15-846-260-5139',1572.48,'HOUSEHOLD','symptotes. furiously careful re'),
   (511,'Customer#000000511','lQC9KfW W77IYtJjAgSZguNzxjY rYk3t6lcxfSh',13,'23-247-728-9743',4571.31,'FURNITURE','he slyly close deposits. special, ironic ideas detect furiously carefull'),
-  (512,'Customer#000000512','e5 kymvjf6Vja7tNsL 3dfiK',2,'12-144-416-6035',3937.58,'BUILDING','packages are slyly after the slyly express packages. bold d'),
+  (512,'Customer#000000512','e5 kymvjf6Vja7tNsL 3dfiK',2,'12-144-416-6035',3937.58,'BUILDING','packages are slyly after the slyly express packages. bold d')
+
+statement ok
+INSERT INTO customer VALUES 
   (513,'Customer#000000513','sbWV6FIPas6C0puqgnKUI',1,'11-861-303-6887',955.37,'HOUSEHOLD','press along the quickly regular instructions. regular requests against the carefully ironic s'),
   (514,'Customer#000000514','0qD6Nwp3tG3QqCq9qvRAzT6N8L',23,'33-194-775-6756',5840.97,'BUILDING','carefully final ideas. quickly final packages are. requests haggle slyly. blithely pending sauternes lose bl'),
   (515,'Customer#000000515','oXxHtgXP5pXYTh',15,'25-204-592-4731',3225.07,'BUILDING','ackages cajole furiously special, ironic deposits. carefully even Tiresias according to '),
@@ -640,7 +652,10 @@ INSERT INTO customer VALUES
   (637,'Customer#000000637','Ey7g4q2oH Q1vs',7,'17-983-923-8985',7511.17,'HOUSEHOLD','ly furiously even accounts: final, unusual Tiresias do snooze theodolites. slyly regular dependenci'),
   (638,'Customer#000000638','yyRRorZ HHzU1yJwNJwF72dvUVJ nMlzpKAXEb',24,'34-102-347-8343',2258.40,'HOUSEHOLD','nts x-ray fluffily across the theodolites. carefully final pearls cajole ruthl'),
   (639,'Customer#000000639','8OiPHefIPoalRjUoCIwbXz',15,'25-221-133-2233',4899.15,'MACHINERY','ly bold asymptotes. ironic, even d'),
-  (640,'Customer#000000640','j3vjr0 n,pJFG4gIOtC',2,'12-702-315-6637',3025.84,'HOUSEHOLD','lly. furiously quick deposits haggle quickly regular packages. pinto '),
+  (640,'Customer#000000640','j3vjr0 n,pJFG4gIOtC',2,'12-702-315-6637',3025.84,'HOUSEHOLD','lly. furiously quick deposits haggle quickly regular packages. pinto ')
+
+statement ok
+INSERT INTO customer VALUES 
   (641,'Customer#000000641','gbIvFlCygHjj5NG7U',24,'34-761-987-7777',339.49,'AUTOMOBILE','uriously final requests boost regular, final ideas. fluffily busy packages promise? requests along the bold, s'),
   (642,'Customer#000000642','6Y1gEH0gMLh0yzlipNR',22,'32-925-597-9911',5684.01,'AUTOMOBILE',' requests cajole blithely quick'),
   (643,'Customer#000000643','9T 2avhfyF PQ',0,'10-978-597-2747',5184.70,'FURNITURE','fily along the quickly ironic ideas. final, final'),
@@ -768,7 +783,10 @@ INSERT INTO customer VALUES
   (765,'Customer#000000765','b7w2edOUZNe0QX 3Ab3y5RFlMZX',20,'30-544-657-7473',5683.33,'AUTOMOBILE','ter the blithely regular foxes. slyly bold packages use bl'),
   (766,'Customer#000000766','zGTH6uWKoQxIE',16,'26-283-847-8946',4677.55,'BUILDING','ly special deposits boost blithely above the slyly ruthless ideas. carefully bold asymptotes unwind about the e'),
   (767,'Customer#000000767','9f3 XsYXdvP0E39ZBi7r7oRCns3PTx,H',17,'27-526-143-3959',7647.09,'BUILDING','ngly express dolphins boost carefu'),
-  (768,'Customer#000000768',' ,cIZ,06Kg',18,'28-851-493-8588',9618.84,'BUILDING','to cajole blithely express asymptotes. foxes use quickly. carefully special ideas could have to are bravely bl'),
+  (768,'Customer#000000768',' ,cIZ,06Kg',18,'28-851-493-8588',9618.84,'BUILDING','to cajole blithely express asymptotes. foxes use quickly. carefully special ideas could have to are bravely bl')
+
+statement ok
+INSERT INTO customer VALUES 
   (769,'Customer#000000769','0eGzsjpDFsN0',5,'15-102-635-4835',5950.86,'HOUSEHOLD','ggle slyly pinto beans. furiously even excuses above the '),
   (770,'Customer#000000770','IjwJR6TjBJZbKIeouH2d',8,'18-856-112-5677',2066.79,'AUTOMOBILE','dolites haggle express, express requests. furiou'),
   (771,'Customer#000000771','J9UMiYJznHVHZDuCG,ErV0iiMStETS',23,'33-761-371-4753',7461.74,'AUTOMOBILE','arefully unusual accounts shall boost unusual pinto beans. ironic, final ideas boost. slyly i'),
@@ -896,7 +914,10 @@ INSERT INTO customer VALUES
   (893,'Customer#000000893','W6m7LofOZoik72ku',13,'23-827-724-6816',8250.87,'BUILDING','ets. ironic instructions nag even, regular courts. slyly iro'),
   (894,'Customer#000000894','5y7m8Ts4kDf',16,'26-844-679-1540',4483.42,'AUTOMOBILE','carefully regular accounts sleep carefully slyly ironic dependencies. blithely ironic accounts wa'),
   (895,'Customer#000000895','MDaJr8ekGTS79bS7CH8f1WgWPU',0,'10-933-819-2037',904.43,'AUTOMOBILE','ggle final packages. slyly regular instructions affix fur'),
-  (896,'Customer#000000896','Tu1ZBNgiSEL9Ns',0,'10-425-565-3199',7659.72,'AUTOMOBILE','affix carefully unusual requests. furiously fin'),
+  (896,'Customer#000000896','Tu1ZBNgiSEL9Ns',0,'10-425-565-3199',7659.72,'AUTOMOBILE','affix carefully unusual requests. furiously fin')
+
+statement ok
+INSERT INTO customer VALUES 
   (897,'Customer#000000897','nW1X1Hl9uWycuBEu3F3',6,'16-988-776-4568',1999.42,'MACHINERY','riously regular ideas sleep into the final, unusual'),
   (898,'Customer#000000898','JrvrIEzAre,VJzJCi3SEmib1T2,YVXVvOGxaVZwR',3,'13-265-738-4361',8137.24,'AUTOMOBILE','s haggle around the special dependencies. slyly regular requests are according to the idly sly ideas! fluffily final'),
   (899,'Customer#000000899','Th5XO5ImeCe9nHFQfQMCkNcmf5WHSeYQaR5TJ',2,'12-594-534-9654',8605.53,'FURNITURE','rding to the furiously unusual accounts. express, express accounts nag furiously. ide'),
@@ -1024,7 +1045,10 @@ INSERT INTO customer VALUES
   (1021,'Customer#000001021','m h2wQbujQnQOrcf109reW0 o',6,'16-469-554-5196',1286.76,'MACHINERY','courts could hang quickly express epitaphs. foxes haggle above the carefully unusual requ'),
   (1022,'Customer#000001022','lP,9H6e6mQwLsWYYr2Y',8,'18-733-553-2195',9605.83,'AUTOMOBILE','ending packages. dependencies along the slyly pending dependencies wake carefu'),
   (1023,'Customer#000001023','w8 oxHcOTUiF8dOr,ktZ05pO7qcHZ8ZeH7',17,'27-960-306-5136',7188.35,'AUTOMOBILE',' express requests. slyly ironic asymptotes throughout the ironic, final packages nag careful'),
-  (1024,'Customer#000001024','9wLrRS78uOPy7CHW',11,'21-508-779-7822',-425.09,'FURNITURE',' carefully regular instructions. furiously final deposits across the carefully special ideas cajole furi'),
+  (1024,'Customer#000001024','9wLrRS78uOPy7CHW',11,'21-508-779-7822',-425.09,'FURNITURE',' carefully regular instructions. furiously final deposits across the carefully special ideas cajole furi')
+
+statement ok
+INSERT INTO customer VALUES 
   (1025,'Customer#000001025','3T2A1uo8mCqTeO LTW8atjLBLO12nh6lyl',8,'18-588-456-4616',3363.46,'AUTOMOBILE','to beans sleep according to the fluffily regular instructions. '),
   (1026,'Customer#000001026','ktKcS9tV2OC8T42KVqMem NjkNO 4pkXmu',17,'27-169-221-8173',9699.28,'MACHINERY','totes against the stealthy deposits haggle fluffily after the regular, regular deposi'),
   (1027,'Customer#000001027','GNaw4RXXMr',2,'12-278-154-5262',4946.21,'BUILDING',' final requests haggle. final, even sheaves maintain carefully above the even ac'),
@@ -1152,7 +1176,10 @@ INSERT INTO customer VALUES
   (1149,'Customer#000001149','5JOAwCy8MD70TUZJDyxgEBMe',3,'13-254-242-3889',6287.79,'MACHINERY','ress requests haggle carefully across the fluffily regula'),
   (1150,'Customer#000001150','fUJqzdkQg1',21,'31-236-665-8430',-117.31,'MACHINERY','usly final dolphins. fluffily bold platelets sleep. slyly unusual attainments lo'),
   (1151,'Customer#000001151','ratQBQ4rYv TfhWfHe',7,'17-948-135-2667',6354.89,'BUILDING','l requests. furiously bold orbits after the furiously ironic excuses sleep'),
-  (1152,'Customer#000001152','QRmFl9ZkoBDQ7',12,'22-471-341-5516',5680.15,'HOUSEHOLD','oost along the quiet, bold foxes. ironic dinos nag fluffily final pinto beans. blithely regular deposit'),
+  (1152,'Customer#000001152','QRmFl9ZkoBDQ7',12,'22-471-341-5516',5680.15,'HOUSEHOLD','oost along the quiet, bold foxes. ironic dinos nag fluffily final pinto beans. blithely regular deposit')
+
+statement ok
+INSERT INTO customer VALUES 
   (1153,'Customer#000001153','SYG3KMj1fMh7GwvIZ,pY7mGLR1NT6EmNjE',3,'13-319-420-5160',6244.03,'HOUSEHOLD','s. even packages use fluffily always express packages. regular, even asymptotes about the furiou'),
   (1154,'Customer#000001154','7RqtNwcSPbaUKaC',19,'29-797-132-6916',1498.46,'BUILDING','thely. furiously regular accounts above the ironic platelets wake slyly blithely bold pint'),
   (1155,'Customer#000001155','kEDBn1IQWyHyYjgGGs6FiXfm3',8,'18-864-953-3058',3510.25,'MACHINERY','ages? fluffily even accounts shall have to boost furiously alongside of the furiously pendin'),
@@ -1280,7 +1307,10 @@ INSERT INTO customer VALUES
   (1277,'Customer#000001277','2ETOoQWtvxqp',14,'24-502-746-4128',-52.35,'BUILDING','oss the packages. packages doze car'),
   (1278,'Customer#000001278','OB JBXz5fghXsYEaClW8PZpDmxMVZct',5,'15-253-270-5149',9038.43,'HOUSEHOLD','foxes. even, special theodolites boost. furiously silent packages haggle? furiously '),
   (1279,'Customer#000001279','fkrzLacsqCnwUwgjjttKmY',14,'24-742-587-6985',7915.06,'BUILDING','tes are. ideas above the carefully ironic d'),
-  (1280,'Customer#000001280','3AmBFWaqOYt7F',16,'26-725-573-7255',3419.66,'HOUSEHOLD','eodolites sleep according to the theodolites. slyly pending dolphins among the pending, express platel'),
+  (1280,'Customer#000001280','3AmBFWaqOYt7F',16,'26-725-573-7255',3419.66,'HOUSEHOLD','eodolites sleep according to the theodolites. slyly pending dolphins among the pending, express platel')
+
+statement ok
+INSERT INTO customer VALUES 
   (1281,'Customer#000001281','pekyJqzeIQKGO8TeLvXgH8HR',11,'21-124-963-7614',8182.42,'AUTOMOBILE','the furiously quick deposits. slyly regul'),
   (1282,'Customer#000001282','qeYHABkf21,5C5OC5it6q',14,'24-750-627-7414',8998.82,'FURNITURE',' even deposits sleep quickly regular'),
   (1283,'Customer#000001283','6JeLWEtDERPB,0KzWB,I6Xs8rJXAC8ryFulW5NPC',0,'10-203-771-2219',2222.71,'AUTOMOBILE',' blithely daringly final theodolites. foxes ha'),
@@ -1408,7 +1438,10 @@ INSERT INTO customer VALUES
   (1405,'Customer#000001405','i9khsGcg17kWI4q5LKTcc8U3aFojf403',16,'26-285-488-6682',3987.39,'BUILDING','haggle slyly; regular, final excuses are blithe'),
   (1406,'Customer#000001406','g1xS4snd0fzl4R,JmPHfEzRD',5,'15-767-155-6419',2023.59,'HOUSEHOLD','uests are furiously carefully express packages. slyly permanen'),
   (1407,'Customer#000001407','zZsTZ3nI1rG5X',14,'24-529-300-1554',7424.99,'BUILDING','nding, ironic instructions promise across the quickly regular r'),
-  (1408,'Customer#000001408','NMIb3p1DyU,Z4XOFUS0B,',11,'21-901-381-6344',5920.09,'HOUSEHOLD','express requests believe. pending, brave deposits sleep furiously. carefully regular deposit'),
+  (1408,'Customer#000001408','NMIb3p1DyU,Z4XOFUS0B,',11,'21-901-381-6344',5920.09,'HOUSEHOLD','express requests believe. pending, brave deposits sleep furiously. carefully regular deposit')
+
+statement ok
+INSERT INTO customer VALUES 
   (1409,'Customer#000001409','jzfaCksWUNlI',11,'21-667-401-3780',1959.17,'MACHINERY','ously ironic ideas are. unusual packages kindle along the dugouts. unus'),
   (1410,'Customer#000001410','yEUlreh6mkGmg8SIwKZooUOJ42kuZwAptaR4HAJ',22,'32-358-270-1819',2716.95,'HOUSEHOLD','lar, express packages cajole bravely permanently final packages. blithely even dolphins nag finally special theo'),
   (1411,'Customer#000001411','4iLVKtSmtJpU',21,'31-898-640-7625',772.14,'AUTOMOBILE','sly final ideas. carefully bold pinto beans wake: slyly regular packages must sleep. final platelets inte'),
@@ -1501,4 +1534,5 @@ INSERT INTO customer VALUES
   (1498,'Customer#000001498','x XToT5oFi7oIsRG2mgIL3ncvYJoWBsufsQ7N,z',19,'29-676-227-6356',5810.56,'AUTOMOBILE','ackages are slyly unusual req'),
   (1499,'Customer#000001499','4,6jWOEqfnuXkwhB7gs0M9TcWJlaJNv4bt',3,'13-273-527-9609',9128.69,'AUTOMOBILE','ole blithely permanent instructions. carefully even packages'),
   (1500,'Customer#000001500','4zaoUzuWUTNFiNPbmu43',5,'15-200-872-4790',6910.79,'MACHINERY','s boost blithely above the fluffily ironic dolphins! ironic accounts')
+
 
