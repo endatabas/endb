@@ -1,6 +1,6 @@
 (defpackage :endb/sql/parser
   (:use :cl :yacc)
-  (:export #:parse-sql)
+  (:export #:parse-sql #:read-sql-token)
   (:import-from :yacc)
   (:import-from :cl-ppcre))
 (in-package :endb/sql/parser)
@@ -549,3 +549,6 @@
 
 (defun parse-sql (in)
   (yacc:parse-with-lexer (make-sql-lexer in) *sql-parser*))
+
+(defun read-sql-token (in)
+  (funcall (make-sql-lexer in)))

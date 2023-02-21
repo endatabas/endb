@@ -3,6 +3,7 @@
   (:import-from :cl-ppcre)
   (:import-from :local-time)
   (:import-from :sqlite)
+  (:import-from :endb/sql/parser)
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-unary+ #:sql-unary-
@@ -416,11 +417,12 @@
   0)
 
 (defmethod sql-cast ((x string) (type (eql :signed)))
-  (if (ppcre:scan "^-?\\d+(.\\d+)?$" x)
-      (let ((*read-eval* nil)
-            (*read-default-float-format* 'double-float))
-        (read-from-string x))
-      0))
+  (multiple-value-bind (token-type value)
+      (endb/sql/parser:read-sql-token x)
+    (case token-type
+      (:- (- (sql-cast (subseq x (1+ (position #\- x))) :signed)))
+      ((float integer) value)
+      (t 0))))
 
 (defmethod sql-cast ((x number) (type (eql :signed)))
   x)
@@ -432,11 +434,12 @@
   0)
 
 (defmethod sql-cast ((x string) (type (eql :decimal)))
-  (if (ppcre:scan "^-?\\d+(.\\d+)?$" x)
-      (let ((*read-eval* nil)
-            (*read-default-float-format* 'double-float))
-        (read-from-string x))
-      0))
+  (multiple-value-bind (token-type value)
+      (endb/sql/parser:read-sql-token x)
+    (case token-type
+      (:- (- (sql-cast (subseq x (1+ (position #\- x))) :decimal)))
+      ((float integer) value)
+      (t 0))))
 
 (defmethod sql-cast ((x number) (type (eql :decimal)))
   (coerce x 'number))
@@ -448,11 +451,13 @@
   0.0d0)
 
 (defmethod sql-cast ((x string) (type (eql :real)))
-  (if (ppcre:scan "^-?\\d+(.\\d+)?$" x)
-      (let ((*read-eval* nil)
-            (*read-default-float-format* 'double-float))
-        (coerce (read-from-string x) 'double-float))
-      0.0d0))
+  (multiple-value-bind (token-type value)
+      (endb/sql/parser:read-sql-token x)
+    (case token-type
+      (:- (- (sql-cast (subseq x (1+ (position #\- x))) :real)))
+      (float value)
+      (integer (coerce value 'double-float))
+      (t 0.0d0))))
 
 (defmethod sql-cast ((x number) (type (eql :real)))
   (coerce x 'double-float))
