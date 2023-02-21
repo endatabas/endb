@@ -2,6 +2,7 @@
   (:use :cl)
   (:import-from :cl-ppcre)
   (:import-from :local-time)
+  (:import-from :sqlite)
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-unary+ #:sql-unary-
@@ -68,6 +69,12 @@
 (defmethod sql-< ((x number) (y number))
   (< x y))
 
+(defmethod sql-< ((x number) (y string))
+  t)
+
+(defmethod sql-< ((x string) (y number))
+  nil)
+
 (defmethod sql-<= ((x (eql :null)) (y (eql :null)))
   :null)
 
@@ -85,6 +92,12 @@
 
 (defmethod sql-<= ((x number) (y number))
   (<= x y))
+
+(defmethod sql-<= ((x number) (y string))
+  t)
+
+(defmethod sql-<= ((x string) (y number))
+  nil)
 
 (defmethod sql-> ((x (eql :null)) (y (eql :null)))
   :null)
@@ -104,6 +117,12 @@
 (defmethod sql-> ((x number) (y number))
   (> x y))
 
+(defmethod sql-> ((x number) (y string))
+  nil)
+
+(defmethod sql-> ((x string) (y number))
+  t)
+
 (defmethod sql->= ((x (eql :null)) (y (eql :null)))
   :null)
 
@@ -121,6 +140,12 @@
 
 (defmethod sql->= ((x number) (y number))
   (>= x y))
+
+(defmethod sql->= ((x number) (y string))
+  nil)
+
+(defmethod sql->= ((x string) (y number))
+  t)
 
 (defmethod sql-<< ((x (eql :null)) (y (eql :null)))
   :null)
@@ -177,23 +202,35 @@
 (defmethod sql-unary+ ((x (eql :null)))
   :null)
 
-(defmethod sql-unary+ ((x number))
+(defmethod sql-unary+ (x)
   x)
 
 (defmethod sql-+ ((x (eql :null)) (y (eql :null)))
   :null)
 
-(defmethod sql-+ ((x (eql :null)) y)
+(defmethod sql-+ ((x (eql :null)) (y number))
   :null)
 
-(defmethod sql-+ (x (y (eql :null)))
+(defmethod sql-+ ((x number) (y (eql :null)))
   :null)
 
 (defmethod sql-+ ((x number) (y number))
   (+ x y))
 
+(defmethod sql-+ (x (y number))
+  y)
+
+(defmethod sql-+ ((x number) y)
+  x)
+
+(defmethod sql-+ (x y)
+  0)
+
 (defmethod sql-unary- ((x (eql :null)))
   :null)
+
+(defmethod sql-unary- (x)
+  0)
 
 (defmethod sql-unary- ((x number))
   (- x))
@@ -201,53 +238,101 @@
 (defmethod sql-- ((x (eql :null)) (y (eql :null)))
   :null)
 
-(defmethod sql-- ((x (eql :null)) y)
+(defmethod sql-- ((x (eql :null)) (y number))
   :null)
 
-(defmethod sql-- (x (y (eql :null)))
+(defmethod sql-- ((x number) (y (eql :null)))
   :null)
 
 (defmethod sql-- ((x number) (y number))
   (- x y))
 
+(defmethod sql-- (x (y number))
+  (- y))
+
+(defmethod sql-- ((x number) y)
+  x)
+
+(defmethod sql-- (x y)
+  0)
+
 (defmethod sql-* ((x (eql :null)) (y (eql :null)))
   :null)
 
-(defmethod sql-* ((x (eql :null)) y)
+(defmethod sql-* ((x (eql :null)) (y number))
   :null)
 
-(defmethod sql-* (x (y (eql :null)))
+(defmethod sql-* ((x number) (y (eql :null)))
   :null)
 
 (defmethod sql-* ((x number) (y number))
   (* x y))
 
+(defmethod sql-* ((x real) (y integer))
+  (* x y))
+
+(defmethod sql-* ((x integer) (y real))
+  (* x y))
+
+(defmethod sql-* (x (y number))
+  (* 0 y))
+
+(defmethod sql-* ((x number) y)
+  (* x 0))
+
+(defmethod sql-* (x y)
+  0)
+
 (defmethod sql-/ ((x (eql :null)) (y (eql :null)))
   :null)
 
-(defmethod sql-/ ((x (eql :null)) y)
+(defmethod sql-/ ((x (eql :null)) (y number))
   :null)
 
-(defmethod sql-/ (x (y (eql :null)))
+(defmethod sql-/ ((x number) (y (eql :null)))
   :null)
 
 (defmethod sql-/ ((x integer) (y integer))
-  (truncate x y))
+  (if (zerop y)
+      :null
+      (truncate x y)))
 
 (defmethod sql-/ ((x number) (y number))
-  (/ x y))
+  (if (zerop y)
+      :null
+      (/ x y)))
+
+(defmethod sql-/ (x (y number))
+  (* 0 y))
+
+(defmethod sql-/ ((x number) y)
+  :null)
+
+(defmethod sql-/ (x y)
+  :null)
 
 (defmethod sql-% ((x (eql :null)) (y (eql :null)))
   :null)
 
-(defmethod sql-% ((x (eql :null)) y)
+(defmethod sql-% ((x (eql :null)) (y number))
   :null)
 
-(defmethod sql-% (x (y (eql :null)))
+(defmethod sql-% ((x number) (y (eql :null)))
   :null)
 
 (defmethod sql-% ((x number) (y number))
-  (mod x y))
+  (if (zerop y)
+      :null
+      (mod x y)))
+
+(defmethod sql-% (x (y number))
+  (* 0 y))
+
+(defmethod sql-% ((x number) y)
+  :null)
+
+(defmethod sql-% (x y)
+  :null)
 
 (defun sql-in (item xs)
   (block in
@@ -357,9 +442,11 @@
 (defmethod sql-substring ((x string) (y number) &optional z)
   (if (eq :null z)
       :null
-      (let ((y (1- y))
+      (let ((y (if (plusp y)
+                   (1- y)
+                   (+ (length x) y)))
             (z (if z
-                   z
+                   (min (+ y (1- z)) (length x))
                    (length x))))
         (if (and (< y (length x))
                  (<= z (length x)))

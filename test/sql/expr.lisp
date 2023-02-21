@@ -118,7 +118,7 @@
   (is (equal "oo" (sql-substring "foo" 2)))
   (is (equal "fo" (sql-substring "foo" 1 2)))
   (is (eq :null (sql-substring "foo" 4)))
-  (is (eq :null (sql-substring "foo" 1 5))))
+  (is (equal "foo" (sql-substring "foo" 1 5))))
 
 (test aggregates
   (is (= 6 (sql-sum '(1 2 3))))
