@@ -362,23 +362,103 @@
 (defun sql-intersect (lhs rhs)
   (%sql-distinct (nintersection lhs rhs :test 'equal)))
 
-(defun sql-cast (x type)
-  (if (eq :null x)
-      :null
-      (cond
-        ((and (floatp x)
-              (eq :integer type))
-         (round x))
-        ((eq :varchar type)
-         (if (typep x 'local-time:date)
-             (local-time:format-timestring nil x :format local-time:+rfc3339-format/date-only+)
-             (princ-to-string x)))
-        ((eq :date type)
-         (sql-date x))
-        (t (coerce x (ecase type
-                       (:integer 'integer)
-                       (:real 'real)
-                       ((:decimal :signed) 'number)))))))
+(defmethod sql-cast ((x (eql :null)) type)
+  :null)
+
+(defmethod sql-cast (x (type (eql :varchar)))
+  (prin1-to-string x))
+
+(defmethod sql-cast ((x (eql t)) (type (eql :varchar)))
+  "1")
+
+(defmethod sql-cast ((x (eql nil)) (type (eql :varchar)))
+  "0")
+
+(defmethod sql-cast ((x integer) (type (eql :varchar)))
+  (prin1-to-string x))
+
+(defmethod sql-cast ((x string) (type (eql :varchar)))
+  x)
+
+(defmethod sql-cast ((x real) (type (eql :varchar)))
+  (format nil "~F" x))
+
+(defmethod sql-cast ((x local-time:timestamp) (type (eql :varchar)))
+  (if (typep x 'local-time:date)
+      (local-time:format-timestring nil x :format local-time:+rfc3339-format/date-only+)
+      (local-time:format-timestring nil x)))
+
+(defmethod sql-cast ((x (eql t)) (type (eql :integer)))
+  1)
+
+(defmethod sql-cast ((x (eql nil)) (type (eql :integer)))
+  0)
+
+(defmethod sql-cast ((x string) (type (eql :integer)))
+  (if (ppcre:scan "^-?\\d+$" x)
+      (let ((*read-eval* nil))
+        (read-from-string x))
+      0))
+
+(defmethod sql-cast ((x real) (type (eql :integer)))
+  (round x))
+
+(defmethod sql-cast ((x local-time:timestamp) (type (eql :integer)))
+  (local-time:timestamp-year x))
+
+(defmethod sql-cast ((x number) (type (eql :signed)))
+  (coerce x 'integer))
+
+(defmethod sql-cast ((x (eql t)) (type (eql :signed)))
+  1)
+
+(defmethod sql-cast ((x (eql nil)) (type (eql :signed)))
+  0)
+
+(defmethod sql-cast ((x string) (type (eql :signed)))
+  (if (ppcre:scan "^-?\\d+(.\\d+)?$" x)
+      (let ((*read-eval* nil)
+            (*read-default-float-format* 'double-float))
+        (read-from-string x))
+      0))
+
+(defmethod sql-cast ((x number) (type (eql :signed)))
+  x)
+
+(defmethod sql-cast ((x (eql t)) (type (eql :decimal)))
+  1)
+
+(defmethod sql-cast ((x (eql nil)) (type (eql :decimal)))
+  0)
+
+(defmethod sql-cast ((x string) (type (eql :decimal)))
+  (if (ppcre:scan "^-?\\d+(.\\d+)?$" x)
+      (let ((*read-eval* nil)
+            (*read-default-float-format* 'double-float))
+        (read-from-string x))
+      0))
+
+(defmethod sql-cast ((x number) (type (eql :decimal)))
+  (coerce x 'number))
+
+(defmethod sql-cast ((x (eql t)) (type (eql :real)))
+  1.0d0)
+
+(defmethod sql-cast ((x (eql nil)) (type (eql :real)))
+  0.0d0)
+
+(defmethod sql-cast ((x string) (type (eql :real)))
+  (if (ppcre:scan "^-?\\d+(.\\d+)?$" x)
+      (let ((*read-eval* nil)
+            (*read-default-float-format* 'double-float))
+        (coerce (read-from-string x) 'double-float))
+      0.0d0))
+
+(defmethod sql-cast ((x number) (type (eql :real)))
+  (coerce x 'double-float))
+
+(defmethod sql-cast (x (type (eql :date)))
+  (sql-date x))
 
 (defun sql-nullif (x y)
   (if (eq t (sql-= x y))
