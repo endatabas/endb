@@ -135,10 +135,11 @@
                 collect rhs into in-vars
               finally
                  (return (values in-vars out-vars)))
-      (let ((index-sym (cdr (assoc :index-sym ctx)))
-            (index-table-sym (gensym))
-            (index-key-sym (gensym))
-            (index-key-form `(list ',(gensym) ,@free-vars)))
+      (let* ((new-free-vars (set-difference free-vars in-vars))
+             (index-sym (cdr (assoc :index-sym ctx)))
+             (index-table-sym (gensym))
+             (index-key-sym (gensym))
+             (index-key-form `(list ',(gensym) ,@new-free-vars)))
         `(gethash (list ,@in-vars)
                   (let ((,index-key-sym ,index-key-form))
                     (or (gethash ,index-key-sym ,index-sym)
@@ -175,7 +176,7 @@
           (not (eq :exists (first ast))))
       t))
 
-(defun %from->cl (ctx from-tables where-clauses selected-src &optional limit offset vars)
+(defun %from->cl (ctx from-tables where-clauses selected-src &optional vars limit offset)
   (let* ((candidate-tables (remove-if-not (lambda (x)
                                             (subsetp (from-table-free-vars x) vars))
                                           from-tables))
@@ -210,11 +211,11 @@
                                          (append scan-clauses pushdown-clauses))
                        append `(when (eq t ,(where-clause-src clause))))
                ,@(if from-tables
-                     `(do ,(%from->cl ctx from-tables where-clauses selected-src limit offset vars))
+                     `(do ,(%from->cl ctx from-tables where-clauses selected-src vars limit offset))
                      (append `(,@(loop for clause in where-clauses append `(when (eq t ,(where-clause-src clause)))))
                              (%selection-with-limit-offset->cl ctx selected-src limit offset))))))))
 
-(defun %group-by->cl (ctx from-tables where-clauses selected-src limit offset group-by having-src)
+(defun %group-by->cl (ctx from-tables where-clauses selected-src limit offset group-by having-src correlated-vars)
   (let* ((aggregate-table (cdr (assoc :aggregate-table ctx)))
          (group-by-projection (loop for g in group-by
                                     collect (ast->cl ctx g)))
@@ -226,7 +227,7 @@
          (group-acc-sym (gensym))
          (group-ctx (cons (cons :acc-sym group-acc-sym) ctx))
          (from-src `(let ((,group-acc-sym))
-                      ,(%from->cl group-ctx from-tables where-clauses group-by-selected-src)
+                      ,(%from->cl group-ctx from-tables where-clauses group-by-selected-src correlated-vars)
                       ,group-acc-sym))
          (group-by-src `(endb/sql/expr::%sql-group-by ,from-src ,(length group-by-projection) ,(length group-by-exprs))))
     (append `(loop for ,(%unique-vars group-by-projection) being the hash-key
@@ -283,7 +284,8 @@
                          (select->cl ctx (rest from-ast) from-tables-acc)
                          (let* ((aggregate-table (make-hash-table))
                                 (ctx (cons (cons :aggregate-table aggregate-table) ctx))
-                                (full-projection (mapcan #'from-table-projection from-tables-acc))
+                                (full-projection (loop for from-table in from-tables-acc
+                                                       append (from-table-projection from-table)))
                                 (selected-src (loop for (expr) in select-list
                                                     append (if (eq :* expr)
                                                                (loop for p in full-projection
@@ -308,11 +310,15 @@
                                          limit))
                                 (offset (unless order-by
                                           offset))
-                                (group-by-needed-p (or group-by-p havingp (plusp (hash-table-count aggregate-table)))))
+                                (group-by-needed-p (or group-by-p havingp (plusp (hash-table-count aggregate-table))))
+                                (correlated-vars (set-difference (loop for clause in where-clauses
+                                                                       append (where-clause-free-vars clause))
+                                                                 (loop for from-table in from-tables
+                                                                       append (from-table-vars from-table)))))
                            (values
                             (if group-by-needed-p
-                                (%group-by->cl ctx from-tables where-clauses selected-src limit offset group-by having-src)
-                                (%from->cl ctx from-tables where-clauses selected-src limit offset))
+                                (%group-by->cl ctx from-tables where-clauses selected-src limit offset group-by having-src correlated-vars)
+                                (%from->cl ctx from-tables where-clauses selected-src correlated-vars limit offset))
                             full-projection))))))))
       (let* ((block-sym (gensym))
              (acc-sym (gensym))
@@ -352,19 +358,7 @@
 (defmethod sql->cl (ctx (type (eql :exists)) &rest args)
   (destructuring-bind (query)
       args
-    (multiple-value-bind (src projection free-vars)
-        (%ast->cl-with-free-vars ctx (append query '(:limit 1)))
-      (declare (ignore projection))
-      (let* ((index-sym (cdr (assoc :index-sym ctx)))
-             (index-key-sym (gensym))
-             (index-key-form `(list ',(gensym) ,@free-vars)))
-        `(let* ((,index-key-sym ,index-key-form))
-           (multiple-value-bind (result resultp)
-               (gethash ,index-key-sym ,index-sym)
-             (if resultp
-                 result
-                 (setf (gethash ,index-key-sym ,index-sym)
-                       (not (null ,src))))))))))
+    `(endb/sql/expr:sql-exists ,(ast->cl ctx (append query '(:limit 1))))))
 
 (defmethod sql->cl (ctx (type (eql :scalar-subquery)) &rest args)
   (destructuring-bind (query)
