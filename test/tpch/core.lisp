@@ -3,8 +3,12 @@
   (:import-from :ppcre)
   (:import-from :uiop))
 
+;; https://github.com/gregrahn/tpch-kit
+
 ;; TPCH_SF=1 ./dbgen -vf -s $TPCH_SF
 ;; TPCH_SF=1 DSS_QUERY=queries ./qgen -s $TPCH_SF -v
+
+;; New queries currently needs manual editing.
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (local-time:enable-read-macros))
