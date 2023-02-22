@@ -29,7 +29,7 @@ SLT_EVIDENCE_TESTS = sqllogictest/test/evidence/in1.test \
 
 SLT_TESTS = $(SLT_SELECT_TESTS)
 
-TPCH_SF = 001
+TPCH_SF ?= 001
 TPCH_REFERENCE_ENGINE = sqlite
 
 default: test target/endb

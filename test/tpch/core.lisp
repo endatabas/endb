@@ -3,6 +3,9 @@
   (:import-from :ppcre)
   (:import-from :uiop))
 
+;; TPCH_SF=1 ./dbgen -vf -s $TPCH_SF
+;; TPCH_SF=1 DSS_QUERY=queries ./qgen -s $TPCH_SF -v
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (local-time:enable-read-macros))
 
@@ -54,6 +57,6 @@
         (format out "~%~%")))))
 
 (defun main ()
-  (let ((tbl-dir (or (uiop:getenv "ENDB_TPCH_TBL_DIR") "test/tpch/001/")))
+  (let ((tbl-dir (or (uiop:getenv "ENDB_TPCH_TBL_DIR") "test/tpch/01/")))
     (dolist (file (uiop:directory-files tbl-dir "*.tbl"))
       (tpch-pipe-delimited-to-slt file))))
