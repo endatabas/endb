@@ -267,16 +267,20 @@
    (:|,|)
    (:cross :join))
 
-  (opt-left-outer
+  (opt-join-type
    (:left :outer)
+   (:left)
+   (:inner)
    ())
 
   (table-list
    (table-list-element)
    (:|(| table-list-element :cross :join table-list-element :|)| (%extract 1 4))
-   (table-list-element opt-left-outer :join table-list-element :on expr (lambda (table-1 opt-left-outer join table-2 on expr)
-                                                                          (declare (ignore opt-left-outer join on))
-                                                                          (list (list :join table-1 table-2 :on expr))))
+   (table-list-element opt-join-type :join table-list-element :on expr (lambda (table-1 join-type join table-2 on expr)
+                                                                         (declare (ignore on))
+                                                                         (list (list :join table-1 table-2 :on expr :type (if (eq :left (first join-type))
+                                                                                                                              :left
+                                                                                                                              :inner)))))
    (table-list table-list-separator table-list-element #'%rcons3))
 
   (from

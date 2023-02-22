@@ -147,7 +147,47 @@
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT SUM(t1.b) FROM t1 HAVING SUM(t1.b) = 204")
       (is (equal '((204)) result))
-      (is (equal '("column1") columns)))))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM (SELECT 1 AS a) x JOIN (SELECT 1 AS b) y ON x.a = y.b")
+      (is (equal '((1 1)) result))
+      (is (equal '("a" "b") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM (SELECT 1 AS a) x JOIN (SELECT 1 AS b) y ON x.a = y.b AND x.a > y.b")
+      (is (null result))
+      (is (equal '("a" "b") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM (SELECT 1 AS a) x JOIN (SELECT 2 AS b) y ON x.a < y.b")
+      (is (equal '((1 2)) result))
+      (is (equal '("a" "b") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM (SELECT 1 AS a) x JOIN (SELECT 2 AS b) y ON x.a = y.b")
+      (is (null result))
+      (is (equal '("a" "b") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM (SELECT 1 AS a) x LEFT JOIN (SELECT 1 AS b) y ON x.a = y.b")
+      (is (equal '((1 1)) result))
+      (is (equal '("a" "b") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM (SELECT 1 AS a) x LEFT JOIN (SELECT 1 AS b) y ON x.a = y.b AND x.a > y.b")
+      (is (equal '((1 :null)) result))
+      (is (equal '("a" "b") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM (SELECT 1 AS a) x LEFT JOIN (SELECT 2 AS b) y ON x.a < y.b")
+      (is (equal '((1 2)) result))
+      (is (equal '("a" "b") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM (SELECT 1 AS a) x LEFT JOIN (SELECT 2 AS b) y ON x.a = y.b")
+      (is (equal '((1 :null)) result))
+      (is (equal '("a" "b") columns)))))
 
 (defun eval-expr (expr)
   (sqlite:with-open-database (sqlite ":memory:")

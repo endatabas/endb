@@ -380,23 +380,11 @@ from
 			c_custkey,
 			count(o_orderkey) as c_count
 		from
-			customer join orders on
+			customer left outer join orders on
 				c_custkey = o_custkey
 				and o_comment not like '%special%requests%'
 		group by
 			c_custkey
-		union all
-		select
-			c_custkey,
-			0 as c_count
-		from
-			customer
-		where c_custkey not in (select
-						c_custkey
-					from
-						customer join orders on
-							c_custkey = o_custkey
-							and o_comment not like '%special%requests%')
 	) as c_orders
 group by
 	c_count

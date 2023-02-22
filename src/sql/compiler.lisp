@@ -102,10 +102,14 @@
   (let ((from-element (first from)))
     (when from-element
       (append (if (eq :join (first from-element))
-                  (destructuring-bind (table-1 table-2 &key on)
+                  (destructuring-bind (table-1 table-2 &key on type)
                       (rest from-element)
-                    (declare (ignore on))
-                    (%flatten-from (list table-1 table-2)))
+                    (if (eq :left type)
+                        (let ((table-alias (if (= 1 (length table-2))
+                                               (first table-2)
+                                               (second table-2))))
+                          (append (%flatten-from (list table-1)) (list (list (list :left-join table-2 on) table-alias))))
+                        (%flatten-from (list table-1 table-2))))
                   (list from-element))
               (%flatten-from (rest from))))))
 
@@ -114,10 +118,12 @@
     (when from-element
       (append
        (when (eq :join (first from-element))
-         (destructuring-bind (table-1 table-2 &key on)
+         (destructuring-bind (table-1 table-2 &key on type)
              (rest from-element)
-           (append (%and-clauses on)
-                   (%from-where-clauses (list table-1 table-2)))))
+           (if (eq :left type)
+               (%from-where-clauses (list table-1))
+               (append (%and-clauses on)
+                       (%from-where-clauses (list table-1 table-2))))))
        (%from-where-clauses (rest from))))))
 
 (defun %join->cl (ctx from-table scan-clauses equi-join-clauses)
@@ -360,6 +366,16 @@
   (destructuring-bind (query)
       args
     `(endb/sql/expr:sql-exists ,(ast->cl ctx (append query '(:limit 1))))))
+
+(defmethod sql->cl (ctx (type (eql :left-join)) &rest args)
+  (destructuring-bind (table on)
+      args
+    (multiple-value-bind (src projection free-vars)
+        (%ast->cl-with-free-vars ctx (list :select (list (list :*)) :from (list table) :where on))
+      (values `(or ,src (list (list ,@(loop for idx below (length projection)
+                                            collect :null))))
+              projection
+              free-vars))))
 
 (defmethod sql->cl (ctx (type (eql :scalar-subquery)) &rest args)
   (destructuring-bind (query)

@@ -142,4 +142,7 @@ UNION
   PRIMARY KEY (ps_partkey, ps_suppkey),
   FOREIGN KEY (ps_suppkey) REFERENCES supplier(s_suppkey),
   FOREIGN KEY (ps_partkey) REFERENCES part(p_partkey)
-)")))
+)"))
+  (is (parse-sql "SELECT * FROM t1 LEFT OUTER JOIN t2 ON t1.a = t2.a"))
+  (is (parse-sql "SELECT * FROM t1 LEFT JOIN t2 ON t1.a = t2.a"))
+  (is (parse-sql "SELECT * FROM t1 JOIN t2 ON t1.a = t2.a")))
