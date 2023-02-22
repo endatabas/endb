@@ -90,9 +90,15 @@ slt-test-all: SLT_TESTS = $(shell find sqllogictest/test -iname *.test | grep -v
 slt-test-all: SLT_ENV += SB_INTERPRET=1
 slt-test-all: slt-test
 
-target/tpch_$(TPCH_SF).test: test/tpch/tpch_schema.test test/tpch/$(TPCH_SF)/*_tbl.test test/tpch/$(TPCH_SF)/tpch_queries.test
+TPCH_SCHEMA_FILE = test/tpch/tpch_schema.test
+TPCH_QUERIES_FILE = test/tpch/$(TPCH_SF)/tpch_queries.test
+TPCH_TABLE_FILES = test/tpch/$(TPCH_SF)/*_tbl.test.gz
+
+target/tpch_$(TPCH_SF).test: $(TPCH_SCHEMA_FILE) $(TPCH_TABLE_FILES) $(TPCH_QUERIES_FILE)
 	rm -f $@
-	cat $^ > $@
+	cat $(TPCH_SCHEMA_FILE) > $@
+	cat $(TPCH_TABLE_FILES) | gunzip >> $@
+	cat $(TPCH_QUERIES_FILE) >> $@
 
 slt-test-tpch: SLT_TESTS = target/tpch_$(TPCH_SF).test
 slt-test-tpch: SLT_ENV += ENDB_ENGINE_REPORTED_NAME=endb
