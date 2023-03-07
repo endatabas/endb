@@ -277,7 +277,7 @@
    (table-list-element)
    (:|(| table-list-element :cross :join table-list-element :|)| (%extract 1 4))
    (table-list-element opt-join-type :join table-list-element :on expr (lambda (table-1 join-type join table-2 on expr)
-                                                                         (declare (ignore on))
+                                                                         (declare (ignore join on))
                                                                          (list (list :join table-1 table-2 :on expr :type (if (eq :left (first join-type))
                                                                                                                               :left
                                                                                                                               :inner)))))
