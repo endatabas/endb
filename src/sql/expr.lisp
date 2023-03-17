@@ -20,7 +20,9 @@
   (local-time:enable-read-macros))
 
 (define-condition sql-runtime-error (error)
-  ())
+  ((message :initarg :message :reader sql-runtime-error-message))
+  (:report (lambda (condition stream)
+             (write (sql-runtime-error-message condition) :stream stream))))
 
 (defmethod sql-= ((x (eql :null)) (y (eql :null)))
   :null)
