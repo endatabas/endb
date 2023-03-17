@@ -472,6 +472,16 @@
 (defvar *number-scanner* (ppcre:create-scanner "^\\d+(\\.\\d+)?"))
 (defvar *id-scanner* (ppcre:create-scanner "^(?i)[a-z_]([a-z_.]|\\d)*"))
 
+(defun hex-to-binary (hex)
+  (loop with acc = (make-array (/ (length hex) 2) :element-type '(unsigned-byte 8))
+        with tmp = (make-string 2)
+        for idx below (length hex) by 2
+        for out-idx from 0
+        do (setf (schar tmp 0) (aref hex idx))
+           (setf (schar tmp 1) (aref hex (1+ idx)))
+           (setf (aref acc out-idx) (parse-integer tmp :radix 16))
+        finally (return acc)))
+
 (defun make-sql-lexer (in)
   (let ((idx 0))
     (labels ((parse-string (start-idx)
@@ -486,7 +496,7 @@
                    (ppcre:scan *hex-scanner* in :start start-idx)
                  (when start
                    (setf idx end)
-                   (values 'binary (subseq in (1+ start) (1- end))))))
+                   (values 'binary (hex-to-binary (subseq in (1+ start) (1- end)))))))
              (parse-number (start-idx)
                (multiple-value-bind (start end groups)
                    (ppcre:scan *number-scanner* in :start start-idx)
