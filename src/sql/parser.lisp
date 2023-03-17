@@ -205,7 +205,6 @@
         not-null-expr
         like-expr
         cast-expr
-        like-exprx
         function-expr
         between-expr
         is-expr
