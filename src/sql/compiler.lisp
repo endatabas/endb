@@ -342,7 +342,7 @@
                                (,acc-sym))
                            ,src
                            ,acc-sym)))
-                 (src (if distinct
+                 (src (if (eq :distinct distinct)
                           `(endb/sql/expr::%sql-distinct ,src)
                           src))
                  (select-star-projection (mapcar #'%unqualified-column-name full-projection))

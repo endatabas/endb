@@ -133,17 +133,17 @@
                                        (declare (ignore count lp star rp))
                                        (nconc (list :aggregate-function :count-star ())
                                               (when (eq :distinct all-distinct)
-                                                (list :distinct t)))))
+                                                (list :distinct :distinct)))))
    (:count :|(| all-distinct expr :|)| (lambda (count lp all-distinct expr rp)
                                          (declare (ignore count lp rp))
                                          (nconc (list :aggregate-function :count (list expr))
                                                 (when (eq :distinct all-distinct)
-                                                  (list :distinct t)))))
+                                                  (list :distinct :distinct)))))
    (aggregate-fn :|(| all-distinct expr-list :|)| (lambda (id lp all-distinct expr-list rp)
                                                     (declare (ignore lp rp))
                                                     (nconc (list :aggregate-function id expr-list)
                                                            (when (eq :distinct all-distinct)
-                                                             (list :distinct t)))))
+                                                             (list :distinct :distinct)))))
    (id :|(| expr-list :|)| (%extract :function 0 2)))
 
   (case-when-list-element
@@ -346,7 +346,7 @@
               (declare (ignore select))
               (nconc (list :select select-list)
                      (when (eq :distinct all-distinct)
-                       (list :distinct t))
+                       (list :distinct :distinct))
                      from where group-by having))))
 
   (compound-select-stmt
