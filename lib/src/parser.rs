@@ -153,6 +153,7 @@ pub fn sql_ast_parser(
     use Keyword::*;
 
     let expr = expr_ast_parser();
+    let id = id_ast_parser();
     let select_clause = keyword_ignore_case("SELECT")
         .ignore_then(
             choice((
@@ -164,7 +165,26 @@ pub fn sql_ast_parser(
         )
         .then(
             expr.clone()
-                .map(|expr| List(vec![expr]))
+                .then_ignore(keyword_ignore_case("AS").or_not())
+                .then(
+                    id.clone()
+                        .and_is(
+                            choice((
+                                keyword_ignore_case("FROM"),
+                                keyword_ignore_case("WHERE"),
+                                keyword_ignore_case("GROUP"),
+                                keyword_ignore_case("HAVING"),
+                                keyword_ignore_case("ORDER"),
+                                keyword_ignore_case("LIMIT"),
+                            ))
+                            .not(),
+                        )
+                        .or_not(),
+                )
+                .map(|(expr, id)| match id {
+                    Some(id) => List(vec![expr, id]),
+                    None => List(vec![expr]),
+                })
                 .separated_by(just(','))
                 .at_least(1)
                 .collect()
@@ -174,7 +194,24 @@ pub fn sql_ast_parser(
     let from_clause = keyword_ignore_case("FROM")
         .ignore_then(
             expr.clone()
-                .map(|expr| List(vec![expr]))
+                .then_ignore(keyword_ignore_case("AS").or_not())
+                .then(
+                    id.and_is(
+                        choice((
+                            keyword_ignore_case("WHERE"),
+                            keyword_ignore_case("GROUP"),
+                            keyword_ignore_case("HAVING"),
+                            keyword_ignore_case("ORDER"),
+                            keyword_ignore_case("LIMIT"),
+                        ))
+                        .not(),
+                    )
+                    .or_not(),
+                )
+                .map(|(expr, id)| match id {
+                    Some(id) => List(vec![expr, id]),
+                    None => List(vec![expr]),
+                })
                 .separated_by(just(','))
                 .at_least(1)
                 .collect()
@@ -408,6 +445,30 @@ mod tests {
         let ast = sql_ast_parser().parse(src).into_output().unwrap();
         assert_eq!(
             List(vec![KW(Select), List(vec![List(vec![Integer(123)])])]),
+            ast
+        );
+    }
+
+    #[test]
+    fn select_as() {
+        let src = "SELECT 1 AS x, 2 y FROM z, w AS foo, bar baz WHERE FALSE";
+        let ast = sql_ast_parser().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(Select),
+                List(vec![
+                    List(vec![Integer(1), Id { start: 12, end: 13 }]),
+                    List(vec![Integer(2), Id { start: 17, end: 18 }])
+                ]),
+                KW(From),
+                List(vec![
+                    List(vec![Id { start: 24, end: 25 }]),
+                    List(vec![Id { start: 27, end: 28 }, Id { start: 32, end: 35 }]),
+                    List(vec![Id { start: 37, end: 40 }, Id { start: 41, end: 44 }])
+                ]),
+                KW(Where),
+                KW(False)
+            ]),
             ast
         );
     }
