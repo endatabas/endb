@@ -301,7 +301,8 @@
   (order-by-direction
    :asc
    :desc
-   ())
+   ((lambda ()
+      :asc)))
 
   (order-by-element
    (id order-by-direction)
