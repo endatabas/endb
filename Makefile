@@ -13,7 +13,9 @@ CFLAGS = -g -Wall
 
 CARGO = cargo
 
-DOCKER_OS = ubuntu
+DOCKER_RUST_OS = bullseye
+DOCKER_SBCL_OS = debian
+DOCKER_ENDB_OS = debian
 
 LIB_MODE = release
 LIB_SOURCES = lib/Cargo.toml $(shell find lib/src -iname \*.rs)
@@ -75,7 +77,7 @@ lib/endb.h: $(LIB_SOURCES)
 
 target/libendb$(SHARED_LIB_EXT): lib/target/$(LIB_MODE)/libendb$(SHARED_LIB_EXT)
 	mkdir -p target
-	cp $< $@
+	cp $< $@ || true
 
 target/sqllogictest_src: sqllogictest/src
 	mkdir -p target
@@ -138,7 +140,14 @@ slt-test-ci:
 	$(SLT_ENV) make slt-test-tpch
 
 docker:
-	docker build --build-arg OS=$(DOCKER_OS) -t endatabas/endb:latest-$(DOCKER_OS) .
+	docker build \
+		--build-arg RUST_OS=$(DOCKER_RUST_OS) --build-arg SBCL_OS=$(DOCKER_SBCL_OS) --build-arg ENDB_OS=$(DOCKER_ENDB_OS) \
+		-t endatabas/endb:$(DOCKER_ENDB_OS) -t endatabas/endb:latest-$(DOCKER_ENDB_OS) .
+
+docker-alpine: DOCKER_RUST_OS = alpine
+docker-alpine: DOCKER_SBCL_OS = alpine
+docker-alpine: DOCKER_ENDB_OS = alpine
+docker-alpine: docker
 
 run-docker: docker
 	docker run --rm -it endatabas/endb:latest-$(DOCKER_OS)
@@ -149,4 +158,4 @@ clean:
 
 .PHONY: repl run run-binary test lib-test lib-microbench \
 	slt-test slt-test-select slt-test-random slt-test-index slt-test-evidence slt-test-all slt-test-tpch slt-test-ci \
-	docker run-docker clean
+	docker docker-alpine run-docker clean

@@ -1,36 +1,50 @@
-ARG OS=ubuntu
+ARG RUST_OS=bullseye
+ARG SBCL_OS=debian
+ARG ENDB_OS=debian
 
-FROM docker.io/fukamachi/sbcl:latest-$OS AS build-env
+FROM docker.io/rust:$RUST_OS AS rust-build-env
 
-ARG OS
+ARG RUST_OS
 
-RUN if [ "$OS" = "alpine" ]; then \
-      apk add --no-cache gcc musl-dev sqlite-libs curl bash; \
-    else \
-      apt-get update && apt-get install -y --no-install-recommends build-essential libsqlite3-0 curl; \
+RUN if [ "$RUST_OS" = "alpine" ]; then \
+      apk add --no-cache musl-dev; \
     fi;
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
 
-ENV PATH="/root/.cargo/bin:${PATH}"
+WORKDIR /root/endb
+COPY ./lib /root/endb
+
 ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 ENV RUSTFLAGS="-C target-feature=-crt-static"
+
+RUN cargo test; cargo build --release
+
+FROM docker.io/fukamachi/sbcl:latest-$SBCL_OS AS sbcl-build-env
+
+ARG SBCL_OS
+
+RUN if [ "$SBCL_OS" = "alpine" ]; then \
+      apk add --no-cache gcc musl-dev sqlite-libs; \
+    else \
+      apt-get update && apt-get install -y --no-install-recommends build-essential libsqlite3-0; \
+    fi;
 
 WORKDIR /root/.roswell/local-projects/endb
 COPY . /root/.roswell/local-projects/endb
 
-RUN cd lib; cargo update
-RUN make clean test slt-test target/endb
+COPY --from=rust-build-env /root/endb/target/release/libendb.so /root/.roswell/local-projects/endb/target/libendb.so
 
-FROM $OS
+RUN make test slt-test target/endb -e CARGO=echo
 
-ARG OS
+FROM $ENDB_OS
 
-RUN if [ "$OS" = "alpine" ]; then \
+ARG ENDB_OS
+
+RUN if [ "$ENDB_OS" = "alpine" ]; then \
       apk add --no-cache zstd-dev; \
     fi;
 
 WORKDIR /app
-COPY --from=build-env /root/.roswell/local-projects/endb/target/endb /app
-COPY --from=build-env /root/.roswell/local-projects/endb/target/libendb.so /app
+COPY --from=rust-build-env /root/endb/target/release/libendb.so /app
+COPY --from=sbcl-build-env /root/.roswell/local-projects/endb/target/endb /app
 
 CMD ["./endb"]
