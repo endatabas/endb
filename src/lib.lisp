@@ -130,31 +130,35 @@
 
 (defun visit-ast (input builder ast)
   (loop with queue = (list ast)
+        with acc = (ast-builder-acc builder)
+        with stride = (cffi:foreign-type-size '(:struct Ast))
         while queue
         for ast = (pop queue)
         do (case ast
-             (:start-list (push () (ast-builder-acc builder)))
-             (:end-list (push (pop (ast-builder-acc builder)) (first (ast-builder-acc builder))))
+             (:start-list (push () acc))
+             (:end-list (push (pop acc) (first acc)))
              (t
               (cffi:with-foreign-slots ((tag value) ast (:struct Ast))
                 (ecase tag
                   (0 (progn
                        (push :end-list queue)
-                       (dotimes (idx (endb-ast-vec-len value))
-                         (push (endb-ast-vec-element value idx) queue))
+                       (loop with ptr = (endb-ast-vec-ptr value)
+                             for idx below (endb-ast-vec-len value)
+                             for offset from 0 by stride
+                             do (push (cffi:inc-pointer ptr offset) queue))
                        (push :start-list queue)))
                   (1 (cffi:with-foreign-slots ((kw) value (:struct KW_Union))
-                       (push (aref kw-array kw) (first (ast-builder-acc builder)))))
+                       (push (aref kw-array kw) (first acc))))
                   (2 (cffi:with-foreign-slots ((n) value (:struct Integer_Union))
-                       (push n (first (ast-builder-acc builder)))))
+                       (push n (first acc))))
                   (3 (cffi:with-foreign-slots ((n) value (:struct Float_Union))
-                       (push n (first (ast-builder-acc builder)))))
+                       (push n (first acc))))
                   (4 (cffi:with-foreign-slots ((start end) value (:struct Id_Union))
-                       (push (make-symbol (subseq input start end)) (first (ast-builder-acc builder)))))
+                       (push (make-symbol (subseq input start end)) (first acc))))
                   (5 (cffi:with-foreign-slots ((start end) value (:struct String_Union))
-                       (push (subseq input start end) (first (ast-builder-acc builder)))))
+                       (push (subseq input start end) (first acc))))
                   (6 (cffi:with-foreign-slots ((start end) value (:struct Binary_Union))
-                       (push (hex-to-binary (subseq input start end)) (first (ast-builder-acc builder)))))))))))
+                       (push (hex-to-binary (subseq input start end)) (first acc))))))))))
 
 (defvar *input*)
 (defvar *ast-builder*)
