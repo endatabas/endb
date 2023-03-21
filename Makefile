@@ -11,6 +11,11 @@ endif
 
 CFLAGS = -g -Wall
 
+CARGO = cargo
+
+LIB_MODE = release
+LIB_SOURCES = lib/Cargo.toml $(shell find lib/src -iname \*.rs)
+
 SLT_SOURCES = sqllogictest.c md5.c sqlite3.c
 SLT_ENGINE = endb
 SLT_ARGS = --verify
@@ -34,7 +39,7 @@ TPCH_REFERENCE_ENGINE = sqlite
 
 default: test target/endb
 
-target/endb: Makefile *.asd $(SOURCES)
+target/endb: Makefile *.asd $(SOURCES) target/libendb$(SHARED_LIB_EXT)
 	mkdir -p target
 	$(LISP) --non-interactive \
 		--eval '(ql:quickload :endb :silent t)' \
@@ -49,10 +54,26 @@ run:
 run-binary: target/endb
 	@./$<
 
-test:
+test: lib-test target/libendb$(SHARED_LIB_EXT)
 	$(LISP) --non-interactive \
 		--eval '(ql:quickload :endb-test :silent t)' \
 		--eval '(uiop:quit (if (fiveam:run-all-tests) 0 1))'
+
+lib-test:
+	(cd lib; $(CARGO) test)
+
+lib-microbench:
+	(cd lib; $(CARGO) run --release --example micro_bench)
+
+lib/target/$(LIB_MODE)/libendb$(SHARED_LIB_EXT): Makefile $(LIB_SOURCES)
+	(cd lib; $(CARGO) build --$(LIB_MODE))
+
+lib/endb.h: $(LIB_SOURCES)
+	(cd lib; cbindgen --lang C -o endb.h .)
+
+target/libendb$(SHARED_LIB_EXT): lib/target/$(LIB_MODE)/libendb$(SHARED_LIB_EXT)
+	mkdir -p target
+	cp $< $@
 
 target/sqllogictest_src: sqllogictest/src
 	mkdir -p target
@@ -64,7 +85,7 @@ target/libsqllogictest$(SHARED_LIB_EXT): CFLAGS += -DSQLITE_NO_SYNC=1 -DSQLITE_T
 target/libsqllogictest$(SHARED_LIB_EXT): Makefile target/sqllogictest_src
 	cd target/sqllogictest_src && $(CC) $(CFLAGS) -o $(CURDIR)/$@ $(SLT_SOURCES)
 
-target/slt: Makefile *.asd $(SOURCES) slt/*.lisp target/libsqllogictest$(SHARED_LIB_EXT)
+target/slt: Makefile *.asd $(SOURCES) slt/*.lisp target/libsqllogictest$(SHARED_LIB_EXT) lib/target/$(LIB_MODE)/libendb$(SHARED_LIB_EXT)
 	$(LISP) --non-interactive \
 		--eval '(ql:quickload :endb-slt :silent t)' \
 		--eval '(asdf:make :endb-slt)'
@@ -121,6 +142,9 @@ run-docker: docker
 	docker run --rm -it endatabas/endb
 
 clean:
+	(cd lib; $(CARGO) clean)
 	rm -rf target $(FASL_FILES)
 
-.PHONY: repl run run-binary test slt-test slt-test-select slt-test-random slt-test-index slt-test-evidence slt-test-all slt-test-tpch slt-test-ci docker run-docker clean
+.PHONY: repl run run-binary test lib-test lib-microbench \
+	slt-test slt-test-select slt-test-random slt-test-index slt-test-evidence slt-test-all slt-test-tpch slt-test-ci \
+	docker run-docker clean

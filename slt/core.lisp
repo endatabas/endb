@@ -310,6 +310,7 @@
   (unwind-protect
        (let ((endb/sql/compiler:*verbose* (equal "1" (uiop:getenv "ENDB_VERBOSE")))
              (endb/sql:*query-timing* (equal "1" (uiop:getenv "ENDB_QUERY_TIMING")))
+             (endb/sql:*lib-parser* (equal "1" (uiop:getenv "ENDB_LIB_PARSER")))
              (*endb-db-engine-reported-name* (or (uiop:getenv "ENDB_ENGINE_REPORTED_NAME")
                                                  *endb-db-engine-reported-name*)))
          (uiop:quit

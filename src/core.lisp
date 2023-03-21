@@ -2,7 +2,8 @@
   (:use :cl)
   (:export #:main)
   (:import-from :asdf)
-  (:import-from :uiop))
+  (:import-from :uiop)
+  (:import-from :endb/lib))
 (in-package :endb/core)
 
 (defun %main (args)

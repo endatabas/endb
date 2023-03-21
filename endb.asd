@@ -4,7 +4,7 @@
   :license "AGPLv3"
   :homepage "https://www.endatabas.com/"
   :class :package-inferred-system
-  :depends-on ("endb/core" "cl-ppcre" "yacc" "local-time")
+  :depends-on ("endb/core" "cffi" "cl-ppcre" "yacc" "local-time")
   :description "Endatabas"
   :pathname "src"
   :build-operation "program-op"

@@ -1,0 +1,22 @@
+[package]
+name = "endb_lib"
+version = "0.1.0"
+edition = "2021"
+authors = [
+    "Håkan Råberg <hakan.raberg@gmail.com>",
+    "Steven Deobald <steven@deobald.ca>",
+]
+license = "AGPLv3"
+repository = "https://github.com/endatabase/endb"
+
+[lib]
+crate-type = ["rlib", "cdylib"]
+name = "endb"
+
+[dependencies]
+libc = "0.2.0"
+chumsky = "1.0.0-alpha.3"
+ariadne = "0.1.5"
+
+[dev-dependencies]
+sqlparser = "0.32.0"

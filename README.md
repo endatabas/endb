@@ -40,6 +40,12 @@ Initialise submodules:
 git submodule update --init --recursive
 ```
 
+Install https://www.rust-lang.org/
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
 Run the tests and build the binary:
 
 ```bash

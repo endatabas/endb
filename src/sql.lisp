@@ -1,17 +1,21 @@
 (defpackage :endb/sql
   (:use :cl)
-  (:export #:*query-timing* #:create-db #:execute-sql)
+  (:export #:*query-timing* #:*lib-parser* #:create-db #:execute-sql)
   (:import-from :endb/sql/parser)
-  (:import-from :endb/sql/compiler))
+  (:import-from :endb/sql/compiler)
+  (:import-from :endb/lib))
 (in-package :endb/sql)
 
 (defvar *query-timing* nil)
+(defvar *lib-parser* nil)
 
 (defun create-db ()
   (make-hash-table :test 'equal))
 
 (defun %execute-sql (db sql)
-  (let* ((ast (endb/sql/parser:parse-sql sql))
+  (let* ((ast (if *lib-parser*
+                  (endb/lib:parse-sql sql)
+                  (endb/sql/parser:parse-sql sql)))
          (ctx (list (cons :db db)))
          (sql-fn (endb/sql/compiler:compile-sql ctx ast))
          (*print-length* 16))
