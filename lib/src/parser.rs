@@ -1,5 +1,3 @@
-// https://app.gather.town/app/5ta6dFBl7lzTrEMF/endatabas
-
 use ariadne::{Color, Label, Report, ReportKind, Source};
 use chumsky::error::Rich;
 use chumsky::extra::{Err, ParserExtra};
