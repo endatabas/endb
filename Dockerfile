@@ -1,6 +1,10 @@
 FROM ubuntu AS build-env
 
-RUN apt-get update && apt-get install -y build-essential sbcl cl-quicklisp cargo libsqlite3-0
+RUN apt-get update && apt-get install -y build-essential sbcl cl-quicklisp libsqlite3-0 curl
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
+
+ENV PATH="/root/.cargo/bin:${PATH}"
+ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 
 WORKDIR /root/quicklisp/local-projects/endb
 COPY . /root/quicklisp/local-projects/endb

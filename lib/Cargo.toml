@@ -8,6 +8,7 @@ authors = [
 ]
 license = "AGPLv3"
 repository = "https://github.com/endatabase/endb"
+rust-version = "1.68.0"
 
 [lib]
 crate-type = ["rlib", "cdylib"]
