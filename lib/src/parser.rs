@@ -165,10 +165,10 @@ pub fn sql_ast_parser(
         )
         .then(
             expr.clone()
-                .then_ignore(keyword_ignore_case("AS").or_not())
                 .then(
-                    id.clone()
-                        .and_is(
+                    choice((
+                        keyword_ignore_case("AS").ignore_then(id.clone()),
+                        id.clone().and_is(
                             choice((
                                 keyword_ignore_case("FROM"),
                                 keyword_ignore_case("WHERE"),
@@ -178,8 +178,9 @@ pub fn sql_ast_parser(
                                 keyword_ignore_case("LIMIT"),
                             ))
                             .not(),
-                        )
-                        .or_not(),
+                        ),
+                    ))
+                    .or_not(),
                 )
                 .map(|(expr, id)| match id {
                     Some(id) => List(vec![expr, id]),
@@ -194,18 +195,20 @@ pub fn sql_ast_parser(
     let from_clause = keyword_ignore_case("FROM")
         .ignore_then(
             expr.clone()
-                .then_ignore(keyword_ignore_case("AS").or_not())
                 .then(
-                    id.and_is(
-                        choice((
-                            keyword_ignore_case("WHERE"),
-                            keyword_ignore_case("GROUP"),
-                            keyword_ignore_case("HAVING"),
-                            keyword_ignore_case("ORDER"),
-                            keyword_ignore_case("LIMIT"),
-                        ))
-                        .not(),
-                    )
+                    choice((
+                        keyword_ignore_case("AS").ignore_then(id.clone()),
+                        id.and_is(
+                            choice((
+                                keyword_ignore_case("WHERE"),
+                                keyword_ignore_case("GROUP"),
+                                keyword_ignore_case("HAVING"),
+                                keyword_ignore_case("ORDER"),
+                                keyword_ignore_case("LIMIT"),
+                            ))
+                            .not(),
+                        ),
+                    ))
                     .or_not(),
                 )
                 .map(|(expr, id)| match id {
@@ -471,6 +474,10 @@ mod tests {
             ]),
             ast
         );
+        let src = "SELECT 1 AS from";
+        assert_eq!(false, sql_ast_parser().parse(src).has_errors());
+        let src = "SELECT 1 from";
+        assert_eq!(true, sql_ast_parser().parse(src).has_errors());
     }
 
     #[test]
