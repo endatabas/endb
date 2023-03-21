@@ -92,7 +92,7 @@
 (cffi:defcfun "endb_ast_vec_len" :size
   (vec (:pointer (:struct List_Union))))
 
-(cffi:defcfun "endb_ast_vec_pointer" :pointer
+(cffi:defcfun "endb_ast_vec_ptr" :pointer
   (vec (:pointer (:struct List_Union))))
 
 (cffi:defcfun "endb_ast_size" :size)
