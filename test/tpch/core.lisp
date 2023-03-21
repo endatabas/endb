@@ -10,9 +10,6 @@
 
 ;; New queries currently needs manual editing.
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (local-time:enable-read-macros))
-
 (defvar *date-scanner* (ppcre:create-scanner "^\\d\\d\\d\\d-\\d\\d-\\d\\d$"))
 (defvar *number-scanner* (ppcre:create-scanner "^-?\\d+(.\\d+)?$"))
 (defvar *pipe-scanner* (ppcre:create-scanner "\\|"))
