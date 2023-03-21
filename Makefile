@@ -13,6 +13,8 @@ CFLAGS = -g -Wall
 
 CARGO = cargo
 
+DOCKER_OS = ubuntu
+
 LIB_MODE = release
 LIB_SOURCES = lib/Cargo.toml $(shell find lib/src -iname \*.rs)
 
@@ -136,10 +138,10 @@ slt-test-ci:
 	$(SLT_ENV) make slt-test-tpch
 
 docker:
-	docker build -t endatabas/endb:latest .
+	docker build --build-arg OS=$(DOCKER_OS) -t endatabas/endb:latest-$(DOCKER_OS) .
 
 run-docker: docker
-	docker run --rm -it endatabas/endb
+	docker run --rm -it endatabas/endb:latest-$(DOCKER_OS)
 
 clean:
 	(cd lib; $(CARGO) clean)
