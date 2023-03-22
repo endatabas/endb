@@ -16,6 +16,7 @@ CARGO = cargo
 DOCKER_RUST_OS = bullseye
 DOCKER_SBCL_OS = debian
 DOCKER_ENDB_OS = debian
+DOCKER_TAGS = -t endatabas/endb:$(DOCKER_ENDB_OS) -t endatabas/endb:latest-$(DOCKER_ENDB_OS) -t latest
 
 LIB_MODE = release
 LIB_SOURCES = lib/Cargo.toml $(shell find lib/src -iname \*.rs)
@@ -142,11 +143,12 @@ slt-test-ci:
 docker:
 	docker build \
 		--build-arg RUST_OS=$(DOCKER_RUST_OS) --build-arg SBCL_OS=$(DOCKER_SBCL_OS) --build-arg ENDB_OS=$(DOCKER_ENDB_OS) \
-		-t endatabas/endb:$(DOCKER_ENDB_OS) -t endatabas/endb:latest-$(DOCKER_ENDB_OS) .
+		$(DOCKER_TAGS) .
 
 docker-alpine: DOCKER_RUST_OS = alpine
 docker-alpine: DOCKER_SBCL_OS = alpine
 docker-alpine: DOCKER_ENDB_OS = alpine
+docker-alpine: DOCKER_TAGS = -t endatabas/endb:$(DOCKER_ENDB_OS) -t endatabas/endb:latest-$(DOCKER_ENDB_OS)
 docker-alpine: docker
 
 run-docker: docker
