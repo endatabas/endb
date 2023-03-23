@@ -368,33 +368,31 @@ pub fn sql_ast_parser(
 
         let select_core = choice((select_stmt, values_stmt));
 
-        let compound_select_stmt = recursive(|compound_select_stmt| {
-            select_core.foldl(
-                choice((
-                    keyword_ignore_case("EXCEPT").to(Except),
-                    keyword_ignore_case("INTERSECT").to(Intersect),
-                    keyword_ignore_case("UNION")
-                        .then_ignore(keyword_ignore_case("ALL"))
-                        .to(UnionAll),
-                    keyword_ignore_case("UNION").to(Union),
-                ))
-                .then(compound_select_stmt)
-                .repeated(),
-                |lhs, (op, rhs)| match rhs {
-                    List(mut x) => {
-                        if 3 == x.len() {
-                            let rhs_rhs = x.pop().unwrap();
-                            let rhs_lhs = x.pop().unwrap();
-                            let rhs_op = x.pop().unwrap();
-                            List(vec![rhs_op, List(vec![KW(op), lhs, rhs_lhs]), rhs_rhs])
-                        } else {
-                            List(vec![KW(op), lhs, List(x)])
-                        }
+        let compound_select_stmt = select_core.clone().foldl(
+            choice((
+                keyword_ignore_case("EXCEPT").to(Except),
+                keyword_ignore_case("INTERSECT").to(Intersect),
+                keyword_ignore_case("UNION")
+                    .then_ignore(keyword_ignore_case("ALL"))
+                    .to(UnionAll),
+                keyword_ignore_case("UNION").to(Union),
+            ))
+            .then(select_core)
+            .repeated(),
+            |lhs, (op, rhs)| match rhs {
+                List(mut x) => {
+                    if 3 == x.len() {
+                        let rhs_rhs = x.pop().unwrap();
+                        let rhs_lhs = x.pop().unwrap();
+                        let rhs_op = x.pop().unwrap();
+                        List(vec![rhs_op, List(vec![KW(op), lhs, rhs_lhs]), rhs_rhs])
+                    } else {
+                        List(vec![KW(op), lhs, List(x)])
                     }
-                    _ => List(vec![KW(op), lhs, rhs]),
-                },
-            )
-        });
+                }
+                _ => List(vec![KW(op), lhs, rhs]),
+            },
+        );
 
         compound_select_stmt.then(order_by).then(limit_clause).map(
             |((query, order_by), limit_offset)| {
