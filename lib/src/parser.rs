@@ -356,10 +356,10 @@ pub fn sql_ast_parser(
                 choice((
                     keyword_ignore_case("EXCEPT").to(Except),
                     keyword_ignore_case("INTERSECT").to(Intersect),
-                    keyword_ignore_case("UNION").to(Union),
                     keyword_ignore_case("UNION")
                         .then_ignore(keyword_ignore_case("ALL"))
                         .to(UnionAll),
+                    keyword_ignore_case("UNION").to(Union),
                 ))
                 .then(compound_select_stmt)
                 .repeated(),
