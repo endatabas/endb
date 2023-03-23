@@ -32,6 +32,10 @@ pub enum Keyword {
     Left,
     Inner,
     On,
+    Except,
+    Intersect,
+    Union,
+    UnionAll,
 }
 
 #[derive(PartialEq, Debug)]
@@ -134,10 +138,10 @@ pub fn sql_ast_parser(
     use Ast::*;
     use Keyword::*;
 
-    recursive(|select_stmt| {
+    recursive(|query| {
         let expr = expr_ast_parser();
         let id = id_ast_parser();
-        let subquery = select_stmt.delimited_by(just('('), just(')')).padded();
+        let subquery = query.delimited_by(just('('), just(')')).padded();
 
         let table = choice((subquery, id.clone()))
             .then(
@@ -154,6 +158,9 @@ pub fn sql_ast_parser(
                             keyword_ignore_case("ORDER"),
                             keyword_ignore_case("LIMIT"),
                             keyword_ignore_case("ON"),
+                            keyword_ignore_case("UNION"),
+                            keyword_ignore_case("EXCEPT"),
+                            keyword_ignore_case("INTERSECT"),
                         ))
                         .not(),
                     ),
@@ -235,6 +242,9 @@ pub fn sql_ast_parser(
                                     keyword_ignore_case("HAVING"),
                                     keyword_ignore_case("ORDER"),
                                     keyword_ignore_case("LIMIT"),
+                                    keyword_ignore_case("UNION"),
+                                    keyword_ignore_case("EXCEPT"),
+                                    keyword_ignore_case("INTERSECT"),
                                 ))
                                 .not(),
                             ),
@@ -315,21 +325,13 @@ pub fn sql_ast_parser(
             )
             .or_not();
 
-        select_clause
+        let select_stmt = select_clause
             .then(from_clause)
             .then(where_clause)
             .then(group_by_clause)
             .then(having_clause)
-            .then(order_by)
-            .then(limit_clause)
             .map(
-                |(
-                    (
-                        (((((distinct, select_list), from), where_clause), group_by), having),
-                        order_by,
-                    ),
-                    limit_offset,
-                )| {
+                |(((((distinct, select_list), from), where_clause), group_by), having)| {
                     let mut acc = vec![KW(Select), select_list];
 
                     let mut clause = |kw, c: Option<Ast>| {
@@ -344,19 +346,66 @@ pub fn sql_ast_parser(
                     clause(Where, where_clause);
                     clause(GroupBy, group_by);
                     clause(Having, having);
-                    clause(OrderBy, order_by);
-
-                    match limit_offset {
-                        Some((limit, offset)) => {
-                            clause(Limit, Some(limit));
-                            clause(Offset, offset);
-                        }
-                        None => {}
-                    }
 
                     List(acc)
                 },
+            );
+
+        let compound_select_stmt = recursive(|compound_select_stmt| {
+            select_stmt.foldl(
+                choice((
+                    keyword_ignore_case("EXCEPT").to(Except),
+                    keyword_ignore_case("INTERSECT").to(Intersect),
+                    keyword_ignore_case("UNION").to(Union),
+                    keyword_ignore_case("UNION")
+                        .then_ignore(keyword_ignore_case("ALL"))
+                        .to(UnionAll),
+                ))
+                .then(compound_select_stmt)
+                .repeated(),
+                |lhs, (op, rhs)| match rhs {
+                    List(mut x) => {
+                        if 3 == x.len() {
+                            let rhs_rhs = x.pop().unwrap();
+                            let rhs_lhs = x.pop().unwrap();
+                            let rhs_op = x.pop().unwrap();
+                            List(vec![rhs_op, List(vec![KW(op), lhs, rhs_lhs]), rhs_rhs])
+                        } else {
+                            List(vec![KW(op), lhs, List(x)])
+                        }
+                    }
+                    _ => List(vec![KW(op), lhs, rhs]),
+                },
             )
+        });
+
+        compound_select_stmt.then(order_by).then(limit_clause).map(
+            |((query, order_by), limit_offset)| {
+                let mut acc = match query {
+                    List(x) => x,
+                    _ => vec![],
+                };
+
+                let mut clause = |kw, c: Option<Ast>| {
+                    c.map(|c| {
+                        acc.push(KW(kw));
+                        acc.push(c);
+                    });
+                };
+
+                clause(OrderBy, order_by);
+
+                match limit_offset {
+                    Some((limit, offset)) => {
+                        clause(Limit, Some(limit));
+                        clause(Offset, offset);
+                    }
+                    None => {}
+                }
+
+                List(acc)
+            },
+        )
     })
 }
 
@@ -638,6 +687,21 @@ mod tests {
                     KW(Type),
                     KW(Left)
                 ])])
+            ]),
+            ast
+        );
+
+        let src = "SELECT 1 INTERSECT SELECT 2 UNION SELECT 3";
+        let ast = sql_ast_parser().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(Union),
+                List(vec![
+                    KW(Intersect),
+                    List(vec![KW(Select), List(vec![List(vec![Integer(1)])])]),
+                    List(vec![KW(Select), List(vec![List(vec![Integer(2)])])])
+                ]),
+                List(vec![KW(Select), List(vec![List(vec![Integer(3)])])])
             ]),
             ast
         );

@@ -44,7 +44,11 @@
   :type
   :left
   :inner
-  :on)
+  :on
+  :except
+  :intesect
+  :union
+  :union-all)
 
 (cffi:defcenum Ast_Tag
   :List

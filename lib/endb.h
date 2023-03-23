@@ -28,6 +28,10 @@ typedef enum Keyword {
   Left,
   Inner,
   On,
+  Except,
+  Intersect,
+  Union,
+  UnionAll,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;
