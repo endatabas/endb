@@ -157,184 +157,187 @@ pub fn sql_ast_parser(
     use Ast::*;
     use Keyword::*;
 
-    let expr = expr_ast_parser();
-    let id = id_ast_parser();
-    let select_clause = keyword_ignore_case("SELECT")
-        .ignore_then(
-            choice((
-                keyword_ignore_case("DISTINCT").to(Distinct),
-                keyword_ignore_case("ALL").to(All),
-            ))
-            .map(KW)
-            .or_not(),
-        )
-        .then(
-            expr.clone()
-                .then(
-                    choice((
-                        keyword_ignore_case("AS").ignore_then(id.clone()),
-                        id.clone().and_is(
-                            choice((
-                                keyword_ignore_case("FROM"),
-                                keyword_ignore_case("WHERE"),
-                                keyword_ignore_case("GROUP"),
-                                keyword_ignore_case("HAVING"),
-                                keyword_ignore_case("ORDER"),
-                                keyword_ignore_case("LIMIT"),
-                            ))
-                            .not(),
-                        ),
-                    ))
-                    .or_not(),
-                )
-                .map(|(expr, id)| match id {
-                    Some(id) => List(vec![expr, id]),
-                    None => List(vec![expr]),
-                })
-                .separated_by(just(','))
-                .at_least(1)
-                .collect()
-                .map(List),
-        );
+    recursive(|select_stmt| {
+        let expr = expr_ast_parser();
+        let id = id_ast_parser();
+        let subquery = select_stmt.delimited_by(just('('), just(')')).padded();
 
-    let table = id
-        .clone()
-        .then(
+        let table = choice((subquery, id.clone()))
+            .then(
+                choice((
+                    keyword_ignore_case("AS").ignore_then(id.clone()),
+                    id.clone().and_is(
+                        choice((
+                            keyword_ignore_case("CROSS"),
+                            keyword_ignore_case("LEFT"),
+                            keyword_ignore_case("JOIN"),
+                            keyword_ignore_case("WHERE"),
+                            keyword_ignore_case("GROUP"),
+                            keyword_ignore_case("HAVING"),
+                            keyword_ignore_case("ORDER"),
+                            keyword_ignore_case("LIMIT"),
+                            keyword_ignore_case("ON"),
+                        ))
+                        .not(),
+                    ),
+                ))
+                .or_not(),
+            )
+            .map(|(id, alias)| match alias {
+                Some(alias) => List(vec![id, alias]),
+                None => List(vec![id]),
+            });
+
+        let table_list_element = recursive(|table_list_element| {
             choice((
-                keyword_ignore_case("AS").ignore_then(id.clone()),
-                id.and_is(
+                table.foldl(
                     choice((
-                        keyword_ignore_case("CROSS"),
-                        keyword_ignore_case("LEFT"),
-                        keyword_ignore_case("JOIN"),
-                        keyword_ignore_case("WHERE"),
-                        keyword_ignore_case("GROUP"),
-                        keyword_ignore_case("HAVING"),
-                        keyword_ignore_case("ORDER"),
-                        keyword_ignore_case("LIMIT"),
-                        keyword_ignore_case("ON"),
+                        keyword_ignore_case("LEFT")
+                            .to(Left)
+                            .then_ignore(keyword_ignore_case("OUTER").or_not()),
+                        keyword_ignore_case("INNER").to(Inner),
                     ))
-                    .not(),
+                    .or_not()
+                    .then_ignore(keyword_ignore_case("JOIN"))
+                    .then(table_list_element.clone())
+                    .then_ignore(keyword_ignore_case("ON"))
+                    .then(expr.clone())
+                    .repeated(),
+                    |lhs, ((join_type, rhs), on)| {
+                        List(vec![
+                            KW(Join),
+                            lhs,
+                            rhs,
+                            KW(On),
+                            on,
+                            KW(Type),
+                            KW(join_type.unwrap_or(Inner)),
+                        ])
+                    },
                 ),
+                table_list_element
+                    .clone()
+                    .then_ignore(
+                        keyword_ignore_case("CROSS").ignore_then(keyword_ignore_case("JOIN")),
+                    )
+                    .then(table_list_element)
+                    .delimited_by(just('('), just(')'))
+                    .map(|(lhs, rhs)| {
+                        List(vec![
+                            KW(Join),
+                            lhs,
+                            rhs,
+                            KW(On),
+                            KW(True),
+                            KW(Type),
+                            KW(Inner),
+                        ])
+                    }),
             ))
-            .or_not(),
-        )
-        .map(|(id, alias)| match alias {
-            Some(alias) => List(vec![id, alias]),
-            None => List(vec![id]),
         });
 
-    let table_list_element = recursive(|table_list_element| {
-        choice((
-            table.foldl(
+        let select_clause = keyword_ignore_case("SELECT")
+            .ignore_then(
                 choice((
-                    keyword_ignore_case("LEFT")
-                        .to(Left)
-                        .then_ignore(keyword_ignore_case("OUTER").or_not()),
-                    keyword_ignore_case("INNER").to(Inner),
+                    keyword_ignore_case("DISTINCT").to(Distinct),
+                    keyword_ignore_case("ALL").to(All),
                 ))
-                .or_not()
-                .then_ignore(keyword_ignore_case("JOIN"))
-                .then(table_list_element.clone())
-                .then_ignore(keyword_ignore_case("ON"))
-                .then(expr.clone())
-                .repeated(),
-                |lhs, ((join_type, rhs), on)| {
-                    List(vec![
-                        KW(Join),
-                        lhs,
-                        rhs,
-                        KW(On),
-                        on,
-                        KW(Type),
-                        KW(join_type.unwrap_or(Inner)),
-                    ])
-                },
-            ),
-            table_list_element
-                .clone()
-                .then_ignore(keyword_ignore_case("CROSS").ignore_then(keyword_ignore_case("JOIN")))
-                .then(table_list_element)
-                .delimited_by(just('('), just(')'))
-                .map(|(lhs, rhs)| {
-                    List(vec![
-                        KW(Join),
-                        lhs,
-                        rhs,
-                        KW(On),
-                        KW(True),
-                        KW(Type),
-                        KW(Inner),
-                    ])
-                }),
-        ))
-    });
+                .map(KW)
+                .or_not(),
+            )
+            .then(
+                expr.clone()
+                    .then(
+                        choice((
+                            keyword_ignore_case("AS").ignore_then(id.clone()),
+                            id.and_is(
+                                choice((
+                                    keyword_ignore_case("FROM"),
+                                    keyword_ignore_case("WHERE"),
+                                    keyword_ignore_case("GROUP"),
+                                    keyword_ignore_case("HAVING"),
+                                    keyword_ignore_case("ORDER"),
+                                    keyword_ignore_case("LIMIT"),
+                                ))
+                                .not(),
+                            ),
+                        ))
+                        .or_not(),
+                    )
+                    .map(|(expr, id)| match id {
+                        Some(id) => List(vec![expr, id]),
+                        None => List(vec![expr]),
+                    })
+                    .separated_by(just(','))
+                    .at_least(1)
+                    .collect()
+                    .map(List),
+            );
 
-    let from_clause = keyword_ignore_case("FROM")
-        .ignore_then(
-            table_list_element
-                .separated_by(choice((
-                    just(","),
-                    keyword_ignore_case("CROSS").ignore_then(keyword_ignore_case("JOIN")),
-                )))
-                .at_least(1)
-                .collect()
-                .map(List),
-        )
-        .or_not();
+        let from_clause = keyword_ignore_case("FROM")
+            .ignore_then(
+                table_list_element
+                    .separated_by(choice((
+                        just(","),
+                        keyword_ignore_case("CROSS").ignore_then(keyword_ignore_case("JOIN")),
+                    )))
+                    .at_least(1)
+                    .collect()
+                    .map(List),
+            )
+            .or_not();
 
-    let where_clause = keyword_ignore_case("WHERE")
-        .ignore_then(expr.clone())
-        .or_not();
+        let where_clause = keyword_ignore_case("WHERE")
+            .ignore_then(expr.clone())
+            .or_not();
 
-    let group_by_clause = keyword_ignore_case("GROUP")
-        .ignore_then(keyword_ignore_case("BY"))
-        .ignore_then(
-            id_ast_parser()
+        let group_by_clause = keyword_ignore_case("GROUP")
+            .ignore_then(keyword_ignore_case("BY"))
+            .ignore_then(
+                id_ast_parser()
+                    .separated_by(just(','))
+                    .at_least(1)
+                    .collect()
+                    .map(List),
+            )
+            .or_not();
+
+        let having_clause = keyword_ignore_case("HAVING")
+            .ignore_then(expr.clone())
+            .or_not();
+
+        let order_by = keyword_ignore_case("ORDER")
+            .ignore_then(keyword_ignore_case("BY"))
+            .ignore_then(
+                expr.then(
+                    choice((
+                        keyword_ignore_case("ASC").to(Asc),
+                        keyword_ignore_case("DESC").to(Desc),
+                    ))
+                    .or_not()
+                    .map(|dir| KW(dir.unwrap_or(Asc))),
+                )
+                .map(|(var, dir)| List(vec![var, dir]))
                 .separated_by(just(','))
                 .at_least(1)
                 .collect()
                 .map(List),
-        )
-        .or_not();
-
-    let having_clause = keyword_ignore_case("HAVING")
-        .ignore_then(expr.clone())
-        .or_not();
-
-    let order_by = keyword_ignore_case("ORDER")
-        .ignore_then(keyword_ignore_case("BY"))
-        .ignore_then(
-            expr.then(
-                choice((
-                    keyword_ignore_case("ASC").to(Asc),
-                    keyword_ignore_case("DESC").to(Desc),
-                ))
-                .or_not()
-                .map(|dir| KW(dir.unwrap_or(Asc))),
             )
-            .map(|(var, dir)| List(vec![var, dir]))
-            .separated_by(just(','))
-            .at_least(1)
-            .collect()
-            .map(List),
-        )
-        .or_not();
+            .or_not();
 
-    let positive_integer = just('0')
-        .not()
-        .ignore_then(text::int(10).slice().from_str().unwrapped().map(Integer));
+        let positive_integer = just('0')
+            .not()
+            .ignore_then(text::int(10).slice().from_str().unwrapped().map(Integer));
 
-    let limit_clause = keyword_ignore_case("LIMIT")
-        .ignore_then(positive_integer)
-        .then(
-            choice((keyword_ignore_case("OFFSET"), just(",").padded()))
-                .ignore_then(positive_integer)
-                .or_not(),
-        )
-        .or_not();
+        let limit_clause = keyword_ignore_case("LIMIT")
+            .ignore_then(positive_integer)
+            .then(
+                choice((keyword_ignore_case("OFFSET"), just(",").padded()))
+                    .ignore_then(positive_integer)
+                    .or_not(),
+            )
+            .or_not();
 
-    recursive(|_| {
         select_clause
             .then(from_clause)
             .then(where_clause)
@@ -377,7 +380,6 @@ pub fn sql_ast_parser(
                     List(acc)
                 },
             )
-            .then_ignore(end())
     })
 }
 
@@ -515,7 +517,7 @@ mod tests {
 
     #[test]
     fn select_as() {
-        let src = "SELECT 1 AS x, 2 y FROM z, w AS foo, bar baz WHERE FALSE";
+        let src = "SELECT 1 AS x, 2 y FROM z, w AS foo, (SELECT bar) baz WHERE FALSE";
         let ast = sql_ast_parser().parse(src).into_output().unwrap();
         assert_eq!(
             List(vec![
@@ -528,7 +530,13 @@ mod tests {
                 List(vec![
                     List(vec![Id { start: 24, end: 25 }]),
                     List(vec![Id { start: 27, end: 28 }, Id { start: 32, end: 35 }]),
-                    List(vec![Id { start: 37, end: 40 }, Id { start: 41, end: 44 }])
+                    List(vec![
+                        List(vec![
+                            KW(Select),
+                            List(vec![List(vec![Id { start: 45, end: 48 }])])
+                        ]),
+                        Id { start: 50, end: 53 }
+                    ])
                 ]),
                 KW(Where),
                 KW(False)

@@ -22,7 +22,7 @@ pub extern "C" fn endb_parse_sql(
     SQL_AST_PARSER.with(|parser| {
         let c_str = unsafe { CStr::from_ptr(input) };
         let input_str = c_str.to_str().unwrap();
-        let result = parser.parse(input_str);
+        let result = parser.then_ignore(chumsky::prelude::end()).parse(input_str);
         if result.has_errors() {
             let error_str = parser::parse_errors_to_string(input_str, result.into_errors());
             let c_error_str = CString::new(error_str).unwrap();
