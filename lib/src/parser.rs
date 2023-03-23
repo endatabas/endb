@@ -379,19 +379,7 @@ pub fn sql_ast_parser(
             ))
             .then(select_core)
             .repeated(),
-            |lhs, (op, rhs)| match rhs {
-                List(mut x) => {
-                    if 3 == x.len() {
-                        let rhs_rhs = x.pop().unwrap();
-                        let rhs_lhs = x.pop().unwrap();
-                        let rhs_op = x.pop().unwrap();
-                        List(vec![rhs_op, List(vec![KW(op), lhs, rhs_lhs]), rhs_rhs])
-                    } else {
-                        List(vec![KW(op), lhs, List(x)])
-                    }
-                }
-                _ => List(vec![KW(op), lhs, rhs]),
-            },
+            |lhs, (op, rhs)| List(vec![KW(op), lhs, rhs]),
         );
 
         compound_select_stmt.then(order_by).then(limit_clause).map(
