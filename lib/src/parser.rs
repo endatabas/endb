@@ -173,53 +173,49 @@ pub fn sql_ast_parser(
                 None => List(vec![id]),
             });
 
-        let table_list_element = recursive(|table_list_element| {
-            choice((
-                table.foldl(
-                    choice((
-                        keyword_ignore_case("LEFT")
-                            .to(Left)
-                            .then_ignore(keyword_ignore_case("OUTER").or_not()),
-                        keyword_ignore_case("INNER").to(Inner),
-                    ))
-                    .or_not()
-                    .then_ignore(keyword_ignore_case("JOIN"))
-                    .then(table_list_element.clone())
-                    .then_ignore(keyword_ignore_case("ON"))
-                    .then(expr.clone())
-                    .repeated(),
-                    |lhs, ((join_type, rhs), on)| {
-                        List(vec![
-                            KW(Join),
-                            lhs,
-                            rhs,
-                            KW(On),
-                            on,
-                            KW(Type),
-                            KW(join_type.unwrap_or(Inner)),
-                        ])
-                    },
-                ),
-                table_list_element
-                    .clone()
-                    .then_ignore(
-                        keyword_ignore_case("CROSS").ignore_then(keyword_ignore_case("JOIN")),
-                    )
-                    .then(table_list_element)
-                    .delimited_by(just('('), just(')'))
-                    .map(|(lhs, rhs)| {
-                        List(vec![
-                            KW(Join),
-                            lhs,
-                            rhs,
-                            KW(On),
-                            KW(True),
-                            KW(Type),
-                            KW(Inner),
-                        ])
-                    }),
-            ))
-        });
+        let table_list_element = choice((
+            table.clone().foldl(
+                choice((
+                    keyword_ignore_case("LEFT")
+                        .to(Left)
+                        .then_ignore(keyword_ignore_case("OUTER").or_not()),
+                    keyword_ignore_case("INNER").to(Inner),
+                ))
+                .or_not()
+                .then_ignore(keyword_ignore_case("JOIN"))
+                .then(table.clone())
+                .then_ignore(keyword_ignore_case("ON"))
+                .then(expr.clone())
+                .repeated(),
+                |lhs, ((join_type, rhs), on)| {
+                    List(vec![
+                        KW(Join),
+                        lhs,
+                        rhs,
+                        KW(On),
+                        on,
+                        KW(Type),
+                        KW(join_type.unwrap_or(Inner)),
+                    ])
+                },
+            ),
+            table
+                .clone()
+                .then_ignore(keyword_ignore_case("CROSS").ignore_then(keyword_ignore_case("JOIN")))
+                .then(table)
+                .delimited_by(just('('), just(')'))
+                .map(|(lhs, rhs)| {
+                    List(vec![
+                        KW(Join),
+                        lhs,
+                        rhs,
+                        KW(On),
+                        KW(True),
+                        KW(Type),
+                        KW(Inner),
+                    ])
+                }),
+        ));
 
         let select_clause = keyword_ignore_case("SELECT")
             .ignore_then(
