@@ -5,29 +5,6 @@ use chumsky::input::{StrInput, ValueInput};
 use chumsky::prelude::*;
 use chumsky::text::Char;
 
-fn keyword_ignore_case<
-    'a,
-    I: ValueInput<'a> + StrInput<'a, C>,
-    C: Char<Str = str> + 'a,
-    E: ParserExtra<'a, I> + 'a,
->(
-    keyword: &'a str,
-) -> impl Parser<'a, I, &'a C::Str, E> + Clone + 'a
-where
-    C::Str: PartialEq,
-{
-    text::ident()
-        .try_map(|s: &C::Str, span| {
-            if keyword.eq_ignore_ascii_case(s) {
-                Ok(())
-            } else {
-                Err(E::Error::expected_found(None, None, span))
-            }
-        })
-        .slice()
-        .padded()
-}
-
 #[derive(Clone, PartialEq, Debug)]
 #[repr(C)]
 pub enum Keyword {
@@ -398,6 +375,29 @@ pub fn parse_errors_to_string<'input>(src: &str, errs: Vec<Rich<'input, char>>) 
             .unwrap()
     });
     String::from_utf8(buf).unwrap()
+}
+
+fn keyword_ignore_case<
+    'a,
+    I: ValueInput<'a> + StrInput<'a, C>,
+    C: Char<Str = str> + 'a,
+    E: ParserExtra<'a, I> + 'a,
+>(
+    keyword: &'a str,
+) -> impl Parser<'a, I, &'a C::Str, E> + Clone + 'a
+where
+    C::Str: PartialEq,
+{
+    text::ident()
+        .try_map(|s: &C::Str, span| {
+            if keyword.eq_ignore_ascii_case(s) {
+                Ok(())
+            } else {
+                Err(E::Error::expected_found(None, None, span))
+            }
+        })
+        .slice()
+        .padded()
 }
 
 #[cfg(test)]
