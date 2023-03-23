@@ -200,6 +200,9 @@ pub fn sql_ast_parser(
                         keyword_ignore_case("AS").ignore_then(id.clone()),
                         id.and_is(
                             choice((
+                                keyword_ignore_case("CROSS"),
+                                keyword_ignore_case("LEFT"),
+                                keyword_ignore_case("JOIN"),
                                 keyword_ignore_case("WHERE"),
                                 keyword_ignore_case("GROUP"),
                                 keyword_ignore_case("HAVING"),
@@ -215,7 +218,10 @@ pub fn sql_ast_parser(
                     Some(id) => List(vec![expr, id]),
                     None => List(vec![expr]),
                 })
-                .separated_by(just(','))
+                .separated_by(choice((
+                    just(","),
+                    keyword_ignore_case("CROSS").ignore_then(keyword_ignore_case("JOIN")),
+                )))
                 .at_least(1)
                 .collect()
                 .map(Ast::List),
@@ -514,6 +520,20 @@ mod tests {
                 List(vec![
                     List(vec![Id { start: 74, end: 75 }, KW(Desc)]),
                     List(vec![Id { start: 82, end: 83 }, KW(Asc)])
+                ])
+            ]),
+            ast
+        );
+        let src = "SELECT 1 FROM x CROSS JOIN y";
+        let ast = sql_ast_parser().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![Integer(1)])]),
+                KW(From),
+                List(vec![
+                    List(vec![Id { start: 14, end: 15 }]),
+                    List(vec![Id { start: 27, end: 28 }])
                 ])
             ]),
             ast
