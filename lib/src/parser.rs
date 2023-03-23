@@ -50,6 +50,11 @@ pub enum Keyword {
     Null,
     Limit,
     Offset,
+    Join,
+    Type,
+    Left,
+    Inner,
+    On,
 }
 
 #[derive(PartialEq, Debug)]
@@ -189,42 +194,92 @@ pub fn sql_ast_parser(
                 .separated_by(just(','))
                 .at_least(1)
                 .collect()
-                .map(Ast::List),
+                .map(List),
         );
+
+    let table = id
+        .clone()
+        .then(
+            choice((
+                keyword_ignore_case("AS").ignore_then(id.clone()),
+                id.and_is(
+                    choice((
+                        keyword_ignore_case("CROSS"),
+                        keyword_ignore_case("LEFT"),
+                        keyword_ignore_case("JOIN"),
+                        keyword_ignore_case("WHERE"),
+                        keyword_ignore_case("GROUP"),
+                        keyword_ignore_case("HAVING"),
+                        keyword_ignore_case("ORDER"),
+                        keyword_ignore_case("LIMIT"),
+                        keyword_ignore_case("ON"),
+                    ))
+                    .not(),
+                ),
+            ))
+            .or_not(),
+        )
+        .map(|(id, alias)| match alias {
+            Some(alias) => List(vec![id, alias]),
+            None => List(vec![id]),
+        });
+
+    let table_list_element = recursive(|table_list_element| {
+        choice((
+            table.foldl(
+                choice((
+                    keyword_ignore_case("LEFT")
+                        .to(Left)
+                        .then_ignore(keyword_ignore_case("OUTER").or_not()),
+                    keyword_ignore_case("INNER").to(Inner),
+                ))
+                .or_not()
+                .then_ignore(keyword_ignore_case("JOIN"))
+                .then(table_list_element.clone())
+                .then_ignore(keyword_ignore_case("ON"))
+                .then(expr.clone())
+                .repeated(),
+                |lhs, ((join_type, rhs), on)| {
+                    List(vec![
+                        KW(Join),
+                        lhs,
+                        rhs,
+                        KW(On),
+                        on,
+                        KW(Type),
+                        KW(join_type.unwrap_or(Inner)),
+                    ])
+                },
+            ),
+            table_list_element
+                .clone()
+                .then_ignore(keyword_ignore_case("CROSS").ignore_then(keyword_ignore_case("JOIN")))
+                .then(table_list_element)
+                .delimited_by(just('('), just(')'))
+                .map(|(lhs, rhs)| {
+                    List(vec![
+                        KW(Join),
+                        lhs,
+                        rhs,
+                        KW(On),
+                        KW(True),
+                        KW(Type),
+                        KW(Inner),
+                    ])
+                }),
+        ))
+    });
 
     let from_clause = keyword_ignore_case("FROM")
         .ignore_then(
-            expr.clone()
-                .then(
-                    choice((
-                        keyword_ignore_case("AS").ignore_then(id.clone()),
-                        id.and_is(
-                            choice((
-                                keyword_ignore_case("CROSS"),
-                                keyword_ignore_case("LEFT"),
-                                keyword_ignore_case("JOIN"),
-                                keyword_ignore_case("WHERE"),
-                                keyword_ignore_case("GROUP"),
-                                keyword_ignore_case("HAVING"),
-                                keyword_ignore_case("ORDER"),
-                                keyword_ignore_case("LIMIT"),
-                            ))
-                            .not(),
-                        ),
-                    ))
-                    .or_not(),
-                )
-                .map(|(expr, id)| match id {
-                    Some(id) => List(vec![expr, id]),
-                    None => List(vec![expr]),
-                })
+            table_list_element
                 .separated_by(choice((
                     just(","),
                     keyword_ignore_case("CROSS").ignore_then(keyword_ignore_case("JOIN")),
                 )))
                 .at_least(1)
                 .collect()
-                .map(Ast::List),
+                .map(List),
         )
         .or_not();
 
@@ -239,7 +294,7 @@ pub fn sql_ast_parser(
                 .separated_by(just(','))
                 .at_least(1)
                 .collect()
-                .map(Ast::List),
+                .map(List),
         )
         .or_not();
 
@@ -262,7 +317,7 @@ pub fn sql_ast_parser(
             .separated_by(just(','))
             .at_least(1)
             .collect()
-            .map(Ast::List),
+            .map(List),
         )
         .or_not();
 
@@ -535,6 +590,46 @@ mod tests {
                     List(vec![Id { start: 14, end: 15 }]),
                     List(vec![Id { start: 27, end: 28 }])
                 ])
+            ]),
+            ast
+        );
+
+        let src = "SELECT 1 FROM (x CROSS JOIN y)";
+        let ast = sql_ast_parser().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![Integer(1)])]),
+                KW(From),
+                List(vec![List(vec![
+                    KW(Join),
+                    List(vec![Id { start: 15, end: 16 }]),
+                    List(vec![Id { start: 28, end: 29 }]),
+                    KW(On),
+                    KW(True),
+                    KW(Type),
+                    KW(Inner)
+                ])])
+            ]),
+            ast
+        );
+
+        let src = "SELECT 1 FROM x LEFT JOIN y ON TRUE";
+        let ast = sql_ast_parser().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![Integer(1)])]),
+                KW(From),
+                List(vec![List(vec![
+                    KW(Join),
+                    List(vec![Id { start: 14, end: 15 }]),
+                    List(vec![Id { start: 26, end: 27 }]),
+                    KW(On),
+                    KW(True),
+                    KW(Type),
+                    KW(Left)
+                ])])
             ]),
             ast
         );

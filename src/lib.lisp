@@ -39,7 +39,12 @@
   :false
   :null
   :limit
-  :offset)
+  :offset
+  :join
+  :type
+  :left
+  :inner
+  :on)
 
 (cffi:defcenum Ast_Tag
   :List

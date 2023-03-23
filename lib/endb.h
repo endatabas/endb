@@ -23,6 +23,11 @@ typedef enum Keyword {
   Null,
   Limit,
   Offset,
+  Join,
+  Type,
+  Left,
+  Inner,
+  On,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;
