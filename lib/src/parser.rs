@@ -36,6 +36,7 @@ pub enum Keyword {
     Intersect,
     Union,
     UnionAll,
+    Values,
 }
 
 #[derive(PartialEq, Debug)]
@@ -296,19 +297,20 @@ pub fn sql_ast_parser(
         let order_by = keyword_ignore_case("ORDER")
             .ignore_then(keyword_ignore_case("BY"))
             .ignore_then(
-                expr.then(
-                    choice((
-                        keyword_ignore_case("ASC").to(Asc),
-                        keyword_ignore_case("DESC").to(Desc),
-                    ))
-                    .or_not()
-                    .map(|dir| KW(dir.unwrap_or(Asc))),
-                )
-                .map(|(var, dir)| List(vec![var, dir]))
-                .separated_by(just(','))
-                .at_least(1)
-                .collect()
-                .map(List),
+                expr.clone()
+                    .then(
+                        choice((
+                            keyword_ignore_case("ASC").to(Asc),
+                            keyword_ignore_case("DESC").to(Desc),
+                        ))
+                        .or_not()
+                        .map(|dir| KW(dir.unwrap_or(Asc))),
+                    )
+                    .map(|(var, dir)| List(vec![var, dir]))
+                    .separated_by(just(','))
+                    .at_least(1)
+                    .collect()
+                    .map(List),
             )
             .or_not();
 
@@ -351,8 +353,23 @@ pub fn sql_ast_parser(
                 },
             );
 
+        let values_stmt = keyword_ignore_case("VALUES").ignore_then(
+            expr.separated_by(just(','))
+                .at_least(1)
+                .collect()
+                .map(List)
+                .delimited_by(just('('), just(')'))
+                .padded()
+                .separated_by(just(','))
+                .at_least(1)
+                .collect()
+                .map(|values| List(vec![KW(Values), List(values)])),
+        );
+
+        let select_core = choice((select_stmt, values_stmt));
+
         let compound_select_stmt = recursive(|compound_select_stmt| {
-            select_stmt.foldl(
+            select_core.foldl(
                 choice((
                     keyword_ignore_case("EXCEPT").to(Except),
                     keyword_ignore_case("INTERSECT").to(Intersect),
@@ -702,6 +719,19 @@ mod tests {
                     List(vec![KW(Select), List(vec![List(vec![Integer(2)])])])
                 ]),
                 List(vec![KW(Select), List(vec![List(vec![Integer(3)])])])
+            ]),
+            ast
+        );
+
+        let src = "VALUES (1, 2), (3, 4)";
+        let ast = sql_ast_parser().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(Values),
+                List(vec![
+                    List(vec![Integer(1), Integer(2)]),
+                    List(vec![Integer(3), Integer(4)])
+                ])
             ]),
             ast
         );

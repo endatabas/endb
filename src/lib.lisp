@@ -48,7 +48,8 @@
   :except
   :intesect
   :union
-  :union-all)
+  :union-all
+  :values)
 
 (cffi:defcenum Ast_Tag
   :List

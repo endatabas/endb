@@ -32,6 +32,7 @@ typedef enum Keyword {
   Intersect,
   Union,
   UnionAll,
+  Values,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;
