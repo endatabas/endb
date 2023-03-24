@@ -43,6 +43,9 @@ pub enum Keyword {
     Update,
     CreateIndex,
     DropIndex,
+    CreateView,
+    DropView,
+    IfExists,
 }
 
 #[derive(PartialEq, Debug)]
@@ -502,6 +505,45 @@ pub fn sql_ast_parser(
         .ignore_then(id.clone())
         .map(|_| List(vec![KW(DropIndex)]));
 
+    let create_view_stmt = keyword_ignore_case("CREATE")
+        .ignore_then(keyword_ignore_case("VIEW"))
+        .ignore_then(
+            choice((
+                keyword_ignore_case("TEMPORARY"),
+                keyword_ignore_case("TEMP"),
+            ))
+            .or_not(),
+        )
+        .ignore_then(id.clone())
+        .then_ignore(keyword_ignore_case("AS"))
+        .then(select_stmt.clone())
+        .map(|(id, query)| List(vec![KW(CreateView), id, query]));
+
+    let drop_view_stmt = keyword_ignore_case("DROP")
+        .ignore_then(keyword_ignore_case("VIEW"))
+        .ignore_then(
+            keyword_ignore_case("IF")
+                .ignore_then(keyword_ignore_case("EXISTS"))
+                .to(IfExists)
+                .map(KW)
+                .or_not(),
+        )
+        .then(id.clone())
+        .map(|(if_exists, id)| {
+            let mut acc = vec![KW(DropView), id];
+
+            let mut clause = |kw, c: Option<Ast>| {
+                c.map(|c| {
+                    acc.push(KW(kw));
+                    acc.push(c);
+                });
+            };
+
+            clause(IfExists, if_exists);
+
+            List(acc)
+        });
+
     recursive(|_| {
         choice((
             select_stmt,
@@ -510,6 +552,8 @@ pub fn sql_ast_parser(
             update_stmt,
             create_index_stmt,
             drop_index_stmt,
+            create_view_stmt,
+            drop_view_stmt,
         ))
     })
 }
@@ -964,5 +1008,28 @@ mod tests {
         let src = "DROP INDEX foo";
         let ast = sql_ast_parser().parse(src).into_output().unwrap();
         assert_eq!(List(vec![KW(DropIndex)]), ast);
+
+        let src = "CREATE VIEW foo AS SELECT 1";
+        let ast = sql_ast_parser().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(CreateView),
+                Id { start: 12, end: 15 },
+                List(vec![KW(Select), List(vec![List(vec![Integer(1)])])])
+            ]),
+            ast
+        );
+
+        let src = "DROP VIEW IF EXISTS foo";
+        let ast = sql_ast_parser().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(DropView),
+                Id { start: 20, end: 23 },
+                KW(IfExists),
+                KW(IfExists)
+            ]),
+            ast
+        );
     }
 }

@@ -53,7 +53,12 @@
   :insert
   :column-names
   :delete
-  :update)
+  :update
+  :create-index
+  :drop-index
+  :create-view
+  :drop-view
+  :if-exists)
 
 (cffi:defcenum Ast_Tag
   :List

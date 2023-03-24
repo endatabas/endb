@@ -37,6 +37,11 @@ typedef enum Keyword {
   ColumnNames,
   Delete,
   Update,
+  CreateIndex,
+  DropIndex,
+  CreateView,
+  DropView,
+  IfExists,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;
