@@ -40,6 +40,7 @@ pub enum Keyword {
     Insert,
     ColumnNames,
     Delete,
+    Update,
 }
 
 #[derive(PartialEq, Debug)]
@@ -452,7 +453,39 @@ pub fn sql_ast_parser(
         .then(expr.clone())
         .map(|(id, expr)| List(vec![KW(Delete), id, expr]));
 
-    recursive(|_| choice((select_stmt, insert_stmt, delete_stmt)))
+    let update_stmt = keyword_ignore_case("UPDATE")
+        .ignore_then(id.clone())
+        .then_ignore(keyword_ignore_case("SET"))
+        .then(
+            id.clone()
+                .then_ignore(just('='))
+                .then(expr.clone())
+                .map(|(id, expr)| List(vec![id, expr]))
+                .separated_by(just(','))
+                .collect()
+                .map(List),
+        )
+        .then(
+            keyword_ignore_case("WHERE")
+                .ignore_then(expr.clone())
+                .or_not(),
+        )
+        .map(|((id, updates), expr)| {
+            let mut acc = vec![KW(Update), id, updates];
+
+            let mut clause = |kw, c: Option<Ast>| {
+                c.map(|c| {
+                    acc.push(KW(kw));
+                    acc.push(c);
+                });
+            };
+
+            clause(Where, expr);
+
+            List(acc)
+        });
+
+    recursive(|_| choice((select_stmt, insert_stmt, delete_stmt, update_stmt)))
 }
 
 pub fn parse_errors_to_string<'input>(src: &str, errs: Vec<Rich<'input, char>>) -> String {
@@ -876,6 +909,22 @@ mod tests {
         let ast = sql_ast_parser().parse(src).into_output().unwrap();
         assert_eq!(
             List(vec![KW(Delete), Id { start: 12, end: 15 }, KW(False)]),
+            ast
+        );
+
+        let src = "UPDATE foo SET x = 1, y = 2 WHERE NULL";
+        let ast = sql_ast_parser().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(Update),
+                Id { start: 7, end: 10 },
+                List(vec![
+                    List(vec![Id { start: 15, end: 16 }, Integer(1)]),
+                    List(vec![Id { start: 22, end: 23 }, Integer(2)])
+                ]),
+                KW(Where),
+                KW(Null)
+            ]),
             ast
         );
     }

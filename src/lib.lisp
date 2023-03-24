@@ -52,7 +52,8 @@
   :values
   :insert
   :column-names
-  :delete)
+  :delete
+  :update)
 
 (cffi:defcenum Ast_Tag
   :List
