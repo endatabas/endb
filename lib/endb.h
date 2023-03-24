@@ -35,6 +35,7 @@ typedef enum Keyword {
   Values,
   Insert,
   ColumnNames,
+  Delete,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;

@@ -51,7 +51,8 @@
   :union-all
   :values
   :insert
-  :column-names)
+  :column-names
+  :delete)
 
 (cffi:defcenum Ast_Tag
   :List

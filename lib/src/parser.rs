@@ -39,6 +39,7 @@ pub enum Keyword {
     Values,
     Insert,
     ColumnNames,
+    Delete,
 }
 
 #[derive(PartialEq, Debug)]
@@ -353,7 +354,8 @@ pub fn sql_ast_parser(
             );
 
         let values_stmt = keyword_ignore_case("VALUES").ignore_then(
-            expr.separated_by(just(','))
+            expr.clone()
+                .separated_by(just(','))
                 .at_least(1)
                 .collect()
                 .map(List)
@@ -419,7 +421,8 @@ pub fn sql_ast_parser(
         .ignore_then(keyword_ignore_case("INTO"))
         .ignore_then(id.clone())
         .then(
-            id.separated_by(just(','))
+            id.clone()
+                .separated_by(just(','))
                 .at_least(1)
                 .collect()
                 .map(List)
@@ -442,7 +445,14 @@ pub fn sql_ast_parser(
             List(acc)
         });
 
-    recursive(|_| choice((select_stmt, insert_stmt)))
+    let delete_stmt = keyword_ignore_case("DELETE")
+        .ignore_then(keyword_ignore_case("FROM"))
+        .ignore_then(id.clone())
+        .then_ignore(keyword_ignore_case("WHERE"))
+        .then(expr.clone())
+        .map(|(id, expr)| List(vec![KW(Delete), id, expr]));
+
+    recursive(|_| choice((select_stmt, insert_stmt, delete_stmt)))
 }
 
 pub fn parse_errors_to_string<'input>(src: &str, errs: Vec<Rich<'input, char>>) -> String {
@@ -859,6 +869,13 @@ mod tests {
                 KW(ColumnNames),
                 List(vec![Id { start: 17, end: 18 }])
             ]),
+            ast
+        );
+
+        let src = "DELETE FROM foo WHERE FALSE";
+        let ast = sql_ast_parser().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![KW(Delete), Id { start: 12, end: 15 }, KW(False)]),
             ast
         );
     }
