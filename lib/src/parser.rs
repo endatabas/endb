@@ -46,6 +46,7 @@ pub enum Keyword {
     CreateView,
     DropView,
     IfExists,
+    DropTable,
 }
 
 #[derive(PartialEq, Debug)]
@@ -500,11 +501,6 @@ pub fn sql_ast_parser(
         .ignore_then(order_by_list.clone().delimited_by(just('('), just(')')))
         .map(|_| List(vec![KW(CreateIndex)]));
 
-    let drop_index_stmt = keyword_ignore_case("DROP")
-        .ignore_then(keyword_ignore_case("INDEX"))
-        .ignore_then(id.clone())
-        .map(|_| List(vec![KW(DropIndex)]));
-
     let create_view_stmt = keyword_ignore_case("CREATE")
         .ignore_then(keyword_ignore_case("VIEW"))
         .ignore_then(
@@ -519,9 +515,16 @@ pub fn sql_ast_parser(
         .then(select_stmt.clone())
         .map(|(id, query)| List(vec![KW(CreateView), id, query]));
 
-    let drop_view_stmt = keyword_ignore_case("DROP")
-        .ignore_then(keyword_ignore_case("VIEW"))
+    let ddl_drop_stmt = keyword_ignore_case("DROP")
         .ignore_then(
+            choice((
+                keyword_ignore_case("INDEX").to(DropIndex),
+                keyword_ignore_case("VIEW").to(DropView),
+                keyword_ignore_case("TABLE").to(DropTable),
+            ))
+            .map(KW),
+        )
+        .then(
             keyword_ignore_case("IF")
                 .ignore_then(keyword_ignore_case("EXISTS"))
                 .to(IfExists)
@@ -529,8 +532,8 @@ pub fn sql_ast_parser(
                 .or_not(),
         )
         .then(id.clone())
-        .map(|(if_exists, id)| {
-            let mut acc = vec![KW(DropView), id];
+        .map(|((op, if_exists), id)| {
+            let mut acc = vec![op, id];
 
             let mut clause = |kw, c: Option<Ast>| {
                 c.map(|c| {
@@ -551,9 +554,8 @@ pub fn sql_ast_parser(
             delete_stmt,
             update_stmt,
             create_index_stmt,
-            drop_index_stmt,
             create_view_stmt,
-            drop_view_stmt,
+            ddl_drop_stmt,
         ))
     })
 }
@@ -1007,7 +1009,7 @@ mod tests {
 
         let src = "DROP INDEX foo";
         let ast = sql_ast_parser().parse(src).into_output().unwrap();
-        assert_eq!(List(vec![KW(DropIndex)]), ast);
+        assert_eq!(List(vec![KW(DropIndex), Id { start: 11, end: 14 }]), ast);
 
         let src = "CREATE VIEW foo AS SELECT 1";
         let ast = sql_ast_parser().parse(src).into_output().unwrap();
@@ -1031,5 +1033,9 @@ mod tests {
             ]),
             ast
         );
+
+        let src = "DROP TABLE foo";
+        let ast = sql_ast_parser().parse(src).into_output().unwrap();
+        assert_eq!(List(vec![KW(DropTable), Id { start: 11, end: 14 }]), ast);
     }
 }

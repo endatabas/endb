@@ -58,7 +58,8 @@
   :drop-index
   :create-view
   :drop-view
-  :if-exists)
+  :if-exists
+  :drop-table)
 
 (cffi:defcenum Ast_Tag
   :List

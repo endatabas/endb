@@ -42,6 +42,7 @@ typedef enum Keyword {
   CreateView,
   DropView,
   IfExists,
+  DropTable,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;
