@@ -59,6 +59,7 @@
   :create-view
   :drop-view
   :if-exists
+  :create-table
   :drop-table)
 
 (cffi:defcenum Ast_Tag

@@ -46,6 +46,7 @@ pub enum Keyword {
     CreateView,
     DropView,
     IfExists,
+    CreateTable,
     DropTable,
 }
 
@@ -151,6 +152,10 @@ pub fn sql_ast_parser(
 
     let expr = expr_ast_parser();
     let id = id_ast_parser();
+
+    let positive_integer = just('0')
+        .not()
+        .ignore_then(text::int(10).slice().from_str().unwrapped().map(Integer));
 
     let order_by_list = expr
         .clone()
@@ -322,10 +327,6 @@ pub fn sql_ast_parser(
             .ignore_then(order_by_list.clone())
             .or_not();
 
-        let positive_integer = just('0')
-            .not()
-            .ignore_then(text::int(10).slice().from_str().unwrapped().map(Integer));
-
         let limit_clause = keyword_ignore_case("LIMIT")
             .ignore_then(positive_integer)
             .then(
@@ -420,6 +421,14 @@ pub fn sql_ast_parser(
         )
     });
 
+    let id_list = id
+        .clone()
+        .separated_by(just(','))
+        .at_least(1)
+        .collect()
+        .map(List)
+        .delimited_by(just('('), just(')'));
+
     let insert_stmt = keyword_ignore_case("INSERT")
         .ignore_then(
             keyword_ignore_case("OR")
@@ -428,15 +437,7 @@ pub fn sql_ast_parser(
         )
         .ignore_then(keyword_ignore_case("INTO"))
         .ignore_then(id.clone())
-        .then(
-            id.clone()
-                .separated_by(just(','))
-                .at_least(1)
-                .collect()
-                .map(List)
-                .delimited_by(just('('), just(')'))
-                .or_not(),
-        )
+        .then(id_list.clone().or_not())
         .then(select_stmt.clone())
         .map(|((id, id_list), query)| {
             let mut acc = vec![KW(Insert), id, query];
@@ -493,13 +494,13 @@ pub fn sql_ast_parser(
         });
 
     let create_index_stmt = keyword_ignore_case("CREATE")
-        .ignore_then(keyword_ignore_case("INDEX"))
         .ignore_then(keyword_ignore_case("UNIQUE").or_not())
+        .ignore_then(keyword_ignore_case("INDEX"))
         .ignore_then(id.clone())
-        .ignore_then(keyword_ignore_case("ON"))
-        .ignore_then(id.clone())
-        .ignore_then(order_by_list.clone().delimited_by(just('('), just(')')))
-        .map(|_| List(vec![KW(CreateIndex)]));
+        .then_ignore(keyword_ignore_case("ON"))
+        .then(id.clone())
+        .then_ignore(order_by_list.clone().delimited_by(just('('), just(')')))
+        .map(|(index, table)| List(vec![KW(CreateIndex), index, table]));
 
     let create_view_stmt = keyword_ignore_case("CREATE")
         .ignore_then(keyword_ignore_case("VIEW"))
@@ -514,6 +515,53 @@ pub fn sql_ast_parser(
         .then_ignore(keyword_ignore_case("AS"))
         .then(select_stmt.clone())
         .map(|(id, query)| List(vec![KW(CreateView), id, query]));
+
+    let col_def = choice((
+        keyword_ignore_case("PRIMARY")
+            .then(keyword_ignore_case("KEY"))
+            .then(id_list.clone())
+            .map(|_| None),
+        keyword_ignore_case("FOREIGN")
+            .then(keyword_ignore_case("KEY"))
+            .then(id_list.clone())
+            .then(keyword_ignore_case("REFERENCES"))
+            .then(id.clone())
+            .then(id_list)
+            .map(|_| None),
+        id.clone()
+            .then_ignore(
+                id.clone()
+                    .then_ignore(positive_integer.delimited_by(just('('), just(')')).or_not())
+                    .then_ignore(
+                        keyword_ignore_case("PRIMARY")
+                            .then_ignore(keyword_ignore_case("KEY"))
+                            .or_not(),
+                    )
+                    .then_ignore(keyword_ignore_case("UNIQUE").or_not()),
+            )
+            .map(Some),
+    ));
+
+    let create_table_stmt = keyword_ignore_case("CREATE")
+        .ignore_then(keyword_ignore_case("TABLE"))
+        .ignore_then(id.clone())
+        .then(
+            col_def
+                .separated_by(just(','))
+                .at_least(1)
+                .collect::<Vec<Option<Ast>>>()
+                .map(|col_defs| {
+                    let mut acc = vec![];
+
+                    for x in col_defs {
+                        x.map(|x| acc.push(x));
+                    }
+
+                    List(acc)
+                })
+                .delimited_by(just('('), just(')')),
+        )
+        .map(|(id, columns)| List(vec![KW(CreateTable), id, columns]));
 
     let ddl_drop_stmt = keyword_ignore_case("DROP")
         .ignore_then(
@@ -555,6 +603,7 @@ pub fn sql_ast_parser(
             update_stmt,
             create_index_stmt,
             create_view_stmt,
+            create_table_stmt,
             ddl_drop_stmt,
         ))
     })
@@ -1003,9 +1052,16 @@ mod tests {
 
     #[test]
     fn ddl() {
-        let src = "CREATE INDEX foo ON t1(a1,b1)";
+        let src = "CREATE UNIQUE INDEX foo ON t1(a1,b1)";
         let ast = sql_ast_parser().parse(src).into_output().unwrap();
-        assert_eq!(List(vec![KW(CreateIndex)]), ast);
+        assert_eq!(
+            List(vec![
+                KW(CreateIndex),
+                Id { start: 20, end: 23 },
+                Id { start: 27, end: 29 }
+            ]),
+            ast
+        );
 
         let src = "DROP INDEX foo";
         let ast = sql_ast_parser().parse(src).into_output().unwrap();
@@ -1030,6 +1086,22 @@ mod tests {
                 Id { start: 20, end: 23 },
                 KW(IfExists),
                 KW(IfExists)
+            ]),
+            ast
+        );
+
+        let src = "CREATE TABLE t1(a1 INTEGER PRIMARY KEY, b1 INTEGER, x1 VARCHAR(40), FOREIGN KEY (y1) REFERENCES t2(z1), PRIMARY KEY(a1, b2))";
+
+        let ast = sql_ast_parser().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(CreateTable),
+                Id { start: 13, end: 15 },
+                List(vec![
+                    Id { start: 16, end: 18 },
+                    Id { start: 40, end: 42 },
+                    Id { start: 52, end: 54 }
+                ])
             ]),
             ast
         );

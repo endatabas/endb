@@ -42,6 +42,7 @@ typedef enum Keyword {
   CreateView,
   DropView,
   IfExists,
+  CreateTable,
   DropTable,
 } Keyword;
 
