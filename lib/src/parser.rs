@@ -37,6 +37,8 @@ pub enum Keyword {
     Union,
     UnionAll,
     Values,
+    Insert,
+    ColumnNames,
 }
 
 #[derive(PartialEq, Debug)]
@@ -139,9 +141,10 @@ pub fn sql_ast_parser(
     use Ast::*;
     use Keyword::*;
 
-    recursive(|query| {
-        let expr = expr_ast_parser();
-        let id = id_ast_parser();
+    let expr = expr_ast_parser();
+    let id = id_ast_parser();
+
+    let select_stmt = recursive(|query| {
         let subquery = query.delimited_by(just('('), just(')')).padded();
 
         let table = choice((subquery, id.clone()))
@@ -231,7 +234,7 @@ pub fn sql_ast_parser(
                     .then(
                         choice((
                             keyword_ignore_case("AS").ignore_then(id.clone()),
-                            id.and_is(
+                            id.clone().and_is(
                                 choice((
                                     keyword_ignore_case("FROM"),
                                     keyword_ignore_case("WHERE"),
@@ -405,7 +408,41 @@ pub fn sql_ast_parser(
                 List(acc)
             },
         )
-    })
+    });
+
+    let insert_stmt = keyword_ignore_case("INSERT")
+        .ignore_then(
+            keyword_ignore_case("OR")
+                .then_ignore(keyword_ignore_case("REPLACE"))
+                .or_not(),
+        )
+        .ignore_then(keyword_ignore_case("INTO"))
+        .ignore_then(id.clone())
+        .then(
+            id.separated_by(just(','))
+                .at_least(1)
+                .collect()
+                .map(List)
+                .delimited_by(just('('), just(')'))
+                .or_not(),
+        )
+        .then(select_stmt.clone())
+        .map(|((id, id_list), query)| {
+            let mut acc = vec![KW(Insert), id, query];
+
+            let mut clause = |kw, c: Option<Ast>| {
+                c.map(|c| {
+                    acc.push(KW(kw));
+                    acc.push(c);
+                });
+            };
+
+            clause(ColumnNames, id_list);
+
+            List(acc)
+        });
+
+    recursive(|_| choice((select_stmt, insert_stmt)))
 }
 
 pub fn parse_errors_to_string<'input>(src: &str, errs: Vec<Rich<'input, char>>) -> String {
@@ -805,5 +842,24 @@ mod tests {
         let src = "SELECT 1 FROM x LIMIT 0";
         let errs = sql_ast_parser().parse(src).into_errors();
         assert_eq!(1, errs.len());
+    }
+
+    #[test]
+    fn dml() {
+        let src = "INSERT INTO foo (x) VALUES (1), (2)";
+        let ast = sql_ast_parser().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(Insert),
+                Id { start: 12, end: 15 },
+                List(vec![
+                    KW(Values),
+                    List(vec![List(vec![Integer(1)]), List(vec![Integer(2)])])
+                ]),
+                KW(ColumnNames),
+                List(vec![Id { start: 17, end: 18 }])
+            ]),
+            ast
+        );
     }
 }

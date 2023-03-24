@@ -33,6 +33,8 @@ typedef enum Keyword {
   Union,
   UnionAll,
   Values,
+  Insert,
+  ColumnNames,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;

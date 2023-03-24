@@ -49,7 +49,9 @@
   :intesect
   :union
   :union-all
-  :values)
+  :values
+  :insert
+  :column-names)
 
 (cffi:defcenum Ast_Tag
   :List
