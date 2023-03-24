@@ -41,6 +41,8 @@ pub enum Keyword {
     ColumnNames,
     Delete,
     Update,
+    CreateIndex,
+    DropIndex,
 }
 
 #[derive(PartialEq, Debug)]
@@ -145,6 +147,22 @@ pub fn sql_ast_parser(
 
     let expr = expr_ast_parser();
     let id = id_ast_parser();
+
+    let order_by_list = expr
+        .clone()
+        .then(
+            choice((
+                keyword_ignore_case("ASC").to(Asc),
+                keyword_ignore_case("DESC").to(Desc),
+            ))
+            .or_not()
+            .map(|dir| KW(dir.unwrap_or(Asc))),
+        )
+        .map(|(var, dir)| List(vec![var, dir]))
+        .separated_by(just(','))
+        .at_least(1)
+        .collect()
+        .map(List);
 
     let select_stmt = recursive(|query| {
         let subquery = query.delimited_by(just('('), just(')')).padded();
@@ -297,22 +315,7 @@ pub fn sql_ast_parser(
 
         let order_by = keyword_ignore_case("ORDER")
             .ignore_then(keyword_ignore_case("BY"))
-            .ignore_then(
-                expr.clone()
-                    .then(
-                        choice((
-                            keyword_ignore_case("ASC").to(Asc),
-                            keyword_ignore_case("DESC").to(Desc),
-                        ))
-                        .or_not()
-                        .map(|dir| KW(dir.unwrap_or(Asc))),
-                    )
-                    .map(|(var, dir)| List(vec![var, dir]))
-                    .separated_by(just(','))
-                    .at_least(1)
-                    .collect()
-                    .map(List),
-            )
+            .ignore_then(order_by_list.clone())
             .or_not();
 
         let positive_integer = just('0')
@@ -485,7 +488,30 @@ pub fn sql_ast_parser(
             List(acc)
         });
 
-    recursive(|_| choice((select_stmt, insert_stmt, delete_stmt, update_stmt)))
+    let create_index_stmt = keyword_ignore_case("CREATE")
+        .ignore_then(keyword_ignore_case("INDEX"))
+        .ignore_then(keyword_ignore_case("UNIQUE").or_not())
+        .ignore_then(id.clone())
+        .ignore_then(keyword_ignore_case("ON"))
+        .ignore_then(id.clone())
+        .ignore_then(order_by_list.clone().delimited_by(just('('), just(')')))
+        .map(|_| List(vec![KW(CreateIndex)]));
+
+    let drop_index_stmt = keyword_ignore_case("DROP")
+        .ignore_then(keyword_ignore_case("INDEX"))
+        .ignore_then(id.clone())
+        .map(|_| List(vec![KW(DropIndex)]));
+
+    recursive(|_| {
+        choice((
+            select_stmt,
+            insert_stmt,
+            delete_stmt,
+            update_stmt,
+            create_index_stmt,
+            drop_index_stmt,
+        ))
+    })
 }
 
 pub fn parse_errors_to_string<'input>(src: &str, errs: Vec<Rich<'input, char>>) -> String {
@@ -927,5 +953,16 @@ mod tests {
             ]),
             ast
         );
+    }
+
+    #[test]
+    fn ddl() {
+        let src = "CREATE INDEX foo ON t1(a1,b1)";
+        let ast = sql_ast_parser().parse(src).into_output().unwrap();
+        assert_eq!(List(vec![KW(CreateIndex)]), ast);
+
+        let src = "DROP INDEX foo";
+        let ast = sql_ast_parser().parse(src).into_output().unwrap();
+        assert_eq!(List(vec![KW(DropIndex)]), ast);
     }
 }
