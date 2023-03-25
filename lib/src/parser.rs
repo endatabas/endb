@@ -152,8 +152,8 @@ fn add_clause(acc: &mut Vec<Ast>, kw: Keyword, c: Option<Ast>) {
     });
 }
 
-pub fn sql_ast_parser(
-) -> Recursive<dyn Parser<'static, &'static str, Ast, Err<Rich<'static, char>>>> {
+pub fn sql_ast_parser<'input>(
+) -> impl Parser<'input, &'input str, Ast, Err<Rich<'input, char>>> + Clone {
     use Ast::*;
     use Keyword::*;
 
@@ -554,18 +554,17 @@ pub fn sql_ast_parser(
             List(acc)
         });
 
-    recursive(|_| {
-        choice((
-            select_stmt,
-            insert_stmt,
-            delete_stmt,
-            update_stmt,
-            create_index_stmt,
-            create_view_stmt,
-            create_table_stmt,
-            ddl_drop_stmt,
-        ))
-    })
+    choice((
+        select_stmt,
+        insert_stmt,
+        delete_stmt,
+        update_stmt,
+        create_index_stmt,
+        create_view_stmt,
+        create_table_stmt,
+        ddl_drop_stmt,
+    ))
+    .then_ignore(end())
 }
 
 pub fn parse_errors_to_string<'input>(src: &str, errs: Vec<Rich<'input, char>>) -> String {

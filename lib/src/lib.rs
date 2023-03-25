@@ -2,7 +2,7 @@ pub mod parser;
 
 use chumsky::error::Rich;
 use chumsky::extra::Err;
-use chumsky::prelude::{Parser, Recursive};
+use chumsky::prelude::{Boxed, Parser};
 
 use libc::c_char;
 use std::ffi::{CStr, CString};
@@ -10,7 +10,7 @@ use std::ffi::{CStr, CString};
 use parser::Ast;
 
 std::thread_local! {
-    pub static SQL_AST_PARSER: Recursive<dyn Parser<'static, &'static str, Ast, Err<Rich<'static, char>>>> = parser::sql_ast_parser();
+    pub static SQL_AST_PARSER: Boxed<'static, 'static, &'static str, Ast, Err<Rich<'static, char>>> = parser::sql_ast_parser().boxed();
 }
 
 #[no_mangle]
@@ -22,7 +22,7 @@ pub extern "C" fn endb_parse_sql(
     SQL_AST_PARSER.with(|parser| {
         let c_str = unsafe { CStr::from_ptr(input) };
         let input_str = c_str.to_str().unwrap();
-        let result = parser.then_ignore(chumsky::prelude::end()).parse(input_str);
+        let result = parser.parse(input_str);
         if result.has_errors() {
             let error_str = parser::parse_errors_to_string(input_str, result.into_errors());
             let c_error_str = CString::new(error_str).unwrap();
