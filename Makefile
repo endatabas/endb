@@ -73,9 +73,6 @@ lib-microbench:
 lib/target/$(LIB_MODE)/libendb$(SHARED_LIB_EXT): Makefile $(LIB_SOURCES)
 	(cd lib; $(CARGO) build --$(LIB_MODE))
 
-lib/endb.h: $(LIB_SOURCES)
-	(cd lib; cbindgen --lang C -o endb.h .)
-
 target/libendb$(SHARED_LIB_EXT): lib/target/$(LIB_MODE)/libendb$(SHARED_LIB_EXT)
 	mkdir -p target
 	cp $< $@ || true
