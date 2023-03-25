@@ -113,8 +113,8 @@ fn atom_ast_parser<'input>(
     choice((number, binary, string, boolean, id_ast_parser())).padded()
 }
 
-pub fn expr_ast_parser(
-) -> Recursive<dyn Parser<'static, &'static str, Ast, Err<Rich<'static, char>>>> {
+fn expr_ast_parser<'input>(
+) -> impl Parser<'input, &'input str, Ast, Err<Rich<'input, char>>> + Clone {
     use Ast::*;
     use Keyword::*;
 
