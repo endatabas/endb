@@ -111,7 +111,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "endb_lib"
+name = "endb"
 version = "0.1.0"
 dependencies = [
  "ariadne",

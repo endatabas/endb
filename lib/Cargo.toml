@@ -1,5 +1,5 @@
 [package]
-name = "endb_lib"
+name = "endb"
 version = "0.1.0"
 edition = "2021"
 authors = [
@@ -12,7 +12,10 @@ rust-version = "1.68.0"
 
 [lib]
 crate-type = ["rlib", "cdylib"]
-name = "endb"
+
+[profile.release]
+lto = true
+codegen-units = 1
 
 [dependencies]
 libc = "0.2.0"
