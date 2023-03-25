@@ -408,12 +408,9 @@ pub fn sql_ast_parser(
 
                 clause(OrderBy, order_by);
 
-                match limit_offset {
-                    Some((limit, offset)) => {
-                        clause(Limit, Some(limit));
-                        clause(Offset, offset);
-                    }
-                    None => {}
+                if let Some((limit, offset)) = limit_offset {
+                    clause(Limit, Some(limit));
+                    clause(Offset, offset);
                 }
 
                 List(acc)
