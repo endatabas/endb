@@ -550,15 +550,7 @@ pub fn sql_ast_parser(
                 .separated_by(just(','))
                 .at_least(1)
                 .collect::<Vec<Option<Ast>>>()
-                .map(|col_defs| {
-                    let mut acc = vec![];
-
-                    for x in col_defs {
-                        x.map(|x| acc.push(x));
-                    }
-
-                    List(acc)
-                })
+                .map(|col_defs| List(col_defs.into_iter().flatten().collect()))
                 .delimited_by(just('('), just(')')),
         )
         .map(|(id, columns)| List(vec![KW(CreateTable), id, columns]));
