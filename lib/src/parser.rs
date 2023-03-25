@@ -145,6 +145,13 @@ pub fn expr_ast_parser(
     })
 }
 
+fn add_clause(acc: &mut Vec<Ast>, kw: Keyword, c: Option<Ast>) {
+    c.map(|c| {
+        acc.push(Ast::KW(kw));
+        acc.push(c);
+    });
+}
+
 pub fn sql_ast_parser(
 ) -> Recursive<dyn Parser<'static, &'static str, Ast, Err<Rich<'static, char>>>> {
     use Ast::*;
@@ -345,18 +352,11 @@ pub fn sql_ast_parser(
                 |(((((distinct, select_list), from), where_clause), group_by), having)| {
                     let mut acc = vec![KW(Select), select_list];
 
-                    let mut clause = |kw, c: Option<Ast>| {
-                        c.map(|c| {
-                            acc.push(KW(kw));
-                            acc.push(c);
-                        });
-                    };
-
-                    clause(Distinct, distinct);
-                    clause(From, from);
-                    clause(Where, where_clause);
-                    clause(GroupBy, group_by);
-                    clause(Having, having);
+                    add_clause(&mut acc, Distinct, distinct);
+                    add_clause(&mut acc, From, from);
+                    add_clause(&mut acc, Where, where_clause);
+                    add_clause(&mut acc, GroupBy, group_by);
+                    add_clause(&mut acc, Having, having);
 
                     List(acc)
                 },
@@ -399,18 +399,11 @@ pub fn sql_ast_parser(
                     _ => vec![],
                 };
 
-                let mut clause = |kw, c: Option<Ast>| {
-                    c.map(|c| {
-                        acc.push(KW(kw));
-                        acc.push(c);
-                    });
-                };
-
-                clause(OrderBy, order_by);
+                add_clause(&mut acc, OrderBy, order_by);
 
                 if let Some((limit, offset)) = limit_offset {
-                    clause(Limit, Some(limit));
-                    clause(Offset, offset);
+                    add_clause(&mut acc, Limit, Some(limit));
+                    add_clause(&mut acc, Offset, offset);
                 }
 
                 List(acc)
@@ -438,16 +431,7 @@ pub fn sql_ast_parser(
         .then(select_stmt.clone())
         .map(|((id, id_list), query)| {
             let mut acc = vec![KW(Insert), id, query];
-
-            let mut clause = |kw, c: Option<Ast>| {
-                c.map(|c| {
-                    acc.push(KW(kw));
-                    acc.push(c);
-                });
-            };
-
-            clause(ColumnNames, id_list);
-
+            add_clause(&mut acc, ColumnNames, id_list);
             List(acc)
         });
 
@@ -478,14 +462,7 @@ pub fn sql_ast_parser(
         .map(|((id, updates), expr)| {
             let mut acc = vec![KW(Update), id, updates];
 
-            let mut clause = |kw, c: Option<Ast>| {
-                c.map(|c| {
-                    acc.push(KW(kw));
-                    acc.push(c);
-                });
-            };
-
-            clause(Where, expr);
+            add_clause(&mut acc, Where, expr);
 
             List(acc)
         });
@@ -572,14 +549,7 @@ pub fn sql_ast_parser(
         .map(|((op, if_exists), id)| {
             let mut acc = vec![op, id];
 
-            let mut clause = |kw, c: Option<Ast>| {
-                c.map(|c| {
-                    acc.push(KW(kw));
-                    acc.push(c);
-                });
-            };
-
-            clause(IfExists, if_exists);
+            add_clause(&mut acc, IfExists, if_exists);
 
             List(acc)
         });
