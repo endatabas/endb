@@ -461,9 +461,7 @@ pub fn sql_ast_parser<'input>(
         )
         .map(|((id, updates), expr)| {
             let mut acc = vec![KW(Update), id, updates];
-
             add_clause(&mut acc, Where, expr);
-
             List(acc)
         });
 
@@ -548,9 +546,7 @@ pub fn sql_ast_parser<'input>(
         .then(id.clone())
         .map(|((op, if_exists), id)| {
             let mut acc = vec![op, id];
-
             add_clause(&mut acc, IfExists, if_exists);
-
             List(acc)
         });
 
