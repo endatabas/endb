@@ -10,7 +10,7 @@ use std::ffi::{CStr, CString};
 use parser::Ast;
 
 std::thread_local! {
-  pub static SQL_AST_PARSER: Recursive<dyn Parser<'static, &'static str, Ast, Err<Rich<'static, char>>>> = parser::sql_ast_parser();
+    pub static SQL_AST_PARSER: Recursive<dyn Parser<'static, &'static str, Ast, Err<Rich<'static, char>>>> = parser::sql_ast_parser();
 }
 
 #[no_mangle]
