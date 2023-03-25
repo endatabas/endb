@@ -146,10 +146,10 @@ fn expr_ast_parser<'input>(
 }
 
 fn add_clause(acc: &mut Vec<Ast>, kw: Keyword, c: Option<Ast>) {
-    c.map(|c| {
+    if let Some(c) = c {
         acc.push(Ast::KW(kw));
         acc.push(c);
-    });
+    }
 }
 
 pub fn sql_ast_parser<'input>(
@@ -563,7 +563,7 @@ pub fn sql_ast_parser<'input>(
     .then_ignore(end())
 }
 
-pub fn parse_errors_to_string<'input>(src: &str, errs: Vec<Rich<'input, char>>) -> String {
+pub fn parse_errors_to_string(src: &str, errs: Vec<Rich<char>>) -> String {
     let mut buf = Vec::new();
     errs.into_iter().for_each(|e| {
         Report::build(ReportKind::Error, (), e.span().start)

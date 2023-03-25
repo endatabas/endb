@@ -64,7 +64,10 @@ test: lib-test target/libendb$(SHARED_LIB_EXT)
 		--eval '(ql:quickload :endb-test :silent t)' \
 		--eval '(uiop:quit (if (fiveam:run-all-tests) 0 1))'
 
-lib-test:
+lib-lint:
+	(cd lib; $(CARGO) clippy)
+
+lib-test: lib-lint
 	(cd lib; $(CARGO) test)
 
 lib-microbench:
@@ -155,6 +158,6 @@ clean:
 	(cd lib; $(CARGO) clean)
 	rm -rf target $(FASL_FILES)
 
-.PHONY: repl run run-binary test lib-test lib-microbench \
+.PHONY: repl run run-binary test lib-lint lib-test lib-microbench \
 	slt-test slt-test-select slt-test-random slt-test-index slt-test-evidence slt-test-all slt-test-tpch slt-test-ci \
 	docker docker-alpine run-docker clean

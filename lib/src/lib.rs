@@ -14,6 +14,7 @@ std::thread_local! {
 }
 
 #[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn endb_parse_sql(
     input: *const c_char,
     on_success: extern "C" fn(&Ast),
@@ -49,6 +50,7 @@ pub extern "C" fn endb_ast_size() -> usize {
 }
 
 #[no_mangle]
+#[allow(clippy::ptr_arg)]
 pub extern "C" fn endb_ast_vec_element(ast: &Vec<Ast>, idx: usize) -> *const Ast {
     &ast[idx]
 }
