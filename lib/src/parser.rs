@@ -329,20 +329,6 @@ pub fn sql_ast_parser<'input>(
             .ignore_then(expr.clone())
             .or_not();
 
-        let order_by = keyword_ignore_case("ORDER")
-            .ignore_then(keyword_ignore_case("BY"))
-            .ignore_then(order_by_list.clone())
-            .or_not();
-
-        let limit_clause = keyword_ignore_case("LIMIT")
-            .ignore_then(positive_integer)
-            .then(
-                choice((keyword_ignore_case("OFFSET"), just(",").padded()))
-                    .ignore_then(positive_integer)
-                    .or_not(),
-            )
-            .or_not();
-
         let select_stmt = select_clause
             .then(from_clause)
             .then(where_clause)
@@ -391,6 +377,20 @@ pub fn sql_ast_parser<'input>(
             .repeated(),
             |lhs, (op, rhs)| List(vec![KW(op), lhs, rhs]),
         );
+
+        let order_by = keyword_ignore_case("ORDER")
+            .ignore_then(keyword_ignore_case("BY"))
+            .ignore_then(order_by_list.clone())
+            .or_not();
+
+        let limit_clause = keyword_ignore_case("LIMIT")
+            .ignore_then(positive_integer)
+            .then(
+                choice((keyword_ignore_case("OFFSET"), just(",").padded()))
+                    .ignore_then(positive_integer)
+                    .or_not(),
+            )
+            .or_not();
 
         compound_select_stmt.then(order_by).then(limit_clause).map(
             |((query, order_by), limit_offset)| {
