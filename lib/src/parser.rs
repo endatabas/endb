@@ -88,7 +88,8 @@ where
         .map_slice(|s: &str| match s.find('.') {
             Some(_) => Float(s.parse().unwrap()),
             None => Integer(s.parse().unwrap()),
-        });
+        })
+        .padded();
 
     let string = none_of('\'')
         .repeated()
@@ -96,16 +97,19 @@ where
             start: span.start(),
             end: span.end(),
         })
-        .padded_by(just('\''));
+        .padded_by(just('\''))
+        .padded();
 
-    let binary = choice((just('X'), just('x'))).ignore_then(
-        text::int(16)
-            .map_with_span(|_, span: SimpleSpan<usize>| Binary {
-                start: span.start(),
-                end: span.end(),
-            })
-            .padded_by(just('\'')),
-    );
+    let binary = choice((just('X'), just('x')))
+        .ignore_then(
+            text::int(16)
+                .map_with_span(|_, span: SimpleSpan<usize>| Binary {
+                    start: span.start(),
+                    end: span.end(),
+                })
+                .padded_by(just('\'')),
+        )
+        .padded();
 
     let boolean = choice((
         keyword_ignore_case("TRUE").to(True),
@@ -114,7 +118,7 @@ where
     ))
     .map(KW);
 
-    choice((number, binary, string, boolean, id_ast_parser())).padded()
+    choice((number, binary, string, boolean, id_ast_parser()))
 }
 
 fn expr_ast_parser<'input, E>() -> impl Parser<'input, &'input str, Ast, E> + Clone
@@ -170,7 +174,8 @@ where
 
     let positive_integer = just('0')
         .not()
-        .ignore_then(text::int(10).slice().from_str().unwrapped().map(Integer));
+        .ignore_then(text::int(10).slice().from_str().unwrapped().map(Integer))
+        .padded();
 
     let order_by_list = expr
         .clone()
@@ -394,7 +399,7 @@ where
         let limit_clause = keyword_ignore_case("LIMIT")
             .ignore_then(positive_integer)
             .then(
-                choice((keyword_ignore_case("OFFSET"), just(",").padded()))
+                choice((keyword_ignore_case("OFFSET"), just(",")))
                     .ignore_then(positive_integer)
                     .or_not(),
             )
