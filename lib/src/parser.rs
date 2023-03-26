@@ -57,9 +57,9 @@ pub enum Ast {
     KW(Keyword),
     Integer(i64),
     Float(f64),
-    Id { start: usize, end: usize },
-    String { start: usize, end: usize },
-    Binary { start: usize, end: usize },
+    Id { start: i32, end: i32 },
+    String { start: i32, end: i32 },
+    Binary { start: i32, end: i32 },
 }
 
 fn id_ast_parser<'input, E>() -> impl Parser<'input, &'input str, Ast, E> + Clone
@@ -69,9 +69,9 @@ where
     use Ast::*;
 
     text::ident()
-        .map_with_span(|_, span: SimpleSpan<usize>| Id {
-            start: span.start(),
-            end: span.end(),
+        .map_with_span(|_, span: SimpleSpan<_>| Id {
+            start: span.start() as i32,
+            end: span.end() as i32,
         })
         .padded()
 }
@@ -93,9 +93,9 @@ where
 
     let string = none_of('\'')
         .repeated()
-        .map_with_span(|_, span: SimpleSpan<usize>| String {
-            start: span.start(),
-            end: span.end(),
+        .map_with_span(|_, span: SimpleSpan<_>| String {
+            start: span.start() as i32,
+            end: span.end() as i32,
         })
         .padded_by(just('\''))
         .padded();
@@ -103,9 +103,9 @@ where
     let binary = one_of("Xx")
         .ignore_then(
             text::int(16)
-                .map_with_span(|_, span: SimpleSpan<usize>| Binary {
-                    start: span.start(),
-                    end: span.end(),
+                .map_with_span(|_, span: SimpleSpan<_>| Binary {
+                    start: span.start() as i32,
+                    end: span.end() as i32,
                 })
                 .padded_by(just('\'')),
         )

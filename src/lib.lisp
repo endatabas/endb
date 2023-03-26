@@ -72,16 +72,16 @@
   :Binary)
 
 (cffi:defcstruct Id_Union
-  (start :uint64)
-  (end :uint64))
+  (start :int32)
+  (end :int32))
 
 (cffi:defcstruct String_Union
-  (start :uint64)
-  (end :uint64))
+  (start :int32)
+  (end :int32))
 
 (cffi:defcstruct Binary_Union
-  (start :uint64)
-  (end :uint64))
+  (start :int32)
+  (end :int32))
 
 (cffi:defcstruct Integer_Union
   (n :int64))
@@ -90,7 +90,7 @@
   (n :double))
 
 (cffi:defcstruct KW_Union
-  (kw :int))
+  (kw :int32))
 
 (cffi:defcstruct List_Union
   (cap :uint64)
@@ -107,7 +107,7 @@
   (binary (:struct Binary_Union)))
 
 (cffi:defcstruct Ast
-  (tag :int)
+  (tag :int32)
   (value (:union Ast_Union)))
 
 (cffi:defcfun "endb_ast_vec_len" :size

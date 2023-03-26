@@ -59,18 +59,18 @@ typedef enum Ast_Tag {
 } Ast_Tag;
 
 typedef struct Id_Body {
-  uintptr_t start;
-  uintptr_t end;
+  int32_t start;
+  int32_t end;
 } Id_Body;
 
 typedef struct String_Body {
-  uintptr_t start;
-  uintptr_t end;
+  int32_t start;
+  int32_t end;
 } String_Body;
 
 typedef struct Binary_Body {
-  uintptr_t start;
-  uintptr_t end;
+  int32_t start;
+  int32_t end;
 } Binary_Body;
 
 typedef struct Ast {
