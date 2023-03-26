@@ -29,15 +29,12 @@ fn main() {
 
     println!("chumsky based parser");
     let now = Instant::now();
-
-    endb::SQL_AST_PARSER.with(|parser| {
-        let mut result = parser.parse(sql);
-        for _ in 1..(iterations - 1) {
-            endb::SQL_AST_PARSER.with(|parser| {
-                result = parser.parse(sql);
-            });
-        }
-        println!("Elapsed: {:?}", now.elapsed());
-        println!("{:?}", result.into_output());
-    });
+    let mut result = endb::SQL_AST_PARSER_NO_ERRORS.with(|parser| parser.parse(sql));
+    for _ in 1..(iterations - 1) {
+        endb::SQL_AST_PARSER_NO_ERRORS.with(|parser| {
+            result = parser.parse(sql);
+        });
+    }
+    println!("Elapsed: {:?}", now.elapsed());
+    println!("{:?}", result.into_output());
 }

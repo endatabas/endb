@@ -1,7 +1,7 @@
 pub mod parser;
 
 use chumsky::error::Rich;
-use chumsky::extra::Err;
+use chumsky::extra::{Default, Err};
 use chumsky::prelude::{Boxed, Parser};
 
 use libc::c_char;
@@ -10,7 +10,8 @@ use std::ffi::{CStr, CString};
 use parser::Ast;
 
 std::thread_local! {
-    pub static SQL_AST_PARSER: Boxed<'static, 'static, &'static str, Ast, Err<Rich<'static, char>>> = parser::sql_ast_parser().boxed();
+    pub static SQL_AST_PARSER_NO_ERRORS: Boxed<'static, 'static, &'static str, Ast, Default> = parser::sql_ast_parser_no_errors().boxed();
+    pub static SQL_AST_PARSER_WITH_ERRORS: Boxed<'static, 'static, &'static str, Ast, Err<Rich<'static, char>>> = parser::sql_ast_parser_with_errors().boxed();
 }
 
 #[no_mangle]
@@ -20,16 +21,19 @@ pub extern "C" fn endb_parse_sql(
     on_success: extern "C" fn(&Ast),
     on_error: extern "C" fn(*const c_char),
 ) {
-    SQL_AST_PARSER.with(|parser| {
+    SQL_AST_PARSER_NO_ERRORS.with(|parser| {
         let c_str = unsafe { CStr::from_ptr(input) };
         let input_str = c_str.to_str().unwrap();
         let result = parser.parse(input_str);
-        if result.has_errors() {
-            let error_str = parser::parse_errors_to_string(input_str, result.into_errors());
-            let c_error_str = CString::new(error_str).unwrap();
-            on_error(c_error_str.as_ptr());
-        } else {
+        if result.has_output() {
             on_success(&result.into_output().unwrap());
+        } else {
+            SQL_AST_PARSER_WITH_ERRORS.with(|parser| {
+                let result = parser.parse(input_str);
+                let error_str = parser::parse_errors_to_string(input_str, result.into_errors());
+                let c_error_str = CString::new(error_str).unwrap();
+                on_error(c_error_str.as_ptr());
+            });
         }
     })
 }
