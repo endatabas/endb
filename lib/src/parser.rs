@@ -100,7 +100,7 @@ where
         .padded_by(just('\''))
         .padded();
 
-    let binary = choice((just('X'), just('x')))
+    let binary = one_of("Xx")
         .ignore_then(
             text::int(16)
                 .map_with_span(|_, span: SimpleSpan<usize>| Binary {
