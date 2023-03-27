@@ -36,6 +36,7 @@ typedef enum Keyword {
   Max,
   Total,
   GroupConcat,
+  Cast,
   Asc,
   Desc,
   Distinct,

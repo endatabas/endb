@@ -40,6 +40,7 @@ pub enum Keyword {
     Max,
     Total,
     GroupConcat,
+    Cast,
     Asc,
     Desc,
     Distinct,
@@ -202,6 +203,15 @@ where
             List(acc)
         });
 
+        let cast = keyword_ignore_case("CAST")
+            .ignore_then(
+                expr.clone()
+                    .then_ignore(keyword_ignore_case("AS"))
+                    .then(id_ast_parser())
+                    .delimited_by(just('('), just(')')),
+            )
+            .map(|(expr, id)| List(vec![KW(Cast), expr, id]));
+
         let function = id_ast_parser()
             .then(
                 expr.clone()
@@ -215,6 +225,7 @@ where
         let atom = choice((
             count_star,
             aggregate_function,
+            cast,
             function,
             atom_ast_parser(),
             expr.delimited_by(just('('), just(')')),
@@ -854,33 +865,33 @@ mod tests {
         let src = "foo(2, y)";
         let ast = expr_ast_parser::<Default>().parse(src);
         assert_eq!(
-            List(vec!(
+            List(vec![
                 KW(Function),
                 Id { start: 0, end: 3 },
                 List(vec![Integer(2), Id { start: 7, end: 8 }])
-            )),
+            ]),
             ast.into_output().unwrap()
         );
 
         let src = "count(y)";
         let ast = expr_ast_parser::<Default>().parse(src);
         assert_eq!(
-            List(vec!(
+            List(vec![
                 KW(AggregateFunction),
                 KW(Count),
                 List(vec![Id { start: 6, end: 7 }])
-            )),
+            ]),
             ast.into_output().unwrap()
         );
 
         let src = "TOTAL(y)";
         let ast = expr_ast_parser::<Default>().parse(src);
         assert_eq!(
-            List(vec!(
+            List(vec![
                 KW(AggregateFunction),
                 KW(Total),
                 List(vec![Id { start: 6, end: 7 }])
-            )),
+            ]),
             ast.into_output().unwrap()
         );
 
@@ -903,7 +914,18 @@ mod tests {
         let src = "count(*)";
         let ast = expr_ast_parser::<Default>().parse(src);
         assert_eq!(
-            List(vec!(KW(AggregateFunction), KW(CountStar))),
+            List(vec![KW(AggregateFunction), KW(CountStar)]),
+            ast.into_output().unwrap()
+        );
+
+        let src = "CAST ( - 69 AS INTEGER )";
+        let ast = expr_ast_parser::<Default>().parse(src);
+        assert_eq!(
+            List(vec![
+                KW(Cast),
+                List(vec![KW(Minus), Integer(69)]),
+                Id { start: 15, end: 22 }
+            ]),
             ast.into_output().unwrap()
         );
     }

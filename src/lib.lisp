@@ -53,6 +53,7 @@
   :max
   :total
   :group_concat
+  :cast
   :asc
   :desc
   :all
