@@ -14,6 +14,8 @@ typedef enum Keyword {
   Le,
   Gt,
   Ge,
+  Eq,
+  Ne,
   Plus,
   Minus,
   Mul,

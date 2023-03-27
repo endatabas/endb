@@ -18,6 +18,8 @@ pub enum Keyword {
     Le,
     Gt,
     Ge,
+    Eq,
+    Ne,
     Plus,
     Minus,
     Mul,
@@ -202,14 +204,22 @@ where
 
         let function = id_ast_parser()
             .then(
-                expr.separated_by(just(','))
+                expr.clone()
+                    .separated_by(just(','))
                     .collect()
                     .map(List)
                     .delimited_by(just('('), just(')')),
             )
             .map(|(f, exprs)| List(vec![KW(Function), f, exprs]));
 
-        let atom = choice((count_star, aggregate_function, function, atom_ast_parser())).boxed();
+        let atom = choice((
+            count_star,
+            aggregate_function,
+            function,
+            atom_ast_parser(),
+            expr.delimited_by(just('('), just(')')),
+        ))
+        .boxed();
 
         let unary = choice((op("+").to(Plus), op("-").to(Minus)))
             .repeated()
@@ -248,7 +258,14 @@ where
             bin_op,
         );
 
-        let not = op("NOT").to(Not).repeated().foldr(comp, unary_op);
+        let equal = comp.clone().foldl(
+            choice((op("=").to(Eq), op("<>").to(Ne)))
+                .then(comp)
+                .repeated(),
+            bin_op,
+        );
+
+        let not = op("NOT").to(Not).repeated().foldr(equal, unary_op);
 
         let and = not.clone().foldl(
             keyword_ignore_case("AND").to(And).then(not).repeated(),
