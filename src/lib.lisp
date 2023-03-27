@@ -37,6 +37,8 @@
   :in
   :between
   :like
+  :case
+  :else
   :+
   :-
   :*

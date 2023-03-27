@@ -24,6 +24,8 @@ pub enum Keyword {
     In,
     Between,
     Like,
+    Case,
+    Else,
     Plus,
     Minus,
     Mul,
@@ -216,6 +218,45 @@ where
             )
             .map(|(expr, id)| List(vec![KW(Cast), expr, id]));
 
+        let case = keyword_ignore_case("CASE")
+            .ignore_then(
+                expr.clone()
+                    .or_not()
+                    .then(
+                        keyword_ignore_case("WHEN")
+                            .ignore_then(expr.clone())
+                            .then_ignore(keyword_ignore_case("THEN"))
+                            .then(expr.clone())
+                            .map(|(lhs, rhs)| List(vec![lhs, rhs]))
+                            .repeated()
+                            .at_least(1)
+                            .collect()
+                            .map(List),
+                    )
+                    .then(
+                        keyword_ignore_case("ELSE")
+                            .ignore_then(expr.clone())
+                            .map(|else_clause| List(vec![KW(Else), else_clause]))
+                            .or_not(),
+                    )
+                    .then_ignore(keyword_ignore_case("END")),
+            )
+            .map(|((base_expr, whens), else_clause)| {
+                let mut acc = vec![KW(Case)];
+                if let Some(base_expr) = base_expr {
+                    acc.push(base_expr);
+                }
+                let whens = match (whens, else_clause) {
+                    (List(mut whens), Some(else_clause)) => {
+                        whens.push(else_clause);
+                        List(whens)
+                    }
+                    (whens, _) => whens,
+                };
+                acc.push(whens);
+                List(acc)
+            });
+
         let function = id_ast_parser()
             .then(
                 expr.clone()
@@ -230,6 +271,7 @@ where
             count_star,
             aggregate_function,
             cast,
+            case,
             function,
             atom_ast_parser(),
             expr.clone().delimited_by(just('('), just(')')),

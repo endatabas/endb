@@ -20,6 +20,8 @@ typedef enum Keyword {
   In,
   Between,
   Like,
+  Case,
+  Else,
   Plus,
   Minus,
   Mul,
