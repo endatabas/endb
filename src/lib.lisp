@@ -28,8 +28,19 @@
   :having
   :order-by
   :<
+  :<=
   :>
+  :>=
+  :+
+  :-
+  :*
+  :/
+  :%
+  :<<
+  :>>
   :and
+  :or
+  :not
   :function
   :aggregate-function
   :count

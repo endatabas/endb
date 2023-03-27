@@ -15,8 +15,19 @@ pub enum Keyword {
     Having,
     OrderBy,
     Lt,
+    Le,
     Gt,
+    Ge,
+    Plus,
+    Minus,
+    Mul,
+    Div,
+    Mod,
+    Lsh,
+    Rsh,
     And,
+    Or,
+    Not,
     Function,
     AggregateFunction,
     Count,
@@ -138,6 +149,8 @@ where
     use Keyword::*;
 
     let op = |c| just(c).padded();
+    let unary_op = |op, rhs| List(vec![KW(op), rhs]);
+    let bin_op = |lhs, (op, rhs)| List(vec![KW(op), lhs, rhs]);
 
     recursive(|expr| {
         let all_distinct = choice((
@@ -169,6 +182,7 @@ where
             keyword_ignore_case("TOTAL").to(Total),
             keyword_ignore_case("GROUP_CONCAT").to(GroupConcat),
         ))
+        .map(KW)
         .then(
             all_distinct
                 .then(
@@ -181,7 +195,7 @@ where
                 .delimited_by(just('('), just(')')),
         )
         .map(|(f, (distinct, expr_list))| {
-            let mut acc = vec![KW(AggregateFunction), KW(f), expr_list];
+            let mut acc = vec![KW(AggregateFunction), f, expr_list];
             add_clause(&mut acc, Distinct, distinct);
             List(acc)
         });
@@ -189,23 +203,61 @@ where
         let function = id_ast_parser()
             .then(
                 expr.separated_by(just(','))
-                    .collect::<Vec<Ast>>()
+                    .collect()
+                    .map(List)
                     .delimited_by(just('('), just(')')),
             )
-            .map(|(f, exprs)| List(vec![KW(Function), f, List(exprs)]));
+            .map(|(f, exprs)| List(vec![KW(Function), f, exprs]));
 
-        let atom = choice((count_star, aggregate_function, function, atom_ast_parser()));
+        let atom = choice((count_star, aggregate_function, function, atom_ast_parser())).boxed();
 
-        let rel = atom.clone().foldl(
-            choice((op("<").to(Lt), op(">").to(Gt)))
-                .then(atom)
+        let unary = choice((op("+").to(Plus), op("-").to(Minus)))
+            .repeated()
+            .foldr(atom, unary_op);
+
+        let mul = unary.clone().foldl(
+            choice((op("*").to(Mul), op("/").to(Div), op("%").to(Mod)))
+                .then(unary)
                 .repeated(),
-            |lhs, (op, rhs)| List(vec![KW(op), lhs, rhs]),
+            bin_op,
         );
 
-        rel.clone().foldl(
-            keyword_ignore_case("AND").to(And).then(rel).repeated(),
-            |lhs, (op, rhs)| List(vec![KW(op), lhs, rhs]),
+        let add = mul.clone().foldl(
+            choice((op("+").to(Plus), op("-").to(Minus)))
+                .then(mul)
+                .repeated(),
+            bin_op,
+        );
+
+        let shift = add.clone().foldl(
+            choice((op("<<").to(Lsh), op(">>").to(Rsh)))
+                .then(add)
+                .repeated(),
+            bin_op,
+        );
+
+        let comp = shift.clone().foldl(
+            choice((
+                op("<").to(Lt),
+                op("<=").to(Le),
+                op(">").to(Gt),
+                op(">=").to(Ge),
+            ))
+            .then(shift)
+            .repeated(),
+            bin_op,
+        );
+
+        let not = op("NOT").to(Not).repeated().foldr(comp, unary_op);
+
+        let and = not.clone().foldl(
+            keyword_ignore_case("AND").to(And).then(not).repeated(),
+            bin_op,
+        );
+
+        and.clone().foldl(
+            keyword_ignore_case("OR").to(Or).then(and).repeated(),
+            bin_op,
         )
     })
 }
