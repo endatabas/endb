@@ -31,6 +31,15 @@
   :>
   :and
   :function
+  :aggregate-function
+  :count
+  :count-star
+  :avg
+  :sum
+  :min
+  :max
+  :total
+  :group_concat
   :asc
   :desc
   :all

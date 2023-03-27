@@ -18,6 +18,15 @@ pub enum Keyword {
     Gt,
     And,
     Function,
+    AggregateFunction,
+    Count,
+    CountStar,
+    Avg,
+    Sum,
+    Min,
+    Max,
+    Total,
+    GroupConcat,
     Asc,
     Desc,
     Distinct,
@@ -131,7 +140,53 @@ where
     let op = |c| just(c).padded();
 
     recursive(|expr| {
-        let fun = id_ast_parser()
+        let all_distinct = choice((
+            keyword_ignore_case("DISTINCT").to(Distinct),
+            keyword_ignore_case("ALL").to(All),
+        ))
+        .map(KW)
+        .or_not();
+
+        let count_star = keyword_ignore_case("COUNT")
+            .ignore_then(
+                all_distinct
+                    .clone()
+                    .then_ignore(just('*'))
+                    .delimited_by(just('('), just(')')),
+            )
+            .map(|distinct| {
+                let mut acc = vec![KW(AggregateFunction), KW(CountStar)];
+                add_clause(&mut acc, Distinct, distinct);
+                List(acc)
+            });
+
+        let aggregate_function = choice((
+            keyword_ignore_case("COUNT").to(Count),
+            keyword_ignore_case("AVG").to(Avg),
+            keyword_ignore_case("SUM").to(Sum),
+            keyword_ignore_case("MIN").to(Min),
+            keyword_ignore_case("MAX").to(Max),
+            keyword_ignore_case("TOTAL").to(Total),
+            keyword_ignore_case("GROUP_CONCAT").to(GroupConcat),
+        ))
+        .then(
+            all_distinct
+                .then(
+                    expr.clone()
+                        .separated_by(just(','))
+                        .at_least(1)
+                        .collect()
+                        .map(List),
+                )
+                .delimited_by(just('('), just(')')),
+        )
+        .map(|(f, (distinct, expr_list))| {
+            let mut acc = vec![KW(AggregateFunction), KW(f), expr_list];
+            add_clause(&mut acc, Distinct, distinct);
+            List(acc)
+        });
+
+        let function = id_ast_parser()
             .then(
                 expr.separated_by(just(','))
                     .collect::<Vec<Ast>>()
@@ -139,7 +194,7 @@ where
             )
             .map(|(f, exprs)| List(vec![KW(Function), f, List(exprs)]));
 
-        let atom = choice((fun, atom_ast_parser()));
+        let atom = choice((count_star, aggregate_function, function, atom_ast_parser()));
 
         let rel = atom.clone().foldl(
             choice((op("<").to(Lt), op(">").to(Gt)))
@@ -726,7 +781,7 @@ mod tests {
     }
 
     #[test]
-    fn fun_expr() {
+    fn function_expr() {
         let src = "foo(2, y)";
         let ast = expr_ast_parser::<Default>().parse(src);
         assert_eq!(
@@ -735,6 +790,51 @@ mod tests {
                 Id { start: 0, end: 3 },
                 List(vec![Integer(2), Id { start: 7, end: 8 }])
             )),
+            ast.into_output().unwrap()
+        );
+
+        let src = "count(y)";
+        let ast = expr_ast_parser::<Default>().parse(src);
+        assert_eq!(
+            List(vec!(
+                KW(AggregateFunction),
+                KW(Count),
+                List(vec![Id { start: 6, end: 7 }])
+            )),
+            ast.into_output().unwrap()
+        );
+
+        let src = "TOTAL(y)";
+        let ast = expr_ast_parser::<Default>().parse(src);
+        assert_eq!(
+            List(vec!(
+                KW(AggregateFunction),
+                KW(Total),
+                List(vec![Id { start: 6, end: 7 }])
+            )),
+            ast.into_output().unwrap()
+        );
+
+        let src = "group_concat(DISTINCT y, ':')";
+        let ast = expr_ast_parser::<Default>().parse(src);
+        assert_eq!(
+            List(vec![
+                KW(AggregateFunction),
+                KW(GroupConcat),
+                List(vec![
+                    Id { start: 22, end: 23 },
+                    String { start: 26, end: 27 }
+                ]),
+                KW(Distinct),
+                KW(Distinct)
+            ]),
+            ast.into_output().unwrap()
+        );
+
+        let src = "count(*)";
+        let ast = expr_ast_parser::<Default>().parse(src);
+        assert_eq!(
+            List(vec!(KW(AggregateFunction), KW(CountStar))),
             ast.into_output().unwrap()
         );
     }
