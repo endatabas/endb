@@ -39,6 +39,8 @@
   :like
   :case
   :else
+  :exists
+  :scalar-subquery
   :+
   :-
   :*

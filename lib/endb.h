@@ -21,6 +21,8 @@ typedef enum Keyword {
   Between,
   Like,
   Case,
+  Exists,
+  ScalarSubquery,
   Else,
   Plus,
   Minus,

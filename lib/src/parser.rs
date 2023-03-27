@@ -25,6 +25,8 @@ pub enum Keyword {
     Between,
     Like,
     Case,
+    Exists,
+    ScalarSubquery,
     Else,
     Plus,
     Minus,
@@ -150,7 +152,9 @@ where
     choice((number, binary, string, boolean, id_ast_parser()))
 }
 
-fn expr_ast_parser<'input, E>() -> impl Parser<'input, &'input str, Ast, E> + Clone
+fn expr_ast_parser<'input, E>(
+    query: impl Parser<'input, &'input str, Ast, E> + Clone + 'input,
+) -> impl Parser<'input, &'input str, Ast, E> + Clone
 where
     E: ParserExtra<'input, &'input str>,
 {
@@ -160,6 +164,8 @@ where
     let op = |c| just(c).padded();
     let unary_op = |op, rhs| List(vec![KW(op), rhs]);
     let bin_op = |lhs, (op, rhs)| List(vec![KW(op), lhs, rhs]);
+
+    let subquery = query.delimited_by(just('('), just(')')).padded();
 
     recursive(|expr| {
         let all_distinct = choice((
@@ -218,6 +224,10 @@ where
             )
             .map(|(expr, id)| List(vec![KW(Cast), expr, id]));
 
+        let exists = keyword_ignore_case("EXISTS")
+            .ignore_then(subquery.clone())
+            .map(|query| List(vec![KW(Exists), query]));
+
         let case = keyword_ignore_case("CASE")
             .ignore_then(
                 expr.clone()
@@ -267,12 +277,18 @@ where
             )
             .map(|(f, exprs)| List(vec![KW(Function), f, exprs]));
 
+        let scalar_subquery = subquery
+            .clone()
+            .map(|query| List(vec![KW(ScalarSubquery), query]));
+
         let atom = choice((
             count_star,
             aggregate_function,
             cast,
             case,
+            exists,
             function,
+            scalar_subquery,
             atom_ast_parser(),
             expr.clone().delimited_by(just('('), just(')')),
         ))
@@ -343,12 +359,14 @@ where
                         .to(Not)
                         .or_not()
                         .then(keyword_ignore_case("IN").to(Some(In)))
-                        .then(
+                        .then(choice((
+                            subquery.clone(),
+                            id_ast_parser(),
                             expr.separated_by(just(','))
                                 .collect()
                                 .map(List)
                                 .delimited_by(just('('), just(')')),
-                        ),
+                        ))),
                     keyword_ignore_case("NOT")
                         .to((Some(Is), Some(Not)))
                         .then(keyword_ignore_case("NULL").to(Null).map(KW)),
@@ -405,7 +423,6 @@ where
     use Ast::*;
     use Keyword::*;
 
-    let expr = expr_ast_parser();
     let id = id_ast_parser();
 
     let positive_integer = just('0')
@@ -413,8 +430,7 @@ where
         .ignore_then(text::int(10).slice().from_str().unwrapped().map(Integer))
         .padded();
 
-    let order_by_list = expr
-        .clone()
+    let order_by_list = choice((id.clone(), positive_integer))
         .then(
             choice((
                 keyword_ignore_case("ASC").to(Asc),
@@ -430,6 +446,7 @@ where
         .map(List);
 
     let select_stmt = recursive(|query| {
+        let expr = expr_ast_parser(query.clone());
         let subquery = query.delimited_by(just('('), just(')')).padded();
 
         let table = choice((subquery, id.clone()))
@@ -660,6 +677,8 @@ where
         )
     });
 
+    let expr = expr_ast_parser(select_stmt.clone());
+
     let id_list = id
         .clone()
         .separated_by(just(','))
@@ -864,72 +883,87 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        parser::expr_ast_parser, parser::sql_ast_parser_no_errors, parser::Ast::*,
-        parser::Keyword::*,
-    };
-    use chumsky::extra::Default;
+    use crate::{parser::sql_ast_parser_no_errors, parser::Ast::*, parser::Keyword::*};
     use chumsky::Parser;
 
     #[test]
-    fn identifier() {
-        let src = "foo";
-        let ast = expr_ast_parser::<Default>().parse(src);
-        assert_eq!(Id { start: 0, end: 3 }, ast.into_output().unwrap());
+    fn identifier_expr() {
+        let src = "SELECT foo";
+        let ast = sql_ast_parser_no_errors().parse(src);
+        assert_eq!(
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![Id { start: 7, end: 10 }])])
+            ]),
+            ast.into_output().unwrap()
+        );
     }
 
     #[test]
-    fn number() {
-        let src = "2";
-        let ast = expr_ast_parser::<Default>().parse(src);
-        assert_eq!(Integer(2), ast.into_output().unwrap());
+    fn number_expr() {
+        let src = "SELECT 2";
+        let ast = sql_ast_parser_no_errors().parse(src);
+        assert_eq!(
+            List(vec![KW(Select), List(vec![List(vec![Integer(2)])])]),
+            ast.into_output().unwrap()
+        );
     }
 
     #[test]
     fn lt_expr() {
-        let src = "2 < x";
-        let ast = expr_ast_parser::<Default>().parse(src);
+        let src = "SELECT 2 < x";
+        let ast = sql_ast_parser_no_errors().parse(src);
         assert_eq!(
-            List(vec![KW(Lt), Integer(2), Id { start: 4, end: 5 }]),
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![List(vec![
+                    KW(Lt),
+                    Integer(2),
+                    Id { start: 11, end: 12 }
+                ])])])
+            ]),
             ast.into_output().unwrap()
         );
     }
 
     #[test]
     fn gt_expr() {
-        let src = "3 > 2.1";
-        let ast = expr_ast_parser::<Default>().parse(src);
+        let src = "SELECT 3 > 2.1";
+        let ast = sql_ast_parser_no_errors().parse(src);
         assert_eq!(
-            List(vec![KW(Gt), Integer(3), Float(2.1)]),
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![List(vec![KW(Gt), Integer(3), Float(2.1)])])])
+            ]),
             ast.into_output().unwrap()
         );
     }
 
     #[test]
     fn and_expr() {
-        let src = "x AND y";
-        let ast = expr_ast_parser::<Default>()
-            .parse(src)
-            .into_output()
-            .unwrap();
+        let src = "SELECT x AND y";
+        let ast = sql_ast_parser_no_errors().parse(src).into_output().unwrap();
         assert_eq!(
             List(vec![
-                KW(And),
-                Id { start: 0, end: 1 },
-                Id { start: 6, end: 7 },
+                KW(Select),
+                List(vec![List(vec![List(vec![
+                    KW(And),
+                    Id { start: 7, end: 8 },
+                    Id { start: 13, end: 14 }
+                ])])])
             ]),
             ast
         );
-        let src = "x and y";
-        let ast = expr_ast_parser::<Default>()
-            .parse(src)
-            .into_output()
-            .unwrap();
+        let src = "SELECT x and y";
+        let ast = sql_ast_parser_no_errors().parse(src).into_output().unwrap();
         assert_eq!(
             List(vec![
-                KW(And),
-                Id { start: 0, end: 1 },
-                Id { start: 6, end: 7 },
+                KW(Select),
+                List(vec![List(vec![List(vec![
+                    KW(And),
+                    Id { start: 7, end: 8 },
+                    Id { start: 13, end: 14 }
+                ])])])
             ]),
             ast
         );
@@ -937,95 +971,126 @@ mod tests {
 
     #[test]
     fn string_expr() {
-        let src = "'foo'";
-        let ast = expr_ast_parser::<Default>()
-            .parse(src)
-            .into_output()
-            .unwrap();
-        assert_eq!(String { start: 1, end: 4 }, ast);
+        let src = "SELECT 'foo'";
+        let ast = sql_ast_parser_no_errors().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![String { start: 8, end: 11 }])])
+            ]),
+            ast
+        );
     }
 
     #[test]
     fn binary_expr() {
-        let src = "X'AF01'";
-        let ast = expr_ast_parser::<Default>()
-            .parse(src)
-            .into_output()
-            .unwrap();
-        assert_eq!(Binary { start: 2, end: 6 }, ast);
-        let src = "x'AF01'";
-        let ast = expr_ast_parser::<Default>()
-            .parse(src)
-            .into_output()
-            .unwrap();
-        assert_eq!(Binary { start: 2, end: 6 }, ast);
+        let src = "SELECT X'AF01'";
+        let ast = sql_ast_parser_no_errors().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![Binary { start: 9, end: 13 }])])
+            ]),
+            ast
+        );
+
+        let src = "SELECT x'AF01'";
+        let ast = sql_ast_parser_no_errors().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![Binary { start: 9, end: 13 }])])
+            ]),
+            ast
+        );
     }
 
     #[test]
     fn function_expr() {
-        let src = "foo(2, y)";
-        let ast = expr_ast_parser::<Default>().parse(src);
+        let src = "SELECT foo(2, y)";
+        let ast = sql_ast_parser_no_errors().parse(src);
         assert_eq!(
             List(vec![
-                KW(Function),
-                Id { start: 0, end: 3 },
-                List(vec![Integer(2), Id { start: 7, end: 8 }])
+                KW(Select),
+                List(vec![List(vec![List(vec![
+                    KW(Function),
+                    Id { start: 7, end: 10 },
+                    List(vec![Integer(2), Id { start: 14, end: 15 }])
+                ])])])
             ]),
             ast.into_output().unwrap()
         );
 
-        let src = "count(y)";
-        let ast = expr_ast_parser::<Default>().parse(src);
+        let src = "SELECT count(y)";
+        let ast = sql_ast_parser_no_errors().parse(src);
         assert_eq!(
             List(vec![
-                KW(AggregateFunction),
-                KW(Count),
-                List(vec![Id { start: 6, end: 7 }])
+                KW(Select),
+                List(vec![List(vec![List(vec![
+                    KW(AggregateFunction),
+                    KW(Count),
+                    List(vec![Id { start: 13, end: 14 }])
+                ])])])
             ]),
             ast.into_output().unwrap()
         );
 
-        let src = "TOTAL(y)";
-        let ast = expr_ast_parser::<Default>().parse(src);
+        let src = "SELECT TOTAL(y)";
+        let ast = sql_ast_parser_no_errors().parse(src);
         assert_eq!(
             List(vec![
-                KW(AggregateFunction),
-                KW(Total),
-                List(vec![Id { start: 6, end: 7 }])
+                KW(Select),
+                List(vec![List(vec![List(vec![
+                    KW(AggregateFunction),
+                    KW(Total),
+                    List(vec![Id { start: 13, end: 14 }])
+                ])])])
             ]),
             ast.into_output().unwrap()
         );
 
-        let src = "group_concat(DISTINCT y, ':')";
-        let ast = expr_ast_parser::<Default>().parse(src);
+        let src = "SELECT group_concat(DISTINCT y, ':')";
+        let ast = sql_ast_parser_no_errors().parse(src);
         assert_eq!(
             List(vec![
-                KW(AggregateFunction),
-                KW(GroupConcat),
-                List(vec![
-                    Id { start: 22, end: 23 },
-                    String { start: 26, end: 27 }
-                ]),
-                KW(Distinct),
-                KW(Distinct)
+                KW(Select),
+                List(vec![List(vec![List(vec![
+                    KW(AggregateFunction),
+                    KW(GroupConcat),
+                    List(vec![
+                        Id { start: 29, end: 30 },
+                        String { start: 33, end: 34 }
+                    ]),
+                    KW(Distinct),
+                    KW(Distinct)
+                ])])])
             ]),
             ast.into_output().unwrap()
         );
 
-        let src = "count(*)";
-        let ast = expr_ast_parser::<Default>().parse(src);
+        let src = "SELECT count(*)";
+        let ast = sql_ast_parser_no_errors().parse(src);
         assert_eq!(
-            List(vec![KW(AggregateFunction), KW(CountStar)]),
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![List(vec![
+                    KW(AggregateFunction),
+                    KW(CountStar)
+                ])])])
+            ]),
             ast.into_output().unwrap()
         );
 
-        let src = "CAST ( - 69 AS INTEGER )";
-        let ast = expr_ast_parser::<Default>().parse(src);
+        let src = "SELECT CAST ( - 69 AS INTEGER )";
+        let ast = sql_ast_parser_no_errors().parse(src);
         assert_eq!(
             List(vec![
-                KW(Cast),
-                List(vec![KW(Minus), Integer(69)]),
-                Id { start: 15, end: 22 }
+                KW(Select),
+                List(vec![List(vec![List(vec![
+                    KW(Cast),
+                    List(vec![KW(Minus), Integer(69)]),
+                    Id { start: 22, end: 29 }
+                ])])])
             ]),
             ast.into_output().unwrap()
         );
@@ -1033,8 +1098,8 @@ mod tests {
 
     #[test]
     fn error() {
-        let src = "2x";
-        let result = expr_ast_parser::<Default>()
+        let src = "SELECT x 2";
+        let result = sql_ast_parser_no_errors()
             .then_ignore(chumsky::prelude::end())
             .parse(src);
         assert_eq!(1, result.into_errors().len());
@@ -1049,7 +1114,6 @@ mod tests {
             ast
         );
     }
-
     #[test]
     fn select_as() {
         let src = "SELECT 1 AS x, 2 y FROM z, w AS foo, (SELECT bar) baz WHERE FALSE";
