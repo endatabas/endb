@@ -6,7 +6,7 @@ authors = [
     "Håkan Råberg <hakan.raberg@gmail.com>",
     "Steven Deobald <steven@deobald.ca>",
 ]
-license = "AGPLv3"
+license = "AGPL-3.0-only"
 repository = "https://github.com/endatabase/endb"
 rust-version = "1.68.0"
 
