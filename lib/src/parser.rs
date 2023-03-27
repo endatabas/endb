@@ -20,6 +20,10 @@ pub enum Keyword {
     Ge,
     Eq,
     Ne,
+    Is,
+    In,
+    Between,
+    Like,
     Plus,
     Minus,
     Mul,
@@ -228,7 +232,7 @@ where
             cast,
             function,
             atom_ast_parser(),
-            expr.delimited_by(just('('), just(')')),
+            expr.clone().delimited_by(just('('), just(')')),
         ))
         .boxed();
 
@@ -269,12 +273,67 @@ where
             bin_op,
         );
 
-        let equal = comp.clone().foldl(
-            choice((op("=").to(Eq), op("<>").to(Ne)))
-                .then(comp)
+        let equal = comp
+            .clone()
+            .foldl(
+                choice((
+                    op("=").to((None, Some(Eq))).then(comp.clone()),
+                    op("<>").to((None, Some(Ne))).then(comp.clone()),
+                    keyword_ignore_case("IS")
+                        .to(Some(Is))
+                        .then(keyword_ignore_case("NOT").to(Not).or_not())
+                        .then(comp.clone()),
+                    keyword_ignore_case("NOT")
+                        .to(Not)
+                        .or_not()
+                        .then(keyword_ignore_case("BETWEEN").to(Some(Between)))
+                        .then(
+                            comp.clone()
+                                .then(keyword_ignore_case("AND").ignore_then(comp.clone()))
+                                .map(|(lhs, rhs)| List(vec![KW(And), lhs, rhs])),
+                        ),
+                    keyword_ignore_case("NOT")
+                        .to(Not)
+                        .or_not()
+                        .then(keyword_ignore_case("LIKE").to(Some(Like)))
+                        .then(comp.clone()),
+                    keyword_ignore_case("NOT")
+                        .to(Not)
+                        .or_not()
+                        .then(keyword_ignore_case("IN").to(Some(In)))
+                        .then(
+                            expr.separated_by(just(','))
+                                .collect()
+                                .map(List)
+                                .delimited_by(just('('), just(')')),
+                        ),
+                    keyword_ignore_case("NOT")
+                        .to((Some(Is), Some(Not)))
+                        .then(keyword_ignore_case("NULL").to(Null).map(KW)),
+                ))
                 .repeated(),
-            bin_op,
-        );
+                |lhs, (op, rhs)| match op {
+                    (not, Some(Between)) => {
+                        let mut acc = vec![KW(Between), lhs];
+                        if let List(mut rhs) = rhs {
+                            let rhs_rhs = rhs.pop().unwrap();
+                            let rhs_lhs = rhs.pop().unwrap();
+                            acc.push(rhs_lhs);
+                            acc.push(rhs_rhs);
+                        };
+                        let acc = List(acc);
+                        match not {
+                            Some(Not) => List(vec![KW(Not), acc]),
+                            _ => acc,
+                        }
+                    }
+                    (None, Some(op)) => List(vec![KW(op), lhs, rhs]),
+                    (Some(Not), Some(op)) => List(vec![KW(Not), List(vec![KW(op), lhs, rhs])]),
+                    (Some(op), Some(Not)) => List(vec![KW(Not), List(vec![KW(op), lhs, rhs])]),
+                    _ => KW(False),
+                },
+            )
+            .boxed();
 
         let not = op("NOT").to(Not).repeated().foldr(equal, unary_op);
 
