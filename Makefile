@@ -19,6 +19,11 @@ DOCKER_ENDB_OS = debian
 DOCKER_TAGS = -t endatabas/endb:$(DOCKER_ENDB_OS) -t endatabas/endb:latest-$(DOCKER_ENDB_OS) -t latest
 
 LIB_MODE = release
+LIB_PROFILE = $(LIB_MODE)
+ifeq ($(LIB_MODE),debug)
+	LIB_PROFILE = dev
+endif
+
 LIB_SOURCES = lib/Cargo.toml $(shell find lib/src -iname \*.rs)
 
 SLT_SOURCES = sqllogictest.c md5.c sqlite3.c
@@ -71,10 +76,10 @@ lib-test: lib-lint
 	(cd lib; $(CARGO) test)
 
 lib-microbench:
-	(cd lib; $(CARGO) run --release --example micro_bench)
+	(cd lib; $(CARGO) run --profile $(LIB_PROFILE) --example micro_bench)
 
 lib/target/$(LIB_MODE)/libendb$(SHARED_LIB_EXT): Makefile $(LIB_SOURCES)
-	(cd lib; $(CARGO) build --$(LIB_MODE))
+	(cd lib; $(CARGO) build --profile $(LIB_PROFILE))
 
 target/libendb$(SHARED_LIB_EXT): lib/target/$(LIB_MODE)/libendb$(SHARED_LIB_EXT)
 	mkdir -p target
