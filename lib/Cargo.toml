@@ -20,7 +20,7 @@ codegen-units = 1
 [dependencies]
 libc = "0.2.0"
 chumsky = "1.0.0-alpha.3"
-ariadne = "0.1.5"
+ariadne = "0.2.0"
 
 [build-dependencies]
 cbindgen = "0.24.3"
