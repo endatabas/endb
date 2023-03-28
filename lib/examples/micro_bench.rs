@@ -1,8 +1,5 @@
 use std::time::Instant;
 
-use sqlparser::dialect::SQLiteDialect;
-use sqlparser::parser::Parser;
-
 use chumsky::Parser as ChumskyParser;
 
 // cargo run --release --example micro_bench
@@ -15,17 +12,7 @@ use chumsky::Parser as ChumskyParser;
 fn main() {
     let iterations = 100000;
 
-    let dialect = SQLiteDialect {};
     let sql = "SELECT a, b, 123, myfunc(b) FROM table_1 WHERE a > b AND b < 100 ORDER BY a DESC, b";
-
-    println!("sqlparser crate");
-    let now = Instant::now();
-    let mut result = Parser::parse_sql(&dialect, sql);
-    for _ in 1..(iterations - 1) {
-        result = Parser::parse_sql(&dialect, sql);
-    }
-    println!("Elapsed: {:?}", now.elapsed());
-    println!("{:?}", result.unwrap());
 
     println!("chumsky based parser");
     let now = Instant::now();

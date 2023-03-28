@@ -24,6 +24,3 @@ ariadne = "0.1.5"
 
 [build-dependencies]
 cbindgen = "0.24.3"
-
-[dev-dependencies]
-sqlparser = "0.32.0"

@@ -118,7 +118,6 @@ dependencies = [
  "cbindgen",
  "chumsky",
  "libc",
- "sqlparser",
 ]
 
 [[package]]
@@ -341,15 +340,6 @@ dependencies = [
  "itoa",
  "ryu",
  "serde",
-]
-
-[[package]]
-name = "sqlparser"
-version = "0.32.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0366f270dbabb5cc2e4c88427dc4c08bba144f81e32fbd459a013f26a4d16aa0"
-dependencies = [
- "log",
 ]
 
 [[package]]
