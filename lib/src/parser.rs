@@ -910,7 +910,7 @@ mod tests {
     }
 
     #[test]
-    fn lt_expr() {
+    fn operator_expr() {
         let src = "SELECT 2 < x";
         let ast = sql_ast_parser_no_errors().parse(src);
         assert_eq!(
@@ -924,10 +924,7 @@ mod tests {
             ]),
             ast.into_output().unwrap()
         );
-    }
 
-    #[test]
-    fn gt_expr() {
         let src = "SELECT 3 > 2.1";
         let ast = sql_ast_parser_no_errors().parse(src);
         assert_eq!(
@@ -937,10 +934,7 @@ mod tests {
             ]),
             ast.into_output().unwrap()
         );
-    }
 
-    #[test]
-    fn and_expr() {
         let src = "SELECT x AND y";
         let ast = sql_ast_parser_no_errors().parse(src).into_output().unwrap();
         assert_eq!(
@@ -954,6 +948,7 @@ mod tests {
             ]),
             ast
         );
+
         let src = "SELECT x and y";
         let ast = sql_ast_parser_no_errors().parse(src).into_output().unwrap();
         assert_eq!(
@@ -963,6 +958,51 @@ mod tests {
                     KW(And),
                     Id { start: 7, end: 8 },
                     Id { start: 13, end: 14 }
+                ])])])
+            ]),
+            ast
+        );
+
+        let src = "SELECT x IS NOT y";
+        let ast = sql_ast_parser_no_errors().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![List(vec![
+                    KW(Not),
+                    List(vec![
+                        KW(Is),
+                        Id { start: 7, end: 8 },
+                        Id { start: 16, end: 17 }
+                    ])
+                ])])])
+            ]),
+            ast
+        );
+
+        let src = "SELECT x BETWEEN y AND 2";
+        let ast = sql_ast_parser_no_errors().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![List(vec![
+                    KW(Between),
+                    Id { start: 7, end: 8 },
+                    Id { start: 17, end: 18 },
+                    Integer(2)
+                ])])])
+            ]),
+            ast
+        );
+
+        let src = "SELECT x NOT NULL";
+        let ast = sql_ast_parser_no_errors().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![List(vec![
+                    KW(Not),
+                    List(vec![KW(Is), Id { start: 7, end: 8 }, KW(Null)])
                 ])])])
             ]),
             ast
