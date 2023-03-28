@@ -161,9 +161,7 @@ where
         let unary_op = |op, rhs| List(vec![KW(op), rhs]);
         let bin_op = |lhs, (op, rhs)| List(vec![KW(op), lhs, rhs]);
 
-        let subquery = query
-            .delimited_by(pad('('), pad(')'))
-            .then_ignore(text::whitespace());
+        let subquery = query.delimited_by(pad('('), pad(')'));
 
         let id = id_ast_parser().then_ignore(text::whitespace());
 
@@ -452,9 +450,7 @@ where
 
     let select_stmt = recursive(|query| {
         let expr = expr_ast_parser(query.clone());
-        let subquery = query
-            .delimited_by(pad('('), pad(')'))
-            .then_ignore(text::whitespace());
+        let subquery = query.delimited_by(pad('('), pad(')'));
 
         let table = choice((subquery, id.clone()))
             .then(
