@@ -165,6 +165,13 @@ where
 
         let id = id_ast_parser().then_ignore(text::whitespace());
 
+        let expr_list = expr
+            .clone()
+            .separated_by(pad(','))
+            .at_least(1)
+            .collect()
+            .map(List);
+
         let all_distinct = choice((
             keyword_ignore_case("DISTINCT").to(Distinct),
             keyword_ignore_case("ALL").to(All),
@@ -197,13 +204,7 @@ where
         .map(KW)
         .then(
             all_distinct
-                .then(
-                    expr.clone()
-                        .separated_by(pad(','))
-                        .at_least(1)
-                        .collect()
-                        .map(List),
-                )
+                .then(expr_list.clone())
                 .delimited_by(pad('('), pad(')')),
         )
         .map(|(f, (distinct, expr_list))| {
@@ -266,13 +267,7 @@ where
 
         let function = id
             .clone()
-            .then(
-                expr.clone()
-                    .separated_by(pad(','))
-                    .collect()
-                    .map(List)
-                    .delimited_by(pad('('), pad(')')),
-            )
+            .then(expr_list.clone().delimited_by(pad('('), pad(')')))
             .map(|(f, exprs)| List(vec![KW(Function), f, exprs]));
 
         let scalar_subquery = subquery
@@ -360,10 +355,7 @@ where
                         .then(choice((
                             subquery.clone(),
                             id.clone(),
-                            expr.separated_by(pad(','))
-                                .collect()
-                                .map(List)
-                                .delimited_by(pad('('), pad(')')),
+                            expr_list.delimited_by(pad('('), pad(')')),
                         ))),
                     keyword_ignore_case("NOT")
                         .to((Some(Is), Some(Not)))
@@ -427,6 +419,15 @@ where
     let pad = |c| just(c).then_ignore(text::whitespace()).ignored();
 
     let id = id_ast_parser().then_ignore(text::whitespace());
+
+    let id_list = id
+        .clone()
+        .separated_by(pad(','))
+        .at_least(1)
+        .collect()
+        .map(List);
+
+    let id_list_parens = id_list.clone().delimited_by(pad('('), pad(')'));
 
     let positive_integer = just('0')
         .not()
@@ -587,13 +588,7 @@ where
 
         let group_by_clause = keyword_ignore_case("GROUP")
             .ignore_then(keyword_ignore_case("BY"))
-            .ignore_then(
-                id.clone()
-                    .separated_by(pad(','))
-                    .at_least(1)
-                    .collect()
-                    .map(List),
-            )
+            .ignore_then(id_list.clone())
             .or_not();
 
         let having_clause = keyword_ignore_case("HAVING")
@@ -683,14 +678,6 @@ where
 
     let expr = expr_ast_parser(select_stmt.clone());
 
-    let id_list = id
-        .clone()
-        .separated_by(pad(','))
-        .at_least(1)
-        .collect()
-        .map(List)
-        .delimited_by(pad('('), pad(')'));
-
     let insert_stmt = keyword_ignore_case("INSERT")
         .ignore_then(
             keyword_ignore_case("OR")
@@ -699,7 +686,7 @@ where
         )
         .ignore_then(keyword_ignore_case("INTO"))
         .ignore_then(id.clone())
-        .then(id_list.clone().or_not())
+        .then(id_list_parens.clone().or_not())
         .then(select_stmt.clone())
         .map(|((id, id_list), query)| {
             let mut acc = vec![KW(Insert), id, query];
@@ -763,14 +750,14 @@ where
     let col_def = choice((
         keyword_ignore_case("PRIMARY")
             .then(keyword_ignore_case("KEY"))
-            .then(id_list.clone())
+            .then(id_list_parens.clone())
             .map(|_| None),
         keyword_ignore_case("FOREIGN")
             .then(keyword_ignore_case("KEY"))
-            .then(id_list.clone())
+            .then(id_list.delimited_by(pad('('), pad(')')).clone())
             .then(keyword_ignore_case("REFERENCES"))
             .then(id.clone())
-            .then(id_list)
+            .then(id_list_parens)
             .map(|_| None),
         id.clone()
             .then_ignore(
