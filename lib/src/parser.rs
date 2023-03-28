@@ -328,41 +328,36 @@ where
             .clone()
             .foldl(
                 choice((
-                    pad('=').to((None, Some(Eq))).then(comp.clone()),
-                    pad_str("<>").to((None, Some(Ne))).then(comp.clone()),
-                    keyword_ignore_case("IS")
-                        .to(Some(Is))
-                        .then(keyword_ignore_case("NOT").to(Not).or_not())
-                        .then(comp.clone()),
-                    keyword_ignore_case("NOT")
-                        .to(Not)
-                        .or_not()
-                        .then(keyword_ignore_case("BETWEEN").to(Some(Between)))
-                        .then(
+                    choice((pad('=').to(Some(Eq)), pad_str("<>").to(Some(Ne))))
+                        .then(comp.clone())
+                        .map(|x| (None, x)),
+                    keyword_ignore_case("IS").to(Some(Is)).then(
+                        keyword_ignore_case("NOT")
+                            .to(Not)
+                            .or_not()
+                            .then(comp.clone()),
+                    ),
+                    keyword_ignore_case("NOT").ignore_then(
+                        keyword_ignore_case("NULL").map(|_| (Some(Not), (Some(Is), KW(Null)))),
+                    ),
+                    keyword_ignore_case("NOT").to(Not).or_not().then(choice((
+                        keyword_ignore_case("BETWEEN").to(Some(Between)).then(
                             comp.clone()
                                 .then(keyword_ignore_case("AND").ignore_then(comp.clone()))
                                 .map(|(lhs, rhs)| List(vec![KW(And), lhs, rhs])),
                         ),
-                    keyword_ignore_case("NOT")
-                        .to(Not)
-                        .or_not()
-                        .then(keyword_ignore_case("LIKE").to(Some(Like)))
-                        .then(comp.clone()),
-                    keyword_ignore_case("NOT")
-                        .to(Not)
-                        .or_not()
-                        .then(keyword_ignore_case("IN").to(Some(In)))
-                        .then(choice((
+                        keyword_ignore_case("LIKE")
+                            .to(Some(Like))
+                            .then(comp.clone()),
+                        keyword_ignore_case("IN").to(Some(In)).then(choice((
                             subquery.clone(),
                             id.clone(),
                             expr_list.delimited_by(pad('('), pad(')')),
                         ))),
-                    keyword_ignore_case("NOT")
-                        .to((Some(Is), Some(Not)))
-                        .then(keyword_ignore_case("NULL").to(Null).map(KW)),
+                    ))),
                 ))
                 .repeated(),
-                |lhs, (op, rhs)| match op {
+                |lhs, (op_1, (op_2, rhs))| match (op_1, op_2) {
                     (not, Some(Between)) => {
                         let mut acc = vec![KW(Between), lhs];
                         if let List(mut rhs) = rhs {
