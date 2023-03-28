@@ -143,7 +143,7 @@ where
     ))
     .map(KW);
 
-    choice((number, binary, string, boolean, id_ast_parser())).padded()
+    choice((number, binary, string, boolean, id_ast_parser())).then_ignore(text::whitespace())
 }
 
 fn expr_ast_parser<'input, E>(
@@ -155,14 +155,17 @@ where
     use Ast::*;
     use Keyword::*;
 
-    let op = |c| just(c).padded();
-    let unary_op = |op, rhs| List(vec![KW(op), rhs]);
-    let bin_op = |lhs, (op, rhs)| List(vec![KW(op), lhs, rhs]);
-
-    let subquery = query.delimited_by(just('('), just(')')).padded();
-
     recursive(|expr| {
-        let id = id_ast_parser().padded();
+        let pad = |c| just(c).then_ignore(text::whitespace()).ignored();
+        let pad_str = |c| just(c).then_ignore(text::whitespace()).ignored();
+        let unary_op = |op, rhs| List(vec![KW(op), rhs]);
+        let bin_op = |lhs, (op, rhs)| List(vec![KW(op), lhs, rhs]);
+
+        let subquery = query
+            .delimited_by(pad('('), pad(')'))
+            .then_ignore(text::whitespace());
+
+        let id = id_ast_parser().then_ignore(text::whitespace());
 
         let all_distinct = choice((
             keyword_ignore_case("DISTINCT").to(Distinct),
@@ -175,8 +178,8 @@ where
             .ignore_then(
                 all_distinct
                     .clone()
-                    .then_ignore(just('*'))
-                    .delimited_by(just('('), just(')')),
+                    .then_ignore(pad('*'))
+                    .delimited_by(pad('('), pad(')')),
             )
             .map(|distinct| {
                 let mut acc = vec![KW(AggregateFunction), KW(CountStar)];
@@ -198,12 +201,12 @@ where
             all_distinct
                 .then(
                     expr.clone()
-                        .separated_by(just(','))
+                        .separated_by(pad(','))
                         .at_least(1)
                         .collect()
                         .map(List),
                 )
-                .delimited_by(just('('), just(')')),
+                .delimited_by(pad('('), pad(')')),
         )
         .map(|(f, (distinct, expr_list))| {
             let mut acc = vec![KW(AggregateFunction), f, expr_list];
@@ -216,7 +219,7 @@ where
                 expr.clone()
                     .then_ignore(keyword_ignore_case("AS"))
                     .then(id.clone())
-                    .delimited_by(just('('), just(')')),
+                    .delimited_by(pad('('), pad(')')),
             )
             .map(|(expr, id)| List(vec![KW(Cast), expr, id]));
 
@@ -267,10 +270,10 @@ where
             .clone()
             .then(
                 expr.clone()
-                    .separated_by(just(','))
+                    .separated_by(pad(','))
                     .collect()
                     .map(List)
-                    .delimited_by(just('('), just(')')),
+                    .delimited_by(pad('('), pad(')')),
             )
             .map(|(f, exprs)| List(vec![KW(Function), f, exprs]));
 
@@ -287,30 +290,30 @@ where
             function,
             scalar_subquery,
             atom_ast_parser(),
-            expr.clone().delimited_by(just('('), just(')')),
+            expr.clone().delimited_by(pad('('), pad(')')),
         ))
         .boxed();
 
-        let unary = choice((op("+").to(Plus), op("-").to(Minus)))
+        let unary = choice((pad('+').to(Plus), pad('-').to(Minus)))
             .repeated()
             .foldr(atom, unary_op);
 
         let mul = unary.clone().foldl(
-            choice((op("*").to(Mul), op("/").to(Div), op("%").to(Mod)))
+            choice((pad('*').to(Mul), pad('/').to(Div), pad('%').to(Mod)))
                 .then(unary)
                 .repeated(),
             bin_op,
         );
 
         let add = mul.clone().foldl(
-            choice((op("+").to(Plus), op("-").to(Minus)))
+            choice((pad('+').to(Plus), pad('-').to(Minus)))
                 .then(mul)
                 .repeated(),
             bin_op,
         );
 
         let shift = add.clone().foldl(
-            choice((op("<<").to(Lsh), op(">>").to(Rsh)))
+            choice((pad_str("<<").to(Lsh), pad_str(">>").to(Rsh)))
                 .then(add)
                 .repeated(),
             bin_op,
@@ -318,10 +321,10 @@ where
 
         let comp = shift.clone().foldl(
             choice((
-                op("<").to(Lt),
-                op("<=").to(Le),
-                op(">").to(Gt),
-                op(">=").to(Ge),
+                pad('<').to(Lt),
+                pad_str("<=").to(Le),
+                pad('>').to(Gt),
+                pad_str(">=").to(Ge),
             ))
             .then(shift)
             .repeated(),
@@ -332,8 +335,8 @@ where
             .clone()
             .foldl(
                 choice((
-                    op("=").to((None, Some(Eq))).then(comp.clone()),
-                    op("<>").to((None, Some(Ne))).then(comp.clone()),
+                    pad('=').to((None, Some(Eq))).then(comp.clone()),
+                    pad_str("<>").to((None, Some(Ne))).then(comp.clone()),
                     keyword_ignore_case("IS")
                         .to(Some(Is))
                         .then(keyword_ignore_case("NOT").to(Not).or_not())
@@ -359,10 +362,10 @@ where
                         .then(choice((
                             subquery.clone(),
                             id.clone(),
-                            expr.separated_by(just(','))
+                            expr.separated_by(pad(','))
                                 .collect()
                                 .map(List)
-                                .delimited_by(just('('), just(')')),
+                                .delimited_by(pad('('), pad(')')),
                         ))),
                     keyword_ignore_case("NOT")
                         .to((Some(Is), Some(Not)))
@@ -387,12 +390,15 @@ where
                     (None, Some(op)) => List(vec![KW(op), lhs, rhs]),
                     (Some(Not), Some(op)) => List(vec![KW(Not), List(vec![KW(op), lhs, rhs])]),
                     (Some(op), Some(Not)) => List(vec![KW(Not), List(vec![KW(op), lhs, rhs])]),
-                    _ => KW(False),
+                    _ => unreachable!(""),
                 },
             )
             .boxed();
 
-        let not = op("NOT").to(Not).repeated().foldr(equal, unary_op);
+        let not = keyword_ignore_case("NOT")
+            .to(Not)
+            .repeated()
+            .foldr(equal, unary_op);
 
         let and = not.clone().foldl(
             keyword_ignore_case("AND").to(And).then(not).repeated(),
@@ -420,12 +426,14 @@ where
     use Ast::*;
     use Keyword::*;
 
-    let id = id_ast_parser().padded();
+    let pad = |c| just(c).then_ignore(text::whitespace()).ignored();
+
+    let id = id_ast_parser().then_ignore(text::whitespace());
 
     let positive_integer = just('0')
         .not()
         .ignore_then(text::int(10).slice().from_str().unwrapped().map(Integer))
-        .padded();
+        .then_ignore(text::whitespace());
 
     let order_by_list = choice((id.clone(), positive_integer))
         .then(
@@ -437,14 +445,16 @@ where
             .map(|dir| KW(dir.unwrap_or(Asc))),
         )
         .map(|(var, dir)| List(vec![var, dir]))
-        .separated_by(just(','))
+        .separated_by(pad(','))
         .at_least(1)
         .collect()
         .map(List);
 
     let select_stmt = recursive(|query| {
         let expr = expr_ast_parser(query.clone());
-        let subquery = query.delimited_by(just('('), just(')')).padded();
+        let subquery = query
+            .delimited_by(pad('('), pad(')'))
+            .then_ignore(text::whitespace());
 
         let table = choice((subquery, id.clone()))
             .then(
@@ -474,50 +484,6 @@ where
                 Some(alias) => List(vec![id, alias]),
                 None => List(vec![id]),
             });
-
-        let table_list_element = choice((
-            table.clone().foldl(
-                choice((
-                    keyword_ignore_case("LEFT")
-                        .to(Left)
-                        .then_ignore(keyword_ignore_case("OUTER").or_not()),
-                    keyword_ignore_case("INNER").to(Inner),
-                ))
-                .or_not()
-                .then_ignore(keyword_ignore_case("JOIN"))
-                .then(table.clone())
-                .then_ignore(keyword_ignore_case("ON"))
-                .then(expr.clone())
-                .repeated(),
-                |lhs, ((join_type, rhs), on)| {
-                    List(vec![
-                        KW(Join),
-                        lhs,
-                        rhs,
-                        KW(On),
-                        on,
-                        KW(Type),
-                        KW(join_type.unwrap_or(Inner)),
-                    ])
-                },
-            ),
-            table
-                .clone()
-                .then_ignore(keyword_ignore_case("CROSS").ignore_then(keyword_ignore_case("JOIN")))
-                .then(table)
-                .delimited_by(just('('), just(')'))
-                .map(|(lhs, rhs)| {
-                    List(vec![
-                        KW(Join),
-                        lhs,
-                        rhs,
-                        KW(On),
-                        KW(True),
-                        KW(Type),
-                        KW(Inner),
-                    ])
-                }),
-        ));
 
         let select_clause = keyword_ignore_case("SELECT")
             .ignore_then(
@@ -554,18 +520,64 @@ where
                         Some(id) => List(vec![expr, id]),
                         None => List(vec![expr]),
                     })
-                    .separated_by(just(','))
+                    .separated_by(pad(','))
                     .at_least(1)
                     .collect()
                     .map(List),
             );
 
+        let table_list_element = choice((
+            table.clone().foldl(
+                choice((
+                    keyword_ignore_case("LEFT")
+                        .to(Left)
+                        .then_ignore(keyword_ignore_case("OUTER").or_not()),
+                    keyword_ignore_case("INNER").to(Inner),
+                ))
+                .or_not()
+                .then_ignore(keyword_ignore_case("JOIN"))
+                .then(table.clone())
+                .then_ignore(keyword_ignore_case("ON"))
+                .then(expr.clone())
+                .repeated(),
+                |lhs, ((join_type, rhs), on)| {
+                    List(vec![
+                        KW(Join),
+                        lhs,
+                        rhs,
+                        KW(On),
+                        on,
+                        KW(Type),
+                        KW(join_type.unwrap_or(Inner)),
+                    ])
+                },
+            ),
+            table
+                .clone()
+                .then_ignore(keyword_ignore_case("CROSS").ignore_then(keyword_ignore_case("JOIN")))
+                .then(table)
+                .delimited_by(pad('('), pad(')'))
+                .map(|(lhs, rhs)| {
+                    List(vec![
+                        KW(Join),
+                        lhs,
+                        rhs,
+                        KW(On),
+                        KW(True),
+                        KW(Type),
+                        KW(Inner),
+                    ])
+                }),
+        ));
+
         let from_clause = keyword_ignore_case("FROM")
             .ignore_then(
                 table_list_element
                     .separated_by(choice((
-                        just(","),
-                        keyword_ignore_case("CROSS").ignore_then(keyword_ignore_case("JOIN")),
+                        pad(','),
+                        keyword_ignore_case("CROSS")
+                            .ignore_then(keyword_ignore_case("JOIN"))
+                            .ignored(),
                     )))
                     .at_least(1)
                     .collect()
@@ -580,8 +592,8 @@ where
         let group_by_clause = keyword_ignore_case("GROUP")
             .ignore_then(keyword_ignore_case("BY"))
             .ignore_then(
-                id_ast_parser()
-                    .separated_by(just(','))
+                id.clone()
+                    .separated_by(pad(','))
                     .at_least(1)
                     .collect()
                     .map(List),
@@ -613,13 +625,12 @@ where
 
         let values_stmt = keyword_ignore_case("VALUES").ignore_then(
             expr.clone()
-                .separated_by(just(','))
+                .separated_by(pad(','))
                 .at_least(1)
                 .collect()
                 .map(List)
-                .delimited_by(just('('), just(')'))
-                .padded()
-                .separated_by(just(','))
+                .delimited_by(pad('('), pad(')'))
+                .separated_by(pad(','))
                 .at_least(1)
                 .collect()
                 .map(|values| List(vec![KW(Values), List(values)])),
@@ -649,7 +660,7 @@ where
         let limit_clause = keyword_ignore_case("LIMIT")
             .ignore_then(positive_integer)
             .then(
-                choice((keyword_ignore_case("OFFSET"), just(",")))
+                choice((keyword_ignore_case("OFFSET").ignored(), pad(',')))
                     .ignore_then(positive_integer)
                     .or_not(),
             )
@@ -659,7 +670,7 @@ where
             |((query, order_by), limit_offset)| {
                 let mut acc = match query {
                     List(x) => x,
-                    _ => vec![],
+                    _ => unreachable!(""),
                 };
 
                 add_clause(&mut acc, OrderBy, order_by);
@@ -678,11 +689,11 @@ where
 
     let id_list = id
         .clone()
-        .separated_by(just(','))
+        .separated_by(pad(','))
         .at_least(1)
         .collect()
         .map(List)
-        .delimited_by(just('('), just(')'));
+        .delimited_by(pad('('), pad(')'));
 
     let insert_stmt = keyword_ignore_case("INSERT")
         .ignore_then(
@@ -712,10 +723,10 @@ where
         .then_ignore(keyword_ignore_case("SET"))
         .then(
             id.clone()
-                .then_ignore(just('='))
+                .then_ignore(pad('='))
                 .then(expr.clone())
                 .map(|(id, expr)| List(vec![id, expr]))
-                .separated_by(just(','))
+                .separated_by(pad(','))
                 .collect()
                 .map(List),
         )
@@ -736,7 +747,7 @@ where
         .ignore_then(id.clone())
         .then_ignore(keyword_ignore_case("ON"))
         .then(id.clone())
-        .then_ignore(order_by_list.clone().delimited_by(just('('), just(')')))
+        .then_ignore(order_by_list.clone().delimited_by(pad('('), pad(')')))
         .map(|(index, table)| List(vec![KW(CreateIndex), index, table]));
 
     let create_view_stmt = keyword_ignore_case("CREATE")
@@ -768,7 +779,7 @@ where
         id.clone()
             .then_ignore(
                 id.clone()
-                    .then_ignore(positive_integer.delimited_by(just('('), just(')')).or_not())
+                    .then_ignore(positive_integer.delimited_by(pad('('), pad(')')).or_not())
                     .then_ignore(
                         keyword_ignore_case("PRIMARY")
                             .then_ignore(keyword_ignore_case("KEY"))
@@ -784,11 +795,11 @@ where
         .ignore_then(id.clone())
         .then(
             col_def
-                .separated_by(just(','))
+                .separated_by(pad(','))
                 .at_least(1)
                 .collect::<Vec<Option<Ast>>>()
                 .map(|col_defs| List(col_defs.into_iter().flatten().collect()))
-                .delimited_by(just('('), just(')')),
+                .delimited_by(pad('('), pad(')')),
         )
         .map(|(id, columns)| List(vec![KW(CreateTable), id, columns]));
 
@@ -825,6 +836,7 @@ where
         create_table_stmt,
         ddl_drop_stmt,
     ))
+    .padded()
     .then_ignore(end())
 }
 
@@ -866,7 +878,7 @@ fn keyword_ignore_case<
 where
     C::Str: PartialEq,
 {
-    keyword_ignore_case_no_pad(keyword).padded()
+    keyword_ignore_case_no_pad(keyword).then_ignore(text::whitespace())
 }
 
 fn keyword_ignore_case_no_pad<
