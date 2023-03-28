@@ -99,12 +99,10 @@ where
 {
     use Ast::*;
 
-    text::ident()
-        .map_with_span(|_, span: SimpleSpan<_>| Id {
-            start: span.start() as i32,
-            end: span.end() as i32,
-        })
-        .padded()
+    text::ident().map_with_span(|_, span: SimpleSpan<_>| Id {
+        start: span.start() as i32,
+        end: span.end() as i32,
+    })
 }
 
 fn atom_ast_parser<'input, E>() -> impl Parser<'input, &'input str, Ast, E> + Clone
@@ -119,8 +117,7 @@ where
         .map_slice(|s: &str| match s.find('.') {
             Some(_) => Float(s.parse().unwrap()),
             None => Integer(s.parse().unwrap()),
-        })
-        .padded();
+        });
 
     let string = none_of('\'')
         .repeated()
@@ -128,28 +125,25 @@ where
             start: span.start() as i32,
             end: span.end() as i32,
         })
-        .padded_by(just('\''))
-        .padded();
+        .padded_by(just('\''));
 
-    let binary = one_of("Xx")
-        .ignore_then(
-            text::int(16)
-                .map_with_span(|_, span: SimpleSpan<_>| Binary {
-                    start: span.start() as i32,
-                    end: span.end() as i32,
-                })
-                .padded_by(just('\'')),
-        )
-        .padded();
+    let binary = one_of("Xx").ignore_then(
+        text::int(16)
+            .map_with_span(|_, span: SimpleSpan<_>| Binary {
+                start: span.start() as i32,
+                end: span.end() as i32,
+            })
+            .padded_by(just('\'')),
+    );
 
     let boolean = choice((
-        keyword_ignore_case("TRUE").to(True),
-        keyword_ignore_case("FALSE").to(False),
-        keyword_ignore_case("NULL").to(Null),
+        keyword_ignore_case_no_pad("TRUE").to(True),
+        keyword_ignore_case_no_pad("FALSE").to(False),
+        keyword_ignore_case_no_pad("NULL").to(Null),
     ))
     .map(KW);
 
-    choice((number, binary, string, boolean, id_ast_parser()))
+    choice((number, binary, string, boolean, id_ast_parser())).padded()
 }
 
 fn expr_ast_parser<'input, E>(
@@ -168,6 +162,8 @@ where
     let subquery = query.delimited_by(just('('), just(')')).padded();
 
     recursive(|expr| {
+        let id = id_ast_parser().padded();
+
         let all_distinct = choice((
             keyword_ignore_case("DISTINCT").to(Distinct),
             keyword_ignore_case("ALL").to(All),
@@ -219,7 +215,7 @@ where
             .ignore_then(
                 expr.clone()
                     .then_ignore(keyword_ignore_case("AS"))
-                    .then(id_ast_parser())
+                    .then(id.clone())
                     .delimited_by(just('('), just(')')),
             )
             .map(|(expr, id)| List(vec![KW(Cast), expr, id]));
@@ -267,7 +263,8 @@ where
                 List(acc)
             });
 
-        let function = id_ast_parser()
+        let function = id
+            .clone()
             .then(
                 expr.clone()
                     .separated_by(just(','))
@@ -361,7 +358,7 @@ where
                         .then(keyword_ignore_case("IN").to(Some(In)))
                         .then(choice((
                             subquery.clone(),
-                            id_ast_parser(),
+                            id.clone(),
                             expr.separated_by(just(','))
                                 .collect()
                                 .map(List)
@@ -423,7 +420,7 @@ where
     use Ast::*;
     use Keyword::*;
 
-    let id = id_ast_parser();
+    let id = id_ast_parser().padded();
 
     let positive_integer = just('0')
         .not()
@@ -869,6 +866,20 @@ fn keyword_ignore_case<
 where
     C::Str: PartialEq,
 {
+    keyword_ignore_case_no_pad(keyword).padded()
+}
+
+fn keyword_ignore_case_no_pad<
+    'a,
+    I: ValueInput<'a> + StrInput<'a, C>,
+    C: Char<Str = str> + 'a,
+    E: ParserExtra<'a, I> + 'a,
+>(
+    keyword: &'a str,
+) -> impl Parser<'a, I, &'a C::Str, E> + Clone + 'a
+where
+    C::Str: PartialEq,
+{
     text::ident()
         .try_map(|s: &C::Str, span| {
             if keyword.eq_ignore_ascii_case(s) {
@@ -878,7 +889,6 @@ where
             }
         })
         .slice()
-        .padded()
 }
 
 #[cfg(test)]
