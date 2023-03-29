@@ -7,11 +7,12 @@ use chumsky::prelude::{Boxed, Parser};
 use libc::c_char;
 use std::ffi::{CStr, CString};
 
-use parser::Ast;
+use parser::ast::Ast;
+use parser::sql_parser;
 
 std::thread_local! {
-    pub static SQL_AST_PARSER_NO_ERRORS: Boxed<'static, 'static, &'static str, Ast, Default> = parser::sql_ast_parser_no_errors().boxed();
-    pub static SQL_AST_PARSER_WITH_ERRORS: Boxed<'static, 'static, &'static str, Ast, Err<Rich<'static, char>>> = parser::sql_ast_parser_with_errors().boxed();
+    pub static SQL_AST_PARSER_NO_ERRORS: Boxed<'static, 'static, &'static str, Ast, Default> = sql_parser::sql_ast_parser_no_errors().boxed();
+    pub static SQL_AST_PARSER_WITH_ERRORS: Boxed<'static, 'static, &'static str, Ast, Err<Rich<'static, char>>> = sql_parser::sql_ast_parser_with_errors().boxed();
 }
 
 #[no_mangle]
@@ -30,7 +31,7 @@ pub extern "C" fn endb_parse_sql(
         } else {
             SQL_AST_PARSER_WITH_ERRORS.with(|parser| {
                 let result = parser.parse(input_str);
-                let error_str = parser::parse_errors_to_string(input_str, result.into_errors());
+                let error_str = sql_parser::parse_errors_to_string(input_str, result.into_errors());
                 let c_error_str = CString::new(error_str).unwrap();
                 on_error(c_error_str.as_ptr());
             });
