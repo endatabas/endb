@@ -555,31 +555,23 @@
 (defun sql-count (xs &key distinct)
   (count-if-not (lambda (x)
                   (eq :null x))
-                (if distinct
-                    (%sql-distinct xs)
-                    xs)))
+                (%sql-distinct xs distinct)))
 
 (defun sql-avg (xs &key distinct)
-  (let ((xs-no-nulls (delete :null (if distinct
-                                       (%sql-distinct xs)
-                                       xs))))
+  (let ((xs-no-nulls (delete :null (%sql-distinct xs distinct))))
     (if xs-no-nulls
         (sql-/ (reduce #'sql-+ xs-no-nulls)
                (coerce (length xs-no-nulls) 'double-float))
         :null)))
 
 (defun sql-sum (xs &key distinct)
-  (let ((xs-no-nulls (delete :null (if distinct
-                                       (%sql-distinct xs)
-                                       xs))))
+  (let ((xs-no-nulls (delete :null (%sql-distinct xs distinct))))
     (if xs-no-nulls
         (reduce #'sql-+ xs-no-nulls)
         :null)))
 
 (defun sql-total (xs &key distinct)
-  (let ((xs-no-nulls (delete :null (if distinct
-                                       (%sql-distinct xs)
-                                       xs))))
+  (let ((xs-no-nulls (delete :null (%sql-distinct xs distinct))))
     (if xs-no-nulls
         (reduce #'sql-+ xs-no-nulls)
         0)))
@@ -595,9 +587,7 @@
             (when distinct
               (error 'sql-runtime-error :message "GROUP_CONCAT with argument doesn't support DISTINCT."))
             (values separator distinct)))
-    (let ((xs (reverse (delete :null (if distinct
-                                         (%sql-distinct xs)
-                                         xs)))))
+    (let ((xs (reverse (delete :null (%sql-distinct xs distinct)))))
       (apply #'concatenate 'string
              (loop for x in xs
                    for y upto (length xs)
@@ -606,9 +596,7 @@
                                (concatenate 'string (sql-cast x :varchar) separator)))))))
 
 (defun sql-min (xs &key distinct)
-  (let ((xs-no-nulls (delete :null (if distinct
-                                       (%sql-distinct xs)
-                                       xs))))
+  (let ((xs-no-nulls (delete :null (%sql-distinct xs distinct))))
     (if xs-no-nulls
         (reduce
          (lambda (x y)
@@ -625,9 +613,7 @@
         :null)))
 
 (defun sql-max (xs &key distinct)
-  (let ((xs-no-nulls (delete :null (if distinct
-                                       (%sql-distinct xs)
-                                       xs))))
+  (let ((xs-no-nulls (delete :null (%sql-distinct xs distinct))))
     (if xs-no-nulls
         (reduce
          (lambda (x y)
@@ -643,8 +629,10 @@
          xs-no-nulls)
         :null)))
 
-(defun %sql-distinct (rows)
-  (delete-duplicates rows :test 'equal))
+(defun %sql-distinct (rows &optional (distinct :distinct))
+  (if (eq :distinct distinct)
+      (delete-duplicates rows :test 'equal)
+      rows))
 
 (defun %sql-limit (rows limit offset)
   (subseq rows (or offset 0) (min (length rows)

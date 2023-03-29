@@ -26,6 +26,15 @@ where
 
     let id_list_parens = id_list.clone().delimited_by(pad('('), pad(')'));
 
+    let col_ref = col_ref_ast_parser_no_pad().then_ignore(text::whitespace());
+
+    let col_ref_list = col_ref
+        .clone()
+        .separated_by(pad(','))
+        .at_least(1)
+        .collect()
+        .map(List);
+
     let positive_integer = just('0')
         .not()
         .ignore_then(text::int(10).slice().from_str().unwrapped().map(Integer))
@@ -187,7 +196,7 @@ where
 
         let group_by_clause = kw("GROUP")
             .ignore_then(kw("BY"))
-            .ignore_then(id_list.clone())
+            .ignore_then(col_ref_list.clone())
             .or_not();
 
         let having_clause = kw("HAVING").ignore_then(expr.clone()).or_not();

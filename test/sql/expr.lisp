@@ -125,10 +125,10 @@
   (is (eq :null (sql-sum '())))
   (is (eq :null (sql-sum '(:null))))
   (is (= 1 (sql-sum '(:null 1))))
-  (is (= 6 (sql-sum '(1 2 3 3) :distinct t)))
+  (is (= 6 (sql-sum '(1 2 3 3) :distinct :distinct)))
 
   (is (= 3 (sql-count '(1 2 3))))
-  (is (= 3 (sql-count '(1 2 3 3) :distinct t)))
+  (is (= 3 (sql-count '(1 2 3 3) :distinct :distinct)))
   (is (= 2 (sql-count '(1 2 :null))))
   (is (= 3 (sql-count-star '(1 2 :null))))
 

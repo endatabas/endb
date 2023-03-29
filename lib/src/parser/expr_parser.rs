@@ -16,6 +16,20 @@ where
     })
 }
 
+pub fn col_ref_ast_parser_no_pad<'input, E>() -> impl Parser<'input, &'input str, Ast, E> + Clone
+where
+    E: ParserExtra<'input, &'input str>,
+{
+    use super::ast::Ast::*;
+
+    text::ident()
+        .then(just('.').then(text::ident()).or_not())
+        .map_with_span(|_, span: SimpleSpan<_>| Id {
+            start: span.start() as i32,
+            end: span.end() as i32,
+        })
+}
+
 pub fn atom_ast_parser<'input, E>() -> impl Parser<'input, &'input str, Ast, E> + Clone
 where
     E: ParserExtra<'input, &'input str>,
@@ -53,14 +67,8 @@ where
     ))
     .map(KW);
 
-    let col_ref = text::ident()
-        .then(just('.').then(text::ident()).or_not())
-        .map_with_span(|_, span: SimpleSpan<_>| Id {
-            start: span.start() as i32,
-            end: span.end() as i32,
-        });
-
-    choice((number, binary, string, boolean, col_ref)).then_ignore(text::whitespace())
+    choice((number, binary, string, boolean, col_ref_ast_parser_no_pad()))
+        .then_ignore(text::whitespace())
 }
 
 pub fn expr_ast_parser<'input, E>(
