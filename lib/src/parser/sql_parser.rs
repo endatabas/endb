@@ -54,34 +54,38 @@ where
         let expr = expr_ast_parser(query.clone());
         let subquery = query.delimited_by(pad('('), pad(')'));
 
-        let table = choice((subquery, id.clone()))
-            .then(
-                choice((
-                    kw("AS").ignore_then(id.clone()),
-                    id.clone().and_is(
-                        choice((
-                            kw("CROSS"),
-                            kw("LEFT"),
-                            kw("JOIN"),
-                            kw("WHERE"),
-                            kw("GROUP"),
-                            kw("HAVING"),
-                            kw("ORDER"),
-                            kw("LIMIT"),
-                            kw("ON"),
-                            kw("UNION"),
-                            kw("EXCEPT"),
-                            kw("INTERSECT"),
-                        ))
-                        .not(),
-                    ),
-                ))
-                .or_not(),
-            )
-            .map(|(id, alias)| match alias {
-                Some(alias) => List(vec![id, alias]),
-                None => List(vec![id]),
-            });
+        let table = choice((
+            subquery,
+            id.clone()
+                .then_ignore(kw("NOT").then_ignore(kw("INDEXED")).or_not()),
+        ))
+        .then(
+            choice((
+                kw("AS").ignore_then(id.clone()),
+                id.clone().and_is(
+                    choice((
+                        kw("CROSS"),
+                        kw("LEFT"),
+                        kw("JOIN"),
+                        kw("WHERE"),
+                        kw("GROUP"),
+                        kw("HAVING"),
+                        kw("ORDER"),
+                        kw("LIMIT"),
+                        kw("ON"),
+                        kw("UNION"),
+                        kw("EXCEPT"),
+                        kw("INTERSECT"),
+                    ))
+                    .not(),
+                ),
+            ))
+            .or_not(),
+        )
+        .map(|(id, alias)| match alias {
+            Some(alias) => List(vec![id, alias]),
+            None => List(vec![id]),
+        });
 
         let select_clause = kw("SELECT")
             .ignore_then(
@@ -393,6 +397,7 @@ where
         ddl_drop_stmt,
     ))
     .padded()
+    .then_ignore(pad(';').or_not())
     .then_ignore(end())
 }
 

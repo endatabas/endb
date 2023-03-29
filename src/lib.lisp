@@ -78,7 +78,7 @@
   :inner
   :on
   :except
-  :intesect
+  :intersect
   :union
   :union-all
   :values
