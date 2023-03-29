@@ -10,6 +10,8 @@ use std::ffi::{CStr, CString};
 use parser::ast::Ast;
 use parser::sql_parser;
 
+use std::panic;
+
 std::thread_local! {
     pub static SQL_AST_PARSER_NO_ERRORS: Boxed<'static, 'static, &'static str, Ast, Default> = sql_parser::sql_ast_parser_no_errors().boxed();
     pub static SQL_AST_PARSER_WITH_ERRORS: Boxed<'static, 'static, &'static str, Ast, Err<Rich<'static, char>>> = sql_parser::sql_ast_parser_with_errors().boxed();
@@ -22,21 +24,34 @@ pub extern "C" fn endb_parse_sql(
     on_success: extern "C" fn(&Ast),
     on_error: extern "C" fn(*const c_char),
 ) {
-    SQL_AST_PARSER_NO_ERRORS.with(|parser| {
-        let c_str = unsafe { CStr::from_ptr(input) };
-        let input_str = c_str.to_str().unwrap();
-        let result = parser.parse(input_str);
-        if result.has_output() {
-            on_success(&result.into_output().unwrap());
+    let result = panic::catch_unwind(|| {
+        SQL_AST_PARSER_NO_ERRORS.with(|parser| {
+            let c_str = unsafe { CStr::from_ptr(input) };
+            let input_str = c_str.to_str().unwrap();
+            let result = parser.parse(input_str);
+            if result.has_output() {
+                on_success(&result.into_output().unwrap());
+            } else {
+                SQL_AST_PARSER_WITH_ERRORS.with(|parser| {
+                    let result = parser.parse(input_str);
+                    let error_str =
+                        sql_parser::parse_errors_to_string(input_str, result.into_errors());
+                    let c_error_str = CString::new(error_str).unwrap();
+                    on_error(c_error_str.as_ptr());
+                });
+            }
+        })
+    });
+
+    if let Err(err) = result {
+        if let Some(msg) = err.downcast_ref::<&str>() {
+            let c_error_str = CString::new(msg.to_string()).unwrap();
+            on_error(c_error_str.as_ptr());
         } else {
-            SQL_AST_PARSER_WITH_ERRORS.with(|parser| {
-                let result = parser.parse(input_str);
-                let error_str = sql_parser::parse_errors_to_string(input_str, result.into_errors());
-                let c_error_str = CString::new(error_str).unwrap();
-                on_error(c_error_str.as_ptr());
-            });
+            let c_error_str = CString::new("unknown panic!").unwrap();
+            on_error(c_error_str.as_ptr());
         }
-    })
+    }
 }
 
 #[no_mangle]

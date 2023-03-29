@@ -31,6 +31,13 @@ where
         .ignore_then(text::int(10).slice().from_str().unwrapped().map(Integer))
         .then_ignore(text::whitespace());
 
+    let non_negative_integer = text::int(10)
+        .slice()
+        .from_str()
+        .unwrapped()
+        .map(Integer)
+        .then_ignore(text::whitespace());
+
     let order_by_list = choice((id.clone(), positive_integer))
         .then(
             choice((kw("ASC").to(Asc), kw("DESC").to(Desc)))
@@ -83,35 +90,38 @@ where
                     .or_not(),
             )
             .then(
-                expr.clone()
-                    .then(
-                        choice((
-                            kw("AS").ignore_then(id.clone()),
-                            id.clone().and_is(
-                                choice((
-                                    kw("FROM"),
-                                    kw("WHERE"),
-                                    kw("GROUP"),
-                                    kw("HAVING"),
-                                    kw("ORDER"),
-                                    kw("LIMIT"),
-                                    kw("UNION"),
-                                    kw("EXCEPT"),
-                                    kw("INTERSECT"),
-                                ))
-                                .not(),
-                            ),
-                        ))
-                        .or_not(),
-                    )
-                    .map(|(expr, id)| match id {
-                        Some(id) => List(vec![expr, id]),
-                        None => List(vec![expr]),
-                    })
-                    .separated_by(pad(','))
-                    .at_least(1)
-                    .collect()
-                    .map(List),
+                choice((
+                    pad('*').map(|_| List(vec![KW(Mul)])),
+                    expr.clone()
+                        .then(
+                            choice((
+                                kw("AS").ignore_then(id.clone()),
+                                id.clone().and_is(
+                                    choice((
+                                        kw("FROM"),
+                                        kw("WHERE"),
+                                        kw("GROUP"),
+                                        kw("HAVING"),
+                                        kw("ORDER"),
+                                        kw("LIMIT"),
+                                        kw("UNION"),
+                                        kw("EXCEPT"),
+                                        kw("INTERSECT"),
+                                    ))
+                                    .not(),
+                                ),
+                            ))
+                            .or_not(),
+                        )
+                        .map(|(expr, id)| match id {
+                            Some(id) => List(vec![expr, id]),
+                            None => List(vec![expr]),
+                        }),
+                ))
+                .separated_by(pad(','))
+                .at_least(1)
+                .collect()
+                .map(List),
             );
 
         let table_list_element = choice((
@@ -230,10 +240,10 @@ where
             .or_not();
 
         let limit_clause = kw("LIMIT")
-            .ignore_then(positive_integer)
+            .ignore_then(non_negative_integer)
             .then(
                 choice((kw("OFFSET").ignored(), pad(',')))
-                    .ignore_then(positive_integer)
+                    .ignore_then(non_negative_integer)
                     .or_not(),
             )
             .or_not();
@@ -307,8 +317,8 @@ where
         .map(|(index, table)| List(vec![KW(CreateIndex), index, table]));
 
     let create_view_stmt = kw("CREATE")
-        .ignore_then(kw("VIEW"))
         .ignore_then(choice((kw("TEMPORARY"), kw("TEMP"))).or_not())
+        .ignore_then(kw("VIEW"))
         .ignore_then(id.clone())
         .then_ignore(kw("AS"))
         .then(select_stmt.clone())
@@ -431,6 +441,16 @@ mod tests {
             ]),
             ast.into_output().unwrap()
         );
+
+        let src = "SELECT x.y";
+        let ast = sql_ast_parser_no_errors().parse(src);
+        assert_eq!(
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![Id { start: 7, end: 10 }])])
+            ]),
+            ast.into_output().unwrap()
+        );
     }
 
     #[test]
@@ -465,6 +485,34 @@ mod tests {
             List(vec![
                 KW(Select),
                 List(vec![List(vec![List(vec![KW(Gt), Integer(3), Float(2.1)])])])
+            ]),
+            ast.into_output().unwrap()
+        );
+
+        let src = "SELECT x>=y";
+        let ast = sql_ast_parser_no_errors().parse(src);
+        assert_eq!(
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![List(vec![
+                    KW(Ge),
+                    Id { start: 7, end: 8 },
+                    Id { start: 10, end: 11 }
+                ])])])
+            ]),
+            ast.into_output().unwrap()
+        );
+
+        let src = "SELECT x<>y";
+        let ast = sql_ast_parser_no_errors().parse(src);
+        assert_eq!(
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![List(vec![
+                    KW(Ne),
+                    Id { start: 7, end: 8 },
+                    Id { start: 10, end: 11 }
+                ])])])
             ]),
             ast.into_output().unwrap()
         );
@@ -514,6 +562,20 @@ mod tests {
             ast
         );
 
+        let src = "SELECT x IS y";
+        let ast = sql_ast_parser_no_errors().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![List(vec![
+                    KW(Is),
+                    Id { start: 7, end: 8 },
+                    Id { start: 12, end: 13 }
+                ])])])
+            ]),
+            ast
+        );
+
         let src = "SELECT x BETWEEN y AND 2";
         let ast = sql_ast_parser_no_errors().parse(src).into_output().unwrap();
         assert_eq!(
@@ -529,6 +591,24 @@ mod tests {
             ast
         );
 
+        let src = "SELECT x NOT BETWEEN y AND 2";
+        let ast = sql_ast_parser_no_errors().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![List(vec![
+                    KW(Not),
+                    List(vec![
+                        KW(Between),
+                        Id { start: 7, end: 8 },
+                        Id { start: 21, end: 22 },
+                        Integer(2)
+                    ])
+                ])])])
+            ]),
+            ast
+        );
+
         let src = "SELECT x NOT NULL";
         let ast = sql_ast_parser_no_errors().parse(src).into_output().unwrap();
         assert_eq!(
@@ -537,6 +617,52 @@ mod tests {
                 List(vec![List(vec![List(vec![
                     KW(Not),
                     List(vec![KW(Is), Id { start: 7, end: 8 }, KW(Null)])
+                ])])])
+            ]),
+            ast
+        );
+    }
+
+    #[test]
+    fn case_expr() {
+        let src = "SELECT CASE WHEN 2 THEN 1 END";
+        let ast = sql_ast_parser_no_errors().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![List(vec![
+                    KW(Case),
+                    List(vec![List(vec![Integer(2), Integer(1)])])
+                ])])])
+            ]),
+            ast
+        );
+
+        let src = "SELECT CASE 3 WHEN 2 THEN 1 END";
+        let ast = sql_ast_parser_no_errors().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![List(vec![
+                    KW(Case),
+                    Integer(3),
+                    List(vec![List(vec![Integer(2), Integer(1)])])
+                ])])])
+            ]),
+            ast
+        );
+
+        let src = "SELECT CASE WHEN 2 THEN 1 ELSE 0 END";
+        let ast = sql_ast_parser_no_errors().parse(src).into_output().unwrap();
+        assert_eq!(
+            List(vec![
+                KW(Select),
+                List(vec![List(vec![List(vec![
+                    KW(Case),
+                    List(vec![
+                        List(vec![Integer(2), Integer(1)]),
+                        List(vec![KW(Else), Integer(0)])
+                    ])
                 ])])])
             ]),
             ast
@@ -649,7 +775,8 @@ mod tests {
                 KW(Select),
                 List(vec![List(vec![List(vec![
                     KW(AggregateFunction),
-                    KW(CountStar)
+                    KW(CountStar),
+                    List(vec![])
                 ])])])
             ]),
             ast.into_output().unwrap()
@@ -687,6 +814,10 @@ mod tests {
             List(vec![KW(Select), List(vec![List(vec![Integer(123)])])]),
             ast
         );
+
+        let src = "SELECT *";
+        let ast = sql_ast_parser_no_errors().parse(src).into_output().unwrap();
+        assert_eq!(List(vec![KW(Select), List(vec![List(vec![KW(Mul)])])]), ast);
     }
     #[test]
     fn select_as() {
@@ -927,9 +1058,6 @@ mod tests {
             ]),
             ast
         );
-        let src = "SELECT 1 FROM x LIMIT 0";
-        let errs = sql_ast_parser_no_errors().parse(src).into_errors();
-        assert_eq!(1, errs.len());
     }
 
     #[test]
@@ -991,12 +1119,12 @@ mod tests {
         let ast = sql_ast_parser_no_errors().parse(src).into_output().unwrap();
         assert_eq!(List(vec![KW(DropIndex), Id { start: 11, end: 14 }]), ast);
 
-        let src = "CREATE VIEW foo AS SELECT 1";
+        let src = "CREATE TEMP VIEW foo AS SELECT 1";
         let ast = sql_ast_parser_no_errors().parse(src).into_output().unwrap();
         assert_eq!(
             List(vec![
                 KW(CreateView),
-                Id { start: 12, end: 15 },
+                Id { start: 17, end: 20 },
                 List(vec![KW(Select), List(vec![List(vec![Integer(1)])])])
             ]),
             ast

@@ -18,6 +18,7 @@ typedef enum Keyword {
   Ne,
   Is,
   In,
+  InQuery,
   Between,
   Like,
   Case,

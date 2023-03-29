@@ -35,12 +35,13 @@
   :<>
   :is
   :in
+  :in-query
   :between
   :like
   :case
-  :else
   :exists
   :scalar-subquery
+  :else
   :+
   :-
   :*
@@ -64,8 +65,8 @@
   :cast
   :asc
   :desc
-  :all
   :distinct
+  :all
   :true
   :false
   :null

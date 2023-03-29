@@ -53,8 +53,14 @@ where
     ))
     .map(KW);
 
-    choice((number, binary, string, boolean, id_ast_parser_no_pad()))
-        .then_ignore(text::whitespace())
+    let col_ref = text::ident()
+        .then(just('.').then(text::ident()).or_not())
+        .map_with_span(|_, span: SimpleSpan<_>| Id {
+            start: span.start() as i32,
+            end: span.end() as i32,
+        });
+
+    choice((number, binary, string, boolean, col_ref)).then_ignore(text::whitespace())
 }
 
 pub fn expr_ast_parser<'input, E>(
@@ -73,6 +79,7 @@ where
 
         let id = id_ast_parser_no_pad().then_ignore(text::whitespace());
 
+        let opt_expr_list = expr.clone().separated_by(pad(',')).collect().map(List);
         let expr_list = expr
             .clone()
             .separated_by(pad(','))
@@ -92,7 +99,7 @@ where
                     .delimited_by(pad('('), pad(')')),
             )
             .map(|distinct| {
-                let mut acc = vec![KW(AggregateFunction), KW(CountStar)];
+                let mut acc = vec![KW(AggregateFunction), KW(CountStar), List(vec![])];
                 add_clause(&mut acc, Distinct, distinct);
                 List(acc)
             });
@@ -134,6 +141,7 @@ where
         let case = kw("CASE")
             .ignore_then(
                 expr.clone()
+                    .and_is(kw("WHEN").not())
                     .or_not()
                     .then(
                         kw("WHEN")
@@ -172,7 +180,7 @@ where
 
         let function = id
             .clone()
-            .then(expr_list.clone().delimited_by(pad('('), pad(')')))
+            .then(opt_expr_list.clone().delimited_by(pad('('), pad(')')))
             .map(|(f, exprs)| List(vec![KW(Function), f, exprs]));
 
         let scalar_subquery = subquery
@@ -219,10 +227,10 @@ where
 
         let comp = shift.clone().foldl(
             choice((
-                pad('<').to(Lt),
                 pad("<=").to(Le),
-                pad('>').to(Gt),
+                pad('<').to(Lt),
                 pad(">=").to(Ge),
+                pad('>').to(Gt),
             ))
             .then(shift)
             .repeated(),
@@ -247,10 +255,12 @@ where
                                 .map(|(lhs, rhs)| List(vec![KW(And), lhs, rhs])),
                         ),
                         kw("LIKE").to(Some(Like)).then(comp.clone()),
-                        kw("IN").to(Some(In)).then(choice((
-                            subquery.clone(),
-                            id.clone(),
-                            expr_list.delimited_by(pad('('), pad(')')),
+                        kw("IN").ignore_then(choice((
+                            subquery.clone().map(|query| (Some(InQuery), query)),
+                            id.clone().map(|id| (Some(InQuery), id)),
+                            opt_expr_list
+                                .delimited_by(pad('('), pad(')'))
+                                .map(|expr_list| (Some(In), expr_list)),
                         ))),
                     ))),
                 ))
@@ -270,9 +280,10 @@ where
                             _ => acc,
                         }
                     }
-                    (None, Some(op)) => List(vec![KW(op), lhs, rhs]),
-                    (Some(Not), Some(op)) => List(vec![KW(Not), List(vec![KW(op), lhs, rhs])]),
-                    (Some(op), Some(Not)) => List(vec![KW(Not), List(vec![KW(op), lhs, rhs])]),
+                    (None, Some(op)) | (Some(op), None) => List(vec![KW(op), lhs, rhs]),
+                    (Some(Not), Some(op)) | (Some(op), Some(Not)) => {
+                        List(vec![KW(Not), List(vec![KW(op), lhs, rhs])])
+                    }
                     _ => unreachable!(),
                 },
             )
