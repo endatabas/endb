@@ -375,7 +375,7 @@ where
                     (None, Some(op)) => List(vec![KW(op), lhs, rhs]),
                     (Some(Not), Some(op)) => List(vec![KW(Not), List(vec![KW(op), lhs, rhs])]),
                     (Some(op), Some(Not)) => List(vec![KW(Not), List(vec![KW(op), lhs, rhs])]),
-                    _ => unreachable!(""),
+                    _ => unreachable!(),
                 },
             )
             .boxed();
@@ -656,7 +656,7 @@ where
             |((query, order_by), limit_offset)| {
                 let mut acc = match query {
                     List(x) => x,
-                    _ => unreachable!(""),
+                    _ => unreachable!(),
                 };
 
                 add_clause(&mut acc, OrderBy, order_by);
