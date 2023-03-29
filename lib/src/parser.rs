@@ -1,4 +1,5 @@
 use ariadne::{Color, Label, Report, ReportKind, Source};
+use chumsky::container::OrderedSeq;
 use chumsky::error::Rich;
 use chumsky::extra::{Default, Err, ParserExtra};
 use chumsky::input::{StrInput, ValueInput};
@@ -146,6 +147,16 @@ where
     choice((number, binary, string, boolean, id_ast_parser())).then_ignore(text::whitespace())
 }
 
+fn pad<'input, T, I, E, C>(seq: T) -> impl Parser<'input, I, (), E> + Clone
+where
+    I: StrInput<'input, C>,
+    E: ParserExtra<'input, I>,
+    C: Char,
+    T: OrderedSeq<'input, C> + Clone,
+{
+    just(seq).then_ignore(text::whitespace()).ignored()
+}
+
 fn expr_ast_parser<'input, E>(
     query: impl Parser<'input, &'input str, Ast, E> + Clone + 'input,
 ) -> impl Parser<'input, &'input str, Ast, E> + Clone
@@ -156,8 +167,6 @@ where
     use Keyword::*;
 
     recursive(|expr| {
-        let pad = |c| just(c).then_ignore(text::whitespace()).ignored();
-        let pad_str = |c| just(c).then_ignore(text::whitespace()).ignored();
         let unary_op = |op, rhs| List(vec![KW(op), rhs]);
         let bin_op = |lhs, (op, rhs)| List(vec![KW(op), lhs, rhs]);
 
@@ -303,7 +312,7 @@ where
         );
 
         let shift = add.clone().foldl(
-            choice((pad_str("<<").to(Lsh), pad_str(">>").to(Rsh)))
+            choice((pad("<<").to(Lsh), pad(">>").to(Rsh)))
                 .then(add)
                 .repeated(),
             bin_op,
@@ -312,9 +321,9 @@ where
         let comp = shift.clone().foldl(
             choice((
                 pad('<').to(Lt),
-                pad_str("<=").to(Le),
+                pad("<=").to(Le),
                 pad('>').to(Gt),
-                pad_str(">=").to(Ge),
+                pad(">=").to(Ge),
             ))
             .then(shift)
             .repeated(),
@@ -325,7 +334,7 @@ where
             .clone()
             .foldl(
                 choice((
-                    choice((pad('=').to(Some(Eq)), pad_str("<>").to(Some(Ne))))
+                    choice((pad('=').to(Some(Eq)), pad("<>").to(Some(Ne))))
                         .then(comp.clone())
                         .map(|x| (None, x)),
                     kw("IS")
@@ -394,8 +403,6 @@ where
 {
     use Ast::*;
     use Keyword::*;
-
-    let pad = |c| just(c).then_ignore(text::whitespace()).ignored();
 
     let id = id_ast_parser().then_ignore(text::whitespace());
 
