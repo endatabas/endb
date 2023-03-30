@@ -439,661 +439,897 @@ pub fn parse_errors_to_string(src: &str, errs: Vec<Rich<char>>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        parser::ast::Ast, parser::ast::Ast::*, parser::ast::Keyword::*,
-        sql_parser::sql_ast_parser_no_errors,
-    };
+    use crate::{parser::ast::Ast, sql_parser::sql_ast_parser_with_errors};
     use chumsky::Parser;
+    use insta::assert_yaml_snapshot;
 
-    fn parse(src: &str) -> Ast {
-        match sql_ast_parser_no_errors().parse(src).into_result() {
-            Ok(ast) => ast,
-            Err(_) => List(vec![]),
+    fn parse(src: &str) -> Result<Ast, Vec<String>> {
+        match sql_ast_parser_with_errors().parse(src).into_result() {
+            Ok(ast) => Ok(ast),
+            Err(errors) => Err(errors.into_iter().map(|e| e.to_string()).collect()),
         }
     }
 
     #[test]
     fn identifier_expr() {
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![Id { start: 7, end: 10 }])])
-            ]),
-            parse("SELECT foo")
-        );
+        assert_yaml_snapshot!(parse("SELECT foo"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Id:
+                        start: 7
+                        end: 10
+        "###);
 
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![Id { start: 7, end: 10 }])])
-            ]),
-            parse("SELECT x.y")
-        );
+        assert_yaml_snapshot!(parse("SELECT x.y"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Id:
+                        start: 7
+                        end: 10
+        "###)
     }
 
     #[test]
     fn number_expr() {
-        assert_eq!(
-            List(vec![KW(Select), List(vec![List(vec![Integer(2)])])]),
-            parse("SELECT 2")
-        );
+        assert_yaml_snapshot!(parse("SELECT 2"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Integer: 2
+        "###);
     }
 
     #[test]
     fn operator_expr() {
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![List(vec![
-                    KW(Lt),
-                    Integer(2),
-                    Id { start: 11, end: 12 }
-                ])])])
-            ]),
-            parse("SELECT 2 < x")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![List(vec![KW(Gt), Integer(3), Float(2.1)])])])
-            ]),
-            parse("SELECT 3 > 2.1")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![List(vec![
-                    KW(Ge),
-                    Id { start: 7, end: 8 },
-                    Id { start: 10, end: 11 }
-                ])])])
-            ]),
-            parse("SELECT x>=y")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![List(vec![
-                    KW(Ne),
-                    Id { start: 7, end: 8 },
-                    Id { start: 10, end: 11 }
-                ])])])
-            ]),
-            parse("SELECT x<>y")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![List(vec![
-                    KW(And),
-                    Id { start: 7, end: 8 },
-                    Id { start: 13, end: 14 }
-                ])])])
-            ]),
-            parse("SELECT x AND y")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![List(vec![
-                    KW(And),
-                    Id { start: 7, end: 8 },
-                    Id { start: 13, end: 14 }
-                ])])])
-            ]),
-            parse("SELECT x and y")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![List(vec![
-                    KW(Not),
-                    List(vec![
-                        KW(Is),
-                        Id { start: 7, end: 8 },
-                        Id { start: 16, end: 17 }
-                    ])
-                ])])])
-            ]),
-            parse("SELECT x IS NOT y")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![List(vec![
-                    KW(Is),
-                    Id { start: 7, end: 8 },
-                    Id { start: 12, end: 13 }
-                ])])])
-            ]),
-            parse("SELECT x IS y")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![List(vec![
-                    KW(Between),
-                    Id { start: 7, end: 8 },
-                    Id { start: 17, end: 18 },
-                    Integer(2)
-                ])])])
-            ]),
-            parse("SELECT x BETWEEN y AND 2")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![List(vec![
-                    KW(Not),
-                    List(vec![
-                        KW(Between),
-                        Id { start: 7, end: 8 },
-                        Id { start: 21, end: 22 },
-                        Integer(2)
-                    ])
-                ])])])
-            ]),
-            parse("SELECT x NOT BETWEEN y AND 2")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![List(vec![
-                    KW(Not),
-                    List(vec![KW(Is), Id { start: 7, end: 8 }, KW(Null)])
-                ])])])
-            ]),
-            parse("SELECT x NOT NULL")
-        );
+        assert_yaml_snapshot!(parse("SELECT 2 < x"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Lt
+                        - Integer: 2
+                        - Id:
+                            start: 11
+                            end: 12
+        "###);
+        assert_yaml_snapshot!(parse("SELECT 3 > 2.1"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Gt
+                        - Integer: 3
+                        - Float: 2.1
+        "###);
+        assert_yaml_snapshot!(parse("SELECT x>=y"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Ge
+                        - Id:
+                            start: 7
+                            end: 8
+                        - Id:
+                            start: 10
+                            end: 11
+        "###);
+        assert_yaml_snapshot!(parse("SELECT x<>y"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Ne
+                        - Id:
+                            start: 7
+                            end: 8
+                        - Id:
+                            start: 10
+                            end: 11
+        "###);
+        assert_yaml_snapshot!(parse("SELECT x AND y"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: And
+                        - Id:
+                            start: 7
+                            end: 8
+                        - Id:
+                            start: 13
+                            end: 14
+        "###);
+        assert_yaml_snapshot!(parse("SELECT x and y"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: And
+                        - Id:
+                            start: 7
+                            end: 8
+                        - Id:
+                            start: 13
+                            end: 14
+        "###);
+        assert_yaml_snapshot!(parse("SELECT x IS NOT y"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Not
+                        - List:
+                            - KW: Is
+                            - Id:
+                                start: 7
+                                end: 8
+                            - Id:
+                                start: 16
+                                end: 17
+        "###);
+        assert_yaml_snapshot!(parse("SELECT x IS y"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Is
+                        - Id:
+                            start: 7
+                            end: 8
+                        - Id:
+                            start: 12
+                            end: 13
+        "###);
+        assert_yaml_snapshot!(parse("SELECT x BETWEEN y AND 2"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Between
+                        - Id:
+                            start: 7
+                            end: 8
+                        - Id:
+                            start: 17
+                            end: 18
+                        - Integer: 2
+        "###);
+        assert_yaml_snapshot!(parse("SELECT x NOT BETWEEN y AND 2"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Not
+                        - List:
+                            - KW: Between
+                            - Id:
+                                start: 7
+                                end: 8
+                            - Id:
+                                start: 21
+                                end: 22
+                            - Integer: 2
+        "###);
+        assert_yaml_snapshot!(parse("SELECT x NOT NULL"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Not
+                        - List:
+                            - KW: Is
+                            - Id:
+                                start: 7
+                                end: 8
+                            - KW: "Null"
+        "###);
     }
 
     #[test]
     fn case_expr() {
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![List(vec![
-                    KW(Case),
-                    List(vec![List(vec![Integer(2), Integer(1)])])
-                ])])])
-            ]),
-            parse("SELECT CASE WHEN 2 THEN 1 END")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![List(vec![
-                    KW(Case),
-                    Integer(3),
-                    List(vec![List(vec![Integer(2), Integer(1)])])
-                ])])])
-            ]),
-            parse("SELECT CASE 3 WHEN 2 THEN 1 END")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![List(vec![
-                    KW(Case),
-                    List(vec![
-                        List(vec![Integer(2), Integer(1)]),
-                        List(vec![KW(Else), Integer(0)])
-                    ])
-                ])])])
-            ]),
-            parse("SELECT CASE WHEN 2 THEN 1 ELSE 0 END")
-        );
+        assert_yaml_snapshot!(parse("SELECT CASE WHEN 2 THEN 1 END"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Case
+                        - List:
+                            - List:
+                                - Integer: 2
+                                - Integer: 1
+        "###);
+        assert_yaml_snapshot!(parse("SELECT CASE 3 WHEN 2 THEN 1 END"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Case
+                        - Integer: 3
+                        - List:
+                            - List:
+                                - Integer: 2
+                                - Integer: 1
+        "###);
+        assert_yaml_snapshot!(parse("SELECT CASE WHEN 2 THEN 1 ELSE 0 END"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Case
+                        - List:
+                            - List:
+                                - Integer: 2
+                                - Integer: 1
+                            - List:
+                                - KW: Else
+                                - Integer: 0
+        "###);
     }
 
     #[test]
     fn string_expr() {
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![String { start: 8, end: 11 }])])
-            ]),
-            parse("SELECT 'foo'")
-        );
+        assert_yaml_snapshot!(parse("SELECT 'foo'"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - String:
+                        start: 8
+                        end: 11
+        "###);
     }
 
     #[test]
     fn binary_expr() {
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![Binary { start: 9, end: 13 }])])
-            ]),
-            parse("SELECT X'AF01'")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![Binary { start: 9, end: 13 }])])
-            ]),
-            parse("SELECT x'AF01'")
-        );
+        assert_yaml_snapshot!(parse("SELECT X'AF01'"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Binary:
+                        start: 9
+                        end: 13
+        "###);
+        assert_yaml_snapshot!(parse("SELECT x'AF01'"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Binary:
+                        start: 9
+                        end: 13
+        "###);
     }
 
     #[test]
     fn function_expr() {
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![List(vec![
-                    KW(Function),
-                    Id { start: 7, end: 10 },
-                    List(vec![Integer(2), Id { start: 14, end: 15 }])
-                ])])])
-            ]),
-            parse("SELECT foo(2, y)")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![List(vec![
-                    KW(AggregateFunction),
-                    KW(Count),
-                    List(vec![Id { start: 13, end: 14 }])
-                ])])])
-            ]),
-            parse("SELECT count(y)")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![List(vec![
-                    KW(AggregateFunction),
-                    KW(Total),
-                    List(vec![Id { start: 13, end: 14 }])
-                ])])])
-            ]),
-            parse("SELECT TOTAL(y)")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![List(vec![
-                    KW(AggregateFunction),
-                    KW(GroupConcat),
-                    List(vec![
-                        Id { start: 29, end: 30 },
-                        String { start: 33, end: 34 }
-                    ]),
-                    KW(Distinct),
-                    KW(Distinct)
-                ])])])
-            ]),
-            parse("SELECT group_concat(DISTINCT y, ':')")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![List(vec![
-                    KW(AggregateFunction),
-                    KW(CountStar),
-                    List(vec![])
-                ])])])
-            ]),
-            parse("SELECT count(*)")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![List(vec![
-                    KW(Cast),
-                    List(vec![KW(Minus), Integer(69)]),
-                    Id { start: 22, end: 29 }
-                ])])])
-            ]),
-            parse("SELECT CAST ( - 69 AS INTEGER )")
-        );
+        assert_yaml_snapshot!(parse("SELECT foo(2, y)"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Function
+                        - Id:
+                            start: 7
+                            end: 10
+                        - List:
+                            - Integer: 2
+                            - Id:
+                                start: 14
+                                end: 15
+        "###);
+        assert_yaml_snapshot!(parse("SELECT count(y)"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: AggregateFunction
+                        - KW: Count
+                        - List:
+                            - Id:
+                                start: 13
+                                end: 14
+        "###);
+        assert_yaml_snapshot!(parse("SELECT TOTAL(y)"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: AggregateFunction
+                        - KW: Total
+                        - List:
+                            - Id:
+                                start: 13
+                                end: 14
+        "###);
+        assert_yaml_snapshot!(parse("SELECT group_concat(DISTINCT y, ':'"), @r###"
+        ---
+        Err:
+          - "found ''' expected '*', '/', '%', '+', '-', '<', '>', '=', ',', or ')'"
+        "###);
+        assert_yaml_snapshot!(parse("SELECT count(*)"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: AggregateFunction
+                        - KW: CountStar
+                        - List: []
+        "###);
+        assert_yaml_snapshot!(parse("SELECT CAST ( - 69 AS INTEGER )"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Cast
+                        - List:
+                            - KW: Minus
+                            - Integer: 69
+                        - Id:
+                            start: 22
+                            end: 29
+        "###);
     }
 
     #[test]
     fn error() {
-        let src = "SELECT x 2";
-        let result = sql_ast_parser_no_errors()
-            .then_ignore(chumsky::prelude::end())
-            .parse(src);
-        assert_eq!(1, result.into_errors().len());
+        assert_yaml_snapshot!(parse("SELECT x 2"), @r###"
+        ---
+        Err:
+          - "found end of input expected '(', '*', '/', '%', '+', '-', '<', '>', '=', ',', or ';'"
+        "###);
     }
 
     #[test]
     fn simple_select() {
-        assert_eq!(
-            List(vec![KW(Select), List(vec![List(vec![Integer(123)])])]),
-            parse("SELECT 123")
-        );
-
-        assert_eq!(
-            List(vec![KW(Select), List(vec![List(vec![KW(Mul)])])]),
-            parse("SELECT *")
-        );
+        assert_yaml_snapshot!(parse("SELECT 123"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Integer: 123
+        "###);
+        assert_yaml_snapshot!(parse("SELECT *"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - KW: Mul
+        "###);
     }
+
     #[test]
     fn select_as() {
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![
-                    List(vec![Integer(1), Id { start: 12, end: 13 }]),
-                    List(vec![Integer(2), Id { start: 17, end: 18 }])
-                ]),
-                KW(From),
-                List(vec![
-                    List(vec![Id { start: 24, end: 25 }]),
-                    List(vec![Id { start: 27, end: 28 }, Id { start: 32, end: 35 }]),
-                    List(vec![
-                        List(vec![
-                            KW(Select),
-                            List(vec![List(vec![Id { start: 45, end: 48 }])])
-                        ]),
-                        Id { start: 50, end: 53 }
-                    ])
-                ]),
-                KW(Where),
-                KW(False)
-            ]),
-            parse("SELECT 1 AS x, 2 y FROM z, w AS foo, (SELECT bar) baz WHERE FALSE")
-        );
-
-        let src = "SELECT 1 AS from";
-        assert_eq!(false, sql_ast_parser_no_errors().parse(src).has_errors());
-
-        let src = "SELECT 1 from";
-        assert_eq!(true, sql_ast_parser_no_errors().parse(src).has_errors());
+        assert_yaml_snapshot!(parse("SELECT 1 AS x, 2 y FROM z, w AS foo, (SELECT bar) baz WHERE FALSE"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Integer: 1
+                    - Id:
+                        start: 12
+                        end: 13
+                - List:
+                    - Integer: 2
+                    - Id:
+                        start: 17
+                        end: 18
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 24
+                        end: 25
+                - List:
+                    - Id:
+                        start: 27
+                        end: 28
+                    - Id:
+                        start: 32
+                        end: 35
+                - List:
+                    - List:
+                        - KW: Select
+                        - List:
+                            - List:
+                                - Id:
+                                    start: 45
+                                    end: 48
+                    - Id:
+                        start: 50
+                        end: 53
+            - KW: Where
+            - KW: "False"
+        "###);
+        assert_yaml_snapshot!(parse("SELECT 1 AS from"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Integer: 1
+                    - Id:
+                        start: 12
+                        end: 16
+        "###);
+        assert_yaml_snapshot!(parse("SELECT 1 from"), @r###"
+        ---
+        Err:
+          - "found end of input expected '('"
+        "###);
     }
 
     #[test]
     fn select() {
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![
-                    List(vec![Id { start: 7, end: 8 }]),
-                    List(vec![Id { start: 10, end: 11 }]),
-                    List(vec![Integer(123)]),
-                    List(vec![List(vec![
-                        KW(Function),
-                        Id { start: 18, end: 24 },
-                        List(vec![Id { start: 25, end: 26 }])
-                    ])])
-                ]),
-                KW(From),
-                List(vec![List(vec![Id { start: 33, end: 40 }])]),
-                KW(Where),
-                List(vec![
-                    KW(And),
-                    List(vec![
-                        KW(Gt),
-                        Id { start: 47, end: 48 },
-                        Id { start: 51, end: 52 }
-                    ]),
-                    List(vec![KW(Lt), Id { start: 57, end: 58 }, Integer(100)])
-                ]),
-                KW(OrderBy),
-                List(vec![
-                    List(vec![Id { start: 74, end: 75 }, KW(Desc)]),
-                    List(vec![Id { start: 82, end: 83 }, KW(Asc)])
-                ])
-            ]),
-            parse("SELECT a, b, 123, myfunc(b) FROM table_1 WHERE a > b AND b < 100 ORDER BY a DESC, b")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![Integer(1)])]),
-                KW(From),
-                List(vec![
-                    List(vec![Id { start: 14, end: 15 }]),
-                    List(vec![Id { start: 27, end: 28 }])
-                ])
-            ]),
-            parse("SELECT 1 FROM x CROSS JOIN y")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![Integer(1)])]),
-                KW(From),
-                List(vec![List(vec![
-                    KW(Join),
-                    List(vec![Id { start: 15, end: 16 }]),
-                    List(vec![Id { start: 28, end: 29 }]),
-                    KW(On),
-                    KW(True),
-                    KW(Type),
-                    KW(Inner)
-                ])])
-            ]),
-            parse("SELECT 1 FROM (x CROSS JOIN y)")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![Integer(1)])]),
-                KW(From),
-                List(vec![List(vec![
-                    KW(Join),
-                    List(vec![Id { start: 14, end: 15 }]),
-                    List(vec![Id { start: 26, end: 27 }]),
-                    KW(On),
-                    KW(True),
-                    KW(Type),
-                    KW(Left)
-                ])])
-            ]),
-            parse("SELECT 1 FROM x LEFT JOIN y ON TRUE")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Union),
-                List(vec![
-                    KW(Intersect),
-                    List(vec![KW(Select), List(vec![List(vec![Integer(1)])])]),
-                    List(vec![KW(Select), List(vec![List(vec![Integer(2)])])])
-                ]),
-                List(vec![KW(Select), List(vec![List(vec![Integer(3)])])])
-            ]),
-            parse("SELECT 1 INTERSECT SELECT 2 UNION SELECT 3")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Values),
-                List(vec![
-                    List(vec![Integer(1), Integer(2)]),
-                    List(vec![Integer(3), Integer(4)])
-                ])
-            ]),
-            parse("VALUES (1, 2), (3, 4)")
-        );
+        assert_yaml_snapshot!(parse("SELECT a, b, 123, myfunc(b) FROM table_1 WHERE a > b AND b < 100 ORDER BY a DESC, b"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Id:
+                        start: 7
+                        end: 8
+                - List:
+                    - Id:
+                        start: 10
+                        end: 11
+                - List:
+                    - Integer: 123
+                - List:
+                    - List:
+                        - KW: Function
+                        - Id:
+                            start: 18
+                            end: 24
+                        - List:
+                            - Id:
+                                start: 25
+                                end: 26
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 33
+                        end: 40
+            - KW: Where
+            - List:
+                - KW: And
+                - List:
+                    - KW: Gt
+                    - Id:
+                        start: 47
+                        end: 48
+                    - Id:
+                        start: 51
+                        end: 52
+                - List:
+                    - KW: Lt
+                    - Id:
+                        start: 57
+                        end: 58
+                    - Integer: 100
+            - KW: OrderBy
+            - List:
+                - List:
+                    - Id:
+                        start: 74
+                        end: 75
+                    - KW: Desc
+                - List:
+                    - Id:
+                        start: 82
+                        end: 83
+                    - KW: Asc
+        "###);
+        assert_yaml_snapshot!(parse("SELECT 1 FROM x CROSS JOIN y"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Integer: 1
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 14
+                        end: 15
+                - List:
+                    - Id:
+                        start: 27
+                        end: 28
+        "###);
+        assert_yaml_snapshot!(parse("SELECT 1 FROM (x CROSS JOIN y)"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Integer: 1
+            - KW: From
+            - List:
+                - List:
+                    - KW: Join
+                    - List:
+                        - Id:
+                            start: 15
+                            end: 16
+                    - List:
+                        - Id:
+                            start: 28
+                            end: 29
+                    - KW: "On"
+                    - KW: "True"
+                    - KW: Type
+                    - KW: Inner
+        "###);
+        assert_yaml_snapshot!(parse("SELECT 1 FROM x LEFT JOIN y ON TRUE)"), @r###"
+        ---
+        Err:
+          - "found end of input expected '(', '*', '/', '%', '+', '-', '<', '>', '=', ',', or ';'"
+        "###);
+        assert_yaml_snapshot!(parse("SELECT 1 INTERSECT SELECT 2 UNION SELECT 3"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Union
+            - List:
+                - KW: Intersect
+                - List:
+                    - KW: Select
+                    - List:
+                        - List:
+                            - Integer: 1
+                - List:
+                    - KW: Select
+                    - List:
+                        - List:
+                            - Integer: 2
+            - List:
+                - KW: Select
+                - List:
+                    - List:
+                        - Integer: 3
+        "###);
+        assert_yaml_snapshot!(parse("VALUES (1, 2), (3, 4)"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Values
+            - List:
+                - List:
+                    - Integer: 1
+                    - Integer: 2
+                - List:
+                    - Integer: 3
+                    - Integer: 4
+        "###);
     }
 
     #[test]
     fn group_by_having() {
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![Integer(1)])]),
-                KW(From),
-                List(vec![List(vec![Id { start: 14, end: 15 }])]),
-                KW(GroupBy),
-                List(vec![Id { start: 25, end: 26 }]),
-                KW(Having),
-                KW(True)
-            ]),
-            parse("SELECT 1 FROM x GROUP BY y HAVING TRUE")
-        );
+        assert_yaml_snapshot!(parse("SELECT 1 FROM x GROUP BY y HAVING TRUE"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Integer: 1
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 14
+                        end: 15
+            - KW: GroupBy
+            - List:
+                - Id:
+                    start: 25
+                    end: 26
+            - KW: Having
+            - KW: "True"
+        "###);
     }
 
     #[test]
     fn select_distinct() {
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![Integer(1)])]),
-                KW(Distinct),
-                KW(Distinct),
-                KW(From),
-                List(vec![List(vec![Id { start: 23, end: 24 }])])
-            ]),
-            parse("SELECT DISTINCT 1 FROM x")
-        );
+        assert_yaml_snapshot!(parse("SELECT DISTINCT 1 FROM x"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Integer: 1
+            - KW: Distinct
+            - KW: Distinct
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 23
+                        end: 24
+        "###);
     }
 
     #[test]
     fn select_limit_offset() {
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![Integer(1)])]),
-                KW(From),
-                List(vec![List(vec![Id { start: 14, end: 15 }])]),
-                KW(Limit),
-                Integer(1),
-                KW(Offset),
-                Integer(2)
-            ]),
-            parse("SELECT 1 FROM x LIMIT 1 OFFSET 2")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![Integer(1)])]),
-                KW(From),
-                List(vec![List(vec![Id { start: 14, end: 15 }])]),
-                KW(Limit),
-                Integer(1),
-                KW(Offset),
-                Integer(2)
-            ]),
-            parse("SELECT 1 FROM x LIMIT 1, 2")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Select),
-                List(vec![List(vec![Integer(1)])]),
-                KW(From),
-                List(vec![List(vec![Id { start: 14, end: 15 }])]),
-                KW(Limit),
-                Integer(1),
-            ]),
-            parse("SELECT 1 FROM x LIMIT 1")
-        );
+        assert_yaml_snapshot!(parse("SELECT 1 FROM x LIMIT 1 OFFSET 2"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Integer: 1
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 14
+                        end: 15
+            - KW: Limit
+            - Integer: 1
+            - KW: Offset
+            - Integer: 2
+        "###);
+        assert_yaml_snapshot!(parse("SELECT 1 FROM x LIMIT 1, 2"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Integer: 1
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 14
+                        end: 15
+            - KW: Limit
+            - Integer: 1
+            - KW: Offset
+            - Integer: 2
+        "###);
+        assert_yaml_snapshot!(parse("SELECT 1 FROM x LIMIT 1"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Integer: 1
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 14
+                        end: 15
+            - KW: Limit
+            - Integer: 1
+        "###);
     }
 
     #[test]
     fn dml() {
-        assert_eq!(
-            List(vec![
-                KW(Insert),
-                Id { start: 12, end: 15 },
-                List(vec![
-                    KW(Values),
-                    List(vec![List(vec![Integer(1)]), List(vec![Integer(2)])])
-                ]),
-                KW(ColumnNames),
-                List(vec![Id { start: 17, end: 18 }])
-            ]),
-            parse("INSERT INTO foo (x) VALUES (1), (2)")
-        );
-
-        assert_eq!(
-            List(vec![KW(Delete), Id { start: 12, end: 15 }, KW(False)]),
-            parse("DELETE FROM foo WHERE FALSE")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(Update),
-                Id { start: 7, end: 10 },
-                List(vec![
-                    List(vec![Id { start: 15, end: 16 }, Integer(1)]),
-                    List(vec![Id { start: 22, end: 23 }, Integer(2)])
-                ]),
-                KW(Where),
-                KW(Null)
-            ]),
-            parse("UPDATE foo SET x = 1, y = 2 WHERE NULL")
-        );
+        assert_yaml_snapshot!(parse("INSERT INTO foo (x) VALUES (1), (2)"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Insert
+            - Id:
+                start: 12
+                end: 15
+            - List:
+                - KW: Values
+                - List:
+                    - List:
+                        - Integer: 1
+                    - List:
+                        - Integer: 2
+            - KW: ColumnNames
+            - List:
+                - Id:
+                    start: 17
+                    end: 18
+        "###);
+        assert_yaml_snapshot!(parse("DELETE FROM foo WHERE FALSE"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Delete
+            - Id:
+                start: 12
+                end: 15
+            - KW: "False"
+        "###);
+        assert_yaml_snapshot!(parse("UPDATE foo SET x = 1, y = 2 WHERE NULL"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Update
+            - Id:
+                start: 7
+                end: 10
+            - List:
+                - List:
+                    - Id:
+                        start: 15
+                        end: 16
+                    - Integer: 1
+                - List:
+                    - Id:
+                        start: 22
+                        end: 23
+                    - Integer: 2
+            - KW: Where
+            - KW: "Null"
+        "###);
     }
 
     #[test]
     fn ddl() {
-        assert_eq!(
-            List(vec![
-                KW(CreateIndex),
-                Id { start: 20, end: 23 },
-                Id { start: 27, end: 29 }
-            ]),
-            parse("CREATE UNIQUE INDEX foo ON t1(a1,b1)")
-        );
-
-        assert_eq!(
-            List(vec![KW(DropIndex), Id { start: 11, end: 14 }]),
-            parse("DROP INDEX foo")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(CreateView),
-                Id { start: 17, end: 20 },
-                List(vec![KW(Select), List(vec![List(vec![Integer(1)])])])
-            ]),
-            parse("CREATE TEMP VIEW foo AS SELECT 1")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(DropView),
-                Id { start: 20, end: 23 },
-                KW(IfExists),
-                KW(IfExists)
-            ]),
-            parse("DROP VIEW IF EXISTS foo")
-        );
-
-        assert_eq!(
-            List(vec![
-                KW(CreateTable),
-                Id { start: 13, end: 15 },
-                List(vec![
-                    Id { start: 16, end: 18 },
-                    Id { start: 40, end: 42 },
-                    Id { start: 52, end: 54 }
-                ])
-            ]),
-            parse("CREATE TABLE t1(a1 INTEGER PRIMARY KEY, b1 INTEGER, x1 VARCHAR(40), FOREIGN KEY (y1) REFERENCES t2(z1), PRIMARY KEY(a1, b2))")
-        );
-
-        assert_eq!(
-            List(vec![KW(DropTable), Id { start: 11, end: 14 }]),
-            parse("DROP TABLE foo")
-        );
+        assert_yaml_snapshot!(parse("CREATE UNIQUE INDEX foo ON t1(a1,b1)"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: CreateIndex
+            - Id:
+                start: 20
+                end: 23
+            - Id:
+                start: 27
+                end: 29
+        "###);
+        assert_yaml_snapshot!(parse("DROP INDEX foo"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: DropIndex
+            - Id:
+                start: 11
+                end: 14
+        "###);
+        assert_yaml_snapshot!(parse("CREATE TEMP VIEW foo AS SELECT 1"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: CreateView
+            - Id:
+                start: 17
+                end: 20
+            - List:
+                - KW: Select
+                - List:
+                    - List:
+                        - Integer: 1
+        "###);
+        assert_yaml_snapshot!(parse("DROP VIEW IF EXISTS foo"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: DropView
+            - Id:
+                start: 20
+                end: 23
+            - KW: IfExists
+            - KW: IfExists
+        "###);
+        assert_yaml_snapshot!(parse("CREATE TABLE t1(a1 INTEGER PRIMARY KEY, b1 INTEGER, x1 VARCHAR(40), FOREIGN KEY (y1) REFERENCES t2(z1), PRIMARY KEY(a1, b2))"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: CreateTable
+            - Id:
+                start: 13
+                end: 15
+            - List:
+                - Id:
+                    start: 16
+                    end: 18
+                - Id:
+                    start: 40
+                    end: 42
+                - Id:
+                    start: 52
+                    end: 54
+        "###);
+        assert_yaml_snapshot!(parse("DROP TABLE foo"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: DropTable
+            - Id:
+                start: 11
+                end: 14
+        "###);
     }
 }

@@ -1,4 +1,6 @@
-#[derive(Clone, PartialEq, Debug)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 #[repr(C)]
 pub enum Keyword {
     Select,
@@ -75,7 +77,7 @@ pub enum Keyword {
     DropTable,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 #[repr(C)]
 pub enum Ast {
     List(Vec<Ast>),
