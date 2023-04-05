@@ -7,31 +7,31 @@
   (:import-from :endb/sql))
 (in-package :endb/core)
 
-(defvar *table-column-min-width* 8)
 (defvar *table-column-pad* 2)
 
 (defun %format-row (widths row &optional center)
-  (format nil "|~{ ~A |~}"
+  (format nil "~{~A~^|~}"
           (loop for col in row
                 for width in widths
                 collect (format nil (cond
-                                      (center "~V:@<~A~>")
-                                      ((numberp col)
-                                       "~V@S")
-                                      (t "~VS"))
-                                width col))))
+                                      (center " ~V:@<~A~>")
+                                      ((numberp col) "~V:@A ")
+                                      (t " ~VA"))
+                                (1- width)
+                                (cond
+                                  ((eq :null col) "NULL")
+                                  ((eq t col) "TRUE")
+                                  ((null col) "FALSE")
+                                  (t col))))))
 
 (defun %print-table (columns rows &optional stream)
-  (let* ((strs (loop for row in (cons columns rows)
-                     collect (loop for col in row
-                                   collect (princ-to-string col))))
-         (widths (loop for idx below (length columns)
-                       collect (apply #'max 0
-                                      (loop for col in strs
-                                            collect (+ *table-column-pad* (max *table-column-min-width* (length (nth idx col))))))))
-         (header (%format-row widths columns t)))
-    (format stream "~A~%" header)
-    (format stream "~A~%" (make-string (length header) :initial-element #\-))
+  (let* ((widths (loop for idx below (length columns)
+                       collect (loop for row in (cons columns rows)
+                                     maximize (+ *table-column-pad* (length (format nil "~A" (nth idx row))))))))
+    (format stream "~A~%" (%format-row widths columns t))
+    (format stream "~{~A~^+~}~%"
+            (loop for width in widths
+                  collect (format nil "~v@{~A~:*~}" width "-")))
     (loop for row in rows
           do (format stream "~A~%" (%format-row widths row)))
     (format stream "(~A ~A)~%~%" (length rows) (if (= 1 (length rows))
@@ -51,7 +51,9 @@
             (cond
               ((equal "" trimmed-line))
               ((equal "help" trimmed-line)
-               (format t "\\q   - quits this session.~%help - displays this help.~%~%"))
+               (format t "~:{~8A ~A~%~}~%"
+                       '(("\\q" "quits this session.")
+                         ("help" "displays this help."))))
               ((equal "\\q" trimmed-line) (uiop:quit 0))
               (t (multiple-value-bind (result result-code)
                      (endb/sql:execute-sql db line)
