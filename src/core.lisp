@@ -34,9 +34,7 @@
                   collect (format nil "~v@{~A~:*~}" width "-")))
     (loop for row in rows
           do (format stream "~A~%" (%format-row widths row)))
-    (format stream "(~A ~A)~%~%" (length rows) (if (= 1 (length rows))
-                                                   "row"
-                                                   "rows"))))
+    (format stream "(~D row~:P)~%~%" (length rows))))
 
 (defun %repl ()
   (let ((db (endb/sql:create-db)))
