@@ -33,48 +33,57 @@
     (format stream "~A~%" header)
     (format stream "~A~%" (make-string (length header) :initial-element #\-))
     (loop for row in rows
-          do (format stream "~A~%" (%format-row widths row)))))
+          do (format stream "~A~%" (%format-row widths row)))
+    (format stream "(~A ~A)~%~%" (length rows) (if (= 1 (length rows))
+                                                   "row"
+                                                   "rows"))))
 
 (defun %repl ()
   (let ((db (endb/sql:create-db)))
     (loop
       (finish-output)
-      (format t "-> ")
-      (finish-output)
+      (when (interactive-stream-p *standard-input*)
+        (format t "-> ")
+        (finish-output))
       (handler-case
           (let* ((line (read-line))
                  (trimmed-line (string-trim " " line)))
             (cond
               ((equal "" trimmed-line))
+              ((equal "help" trimmed-line)
+               (format t "\\q   - quits this session.~%help - displays this help.~%~%"))
               ((equal "\\q" trimmed-line) (uiop:quit 0))
               (t (multiple-value-bind (result result-code)
                      (endb/sql:execute-sql db line)
                    (cond
                      (result (progn
-                               (%print-table result-code result t)
-                               (format t "(~A ~A)~%~%" (length result) (if (= 1 (length result))
-                                                                           "row"
-                                                                           "rows"))))
+                               (%print-table result-code result t)))
                      (result-code (format t "~A~%" result-code))
-                     (t (format t "error~%")))))))
+                     (t (format *error-output* "error~%~%")))))))
         (end-of-file (e)
           (declare (ignore e))
-          (format t "~%")
-          (uiop:quit 1))
+          (if (interactive-stream-p *standard-input*)
+              (progn
+                (format *error-output* "~%")
+                (uiop:quit 1))
+              (uiop:quit 0)))
         #+sbcl (sb-sys:interactive-interrupt (e)
                  (declare (ignore e))
-                 (format t "~%")
+                 (format *error-output* "~%")
                  (uiop:quit 1))
         (error (e)
-          (format t "~A~%" e))))))
+          (format *error-output* "~A~%~%" e)
+          (unless (interactive-stream-p *standard-input*)
+            (uiop:quit 1)))))))
 
 (defun %main (args)
   (declare (ignore args))
   (let ((endb-system (asdf:find-system :endb)))
-    (format t
-            "~A ~A~%"
-            (asdf:component-name endb-system)
-            (asdf:component-version endb-system))
+    (when (interactive-stream-p *standard-input*)
+      (format t
+              "~A ~A~%Type \"help\" for help.~%~%"
+              (asdf:component-name endb-system)
+              (asdf:component-version endb-system)))
     (%repl)))
 
 (defun main ()
