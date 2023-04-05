@@ -9,6 +9,13 @@
 
 (defvar *table-column-pad* 2)
 
+(defun %format-column (col)
+  (format nil "~A" (cond
+                     ((eq :null col) "NULL")
+                     ((eq t col) "TRUE")
+                     ((null col) "FALSE")
+                     (t col))))
+
 (defun %format-row (widths row &optional center)
   (format nil "~{~A~^|~}"
           (loop for col in row
@@ -18,16 +25,12 @@
                                       ((numberp col) "~V:@A ")
                                       (t " ~VA"))
                                 (1- width)
-                                (cond
-                                  ((eq :null col) "NULL")
-                                  ((eq t col) "TRUE")
-                                  ((null col) "FALSE")
-                                  (t col))))))
+                                (%format-column col)))))
 
 (defun %print-table (columns rows &optional stream)
   (let* ((widths (loop for idx below (length columns)
                        collect (loop for row in (cons columns rows)
-                                     maximize (+ *table-column-pad* (length (format nil "~A" (nth idx row))))))))
+                                     maximize (+ *table-column-pad* (length (%format-column (nth idx row))))))))
     (format stream "~A~%" (%format-row widths columns t))
     (format stream "~{~A~^+~}~%"
             (loop for width in widths
