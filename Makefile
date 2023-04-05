@@ -62,7 +62,7 @@ run:
 	$(LISP) --non-interactive --eval '(ql:quickload :endb :silent t)' --eval '(endb/core:main)'
 
 run-binary: target/endb
-	@./$<
+	@rlwrap ./$<
 
 test: lib-test target/libendb$(SHARED_LIB_EXT)
 	$(LISP) --non-interactive \
