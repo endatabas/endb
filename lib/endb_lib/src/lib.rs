@@ -1,21 +1,13 @@
-pub mod parser;
-
-use chumsky::error::Rich;
-use chumsky::extra::{Default, Err};
-use chumsky::prelude::{Boxed, Parser};
-
 use libc::c_char;
 use std::ffi::{CStr, CString};
 
-use parser::ast::Ast;
-use parser::sql_parser;
+use chumsky::Parser;
+
+pub use endb_parser::parser::ast::Ast;
+use endb_parser::parser::sql_parser;
+use endb_parser::{SQL_AST_PARSER_NO_ERRORS, SQL_AST_PARSER_WITH_ERRORS};
 
 use std::panic;
-
-std::thread_local! {
-    pub static SQL_AST_PARSER_NO_ERRORS: Boxed<'static, 'static, &'static str, Ast, Default> = sql_parser::sql_ast_parser_no_errors().boxed();
-    pub static SQL_AST_PARSER_WITH_ERRORS: Boxed<'static, 'static, &'static str, Ast, Err<Rich<'static, char>>> = sql_parser::sql_ast_parser_with_errors().boxed();
-}
 
 #[no_mangle]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -48,7 +40,7 @@ pub extern "C" fn endb_parse_sql(
             let c_error_str = CString::new(msg.to_string()).unwrap();
             on_error(c_error_str.as_ptr());
         } else {
-            let c_error_str = CString::new("unknown panic!").unwrap();
+            let c_error_str = CString::new("unknown panic!!").unwrap();
             on_error(c_error_str.as_ptr());
         }
     }

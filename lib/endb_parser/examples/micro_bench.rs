@@ -16,9 +16,9 @@ fn main() {
 
     println!("chumsky based parser");
     let now = Instant::now();
-    let mut result = endb::SQL_AST_PARSER_NO_ERRORS.with(|parser| parser.parse(sql));
+    let mut result = endb_parser::SQL_AST_PARSER_NO_ERRORS.with(|parser| parser.parse(sql));
     for _ in 1..(iterations - 1) {
-        endb::SQL_AST_PARSER_NO_ERRORS.with(|parser| {
+        endb_parser::SQL_AST_PARSER_NO_ERRORS.with(|parser| {
             result = parser.parse(sql);
         });
     }

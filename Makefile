@@ -24,7 +24,7 @@ ifeq ($(LIB_PROFILE),dev)
 	LIB_DIR = debug
 endif
 
-LIB_SOURCES = lib/Cargo.toml $(shell find lib/src -iname \*.rs)
+LIB_SOURCES = $(shell find lib/ -iname \*.toml) $(shell find lib/*/src -iname \*.rs)
 
 SLT_SOURCES = sqllogictest.c md5.c sqlite3.c
 SLT_ENGINE = endb

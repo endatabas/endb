@@ -1,0 +1,23 @@
+[package]
+name = "endb_parser"
+
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+chumsky.workspace = true
+ariadne = "0.2.0"
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+insta = { version = "1.29.0", features = ["yaml"] }
+
+[build-dependencies]
+cbindgen = "0.24.3"

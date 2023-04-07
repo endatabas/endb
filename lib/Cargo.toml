@@ -1,5 +1,7 @@
-[package]
-name = "endb"
+[workspace]
+members = ["endb_parser", "endb_lib"]
+
+[workspace.package]
 version = "0.1.0"
 edition = "2021"
 authors = [
@@ -10,22 +12,10 @@ license = "AGPL-3.0-only"
 repository = "https://github.com/endatabase/endb"
 rust-version = "1.68.0"
 
-[lib]
-crate-type = ["rlib", "cdylib"]
+[workspace.dependencies]
+chumsky = "1.0.0-alpha.3"
 
 [profile.release]
 lto = true
 codegen-units = 1
 debug = 1
-
-[dependencies]
-libc = "0.2.0"
-chumsky = "1.0.0-alpha.3"
-ariadne = "0.2.0"
-serde = { version = "1.0", features = ["derive"] }
-
-[dev-dependencies]
-insta = { version = "1.29.0", features = ["yaml"] }
-
-[build-dependencies]
-cbindgen = "0.24.3"
