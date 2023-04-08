@@ -10,11 +10,14 @@
 (defvar *table-column-pad* 2)
 
 (defun %format-column (col)
-  (format nil "~A" (cond
-                     ((eq :null col) "NULL")
-                     ((eq t col) "TRUE")
-                     ((null col) "FALSE")
-                     (t col))))
+  (format nil (if (floatp col)
+                  "~,3f"
+                  "~A")
+          (cond
+            ((eq :null col) "NULL")
+            ((eq t col) "TRUE")
+            ((null col) "FALSE")
+            (t col))))
 
 (defun %format-row (widths row &optional center)
   (format nil "~{~A~^|~}"
