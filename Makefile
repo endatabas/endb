@@ -1,4 +1,4 @@
-LISP ?= sbcl --noinform
+LISP ?= sbcl --noinform --dynamic-space-size 4096
 
 SOURCES = $(shell find src -iname \*.lisp)
 FASL_FILES = $(shell find . -iname \*.fasl)

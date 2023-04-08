@@ -7,7 +7,7 @@
   :depends-on ("endb/core" "cffi" "cl-ppcre" "yacc" "local-time")
   :description "Endatabas"
   :pathname "src"
-  :build-operation "program-op"
+  :build-operation program-op
   :build-pathname "../target/endb"
   :entry-point "endb/core:main"
   :in-order-to ((test-op (test-op "endb-test"))))
