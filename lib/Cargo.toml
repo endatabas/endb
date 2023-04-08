@@ -18,4 +18,3 @@ chumsky = "1.0.0-alpha.3"
 [profile.release]
 lto = true
 codegen-units = 1
-debug = 1
