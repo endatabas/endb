@@ -251,3 +251,49 @@
 ;;    (dotimes (n 100000)
 ;;      (setf acc (parse-sql "SELECT a, b, 123, myfunc(b) FROM table_1 WHERE a > b AND b < 100 ORDER BY a DESC, b")))
 ;;    acc))
+
+(cffi:defbitfield arrow-flags
+  (:dictionary-encoded 1)
+  (:nullable 2)
+  (:map-keys-sorted 4))
+
+(cffi:defcstruct ArrowSchema
+  (format :pointer)
+  (name :pointer)
+  (metadata :pointer)
+  (flags arrow-flags)
+  (n_children :int64)
+  (children (:pointer (:pointer (:struct ArrowSchema))))
+  (dictionary (:pointer (:struct ArrowSchema)))
+  (release :pointer)
+  (private_data :pointer))
+
+(cffi:defcstruct ArrowArray
+  (length :int64)
+  (null_count :int64)
+  (offset :int64)
+  (n_buffers :int64)
+  (n_children :int64)
+  (buffers (:pointer (:pointer :void)))
+  (children (:pointer (:pointer (:struct ArrowArray))))
+  (dictionary (:pointer (:struct ArrowArray)))
+  (release :pointer)
+  (private_data :pointer))
+
+(cffi:defcstruct ArrowArrayStream
+  (get_schema :pointer)
+  (get_next :pointer)
+  (get_last_error :pointer)
+  (release :pointer)
+  (private_data :pointer))
+
+(cffi:defcfun "endb_arrow_array_stream_producer" :void
+  (stream (:pointer (:struct ArrowArrayStream)))
+  (buffer-ptr :pointer)
+  (buffer-size :size)
+  (on-error :pointer))
+
+(cffi:defcfun "endb_arrow_array_stream_consumer" :void
+  (init-stream :pointer)
+  (on-success :pointer)
+  (on-error :pointer))
