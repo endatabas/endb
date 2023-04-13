@@ -2,7 +2,7 @@ use arrow2::array::StructArray;
 use arrow2::chunk::Chunk;
 use arrow2::datatypes::{DataType, Field, Schema};
 use arrow2::ffi;
-pub use arrow2::ffi::{ArrowArray, ArrowArrayStream, ArrowArrayStreamReader, ArrowSchema};
+use arrow2::ffi::{ArrowArrayStream, ArrowArrayStreamReader};
 use arrow2::io::ipc::read;
 use arrow2::io::ipc::write;
 
