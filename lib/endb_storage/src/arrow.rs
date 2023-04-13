@@ -49,3 +49,49 @@ pub fn write_arrow_array_stream_to_ipc_buffer(
     writer.finish()?;
     Ok(writer.into_inner())
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::arrow;
+    use arrow2::array::*;
+    use arrow2::datatypes::{DataType, Field};
+    use arrow2::{error::Result, ffi};
+
+    #[test]
+    fn roundtrip_ipc_buffer_unnests_struct_array() -> Result<()> {
+        let array = Int32Array::from(&[Some(2), None, Some(1), None]);
+        let field = Field::new("a", array.data_type().clone(), true);
+        let array: Box<dyn Array> = Box::new(array);
+        let struct_field = Field::new("", DataType::Struct(vec![field.clone()]), false);
+        let struct_array: Box<dyn Array> = Box::new(StructArray::new(
+            struct_field.data_type().clone(),
+            vec![array],
+            None,
+        ));
+        let struct_arrays = vec![
+            struct_array.clone(),
+            struct_array.clone(),
+            struct_array.clone(),
+        ];
+
+        let iter = Box::new(struct_arrays.clone().into_iter().map(Ok));
+        let mut stream = Box::new(ffi::ArrowArrayStream::empty());
+
+        *stream = ffi::export_iterator(iter, struct_field.clone());
+
+        let buffer = arrow::write_arrow_array_stream_to_ipc_buffer(*stream)?;
+        let stream = arrow::read_arrow_array_stream_from_ipc_buffer(&buffer)?;
+
+        let mut stream = unsafe { ffi::ArrowArrayStreamReader::try_new(Box::new(stream))? };
+
+        let mut produced_arrays: Vec<Box<dyn Array>> = vec![];
+        while let Some(array) = unsafe { stream.next() } {
+            produced_arrays.push(array?);
+        }
+
+        assert_eq!(produced_arrays, struct_arrays);
+        assert_eq!(stream.field(), &struct_field);
+
+        Ok(())
+    }
+}
