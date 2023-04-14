@@ -79,8 +79,9 @@
     array))
 
 (defmethod arrow-get ((array primitive-array) (n fixnum))
-  (when (arrow-valid-p array n)
-    (arrow-value array n)))
+  (with-slots (validity) array
+    (when (= 1 (aref validity n))
+      (arrow-value array n))))
 
 (defmethod arrow-length ((array primitive-array))
   (with-slots (validity) array
