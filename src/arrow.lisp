@@ -60,8 +60,8 @@
           (return new-array)))))
 
 (defclass primitive-array (arrow-array)
-  ((validity :initform (make-array 0 :element-type 'bit :fill-pointer 0) :type bit-vector)
-   (values :type vector)))
+  ((validity :initarg :validity :initform (make-array 0 :element-type 'bit :fill-pointer 0) :type bit-vector)
+   (values :initarg :values :type vector)))
 
 (defmethod arrow-valid-p ((array primitive-array) (n fixnum))
   (with-slots (validity) array
@@ -159,9 +159,9 @@
   "b")
 
 (defclass binary-array (arrow-array)
-  ((validity :initform (make-array 0 :element-type 'bit :fill-pointer 0) :type bit-vector)
-   (offsets :initform (make-array 1 :element-type 'int32 :fill-pointer 1 :initial-element 0) :type (vector int32))
-   (data :initform (make-array 0 :element-type 'uint8 :fill-pointer 0) :type (vector uint8))))
+  ((validity :initarg :validity :initform (make-array 0 :element-type 'bit :fill-pointer 0) :type bit-vector)
+   (offsets :initarg :offsets :initform (make-array 1 :element-type 'int32 :fill-pointer 1 :initial-element 0) :type (vector int32))
+   (data :initarg :data :initform (make-array 0 :element-type 'uint8 :fill-pointer 0) :type (vector uint8))))
 
 (defmethod arrow-valid-p ((array binary-array) (n fixnum))
   (with-slots (validity) array
