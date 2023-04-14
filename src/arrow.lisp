@@ -1,7 +1,13 @@
 (defpackage :endb/arrow
   (:use :cl)
+  (:import-from :local-time)
   (:import-from :trivial-utf-8))
 (in-package :endb/arrow)
+
+(deftype uint8 () '(unsigned-byte 8))
+(deftype int32 () '(signed-byte 32))
+(deftype int64 () '(signed-byte 64))
+(deftype float64 () 'double-float)
 
 (defgeneric arrow-push (array x))
 (defgeneric arrow-push-null (array))
@@ -16,7 +22,12 @@
 
 (defmethod print-object ((obj arrow-array) stream)
   (print-unreadable-object (obj stream :type t)
-    (format stream "~a" (coerce obj 'vector))))
+    (format stream "#(")
+    (dotimes (n (arrow-length obj))
+      (format stream "~a" (arrow-get obj n))
+      (when (< n (1- (arrow-length obj)))
+        (format stream ", ")))
+    (format stream ")")))
 
 (defmethod sequence:elt ((array arrow-array) (n fixnum))
   (arrow-get array n))
@@ -80,7 +91,7 @@
     (count-if #'zerop validity)))
 
 (defclass int64-array (primitive-array)
-  ((values :initform (make-array 0 :element-type '(signed-byte 64) :fill-pointer 0) :type (vector (signed-byte 64)))))
+  ((values :initform (make-array 0 :element-type 'int64 :fill-pointer 0) :type (vector int64))))
 
 (defmethod arrow-push ((array int64-array) (x integer))
   (with-slots (values) array
@@ -94,12 +105,34 @@
 (defmethod arrow-data-type ((array int64-array))
   "l")
 
+(defclass timestamp-micros-array (int64-array) ())
+
+(defun %timestamp-to-micros (x)
+  (let* ((sec (local-time:timestamp-to-unix x))
+         (nsec (local-time:nsec-of x)))
+    (+ (* 1000000 sec) (/ nsec 1000))))
+
+(defmethod arrow-push ((array timestamp-micros-array) (x local-time:timestamp))
+  (arrow-push array (%timestamp-to-micros x)))
+
+(defun %micros-to-timestamp (us)
+  (let* ((ns (* 1000 us)))
+    (multiple-value-bind (sec ns)
+        (floor ns 1000000000)
+      (local-time:unix-to-timestamp sec :nsec ns))))
+
+(defmethod arrow-value ((array timestamp-micros-array) (n fixnum))
+  (%micros-to-timestamp (aref (slot-value array 'values) n)))
+
+(defmethod arrow-data-type ((array timestamp-micros-array))
+  "tsu:")
+
 (defclass float64-array (primitive-array)
-  ((values :initform (make-array 0 :element-type 'double-float :fill-pointer 0) :type (vector double-float))))
+  ((values :initform (make-array 0 :element-type 'float64 :fill-pointer 0) :type (vector float64))))
 
 (defmethod arrow-push ((array float64-array) (x float))
   (with-slots (values) array
-    (vector-push-extend (coerce x 'double-float) values)
+    (vector-push-extend (coerce x 'float64) values)
     (call-next-method)
     array))
 
@@ -126,8 +159,8 @@
 
 (defclass binary-array (arrow-array)
   ((validity :initform (make-array 0 :element-type 'bit :fill-pointer 0) :type bit-vector)
-   (offsets :initform (make-array 1 :element-type '(signed-byte 32) :fill-pointer 1) :type (vector (signed-byte 32)))
-   (data :initform (make-array 0 :element-type '(unsigned-byte 8) :fill-pointer 0) :type (vector (unsigned-byte 8)))))
+   (offsets :initform (make-array 1 :element-type 'int32 :fill-pointer 1 :initial-element 0) :type (vector int32))
+   (data :initform (make-array 0 :element-type 'uint8 :fill-pointer 0) :type (vector uint8))))
 
 (defmethod arrow-valid-p ((array binary-array) (n fixnum))
   (with-slots (validity) array
@@ -152,7 +185,7 @@
     (let* ((start (aref offsets n) )
            (end (aref offsets (1+ n)))
            (len (- end start)))
-      (make-array len :element-type '(unsigned-byte 8) :displaced-to data :displaced-index-offset start))))
+      (make-array len :element-type 'uint8 :displaced-to data :displaced-index-offset start))))
 
 (defmethod arrow-get ((array binary-array) (n fixnum))
   (with-slots (validity) array
@@ -190,6 +223,9 @@
 
 (defmethod arrow-data-type ((array utf8-array))
   "u")
+
+;; (loop for x being the element in (arrow-push (make-instance 'timestamp-micros-array) (local-time:now))
+;;       collect x)
 
 ;; (pprint (arrow-push (arrow-push-null (make-instance 'int64-array)) 1))
 
