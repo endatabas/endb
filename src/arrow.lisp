@@ -138,16 +138,16 @@
 (defmethod arrow-data-type ((array timestamp-micros-array))
   "tsu:")
 
-(defclass date-array (int32-array) ())
+(defclass date-days-array (int32-array) ())
 
-(defmethod arrow-push ((array date-array) (x local-time:timestamp))
+(defmethod arrow-push ((array date-days-array) (x local-time:timestamp))
   (assert (typep x 'local-time:date))
   (arrow-push array (+ (local-time:day-of x) 11017)))
 
-(defmethod arrow-value ((array date-array) (n fixnum))
+(defmethod arrow-value ((array date-days-array) (n fixnum))
   (local-time:make-timestamp :day (- (aref (slot-value array 'values) n) 11017)))
 
-(defmethod arrow-data-type ((array date-array))
+(defmethod arrow-data-type ((array date-days-array))
   "tdD")
 
 (defclass float64-array (primitive-array)
