@@ -213,9 +213,6 @@
                   (6 (cffi:with-foreign-slots ((start end) value (:struct Binary_Union))
                        (push (hex-to-binary (subseq input start end)) (first acc))))))))))
 
-(defvar *input*)
-(defvar *ast-builder*)
-
 (defun strip-ansi-escape-codes (s)
   (cl-ppcre:regex-replace-all "\\[3\\d(?:;\\d+;\\d+)?m(.+?)\\[0m" s "\\1"))
 
@@ -224,27 +221,27 @@
   (:report (lambda (condition stream)
              (write (strip-ansi-escape-codes (sql-parse-error-message condition)) :stream stream))))
 
-(cffi:defcallback cl-on-success :void
-    ((ast (:pointer (:struct Ast))))
-  (visit-ast *input* *ast-builder* ast))
+(defvar *parse-sql-on-success*)
 
-(cffi:defcallback cl-on-error :void
+(cffi:defcallback parse-sql-on-success :void
+    ((ast (:pointer (:struct Ast))))
+  (funcall *parse-sql-on-success* ast))
+
+(cffi:defcallback parse-sql-on-error :void
     ((err :string))
   (error 'sql-parse-error :message err))
 
-(defvar on-success (cffi:callback cl-on-success))
-(defvar on-error (cffi:callback cl-on-error))
-
 (defun parse-sql (input)
   (%init-lib)
-  (let ((*input* input)
-        (*ast-builder* (make-ast-builder)))
+  (let* ((ast-builder (make-ast-builder))
+         (*parse-sql-on-success* (lambda (ast)
+                                   (visit-ast input ast-builder ast))))
     (if (typep input 'base-string)
         (cffi:with-pointer-to-vector-data (ptr input)
-          (endb-parse-sql ptr on-success on-error))
+          (endb-parse-sql ptr (cffi:callback parse-sql-on-success) (cffi:callback parse-sql-on-error)))
         (cffi:with-foreign-string (ptr input)
-          (endb-parse-sql ptr on-success on-error)))
-    (caar (ast-builder-acc *ast-builder*))))
+          (endb-parse-sql ptr (cffi:callback parse-sql-on-success) (cffi:callback parse-sql-on-error))))
+    (caar (ast-builder-acc ast-builder))))
 
 ;; (time
 ;;  (let ((acc))

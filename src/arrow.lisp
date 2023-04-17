@@ -10,7 +10,6 @@
 (deftype float64 () 'double-float)
 
 (defgeneric arrow-push (array x))
-(defgeneric arrow-push-null (array))
 (defgeneric arrow-valid-p (array n))
 (defgeneric arrow-get (array n))
 (defgeneric arrow-value (array n))
@@ -53,10 +52,10 @@
        (dotimes (n (min length (length array)))
          (if (arrow-valid-p array n)
              (arrow-push new-array (arrow-value array n))
-             (arrow-push-null new-array)))))
+             (arrow-push new-array :null)))))
     (loop
       (if (< (arrow-length new-array) length)
-          (arrow-push-null new-array)
+          (arrow-push new-array :null)
           (return new-array)))))
 
 (defclass primitive-array (arrow-array)
@@ -67,12 +66,7 @@
   (with-slots (validity) array
     (= 1 (aref validity n))))
 
-(defmethod arrow-push ((array primitive-array) x)
-  (with-slots (validity) array
-    (vector-push-extend 1 validity)
-    array))
-
-(defmethod arrow-push-null ((array primitive-array))
+(defmethod arrow-push ((array primitive-array) (x (eql :null)))
   (with-slots (values validity) array
     (vector-push-extend 0 validity)
     (adjust-array values (1+ (length values)) :fill-pointer (1+ (fill-pointer values)))
@@ -80,12 +74,13 @@
 
 (defmethod arrow-get ((array primitive-array) (n fixnum))
   (with-slots (validity) array
-    (when (= 1 (aref validity n))
-      (arrow-value array n))))
+    (if (= 1 (aref validity n))
+      (arrow-value array n)
+      :null)))
 
 (defmethod arrow-length ((array primitive-array))
-  (with-slots (validity) array
-    (length validity)))
+  (with-slots (values) array
+    (length values)))
 
 (defmethod arrow-null-count ((array primitive-array))
   (with-slots (validity) array
@@ -95,9 +90,9 @@
   ((values :initform (make-array 0 :element-type 'int64 :fill-pointer 0) :type (vector int64))))
 
 (defmethod arrow-push ((array int64-array) (x integer))
-  (with-slots (values) array
+  (with-slots (validity values) array
     (vector-push-extend x values)
-    (call-next-method)
+    (vector-push-extend 1 validity)
     array))
 
 (defmethod arrow-value ((array int64-array) (n fixnum))
@@ -132,9 +127,9 @@
   ((values :initform (make-array 0 :element-type 'float64 :fill-pointer 0) :type (vector float64))))
 
 (defmethod arrow-push ((array float64-array) (x float))
-  (with-slots (values) array
+  (with-slots (validity values) array
     (vector-push-extend (coerce x 'float64) values)
-    (call-next-method)
+    (vector-push-extend 1 validity)
     array))
 
 (defmethod arrow-value ((array float64-array) (n fixnum))
@@ -147,9 +142,9 @@
   ((values :initform (make-array 0 :element-type 'bit :fill-pointer 0) :type (vector bit))))
 
 (defmethod arrow-push ((array boolean-array) x)
-  (with-slots (values) array
+  (with-slots (validity values) array
     (vector-push-extend (if x 1 0) values)
-    (call-next-method)
+    (vector-push-extend 1 validity)
     array))
 
 (defmethod arrow-value ((array boolean-array) (n fixnum))
@@ -175,7 +170,7 @@
     (vector-push-extend (length data) offsets)
     array))
 
-(defmethod arrow-push-null ((array binary-array))
+(defmethod arrow-push ((array binary-array) (x (eql :null)))
   (with-slots (validity offsets data) array
     (vector-push-extend 0 validity)
     (vector-push-extend (length data) offsets)
@@ -190,12 +185,13 @@
 
 (defmethod arrow-get ((array binary-array) (n fixnum))
   (with-slots (validity) array
-    (when (= 1 (aref validity n))
-      (arrow-value array n))))
+    (if (= 1 (aref validity n))
+      (arrow-value array n)
+      :null)))
 
 (defmethod arrow-length ((array binary-array))
-  (with-slots (validity) array
-    (length validity)))
+  (with-slots (offsets) array
+    (1- (length offsets))))
 
 (defmethod arrow-null-count ((array binary-array))
   (with-slots (validity) array
@@ -228,25 +224,25 @@
 ;; (loop for x being the element in (arrow-push (make-instance 'timestamp-micros-array) (local-time:now))
 ;;       collect x)
 
-;; (pprint (arrow-push (arrow-push-null (make-instance 'int64-array)) 1))
+;; (pprint (arrow-push (arrow-push (make-instance 'int64-array) :null) 1))
 
-;; (loop for x being the element in (arrow-push (arrow-push-null (make-instance 'int64-array)) 1)
+;; (loop for x being the element in (arrow-push (arrow-push (make-instance 'int64-array) :null) 1)
 ;;       collect x)
 
-;; (setf (elt (arrow-push (arrow-push-null (make-instance 'int64-array)) 1) 2) 2)
+;; (setf (elt (arrow-push (arrow-push (make-instance 'int64-array) :null) 1) 2) 2)
 
-;; (arrow-get (arrow-push (arrow-push-null (make-instance 'int64-array)) 1) 0)
+;; (arrow-get (arrow-push (arrow-push (make-instance 'int64-array) :null) 1) 0)
 
-;; (arrow-get (arrow-push (arrow-push-null (make-instance 'float64-array)) 1.0d0) 1)
+;; (arrow-get (arrow-push (arrow-push (make-instance 'float64-array) :null) 1.0d0) 1)
 
-;; (arrow-get (arrow-push (arrow-push-null (make-instance 'boolean-array)) t) 1)
+;; (arrow-get (arrow-push (arrow-push (make-instance 'boolean-array) :null) t) 1)
 
-;; (arrow-get (arrow-push (arrow-push (arrow-push-null (make-instance 'binary-array)) #(0 1 2))  #(3 4)) 2)
+;; (arrow-get (arrow-push (arrow-push (arrow-push (make-instance 'binary-array) :null) #(0 1 2))  #(3 4)) 2)
 
-;; (arrow-get (arrow-push (arrow-push (arrow-push-null (make-instance 'utf8-array)) "hello") "world") 2)
+;; (arrow-get (arrow-push (arrow-push (arrow-push (make-instance 'utf8-array) :null) "hello") "world") 2)
 
-;; (arrow-null-count (arrow-push (arrow-push (arrow-push-null (make-instance 'utf8-array)) "hello") "world"))
+;; (arrow-null-count (arrow-push (arrow-push (arrow-push (make-instance 'utf8-array) :null) "hello") "world"))
 
-;; (arrow-length (arrow-push (arrow-push (arrow-push-null (make-instance 'utf8-array)) "hello") "world"))
+;; (arrow-length (arrow-push (arrow-push (arrow-push (make-instance 'utf8-array) :null) "hello") "world"))
 
 ;; (arrow-data-type (make-instance 'utf8-array))
