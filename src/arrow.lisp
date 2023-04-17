@@ -248,6 +248,55 @@
 (defmethod arrow-data-type ((array utf8-array))
   "u")
 
+(defclass list-array (arrow-array)
+  ((validity :initarg :validity :initform (make-array 0 :element-type 'bit :fill-pointer 0) :type bit-vector)
+   (offsets :initarg :offsets :initform (make-array 1 :element-type 'int32 :fill-pointer 1 :initial-element 0) :type (vector int32))
+   (values :initarg :values :type arrow-array)))
+
+(defmethod arrow-valid-p ((array list-array) (n fixnum))
+  (with-slots (validity) array
+    (= 1 (aref validity n))))
+
+(defmethod arrow-push ((array list-array) (x list))
+  (with-slots (validity offsets values) array
+    (vector-push-extend 1 validity)
+    (loop for y in x
+          do (arrow-push values y))
+    (vector-push-extend (arrow-length values) offsets)
+    array))
+
+(defmethod arrow-push ((array list-array) (x (eql :null)))
+  (with-slots (validity offsets values) array
+    (vector-push-extend 0 validity)
+    (vector-push-extend (length values) offsets)
+    array))
+
+(defmethod arrow-value ((array list-array) (n fixnum))
+  (with-slots (offsets values) array
+    (let* ((start (aref offsets n) )
+           (end (aref offsets (1+ n))))
+      (loop for idx from start below end
+            collect (arrow-get values idx)))))
+
+(defmethod arrow-get ((array list-array) (n fixnum))
+  (with-slots (validity) array
+    (if (= 1 (aref validity n))
+      (arrow-value array n)
+      :null)))
+
+(defmethod arrow-length ((array list-array))
+  (with-slots (offsets) array
+    (1- (length offsets))))
+
+(defmethod arrow-null-count ((array list-array))
+  (with-slots (validity) array
+    (count-if #'zerop validity)))
+
+(defmethod arrow-data-type ((array list-array))
+  "l+")
+
+;; (arrow-push (arrow-push (arrow-push (make-instance 'list-array :values (make-instance 'int64-array)) '(1 2)) :null) '(3 4 5))
+
 ;; (loop for x being the element in (arrow-push (make-instance 'timestamp-micros-array) (local-time:now))
 ;;       collect x)
 
