@@ -86,6 +86,21 @@
   (with-slots (validity) array
     (count-if #'zerop validity)))
 
+(defclass int32-array (primitive-array)
+  ((values :initform (make-array 0 :element-type 'int32 :fill-pointer 0) :type (vector int32))))
+
+(defmethod arrow-push ((array int32-array) (x integer))
+  (with-slots (validity values) array
+    (vector-push-extend x values)
+    (vector-push-extend 1 validity)
+    array))
+
+(defmethod arrow-value ((array int32-array) (n fixnum))
+  (aref (slot-value array 'values) n))
+
+(defmethod arrow-data-type ((array int32-array))
+  "i")
+
 (defclass int64-array (primitive-array)
   ((values :initform (make-array 0 :element-type 'int64 :fill-pointer 0) :type (vector int64))))
 
@@ -122,6 +137,18 @@
 
 (defmethod arrow-data-type ((array timestamp-micros-array))
   "tsu:")
+
+(defclass date-array (int32-array) ())
+
+(defmethod arrow-push ((array date-array) (x local-time:timestamp))
+  (assert (typep x 'local-time:date))
+  (arrow-push array (+ (local-time:day-of x) 11017)))
+
+(defmethod arrow-value ((array date-array) (n fixnum))
+  (local-time:make-timestamp :day (- (aref (slot-value array 'values) n) 11017)))
+
+(defmethod arrow-data-type ((array date-array))
+  "tdD")
 
 (defclass float64-array (primitive-array)
   ((values :initform (make-array 0 :element-type 'float64 :fill-pointer 0) :type (vector float64))))
