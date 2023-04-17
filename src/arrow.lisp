@@ -23,7 +23,7 @@
   (print-unreadable-object (obj stream :type t)
     (format stream "#(")
     (dotimes (n (arrow-length obj))
-      (format stream "~a" (arrow-get obj n))
+      (format stream "~s" (arrow-get obj n))
       (when (< n (1- (arrow-length obj)))
         (format stream ", ")))
     (format stream ")")))
@@ -248,19 +248,31 @@
 (defmethod arrow-data-type ((array utf8-array))
   "u")
 
-(defclass list-array (arrow-array)
-  ((validity :initarg :validity :initform (make-array 0 :element-type 'bit :fill-pointer 0) :type bit-vector)
-   (offsets :initarg :offsets :initform (make-array 1 :element-type 'int32 :fill-pointer 1 :initial-element 0) :type (vector int32))
-   (values :initarg :values :type arrow-array)))
+(defclass nested-array (arrow-array)
+  ((validity :initarg :validity :initform (make-array 0 :element-type 'bit :fill-pointer 0) :type bit-vector)))
 
-(defmethod arrow-valid-p ((array list-array) (n fixnum))
+(defmethod arrow-valid-p ((array nested-array) (n fixnum))
   (with-slots (validity) array
     (= 1 (aref validity n))))
 
-(defmethod arrow-push ((array list-array) (x list))
+(defmethod arrow-get ((array nested-array) (n fixnum))
+  (with-slots (validity) array
+    (if (= 1 (aref validity n))
+      (arrow-value array n)
+      :null)))
+
+(defmethod arrow-null-count ((array nested-array))
+  (with-slots (validity) array
+    (count-if #'zerop validity)))
+
+(defclass list-array (nested-array)
+  ((offsets :initarg :offsets :initform (make-array 1 :element-type 'int32 :fill-pointer 1 :initial-element 0) :type (vector int32))
+   (values :initarg :values :type arrow-array)))
+
+(defmethod arrow-push ((array list-array) (x sequence))
   (with-slots (validity offsets values) array
     (vector-push-extend 1 validity)
-    (loop for y in x
+    (loop for y being the element in x
           do (arrow-push values y))
     (vector-push-extend (arrow-length values) offsets)
     array))
@@ -278,22 +290,47 @@
       (loop for idx from start below end
             collect (arrow-get values idx)))))
 
-(defmethod arrow-get ((array list-array) (n fixnum))
-  (with-slots (validity) array
-    (if (= 1 (aref validity n))
-      (arrow-value array n)
-      :null)))
-
 (defmethod arrow-length ((array list-array))
   (with-slots (offsets) array
     (1- (length offsets))))
 
-(defmethod arrow-null-count ((array list-array))
-  (with-slots (validity) array
-    (count-if #'zerop validity)))
-
 (defmethod arrow-data-type ((array list-array))
   "l+")
+
+(defclass struct-array (nested-array)
+  ((values :initarg :values :type list)))
+
+(defmethod arrow-push ((array struct-array) (x sequence))
+  (with-slots (validity values) array
+    (vector-push-extend 1 validity)
+    (loop for (k . v) in x
+          do (arrow-push (cdr (assoc k values)) v))
+    array))
+
+(defmethod arrow-push ((array struct-array) (x (eql :null)))
+  (with-slots (validity values) array
+    (vector-push-extend 0 validity)
+    (loop for (k . v) in values
+          do (arrow-push v :null))
+    array))
+
+(defmethod arrow-value ((array struct-array) (n fixnum))
+  (with-slots (values) array
+    (loop for (k . v) in values
+          collect (cons k (arrow-get v n)))))
+
+(defmethod arrow-length ((array struct-array))
+  (with-slots (values) array
+    (arrow-length (cdr (first values)))))
+
+(defmethod arrow-data-type ((array struct-array))
+  "s+")
+
+;; (arrow-get (arrow-push (arrow-push (arrow-push (make-instance 'struct-array :values (list (cons :x (make-instance 'int64-array)) (cons :y (make-instance 'utf8-array))))
+;;                                                '((:x . 1) (:y . "foo")))
+;;                                    :null)
+;;                        '((:x . 3) (:y . "bar")))
+;;            2)
 
 ;; (arrow-push (arrow-push (arrow-push (make-instance 'list-array :values (make-instance 'int64-array)) '(1 2)) :null) '(3 4 5))
 
