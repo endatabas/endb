@@ -5,6 +5,7 @@
 (in-package :endb/arrow)
 
 (deftype uint8 () '(unsigned-byte 8))
+(deftype int8 () '(signed-byte 8))
 (deftype int32 () '(signed-byte 32))
 (deftype int64 () '(signed-byte 64))
 (deftype float64 () 'double-float)
@@ -16,6 +17,7 @@
 (defgeneric arrow-length (array))
 (defgeneric arrow-null-count (array))
 (defgeneric arrow-data-type (array))
+(defgeneric arrow-lisp-type (array))
 
 (defclass arrow-array (sequence standard-object) ())
 
@@ -101,6 +103,9 @@
 (defmethod arrow-data-type ((array int32-array))
   "i")
 
+(defmethod arrow-lisp-type ((array int32-array))
+  'int32)
+
 (defclass int64-array (primitive-array)
   ((values :initform (make-array 0 :element-type 'int64 :fill-pointer 0) :type (vector int64))))
 
@@ -115,6 +120,9 @@
 
 (defmethod arrow-data-type ((array int64-array))
   "l")
+
+(defmethod arrow-lisp-type ((array int64-array))
+  'int64)
 
 (defclass timestamp-micros-array (int64-array) ())
 
@@ -138,17 +146,25 @@
 (defmethod arrow-data-type ((array timestamp-micros-array))
   "tsu:")
 
+(defmethod arrow-lisp-type ((array timestamp-micros-array))
+  'local-time:timestamp)
+
 (defclass date-days-array (int32-array) ())
+
+(defconstant +offset-from-epoch-day+ 11017)
 
 (defmethod arrow-push ((array date-days-array) (x local-time:timestamp))
   (assert (typep x 'local-time:date))
-  (arrow-push array (+ (local-time:day-of x) 11017)))
+  (arrow-push array (+ (local-time:day-of x) +offset-from-epoch-day+)))
 
 (defmethod arrow-value ((array date-days-array) (n fixnum))
-  (local-time:make-timestamp :day (- (aref (slot-value array 'values) n) 11017)))
+  (local-time:make-timestamp :day (- (aref (slot-value array 'values) n)  +offset-from-epoch-day+)))
 
 (defmethod arrow-data-type ((array date-days-array))
   "tdD")
+
+(defmethod arrow-lisp-type ((array date-days-array))
+  'local-time:date)
 
 (defclass float64-array (primitive-array)
   ((values :initform (make-array 0 :element-type 'float64 :fill-pointer 0) :type (vector float64))))
@@ -165,6 +181,9 @@
 (defmethod arrow-data-type ((array float64-array))
   "g")
 
+(defmethod arrow-lisp-type ((array float64-array))
+  'float64)
+
 (defclass boolean-array (primitive-array)
   ((values :initform (make-array 0 :element-type 'bit :fill-pointer 0) :type (vector bit))))
 
@@ -179,6 +198,9 @@
 
 (defmethod arrow-data-type ((array boolean-array))
   "b")
+
+(defmethod arrow-lisp-type ((array boolean-array))
+  'boolean)
 
 (defclass binary-array (arrow-array)
   ((validity :initarg :validity :initform (make-array 0 :element-type 'bit :fill-pointer 0) :type bit-vector)
@@ -227,6 +249,9 @@
 (defmethod arrow-data-type ((array binary-array))
   "z")
 
+(defmethod arrow-lisp-type ((array binary-array))
+  '(vector uint8))
+
 (defclass utf8-array (binary-array) ())
 
 (defmethod arrow-push ((array utf8-array) (x string))
@@ -247,6 +272,9 @@
 
 (defmethod arrow-data-type ((array utf8-array))
   "u")
+
+(defmethod arrow-lisp-type ((array utf8-array))
+  'string)
 
 (defclass nested-array (arrow-array)
   ((validity :initarg :validity :initform (make-array 0 :element-type 'bit :fill-pointer 0) :type bit-vector)))
@@ -297,10 +325,13 @@
 (defmethod arrow-data-type ((array list-array))
   "l+")
 
+(defmethod arrow-lisp-type ((array list-array))
+  'list)
+
 (defclass struct-array (nested-array)
   ((values :initarg :values :type list)))
 
-(defmethod arrow-push ((array struct-array) (x sequence))
+(defmethod arrow-push ((array struct-array) (x list))
   (with-slots (validity values) array
     (vector-push-extend 1 validity)
     (loop for (k . v) in x
@@ -325,6 +356,63 @@
 
 (defmethod arrow-data-type ((array struct-array))
   "s+")
+
+(defun %dotted-pair-p (x)
+  (and (consp x)
+       (not (listp (cdr x)))))
+
+(defun %alistp (x)
+  (and (listp x) (every #'%dotted-pair-p x)))
+
+(defmethod arrow-lisp-type ((array struct-array))
+  '(satisfies %alistp))
+
+(defclass dense-union-array (arrow-array)
+  ((type-ids :initarg :validity :initform (make-array 0 :element-type 'int8 :fill-pointer 0) :type (vector int8))
+   (offsets :initarg :offsets :initform (make-array 0 :element-type 'int32 :fill-pointer 0) :type (vector int32))
+   (children :initarg :children :type list)))
+
+(defmethod arrow-push ((array dense-union-array) x)
+  (with-slots (type-ids offsets children) array
+    (loop for c in children
+          for id below (length children)
+          when (typep x (arrow-lisp-type c))
+            do (progn
+                 (vector-push-extend (1- (arrow-length (arrow-push c x))) offsets)
+                 (vector-push-extend id type-ids)
+                 (return array))
+          finally
+             (error "no matching child"))))
+
+(defmethod arrow-push ((array dense-union-array) (x (eql :null)))
+  (with-slots (type-ids offsets children) array
+    (let* ((id 0)
+           (c (nth id children)))
+      (vector-push-extend (1- (arrow-length (arrow-push c :null))) offsets)
+      (vector-push-extend id type-ids)
+      array)))
+
+(defmethod arrow-get ((array dense-union-array) (n fixnum))
+  (with-slots (type-ids offsets children) array
+    (arrow-get (nth (aref type-ids n) children) (aref offsets n))))
+
+(defmethod arrow-value ((array dense-union-array) (n fixnum))
+  (with-slots (type-ids offsets children) array
+    (arrow-value (nth (aref type-ids n) children) (aref offsets n))))
+
+(defmethod arrow-length ((array dense-union-array))
+  (with-slots (type-ids) array
+    (length type-ids)))
+
+(defmethod arrow-data-type ((array dense-union-array))
+  (with-slots (children) array
+    (format nil "ud+:~{~a~^,~}" (loop for id below (length children)
+                                      collect id))))
+
+(defmethod arrow-lisp-type ((array dense-union-array))
+  't)
+
+;; (arrow-get (arrow-push (arrow-push (arrow-push (make-instance 'dense-union-array :children (list (make-instance 'int64-array) (make-instance 'utf8-array))) "foo") :null) 1) 0)
 
 ;; (arrow-get (arrow-push (arrow-push (arrow-push (make-instance 'struct-array :values (list (cons :x (make-instance 'int64-array)) (cons :y (make-instance 'utf8-array))))
 ;;                                                '((:x . 1) (:y . "foo")))
