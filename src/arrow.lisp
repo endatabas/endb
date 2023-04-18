@@ -99,7 +99,9 @@
                                          :initial-element 0))
                (offsets (make-array len :element-type 'int32
                                         :fill-pointer len))
-               (children (list array new-array)))
+               (children (make-array 2 :fill-pointer 2)))
+          (setf (aref children 0) array)
+          (setf (aref children 1) new-array)
           (vector-push-extend 1 type-ids)
           (dotimes (n len)
             (setf (aref offsets n) n))
@@ -443,7 +445,7 @@
 (defclass dense-union-array (arrow-array)
   ((type-ids :initarg :type-ids :initform (make-array 0 :element-type 'int8 :fill-pointer 0) :type (vector int8))
    (offsets :initarg :offsets :initform (make-array 0 :element-type 'int32 :fill-pointer 0) :type (vector int32))
-   (children :initarg :children :type list)))
+   (children :initarg :children :initform (make-array 0 :fill-pointer 0) :type vector)))
 
 (defmethod arrow-valid-p ((array dense-union-array) (n fixnum))
   (with-slots (type-ids offsets children) array
@@ -451,9 +453,8 @@
 
 (defmethod arrow-push ((array dense-union-array) x)
   (with-slots (type-ids offsets children) array
-    (loop for c-rest on children
-          for id from 0
-          for c = (car c-rest)
+    (loop for id below (length children)
+          for c = (aref children id)
           for c-type = (arrow-lisp-type c)
           when (and (typep x c-type)
                     (or (not (eql 'alist c-type))
@@ -461,31 +462,31 @@
             do (progn
                  (vector-push-extend id type-ids)
                  (vector-push-extend (arrow-length c) offsets)
-                 (setf (car c-rest) (arrow-push c x))
+                 (setf (aref children id) (arrow-push c x))
                  (return array))
           finally
              (let ((new-array (arrow-push (make-arrow-array-for x) x))
                    (new-type-id (length children)))
                (vector-push-extend new-type-id type-ids)
                (vector-push-extend 0 offsets)
-               (setf children (append children (list new-array)))
+               (vector-push-extend new-array children)
                (return array)))))
 
 (defmethod arrow-push ((array dense-union-array) (x (eql :null)))
   (with-slots (type-ids offsets children) array
     (let* ((id 0)
-           (c (nth id children)))
+           (c (aref children id)))
       (vector-push-extend (1- (arrow-length (arrow-push c :null))) offsets)
       (vector-push-extend id type-ids)
       array)))
 
 (defmethod arrow-get ((array dense-union-array) (n fixnum))
   (with-slots (type-ids offsets children) array
-    (arrow-get (nth (aref type-ids n) children) (aref offsets n))))
+    (arrow-get (aref children (aref type-ids n)) (aref offsets n))))
 
 (defmethod arrow-value ((array dense-union-array) (n fixnum))
   (with-slots (type-ids offsets children) array
-    (arrow-value (nth (aref type-ids n) children) (aref offsets n))))
+    (arrow-value (aref children (aref type-ids n)) (aref offsets n))))
 
 (defmethod arrow-length ((array dense-union-array))
   (with-slots (type-ids) array
@@ -503,7 +504,7 @@
 
 ;; (arrow-null-count (arrow-push (make-instance 'null-array) :null))
 
-;; (arrow-get (arrow-push (arrow-push (arrow-push (make-instance 'dense-union-array :children (list (make-instance 'int64-array) (make-instance 'utf8-array))) "foo") :null) 1) 0)
+;; (arrow-get (arrow-push (arrow-push (arrow-push (make-instance 'dense-union-array :children (make-array 2 :fill-pointer 2 :initial-contents (list (make-instance 'int64-array) (make-instance 'utf8-array)))) "foo") :null) 1) 0)
 
 ;; (arrow-get (arrow-push (arrow-push (arrow-push (make-instance 'struct-array :values (list (cons :x (make-instance 'int64-array)) (cons :y (make-instance 'utf8-array))))
 ;;                                                '((:x . 1) (:y . "foo")))
