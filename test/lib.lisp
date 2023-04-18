@@ -8,8 +8,8 @@
 (test lib-parser
   (let ((sql "SELECT a, b, 123, myfunc(b) FROM table_1 WHERE a > b AND b < 100 ORDER BY a DESC, b"))
     (is (equal
-         (princ-to-string (endb/sql/parser:parse-sql sql))
-         (princ-to-string (parse-sql sql))))))
+         (prin1-to-string (endb/sql/parser:parse-sql sql))
+         (prin1-to-string (parse-sql sql))))))
 
 (test lib-parse-sql
   (is (parse-sql "CREATE TABLE t1(a INTEGER, b INTEGER, c INTEGER, d INTEGER, e INTEGER)"))
@@ -114,9 +114,9 @@ UNION
   (is (parse-sql "SELECT ALL * FROM tab0 cor0 CROSS JOIN tab2 AS cor1"))
   (is (parse-sql "SELECT + + MIN ( ALL - + 32 ) AS col0, + COUNT ( * ) * + COUNT ( * ) FROM ( tab0 AS cor0 CROSS JOIN tab0 cor1 )"))
   (is (parse-sql "SELECT ALL NULLIF ( - COUNT ( * ), + 67 * - - ( + 25 ) + 89 + - 39 * 63 ) + + 54 AS col2, 11 * 31 * - - ( 70 )"))
- (is (parse-sql "SELECT ALL 74 * - COALESCE ( + CASE - CASE WHEN NOT ( NOT - 79 >= NULL ) THEN 48 END WHEN + + COUNT( * ) THEN 6 END, MIN( ALL + - 30 ) * 45 * 77 ) * - 14"))
- (is (parse-sql "SELECT * FROM tab1 WHERE NULL NOT IN ( col0 * col0 )"))
- (is (parse-sql "SELECT SUM ( + 73 ) * - CASE WHEN NOT ( NOT 27 BETWEEN 15 AND - NULLIF ( - 63, - 28 + + 76 ) ) THEN NULL ELSE + 77 * + 69 END / - CAST ( - 69 AS INTEGER ) AS col0"))
+  (is (parse-sql "SELECT ALL 74 * - COALESCE ( + CASE - CASE WHEN NOT ( NOT - 79 >= NULL ) THEN 48 END WHEN + + COUNT( * ) THEN 6 END, MIN( ALL + - 30 ) * 45 * 77 ) * - 14"))
+  (is (parse-sql "SELECT * FROM tab1 WHERE NULL NOT IN ( col0 * col0 )"))
+  (is (parse-sql "SELECT SUM ( + 73 ) * - CASE WHEN NOT ( NOT 27 BETWEEN 15 AND - NULLIF ( - 63, - 28 + + 76 ) ) THEN NULL ELSE + 77 * + 69 END / - CAST ( - 69 AS INTEGER ) AS col0"))
   (is (parse-sql "CREATE UNIQUE INDEX idx_tab2_2 ON tab2 (col1 DESC)"))
   (is (parse-sql "INSERT INTO tab0 VALUES(0,6,5.6,'jtqxx',9,5.19,'qvgba')"))
   (is (parse-sql "DELETE FROM tab0 WHERE col4 > 2.27"))

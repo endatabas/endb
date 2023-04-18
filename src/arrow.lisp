@@ -1,5 +1,8 @@
 (defpackage :endb/arrow
   (:use :cl)
+  (:export #:to-arrow #:make-arrow-array-for
+           #:arrow-push #:arrow-valid-p #:arrow-get #:arrow-value
+           #:arrow-length #:arrow-null-count #:arrow-data-type #:arrow-lisp-type)
   (:import-from :local-time)
   (:import-from :trivial-utf-8))
 (in-package :endb/arrow)
@@ -52,13 +55,17 @@
          (arrow-push new-array x)))
       (t
        (dotimes (n (min length (length array)))
-         (if (arrow-valid-p array n)
-             (arrow-push new-array (arrow-value array n))
-             (arrow-push new-array :null)))))
+         (arrow-push new-array (arrow-get array n)))))
     (loop
       (if (< (arrow-length new-array) length)
           (arrow-push new-array :null)
           (return new-array)))))
+
+(defmethod sequence:subseq ((array arrow-array) start &optional end)
+  (let ((new-array (make-instance (type-of array))))
+    (loop for n from start below (or end (length array))
+          do (arrow-push new-array (arrow-get array n)))
+    new-array))
 
 (defun %dotted-pair-p (x)
   (and (consp x)
@@ -88,6 +95,12 @@
         (make-instance c :values (loop for (k . v) in x
                                        collect (cons k (make-arrow-array-for v))))
         (make-instance c))))
+
+(defun to-arrow (xs)
+  (reduce
+   (lambda (acc x)
+     (arrow-push acc x))
+   xs :initial-value (make-instance 'null-array)))
 
 (defmethod arrow-push ((array arrow-array) x)
   (let ((len (arrow-length array))
@@ -491,6 +504,11 @@
 (defmethod arrow-length ((array dense-union-array))
   (with-slots (type-ids) array
     (length type-ids)))
+
+(defmethod arrow-null-count ((array dense-union-array))
+  (with-slots (children) array
+    (loop for c across children
+          sum (arrow-null-count c))))
 
 (defmethod arrow-data-type ((array dense-union-array))
   (with-slots (children) array
