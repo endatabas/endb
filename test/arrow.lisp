@@ -134,4 +134,5 @@
                      collect x)))
     (is (equal '(1 2) (coerce (subseq array 0 2) 'list)))
     (is (equal '(3) (coerce (subseq array 2) 'list)))
-    (is (equal '(1 2 3) (coerce (copy-seq array) 'list)))))
+    (is (equal '(1 2 3) (coerce (copy-seq array) 'list)))
+    (is (equal '(2 3 4) (map 'list #'1+ array)))))
