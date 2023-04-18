@@ -451,15 +451,17 @@
 
 (defmethod arrow-push ((array dense-union-array) x)
   (with-slots (type-ids offsets children) array
-    (loop for c in children
-          for id below (length children)
+    (loop for c-rest on children
+          for id from 0
+          for c = (car c-rest)
           for c-type = (arrow-lisp-type c)
           when (and (typep x c-type)
                     (or (not (eql 'alist c-type))
                         (%same-struct-fields-p c x)))
             do (progn
                  (vector-push-extend id type-ids)
-                 (vector-push-extend (1- (arrow-length (arrow-push c x))) offsets)
+                 (vector-push-extend (arrow-length c) offsets)
+                 (setf (car c-rest) (arrow-push c x))
                  (return array))
           finally
              (let ((new-array (arrow-push (make-arrow-array-for x) x))
