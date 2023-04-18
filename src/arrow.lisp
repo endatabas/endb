@@ -149,15 +149,17 @@
   '(eql :null))
 
 (defclass validity-array (arrow-array)
-  ((validity :initarg :validity :initform (make-array 0 :element-type 'bit :fill-pointer 0) :type bit-vector)))
+  ((validity :initarg :validity :initform nil :type (or null bit-vector))))
 
 (defmethod arrow-valid-p ((array validity-array) (n fixnum))
   (with-slots (validity) array
-    (= 1 (aref validity n))))
+    (or (null validity)
+        (= 1 (aref validity n)))))
 
 (defmethod arrow-get ((array validity-array) (n fixnum))
   (with-slots (validity) array
-    (if (= 1 (aref validity n))
+    (if (or (null validity)
+            (= 1 (aref validity n)))
       (arrow-value array n)
       :null)))
 
@@ -165,12 +167,24 @@
   (with-slots (validity) array
     (count-if #'zerop validity)))
 
+(defun %push-valid (array)
+  (with-slots (validity) array
+    (when validity
+      (vector-push-extend 1 validity))))
+
+(defun %push-invalid (array)
+  (with-slots (validity) array
+    (let ((len (arrow-length array)))
+      (unless validity
+        (setf validity (make-array len :element-type 'bit :fill-pointer len :initial-element 1)))
+      (vector-push-extend 0 validity))))
+
 (defclass primitive-array (validity-array)
   ((values :initarg :values :type vector)))
 
 (defmethod arrow-push ((array primitive-array) (x (eql :null)))
-  (with-slots (values validity) array
-    (vector-push-extend 0 validity)
+  (with-slots (values) array
+    (%push-invalid array)
     (adjust-array values (1+ (length values)) :fill-pointer (1+ (fill-pointer values)))
     array))
 
@@ -182,8 +196,8 @@
   ((values :initform (make-array 0 :element-type 'int32 :fill-pointer 0) :type (vector int32))))
 
 (defmethod arrow-push ((array int32-array) (x integer))
-  (with-slots (validity values) array
-    (vector-push-extend 1 validity)
+  (with-slots (values) array
+    (%push-valid array)
     (vector-push-extend x values)
     array))
 
@@ -200,8 +214,8 @@
   ((values :initform (make-array 0 :element-type 'int64 :fill-pointer 0) :type (vector int64))))
 
 (defmethod arrow-push ((array int64-array) (x integer))
-  (with-slots (validity values) array
-    (vector-push-extend 1 validity)
+  (with-slots (values) array
+    (%push-valid array)
     (vector-push-extend x values)
     array))
 
@@ -260,8 +274,8 @@
   ((values :initform (make-array 0 :element-type 'float64 :fill-pointer 0) :type (vector float64))))
 
 (defmethod arrow-push ((array float64-array) (x float))
-  (with-slots (validity values) array
-    (vector-push-extend 1 validity)
+  (with-slots (values) array
+    (%push-valid array)
     (vector-push-extend (coerce x 'float64) values)
     array))
 
@@ -278,8 +292,8 @@
   ((values :initform (make-array 0 :element-type 'bit :fill-pointer 0) :type (vector bit))))
 
 (defmethod arrow-push ((array boolean-array) x)
-  (with-slots (validity values) array
-    (vector-push-extend 1 validity)
+  (with-slots (values) array
+    (%push-valid array)
     (vector-push-extend (if x 1 0) values)
     array))
 
@@ -297,16 +311,16 @@
    (data :initarg :data :initform (make-array 0 :element-type 'uint8 :fill-pointer 0) :type (vector uint8))))
 
 (defmethod arrow-push ((array binary-array) (x vector))
-  (with-slots (validity offsets data) array
-    (vector-push-extend 1 validity)
+  (with-slots (offsets data) array
+    (%push-valid array)
     (loop for y across x
           do (vector-push-extend y data (length x)))
     (vector-push-extend (length data) offsets)
     array))
 
 (defmethod arrow-push ((array binary-array) (x (eql :null)))
-  (with-slots (validity offsets data) array
-    (vector-push-extend 0 validity)
+  (with-slots (offsets data) array
+    (%push-invalid array)
     (vector-push-extend (length data) offsets)
     array))
 
@@ -330,8 +344,8 @@
 (defclass utf8-array (binary-array) ())
 
 (defmethod arrow-push ((array utf8-array) (x string))
-  (with-slots (validity offsets data) array
-    (vector-push-extend 1 validity)
+  (with-slots (offsets data) array
+    (%push-valid array)
     (macrolet ((byte-out (byte)
                  `(vector-push-extend ,byte data)))
       (loop for y across x
@@ -356,16 +370,16 @@
    (values :initarg :values :initform (make-instance 'null-array) :type arrow-array)))
 
 (defmethod arrow-push ((array list-array) (x sequence))
-  (with-slots (validity offsets values) array
-    (vector-push-extend 1 validity)
+  (with-slots (offsets values) array
+    (%push-valid array)
     (loop for y being the element in x
           do (setf values (arrow-push values y)))
     (vector-push-extend (arrow-length values) offsets)
     array))
 
 (defmethod arrow-push ((array list-array) (x (eql :null)))
-  (with-slots (validity offsets values) array
-    (vector-push-extend 0 validity)
+  (with-slots (offsets values) array
+    (%push-invalid array)
     (vector-push-extend (length values) offsets)
     array))
 
@@ -396,8 +410,8 @@
 
 (defmethod arrow-push ((array struct-array) (x list))
   (if (%same-struct-fields-p array x)
-      (with-slots (validity values) array
-        (vector-push-extend 1 validity)
+      (with-slots (values) array
+        (%push-valid array)
         (loop for kv-pair in values
               for (k . v) in x
               do (setf (cdr kv-pair) (arrow-push (cdr kv-pair) v)))
@@ -405,8 +419,8 @@
       (call-next-method)))
 
 (defmethod arrow-push ((array struct-array) (x (eql :null)))
-  (with-slots (validity values) array
-    (vector-push-extend 0 validity)
+  (with-slots (values) array
+    (%push-invalid array)
     (loop for kv-pair in values
           do (setf (cdr kv-pair) (arrow-push (cdr kv-pair) :null)))
     array))
