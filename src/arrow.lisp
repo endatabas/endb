@@ -100,7 +100,7 @@
 
 (defun make-arrow-array-for (x)
   (let ((c (%array-class-for x)))
-    (if (typep x 'alist)
+    (if (eq 'struct-array c)
         (make-instance c :values (loop for (k . v) in x
                                        collect (cons k (make-arrow-array-for v))))
         (make-instance c))))
@@ -328,10 +328,20 @@
 (defclass boolean-array (primitive-array)
   ((values :initform (make-array 0 :element-type 'bit :fill-pointer 0) :type (vector bit))))
 
+(defmethod (setf sequence:elt) (x (array boolean-array) (n fixnum))
+  (call-next-method (if x 1 0) array n)
+  x)
+
 (defmethod arrow-push ((array boolean-array) x)
   (with-slots (values) array
     (%push-valid array)
     (vector-push-extend (if x 1 0) values)
+    array))
+
+(defmethod arrow-push ((array boolean-array) (x (eql :null)))
+  (with-slots (values) array
+    (%push-invalid array)
+    (vector-push-extend 0 values)
     array))
 
 (defmethod arrow-value ((array boolean-array) (n fixnum))
