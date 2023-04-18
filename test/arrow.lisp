@@ -29,7 +29,7 @@
     (is (equal expected (coerce array 'list)))))
 
 (test variable-size-list-layout
-  (let* ((expected '((12 -7 25) :null (0 -127 127 50) ()))
+  (let* ((expected '(#(12 -7 25) :null #(0 -127 127 50) #()))
          (array (to-arrow expected)))
     (is (typep array 'endb/arrow::list-array))
     (is (= 4 (arrow-length array)))
@@ -38,19 +38,19 @@
                (slot-value array 'endb/arrow::validity)))
     (is (equalp #(0 3 3 7 7)
                 (slot-value array 'endb/arrow::offsets)))
-    (is (equal expected (coerce array 'list)))
+    (is (equalp expected (coerce array 'list)))
     (let ((values (slot-value array 'endb/arrow::values)))
       (is (typep values 'endb/arrow::int64-array))
       (is (equal '(12 -7 25 0 -127 127 50) (coerce values 'list)))))
 
-  (let* ((expected '(((1 2) (3 4)) ((5 6 7) :null (8)) ((9 10))))
+  (let* ((expected '(#(#(1 2) #(3 4)) #(#(5 6 7) :null #(8)) #(#(9 10))))
          (array (to-arrow expected)))
     (is (typep array 'endb/arrow::list-array))
     (is (= 3 (arrow-length array)))
     (is (zerop (arrow-null-count array)))
     (is (equalp #(0 2 5 6)
                 (slot-value array 'endb/arrow::offsets)))
-    (is (equal expected (coerce array 'list)))
+    (is (equalp expected (coerce array 'list)))
 
     (let ((values (slot-value array 'endb/arrow::values)))
       (is (typep values 'endb/arrow::list-array))

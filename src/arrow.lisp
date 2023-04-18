@@ -94,9 +94,9 @@
     (local-time:date 'date-days-array)
     (local-time:timestamp 'timestamp-micros-array)
     (alist 'struct-array)
-    (list 'list-array)
     ((vector uint8) 'binary-array)
-    (string 'utf8-array)))
+    (string 'utf8-array)
+    (vector 'list-array)))
 
 (defun make-arrow-array-for (x)
   (let ((c (%array-class-for x)))
@@ -416,10 +416,10 @@
   ((offsets :initarg :offsets :initform (make-array 1 :element-type 'int32 :fill-pointer 1 :initial-element 0) :type (vector int32))
    (values :initarg :values :initform (make-instance 'null-array) :type arrow-array)))
 
-(defmethod arrow-push ((array list-array) (x sequence))
+(defmethod arrow-push ((array list-array) (x vector))
   (with-slots (offsets values) array
     (%push-valid array)
-    (loop for y being the element in x
+    (loop for y across x
           do (setf values (arrow-push values y)))
     (vector-push-extend (arrow-length values) offsets)
     array))
@@ -432,10 +432,13 @@
 
 (defmethod arrow-value ((array list-array) (n fixnum))
   (with-slots (offsets values) array
-    (let* ((start (aref offsets n) )
-           (end (aref offsets (1+ n))))
-      (loop for idx from start below end
-            collect (arrow-get values idx)))))
+    (let* ((start (aref offsets n))
+           (end (aref offsets (1+ n)))
+           (acc (make-array (- end start))))
+      (loop for src-idx from start below end
+            for dst-idx from 0
+            do (setf (aref acc dst-idx) (arrow-get values src-idx))
+            finally (return acc)))))
 
 (defmethod arrow-length ((array list-array))
   (with-slots (offsets) array
