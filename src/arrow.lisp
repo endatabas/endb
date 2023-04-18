@@ -41,7 +41,9 @@
 
 (defmethod (setf sequence:elt) (x (array arrow-array) (n fixnum))
   (if (= n (arrow-length array))
-      (arrow-push array x)
+      (progn
+        (arrow-push array x)
+        x)
       (call-next-method)))
 
 (defmethod sequence:make-sequence-like ((array arrow-array) length &key (initial-element nil initial-element-p) (initial-contents nil initial-contents-p))
@@ -60,6 +62,13 @@
       (if (< (arrow-length new-array) length)
           (arrow-push new-array :null)
           (return new-array)))))
+
+(defmethod sequence:adjust-sequence ((array arrow-array) length &key (initial-element nil initial-element-p) (initial-contents nil initial-contents-p))
+  (apply #'sequence:make-sequence-like array length
+         (append (when initial-element-p
+                   (list :initial-element initial-element))
+                 (when initial-contents-p
+                   (list :initial-contents initial-contents)))))
 
 (defmethod sequence:subseq ((array arrow-array) start &optional end)
   (let ((new-array (make-instance (type-of array))))
@@ -196,6 +205,19 @@
 
 (defclass primitive-array (validity-array)
   ((values :initarg :values :type vector)))
+
+(defmethod (setf sequence:elt) (x (array primitive-array) (n fixnum))
+  (with-slots (values validity) array
+    (if (eq :null x)
+        (let ((len (arrow-length array)))
+          (unless validity
+            (setf validity (make-array len :element-type 'bit :fill-pointer len :initial-element 1)))
+          (setf (aref validity n) 0))
+        (progn
+          (setf (aref values n) x)
+          (when validity
+            (setf (aref validity n) 1))))
+    x))
 
 (defmethod arrow-push ((array primitive-array) (x (eql :null)))
   (with-slots (values) array
