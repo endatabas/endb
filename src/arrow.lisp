@@ -477,7 +477,7 @@
 
 (defmethod arrow-children ((array list-array))
   (with-slots (values) array
-    (list (cons "item" values))))
+    (list (cons :item values))))
 
 (defun %same-struct-fields-p (array x)
   (with-slots (values) array
