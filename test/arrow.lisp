@@ -16,7 +16,9 @@
                (slot-value array 'endb/arrow::validity)))
     (is (equalp #(1 0 2 4 8)
                 (slot-value array 'endb/arrow::values)))
-    (is (equal expected (coerce array 'list))))
+    (is (equal expected (coerce array 'list)))
+    (is (null (arrow-children array)))
+    (is (= 2 (length (arrow-buffers array)))))
 
   (let* ((expected '(1 2 3 4 8))
          (array (to-arrow expected)))
@@ -26,7 +28,9 @@
     (is (null (slot-value array 'endb/arrow::validity)))
     (is (equalp #(1 2 3 4 8)
                 (slot-value array 'endb/arrow::values)))
-    (is (equal expected (coerce array 'list)))))
+    (is (equal expected (coerce array 'list)))
+    (is (null (arrow-children array)))
+    (is (= 2 (length (arrow-buffers array))))))
 
 (test variable-size-list-layout
   (let* ((expected '(#(12 -7 25) :null #(0 -127 127 50) #()))
@@ -39,6 +43,8 @@
     (is (equalp #(0 3 3 7 7)
                 (slot-value array 'endb/arrow::offsets)))
     (is (equalp expected (coerce array 'list)))
+    (is (= 1 (length (arrow-children array))))
+    (is (= 2 (length (arrow-buffers array))))
     (let ((values (slot-value array 'endb/arrow::values)))
       (is (typep values 'endb/arrow::int64-array))
       (is (equal '(12 -7 25 0 -127 127 50) (coerce values 'list)))))
@@ -51,6 +57,8 @@
     (is (equalp #(0 2 5 6)
                 (slot-value array 'endb/arrow::offsets)))
     (is (equalp expected (coerce array 'list)))
+    (is (= 1 (length (arrow-children array))))
+    (is (= 2 (length (arrow-buffers array))))
 
     (let ((values (slot-value array 'endb/arrow::values)))
       (is (typep values 'endb/arrow::list-array))
@@ -75,6 +83,8 @@
     (is (equal #*1101
                (slot-value array 'endb/arrow::validity)))
     (is (equal expected (coerce array 'list)))
+    (is (= 2 (length (arrow-children array))))
+    (is (= 1 (length (arrow-buffers array))))
 
     (let* ((values (slot-value array 'endb/arrow::values))
            (names (cdr (elt values 0)))
@@ -107,6 +117,8 @@
     (is (equal expected (coerce array 'list)))
     (is (equalp #(0 0 0 1) (slot-value array 'endb/arrow::type-ids)))
     (is (equalp #(0 1 2 0) (slot-value array 'endb/arrow::offsets)))
+    (is (= 2 (length (arrow-children array))))
+    (is (= 2 (length (arrow-buffers array))))
 
     (let* ((children (slot-value array 'endb/arrow::children))
            (f (elt children 0))
@@ -132,7 +144,9 @@
     (is (= 3 (arrow-length array)))
     (is (zerop (arrow-null-count array)))
     (is (= 3 (length (slot-value array 'endb/arrow::children))))
-    (is (equal expected (coerce array 'list))))
+    (is (equal expected (coerce array 'list)))
+    (is (= 3 (length (arrow-children array))))
+    (is (= 2 (length (arrow-buffers array)))))
 
   (let* ((expected '(:empty-struct ((:x . 1) (:y . "foo"))))
          (array (to-arrow expected)))
@@ -140,7 +154,9 @@
     (is (= 2 (arrow-length array)))
     (is (zerop (arrow-null-count array)))
     (is (= 2 (length (slot-value array 'endb/arrow::children))))
-    (is (equal expected (coerce array 'list))))
+    (is (equal expected (coerce array 'list)))
+    (is (= 2 (length (arrow-children array))))
+    (is (= 2 (length (arrow-buffers array)))))
 
   (let* ((expected '(:empty-struct :empty-struct))
          (array (to-arrow expected)))
@@ -149,7 +165,9 @@
     (is (zerop (arrow-null-count array)))
     (is (equal #*11
                (slot-value array 'endb/arrow::validity)))
-    (is (equal expected (coerce array 'list))))
+    (is (equal expected (coerce array 'list)))
+    (is (zerop (length (arrow-children array))))
+    (is (= 1 (length (arrow-buffers array)))))
 
   (let* ((expected '(:null :empty-struct))
          (array (to-arrow expected)))
@@ -158,7 +176,9 @@
     (is (= 1 (arrow-null-count array)))
     (is (equal #*01
                (slot-value array 'endb/arrow::validity)))
-    (is (equal expected (coerce array 'list)))))
+    (is (equal expected (coerce array 'list)))
+    (is (zerop (length (arrow-children array))))
+    (is (= 1 (length (arrow-buffers array))))))
 
 (test boolean-arrays
   (let* ((expected '(t nil :null))
@@ -168,7 +188,9 @@
     (is (= 1 (arrow-null-count array)))
     (is (equal #*110
                (slot-value array 'endb/arrow::validity)))
-    (is (equal expected (coerce array 'list))))
+    (is (equal expected (coerce array 'list)))
+    (is (zerop (length (arrow-children array))))
+    (is (= 2 (length (arrow-buffers array)))))
 
   (let* ((expected '(nil :null t))
          (array (to-arrow expected)))
@@ -177,7 +199,9 @@
     (is (= 1 (arrow-null-count array)))
     (is (equal #*101
                (slot-value array 'endb/arrow::validity)))
-    (is (equal expected (coerce array 'list))))
+    (is (equal expected (coerce array 'list)))
+    (is (zerop (length (arrow-children array))))
+    (is (= 2 (length (arrow-buffers array)))))
 
   (let* ((expected '(nil))
          (array (to-arrow expected)))
@@ -185,7 +209,9 @@
     (is (= 1 (arrow-length array)))
     (is (zerop (arrow-null-count array)))
     (is (null (slot-value array 'endb/arrow::validity)))
-    (is (equal expected (coerce array 'list)))))
+    (is (equal expected (coerce array 'list)))
+    (is (zerop (length (arrow-children array))))
+    (is (= 2 (length (arrow-buffers array))))))
 
 (test extensible-sequence
   (let ((array (to-arrow '(1 2 3))))

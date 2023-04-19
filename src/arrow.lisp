@@ -2,7 +2,8 @@
   (:use :cl)
   (:export #:to-arrow #:make-arrow-array-for
            #:arrow-push #:arrow-valid-p #:arrow-get #:arrow-value
-           #:arrow-length #:arrow-null-count #:arrow-data-type #:arrow-lisp-type)
+           #:arrow-length #:arrow-null-count #:arrow-data-type #:arrow-lisp-type
+           #:arrow-children #:arrow-buffers)
   (:import-from :local-time)
   (:import-from :trivial-utf-8))
 (in-package :endb/arrow)
@@ -21,6 +22,8 @@
 (defgeneric arrow-null-count (array))
 (defgeneric arrow-data-type (array))
 (defgeneric arrow-lisp-type (array))
+(defgeneric arrow-children (array))
+(defgeneric arrow-buffers (array))
 
 (defclass arrow-array (sequence standard-object) ())
 
@@ -133,7 +136,7 @@
                          :offsets offsets
                          :type-ids type-ids)))))
 
-(defmethod arrow-lisp-type ((array arrow-array)))
+(defmethod arrow-children ((array arrow-array)))
 
 (defclass null-array (arrow-array)
   ((null-count :initarg :null-count :initform 0 :type integer)))
@@ -172,6 +175,8 @@
 (defmethod arrow-lisp-type ((array null-array))
   '(eql :null))
 
+(defmethod arrow-buffers ((array null-array)))
+
 (defclass validity-array (arrow-array)
   ((validity :initarg :validity :initform nil :type (or null bit-vector))))
 
@@ -207,6 +212,10 @@
     (%ensure-validity-buffer array)
     (vector-push-extend 0 validity)))
 
+(defmethod arrow-buffers ((array validity-array))
+  (with-slots (validity) array
+    (list validity)))
+
 (defclass primitive-array (validity-array)
   ((values :initarg :values :type vector)))
 
@@ -232,6 +241,10 @@
 (defmethod arrow-length ((array primitive-array))
   (with-slots (values) array
     (length values)))
+
+(defmethod arrow-buffers ((array primitive-array))
+  (with-slots (values) array
+    (append (call-next-method) (list values))))
 
 (defclass int32-array (primitive-array)
   ((values :initform (make-array 0 :element-type 'int32 :fill-pointer 0) :type (vector int32))))
@@ -392,6 +405,10 @@
 (defmethod arrow-lisp-type ((array binary-array))
   '(vector uint8))
 
+(defmethod arrow-buffers ((array binary-array))
+  (with-slots (offsets data) array
+    (append (call-next-method) (list offsets data))))
+
 (defclass utf8-array (binary-array) ())
 
 (defmethod arrow-push ((array utf8-array) (x string))
@@ -454,6 +471,14 @@
 (defmethod arrow-lisp-type ((array list-array))
   'list)
 
+(defmethod arrow-buffers ((array list-array))
+  (with-slots (offsets) array
+    (append (call-next-method) (list offsets))))
+
+(defmethod arrow-children ((array list-array))
+  (with-slots (values) array
+    (list (cons "item" values))))
+
 (defun %same-struct-fields-p (array x)
   (with-slots (values) array
     (if (eq :empty-struct x)
@@ -508,6 +533,10 @@
 
 (defmethod arrow-lisp-type ((array struct-array))
   'alist)
+
+(defmethod arrow-children ((array struct-array))
+  (with-slots (values) array
+    values))
 
 (defclass dense-union-array (arrow-array)
   ((type-ids :initarg :type-ids :initform (make-array 0 :element-type 'int8 :fill-pointer 0) :type (vector int8))
@@ -571,3 +600,12 @@
 
 (defmethod arrow-lisp-type ((array dense-union-array))
   't)
+
+(defmethod arrow-buffers ((array dense-union-array))
+  (with-slots (type-ids offsets) array
+    (list type-ids offsets)))
+
+(defmethod arrow-children ((array dense-union-array))
+  (with-slots (children) array
+    (loop for c across children
+          collect (cons (arrow-data-type c) c))))
