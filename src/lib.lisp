@@ -1,6 +1,7 @@
 (defpackage :endb/lib
   (:use :cl)
   (:export #:parse-sql)
+  (:import-from :endb/arrow)
   (:import-from :cffi)
   (:import-from :cl-ppcre)
   (:import-from :asdf)
@@ -265,6 +266,12 @@
   (release :pointer)
   (private_data :pointer))
 
+(defvar *arrow-schema-release*)
+
+(cffi:defcallback arrow-schema-release :void
+    ((schema (:pointer (:struct ArrowSchema))))
+  (funcall *arrow-schema-release* schema))
+
 (cffi:defcstruct ArrowArray
   (length :int64)
   (null_count :int64)
@@ -277,6 +284,12 @@
   (release :pointer)
   (private_data :pointer))
 
+(defvar *arrow-array-release*)
+
+(cffi:defcallback arrow-array-release :void
+    ((array (:pointer (:struct ArrowArray))))
+  (funcall *arrow-array-release* array))
+
 (cffi:defcstruct ArrowArrayStream
   (get_schema :pointer)
   (get_next :pointer)
@@ -284,13 +297,135 @@
   (release :pointer)
   (private_data :pointer))
 
+(defvar *arrow-array-stream-get-schema*)
+
+(cffi:defcallback arrow-array-stream-get-schema :int
+    ((stream (:pointer (:struct ArrowArrayStream)))
+     (schema (:pointer (:struct ArrowSchema))))
+  (funcall *arrow-array-stream-get-schema* stream schema))
+
+(defvar *arrow-array-stream-get-next*)
+
+(cffi:defcallback arrow-array-stream-get-next :int
+    ((stream (:pointer (:struct ArrowArrayStream)))
+     (array (:pointer (:struct ArrowArray))))
+  (funcall *arrow-array-stream-get-next* stream array))
+
+(defvar *arrow-array-stream-get-last-error*)
+
+(cffi:defcallback arrow-array-stream-get-last-error :string
+    ((stream (:pointer (:struct ArrowArrayStream))))
+  (funcall *arrow-array-stream-get-last-error* stream))
+
+(defvar *arrow-array-stream-release*)
+
+(cffi:defcallback arrow-array-stream-release :void
+    ((stream (:pointer (:struct ArrowArrayStream))))
+  (funcall *arrow-array-stream-release* stream))
+
 (cffi:defcfun "endb_arrow_array_stream_producer" :void
   (stream (:pointer (:struct ArrowArrayStream)))
   (buffer-ptr :pointer)
   (buffer-size :size)
   (on-error :pointer))
 
+(defvar *arrow-array-stream-consumer-init-stream*)
+
+(cffi:defcallback arrow-array-stream-consumer-init-stream :void
+    ((stream (:pointer (:struct ArrowArrayStream))))
+  (funcall *arrow-array-stream-consumer-init-stream* stream))
+
+(defvar *arrow-array-stream-consumer-on-success*)
+
+(cffi:defcallback arrow-array-stream-consumer-on-success :void
+    ((buffer-ptr :pointer)
+     (buffer-size :size))
+  (funcall *arrow-array-stream-consumer-on-success* buffer-ptr buffer-size))
+
+(cffi:defcallback arrow-array-stream-consumer-on-error :void
+    ((err :string))
+  (error err))
+
 (cffi:defcfun "endb_arrow_array_stream_consumer" :void
   (init-stream :pointer)
   (on-success :pointer)
   (on-error :pointer))
+
+(defun export-arrow-schema (field-name array c-schema)
+  (cffi:with-foreign-slots ((format name flags n_children children release) c-schema (:struct ArrowSchema))
+    (setf format (cffi:foreign-string-alloc (endb/arrow:arrow-data-type array)))
+    (setf name (when field-name
+                 (cffi:foreign-string-alloc field-name)))
+    (setf flags '(:nullable))
+    (setf n_children 0)
+    (setf children (cffi:null-pointer))
+    (setf release (cffi:callback arrow-schema-release))))
+
+(defun export-arrow-array (array c-array)
+  (cffi:with-foreign-slots ((length null_count offset n_buffers n_children buffers children release) c-array (:struct ArrowArray))
+    (setf length (endb/arrow:arrow-length array))
+    (setf null_count (endb/arrow:arrow-null-count array))
+    (setf offset 0)
+    (setf n_buffers 0)
+    (setf buffers (cffi:null-pointer))
+    (setf n_children 0)
+    (setf children (cffi:null-pointer))
+    (setf release (cffi:callback arrow-array-release))))
+
+(defun write-arrow-array-to-ipc-buffer (array)
+  (let* ((get-next-calls 0)
+         (*arrow-schema-release* (lambda (c-schema)
+                                   (cffi:with-foreign-slots ((format name n_children children release) c-schema (:struct ArrowSchema))
+                                     (unless (cffi:null-pointer-p release)
+                                       (cffi:foreign-free format)
+                                       (unless (cffi:null-pointer-p name)
+                                         (cffi:foreign-free name))
+                                       (dotimes (n n_children)
+                                         (let ((child-ptr (cffi:mem-aptr children :pointer n)))
+                                           (funcall *arrow-schema-release* child-ptr)
+                                           (cffi:foreign-free child-ptr)))
+                                       (unless (cffi:null-pointer-p children)
+                                         (cffi:foreign-free children))
+                                       (setf release (cffi:null-pointer))))))
+         (*arrow-array-release* (lambda (c-array)
+                                  (cffi:with-foreign-slots ((n_children children release) c-array (:struct ArrowArray))
+                                    (unless (cffi:null-pointer-p release)
+                                      (dotimes (n n_children)
+                                        (let ((child-ptr (cffi:mem-aptr children :pointer n)))
+                                          (funcall *arrow-array-release* child-ptr)
+                                          (cffi:foreign-free child-ptr)))
+                                      (unless (cffi:null-pointer-p children)
+                                        (cffi:foreign-free children))
+                                      (setf release (cffi:null-pointer))))))
+         (*arrow-array-stream-get-schema* (lambda (c-stream c-schema)
+                                            (declare (ignore c-stream))
+                                            (export-arrow-schema nil array c-schema)
+                                            0))
+         (*arrow-array-stream-get-next* (lambda (c-stream c-array)
+                                          (declare (ignore c-stream))
+                                          (if (zerop get-next-calls)
+                                              (progn
+                                                (export-arrow-array array c-array)
+                                                (incf get-next-calls)
+                                                0)
+                                              (cffi:with-foreign-slots ((release) c-array (:struct ArrowArray))
+                                                (setf release (cffi:null-pointer))
+                                                0))))
+         (*arrow-array-stream-get-last-error* (lambda (c-stream)
+                                                (declare (ignore c-stream))
+                                                (cffi:null-pointer)))
+         (*arrow-array-stream-release* (lambda (c-stream)
+                                         (cffi:with-foreign-slots ((release) c-stream (:struct ArrowArrayStream))
+                                           (unless (cffi:null-pointer-p release)
+                                             (setf release (cffi:null-pointer))))))
+         (*arrow-array-stream-consumer-init-stream* (lambda (c-stream)
+                                                      (cffi:with-foreign-slots ((get_schema get_next get_last_error release) c-stream (:struct ArrowArrayStream))
+                                                        (setf get_schema (cffi:callback arrow-array-stream-get-schema))
+                                                        (setf get_next (cffi:callback arrow-array-stream-get-next))
+                                                        (setf get_last_error (cffi:callback arrow-array-stream-get-next-error))
+                                                        (setf release (cffi:callback arrow-array-stream-release)))))
+         (*arrow-array-stream-consumer-on-success* (lambda (buffer-ptr buffer-size)
+                                                     (format t "~A ~A" buffer-ptr buffer-size))))
+    (endb-arrow-array-stream-consumer (cffi:callback arrow-array-stream-consumer-init-stream)
+                                      (cffi:callback arrow-array-stream-consumer-on-success)
+                                      (cffi:callback arrow-array-stream-consumer-on-error))))
