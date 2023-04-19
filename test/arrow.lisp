@@ -125,6 +125,68 @@
       (is (null (slot-value i 'endb/arrow::validity)))
       (is (equal '(5) (coerce i 'list))))))
 
+(test empty-structs
+  (let* ((expected '(((:x . 1) (:y . "foo")) ((:x . 2) (:z . "bar")) :empty-struct))
+         (array (to-arrow expected)))
+    (is (typep array 'endb/arrow::dense-union-array))
+    (is (= 3 (arrow-length array)))
+    (is (zerop (arrow-null-count array)))
+    (is (= 3 (length (slot-value array 'endb/arrow::children))))
+    (is (equal expected (coerce array 'list))))
+
+  (let* ((expected '(:empty-struct ((:x . 1) (:y . "foo"))))
+         (array (to-arrow expected)))
+    (is (typep array 'endb/arrow::dense-union-array))
+    (is (= 2 (arrow-length array)))
+    (is (zerop (arrow-null-count array)))
+    (is (= 2 (length (slot-value array 'endb/arrow::children))))
+    (is (equal expected (coerce array 'list))))
+
+  (let* ((expected '(:empty-struct :empty-struct))
+         (array (to-arrow expected)))
+    (is (typep array 'endb/arrow::struct-array))
+    (is (= 2 (arrow-length array)))
+    (is (zerop (arrow-null-count array)))
+    (is (equal #*11
+               (slot-value array 'endb/arrow::validity)))
+    (is (equal expected (coerce array 'list))))
+
+  (let* ((expected '(:null :empty-struct))
+         (array (to-arrow expected)))
+    (is (typep array 'endb/arrow::struct-array))
+    (is (= 2 (arrow-length array)))
+    (is (= 1 (arrow-null-count array)))
+    (is (equal #*01
+               (slot-value array 'endb/arrow::validity)))
+    (is (equal expected (coerce array 'list)))))
+
+(test boolean-arrays
+  (let* ((expected '(t nil :null))
+         (array (to-arrow expected)))
+    (is (typep array 'endb/arrow::boolean-array))
+    (is (= 3 (arrow-length array)))
+    (is (= 1 (arrow-null-count array)))
+    (is (equal #*110
+               (slot-value array 'endb/arrow::validity)))
+    (is (equal expected (coerce array 'list))))
+
+  (let* ((expected '(nil :null t))
+         (array (to-arrow expected)))
+    (is (typep array 'endb/arrow::boolean-array))
+    (is (= 3 (arrow-length array)))
+    (is (= 1 (arrow-null-count array)))
+    (is (equal #*101
+               (slot-value array 'endb/arrow::validity)))
+    (is (equal expected (coerce array 'list))))
+
+  (let* ((expected '(nil))
+         (array (to-arrow expected)))
+    (is (typep array 'endb/arrow::boolean-array))
+    (is (= 1 (arrow-length array)))
+    (is (zerop (arrow-null-count array)))
+    (is (null (slot-value array 'endb/arrow::validity)))
+    (is (equal expected (coerce array 'list)))))
+
 (test extensible-sequence
   (let ((array (to-arrow '(1 2 3))))
     (is (= 3 (length array)))

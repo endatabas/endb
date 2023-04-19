@@ -76,12 +76,11 @@
           do (arrow-push new-array (arrow-get array n)))
     new-array))
 
-(defun %dotted-pair-p (x)
-  (and (consp x)
-       (not (listp (cdr x)))))
-
 (defun %alistp (x)
-  (and (listp x) (every #'%dotted-pair-p x)))
+  (or (and (listp x)
+           (plusp (length x))
+           (every #'consp x))
+      (eq :empty-struct x)))
 
 (deftype alist () '(satisfies %alistp))
 
@@ -101,8 +100,9 @@
 (defun make-arrow-array-for (x)
   (let ((c (%array-class-for x)))
     (if (eq 'struct-array c)
-        (make-instance c :values (loop for (k . v) in x
-                                       collect (cons k (make-arrow-array-for v))))
+        (make-instance c :values (unless (equal :empty-struct x)
+                                   (loop for (k . v) in x
+                                         collect (cons k (make-arrow-array-for v)))))
         (make-instance c))))
 
 (defun to-arrow (xs)
@@ -196,12 +196,16 @@
     (when validity
       (vector-push-extend 1 validity))))
 
-(defun %push-invalid (array)
+(defun %ensure-validity-buffer (array)
   (with-slots (validity) array
     (let ((len (arrow-length array)))
       (unless validity
-        (setf validity (make-array len :element-type 'bit :fill-pointer len :initial-element 1)))
-      (vector-push-extend 0 validity))))
+        (setf validity (make-array len :element-type 'bit :fill-pointer len :initial-element 1))))))
+
+(defun %push-invalid (array)
+  (with-slots (validity) array
+    (%ensure-validity-buffer array)
+    (vector-push-extend 0 validity)))
 
 (defclass primitive-array (validity-array)
   ((values :initarg :values :type vector)))
@@ -451,12 +455,14 @@
   'list)
 
 (defun %same-struct-fields-p (array x)
-  (equal (mapcar #'car x)
-         (with-slots (values) array
-           (mapcar #'car values))))
+  (with-slots (values) array
+    (if (eq :empty-struct x)
+        (null values)
+        (equal (mapcar #'car x)
+               (mapcar #'car values)))))
 
 (defclass struct-array (validity-array)
-  ((values :initarg :values :type list)))
+  ((values :initarg :values :initform () :type list)))
 
 (defmethod arrow-push ((array struct-array) (x list))
   (if (%same-struct-fields-p array x)
@@ -475,14 +481,27 @@
           do (setf (cdr kv-pair) (arrow-push (cdr kv-pair) :null)))
     array))
 
+(defmethod arrow-push ((array struct-array) (x (eql :empty-struct)))
+  (with-slots (values) array
+    (if (null values)
+        (progn
+          (%ensure-validity-buffer array)
+          (%push-valid array)
+          array)
+        (call-next-method))))
+
 (defmethod arrow-value ((array struct-array) (n fixnum))
   (with-slots (values) array
-    (loop for (k . v) in values
-          collect (cons k (arrow-get v n)))))
+    (or (loop for (k . v) in values
+              collect (cons k (arrow-get v n)))
+        :empty-struct)))
 
 (defmethod arrow-length ((array struct-array))
-  (with-slots (values) array
-    (arrow-length (cdr (first values)))))
+  (with-slots (values validity) array
+    (let ((first-array (cdr (first values))))
+      (if first-array
+          (arrow-length first-array)
+          (length validity)))))
 
 (defmethod arrow-data-type ((array struct-array))
   "s+")
@@ -552,56 +571,3 @@
 
 (defmethod arrow-lisp-type ((array dense-union-array))
   't)
-
-;; (arrow-push (arrow-push (make-instance 'null-array) :null) "foo")
-
-;; (arrow-null-count (arrow-push (make-instance 'null-array) :null))
-
-;; (arrow-get (arrow-push (arrow-push (arrow-push (make-instance 'dense-union-array :children (make-array 2 :fill-pointer 2 :initial-contents (list (make-instance 'int64-array) (make-instance 'utf8-array)))) "foo") :null) 1) 0)
-
-;; (arrow-get (arrow-push (arrow-push (arrow-push (make-instance 'struct-array :values (list (cons :x (make-instance 'int64-array)) (cons :y (make-instance 'utf8-array))))
-;;                                                '((:x . 1) (:y . "foo")))
-;;                                    :null)
-;;                        '((:x . 3) (:y . "bar")))
-;;            2)
-
-;; (arrow-get (arrow-push (arrow-push (arrow-push (arrow-push (make-instance 'null-array)
-;;                                                            '((:x . 1) (:y . "foo")))
-;;                                                :null)
-;;                                    3.14)
-;;                        '((:x . 3) (:z . "bar")))
-;;            2)
-
-;; (arrow-get (arrow-push (arrow-push (arrow-push (make-instance 'null-array)
-;;                                                '((:x . 1) (:y . "foo")))
-;;                                    :null)
-;;                        '((:x . 3) (:z . "bar")))
-;;            2)
-
-;; (arrow-push (arrow-push (arrow-push (make-instance 'list-array) '(1 2)) :null) '(3 4 5))
-
-;; (loop for x being the element in (arrow-push (make-instance 'timestamp-micros-array) (local-time:now))
-;;       collect x)
-
-;; (pprint (arrow-push (arrow-push (make-instance 'int64-array) :null) 1))
-
-;; (loop for x being the element in (arrow-push (arrow-push (make-instance 'int64-array) :null) 1)
-;;       collect x)
-
-;; (setf (elt (arrow-push (arrow-push (make-instance 'int64-array) :null) 1) 2) 2)
-
-;; (arrow-get (arrow-push (arrow-push (make-instance 'int64-array) :null) 1) 0)
-
-;; (arrow-get (arrow-push (arrow-push (make-instance 'float64-array) :null) 1.0d0) 1)
-
-;; (arrow-get (arrow-push (arrow-push (make-instance 'boolean-array) :null) t) 1)
-
-;; (arrow-get (arrow-push (arrow-push (arrow-push (make-instance 'binary-array) :null) #(0 1 2))  #(3 4)) 2)
-
-;; (arrow-get (arrow-push (arrow-push (arrow-push (make-instance 'utf8-array) :null) "hello") "world") 2)
-
-;; (arrow-null-count (arrow-push (arrow-push (arrow-push (make-instance 'utf8-array) :null) "hello") "world"))
-
-;; (arrow-length (arrow-push (arrow-push (arrow-push (make-instance 'utf8-array) :null) "hello") "world"))
-
-;; (arrow-data-type (make-instance 'utf8-array))
