@@ -446,8 +446,8 @@
   (src :pointer)
   (size :size))
 
-(defun buffer-to-vector (buffer-ptr buffer-size)
-  (let ((out (make-array buffer-size :element-type '(unsigned-byte 8))))
+(defun buffer-to-vector (buffer-ptr buffer-size &optional buffer)
+  (let ((out (or buffer (make-array buffer-size :element-type '(unsigned-byte 8)))))
     (cffi:with-pointer-to-vector-data (out-ptr out)
       (endb/lib::memcpy out-ptr buffer-ptr buffer-size))
     out))
