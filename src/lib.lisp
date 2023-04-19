@@ -464,7 +464,7 @@
                                       (cffi:callback arrow-array-stream-consumer-on-error))))
 
 ;; (write-arrow-array-to-ipc-buffer
-;;  (endb/arrow:to-arrow '(2 4))
+;;  (endb/arrow:to-arrow '(((:a . 2))))
 ;;  (lambda (buffer-ptr buffer-size)
 ;;    (let ((out (make-array buffer-size :element-type '(unsigned-byte 8))))
 ;;      (cffi:with-pointer-to-vector-data (ptr out)

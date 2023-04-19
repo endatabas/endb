@@ -466,7 +466,7 @@
     (1- (length offsets))))
 
 (defmethod arrow-data-type ((array list-array))
-  "l+")
+  "+l")
 
 (defmethod arrow-lisp-type ((array list-array))
   'list)
@@ -529,7 +529,7 @@
           (length validity)))))
 
 (defmethod arrow-data-type ((array struct-array))
-  "s+")
+  "+s")
 
 (defmethod arrow-lisp-type ((array struct-array))
   'alist)
@@ -595,7 +595,7 @@
 
 (defmethod arrow-data-type ((array dense-union-array))
   (with-slots (children) array
-    (format nil "ud+:~{~a~^,~}" (loop for id below (length children)
+    (format nil "+ud:~{~a~^,~}" (loop for id below (length children)
                                       collect id))))
 
 (defmethod arrow-lisp-type ((array dense-union-array))
