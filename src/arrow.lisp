@@ -103,9 +103,9 @@
 (defun make-arrow-array-for (x)
   (let ((c (%array-class-for x)))
     (if (eq 'struct-array c)
-        (make-instance c :values (unless (equal :empty-struct x)
-                                   (loop for (k . v) in x
-                                         collect (cons k (make-arrow-array-for v)))))
+        (make-instance c :children (unless (equal :empty-struct x)
+                                     (loop for (k . v) in x
+                                           collect (cons k (make-arrow-array-for v)))))
         (make-instance c))))
 
 (defun to-arrow (xs)
@@ -124,9 +124,7 @@
                                          :initial-element 0))
                (offsets (make-array len :element-type 'int32
                                         :fill-pointer len))
-               (children (make-array 2 :fill-pointer 2)))
-          (setf (aref children 0) array)
-          (setf (aref children 1) new-array)
+               (children (list (cons nil array) (cons nil new-array))))
           (vector-push-extend 1 type-ids)
           (dotimes (n len)
             (setf (aref offsets n) n))
@@ -139,7 +137,11 @@
 (defmethod arrow-children ((array arrow-array)))
 
 (defclass null-array (arrow-array)
-  ((null-count :initarg :null-count :initform 0 :type integer)))
+  ((null-count :type integer)))
+
+(defmethod initialize-instance :after ((array null-array) &key (length 0))
+  (with-slots (null-count) array
+    (setf null-count length)))
 
 (defmethod arrow-push ((array null-array) x)
   (let ((new-array (make-arrow-array-for x)))
@@ -178,7 +180,12 @@
 (defmethod arrow-buffers ((array null-array)))
 
 (defclass validity-array (arrow-array)
-  ((validity :initarg :validity :initform nil :type (or null bit-vector))))
+  ((validity :initform nil :type (or null bit-vector))))
+
+(defmethod initialize-instance :after ((array validity-array) &key length)
+  (when length
+    (with-slots (validity) array
+      (setf validity (make-array length :element-type 'bit :initial-element 1)))))
 
 (defmethod arrow-valid-p ((array validity-array) (n fixnum))
   (with-slots (validity) array
@@ -217,7 +224,14 @@
     (list validity)))
 
 (defclass primitive-array (validity-array)
-  ((values :initarg :values :type vector)))
+  ((values :type vector)
+   (element-type)))
+
+(defmethod initialize-instance :after ((array primitive-array) &key (length 0 lengthp))
+  (with-slots (values element-type) array
+    (setf values (make-array length :element-type element-type
+                                    :fill-pointer (unless lengthp
+                                                    length)))))
 
 (defmethod (setf sequence:elt) (x (array primitive-array) (n fixnum))
   (with-slots (values validity) array
@@ -247,7 +261,8 @@
     (append (call-next-method) (list values))))
 
 (defclass int32-array (primitive-array)
-  ((values :initform (make-array 0 :element-type 'int32 :fill-pointer 0) :type (vector int32))))
+  ((values :type (vector int32))
+   (element-type :initform 'int32)))
 
 (defmethod arrow-push ((array int32-array) (x integer))
   (with-slots (values) array
@@ -265,7 +280,8 @@
   'int32)
 
 (defclass int64-array (primitive-array)
-  ((values :initform (make-array 0 :element-type 'int64 :fill-pointer 0) :type (vector int64))))
+  ((values :type (vector int64))
+   (element-type :initform 'int64)))
 
 (defmethod arrow-push ((array int64-array) (x integer))
   (with-slots (values) array
@@ -325,7 +341,8 @@
   'local-time:date)
 
 (defclass float64-array (primitive-array)
-  ((values :initform (make-array 0 :element-type 'float64 :fill-pointer 0) :type (vector float64))))
+  ((values :type (vector float64))
+   (element-type :initform 'float64)))
 
 (defmethod arrow-push ((array float64-array) (x float))
   (with-slots (values) array
@@ -343,7 +360,8 @@
   'float64)
 
 (defclass boolean-array (primitive-array)
-  ((values :initform (make-array 0 :element-type 'bit :fill-pointer 0) :type (vector bit))))
+  ((values :type (vector bit))
+   (element-type :initform 'bit)))
 
 (defmethod (setf sequence:elt) (x (array boolean-array) (n fixnum))
   (call-next-method (if x 1 0) array n)
@@ -371,8 +389,17 @@
   'boolean)
 
 (defclass binary-array (validity-array)
-  ((offsets :initarg :offsets :initform (make-array 1 :element-type 'int32 :fill-pointer 1 :initial-element 0) :type (vector int32))
-   (data :initarg :data :initform (make-array 0 :element-type 'uint8 :fill-pointer 0) :type (vector uint8))))
+  ((offsets :type (vector int32))
+   (data :type (vector uint8))))
+
+(defmethod initialize-instance :after ((array binary-array) &key (length 0 lengthp))
+  (with-slots (offsets data) array
+    (setf offsets (make-array (1+ length) :element-type 'int32
+                                          :fill-pointer (unless lengthp
+                                                          (1+ length))))
+    (setf data (make-array length :element-type 'uint8
+                                  :fill-pointer (unless lengthp
+                                                  length)))))
 
 (defmethod arrow-push ((array binary-array) (x vector))
   (with-slots (offsets data) array
@@ -434,8 +461,18 @@
   'string)
 
 (defclass list-array (validity-array)
-  ((offsets :initarg :offsets :initform (make-array 1 :element-type 'int32 :fill-pointer 1 :initial-element 0) :type (vector int32))
-   (values :initarg :values :initform (make-instance 'null-array) :type arrow-array)))
+  ((offsets :type (vector int32))
+   (values :type arrow-array)))
+
+(defmethod initialize-instance :after ((array list-array) &key (length 0 lengthp) children)
+  (with-slots (offsets values) array
+    (setf offsets (make-array (1+ length) :element-type 'int32
+                                          :fill-pointer (unless lengthp
+                                                          (1+ length))))
+    (setf values (if children
+                     (cdr (first children))
+                     (make-instance 'null-array)))))
+
 
 (defmethod arrow-push ((array list-array) (x vector))
   (with-slots (offsets values) array
@@ -487,7 +524,7 @@
                (mapcar #'car values)))))
 
 (defclass struct-array (validity-array)
-  ((values :initarg :values :initform () :type list)))
+  ((values :initarg :children :initform () :type list)))
 
 (defmethod arrow-push ((array struct-array) (x list))
   (if (%same-struct-fields-p array x)
@@ -539,9 +576,25 @@
     values))
 
 (defclass dense-union-array (arrow-array)
-  ((type-ids :initarg :type-ids :initform (make-array 0 :element-type 'int8 :fill-pointer 0) :type (vector int8))
-   (offsets :initarg :offsets :initform (make-array 0 :element-type 'int32 :fill-pointer 0) :type (vector int32))
-   (children :initarg :children :initform (make-array 0 :fill-pointer 0) :type vector)))
+  ((type-ids :initarg :type-ids :type (vector int8))
+   (offsets :initarg :offsets :type (vector int32))
+   (children :type vector)))
+
+(defmethod initialize-instance :after ((array dense-union-array) &key (length 0 lengthp) children)
+  (with-slots (type-ids offsets) array
+    (unless type-ids
+      (setf type-ids (make-array length :element-type 'int8
+                                        :fill-pointer (unless lengthp
+                                                        length))))
+    (unless offsets
+      (setf offsets (make-array length :element-type 'int32
+                                       :fill-pointer (unless lengthp
+                                                       length))))
+    (let ((children (mapcar #'cdr children)))
+      (setf (slot-value array 'children)
+            (make-array (length children) :fill-pointer (unless lengthp
+                                                          (length children))
+                                          :initial-contents children)))))
 
 (defmethod arrow-valid-p ((array dense-union-array) (n fixnum))
   (with-slots (type-ids offsets children) array
