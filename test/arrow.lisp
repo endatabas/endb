@@ -213,6 +213,25 @@
     (is (zerop (length (arrow-children array))))
     (is (= 2 (length (arrow-buffers array))))))
 
+(test lisp-vector-like-types
+  (let ((list #()))
+    (is (not (typep list 'endb/arrow::arrow-binary)))
+    (is (typep list 'endb/arrow::arrow-list))
+    (is (not (typep list 'endb/arrow::arrow-struct)))
+    (is (not (stringp list))))
+
+  (let ((binary (make-array 0 :element-type '(unsigned-byte 8))))
+    (is (typep binary 'endb/arrow::arrow-binary))
+    (is (not (typep binary 'endb/arrow::arrow-list)))
+    (is (not (typep binary 'endb/arrow::arrow-struct)))
+    (is (not (stringp binary))))
+
+  (let ((string ""))
+    (is (not (typep string 'endb/arrow::arrow-binary)))
+    (is (not (typep string 'endb/arrow::arrow-list)))
+    (is (not (typep string 'endb/arrow::arrow-struct)))
+    (is (stringp string))))
+
 (test extensible-sequence
   (let ((array (to-arrow '(1 2 3))))
     (is (= 3 (length array)))

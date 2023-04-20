@@ -14,6 +14,20 @@
 (deftype int64 () '(signed-byte 64))
 (deftype float64 () 'double-float)
 
+(deftype arrow-binary ()
+  '(vector uint8))
+
+(deftype arrow-list ()
+  '(and vector (not (or string arrow-binary))))
+
+(defun %alistp (x)
+  (or (and (listp x)
+           (plusp (length x))
+           (every #'consp x))
+      (eq :empty-struct x)))
+
+(deftype arrow-struct () '(satisfies %alistp))
+
 (defgeneric arrow-push (array x))
 (defgeneric arrow-valid-p (array n))
 (defgeneric arrow-get (array n))
@@ -79,14 +93,6 @@
           do (arrow-push new-array (arrow-get array n)))
     new-array))
 
-(defun %alistp (x)
-  (or (and (listp x)
-           (plusp (length x))
-           (every #'consp x))
-      (eq :empty-struct x)))
-
-(deftype alist () '(satisfies %alistp))
-
 (defun %array-class-for (x)
   (etypecase x
     ((eql :null) 'null-array)
@@ -95,10 +101,10 @@
     (float  'float64-array)
     (local-time:date 'date-days-array)
     (local-time:timestamp 'timestamp-micros-array)
-    (alist 'struct-array)
-    ((vector uint8) 'binary-array)
+    (arrow-struct 'struct-array)
+    (arrow-binary 'binary-array)
     (string 'utf8-array)
-    (vector 'list-array)))
+    (arrow-list 'list-array)))
 
 (defun make-arrow-array-for (x)
   (let ((c (%array-class-for x)))
@@ -260,6 +266,10 @@
   (with-slots (values) array
     (append (call-next-method) (list values))))
 
+(defmethod arrow-lisp-type ((array primitive-array))
+  (with-slots (element-type) array
+    element-type))
+
 (defclass int32-array (primitive-array)
   ((values :type (vector int32))
    (element-type :initform 'int32)))
@@ -276,9 +286,6 @@
 (defmethod arrow-data-type ((array int32-array))
   "i")
 
-(defmethod arrow-lisp-type ((array int32-array))
-  'int32)
-
 (defclass int64-array (primitive-array)
   ((values :type (vector int64))
    (element-type :initform 'int64)))
@@ -294,9 +301,6 @@
 
 (defmethod arrow-data-type ((array int64-array))
   "l")
-
-(defmethod arrow-lisp-type ((array int64-array))
-  'int64)
 
 (defclass timestamp-micros-array (int64-array) ())
 
@@ -355,9 +359,6 @@
 
 (defmethod arrow-data-type ((array float64-array))
   "g")
-
-(defmethod arrow-lisp-type ((array float64-array))
-  'float64)
 
 (defclass boolean-array (primitive-array)
   ((values :type (vector bit))
@@ -506,7 +507,7 @@
   "+l")
 
 (defmethod arrow-lisp-type ((array list-array))
-  'list)
+  'arrow-list)
 
 (defmethod arrow-buffers ((array list-array))
   (with-slots (offsets) array
@@ -569,7 +570,7 @@
   "+s")
 
 (defmethod arrow-lisp-type ((array struct-array))
-  'alist)
+  'arrow-struct)
 
 (defmethod arrow-children ((array struct-array))
   (with-slots (values) array
@@ -606,7 +607,7 @@
           for c = (aref children id)
           for c-type = (arrow-lisp-type c)
           when (and (typep x c-type)
-                    (or (not (eql 'alist c-type))
+                    (or (not (eql 'arrow-struct c-type))
                         (%same-struct-fields-p c x)))
             do (progn
                  (vector-push-extend id type-ids)
