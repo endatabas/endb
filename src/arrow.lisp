@@ -357,7 +357,7 @@
 (defconstant +offset-from-epoch-day+ 11017)
 
 (defmethod arrow-push ((array date-days-array) (x local-time:timestamp))
-  (assert (typep x 'local-time:date))
+  (check-type x local-time:date)
   (arrow-push array (+ (local-time:day-of x) +offset-from-epoch-day+)))
 
 (defmethod arrow-value ((array date-days-array) (n fixnum))
