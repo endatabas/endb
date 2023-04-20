@@ -24,18 +24,31 @@
                             2 0 0 16 0 18 0 4 0 16 0 17 0 8 0 0 0 12 0 0 0 0 0 244 255 255 255 64 0 0 0 1
                             0 0 0 8 0 9 0 4 0 8 0 1 0 0 0 97 0 166 0 0 0 65 82 82 79 87 49)
                           '(vector (unsigned-byte 8))))
-        (array '((("a" . 1))))
-        (out))
+        (array '((("a" . 1)))))
 
-    (write-arrow-array-to-ipc-buffer
-     (endb/arrow:to-arrow array)
-     (lambda (buffer-ptr buffer-size)
-       (setf out (buffer-to-vector buffer-ptr buffer-size))))
-
-    (is (equalp expected out))
+    (is (equalp expected (write-arrow-array-to-ipc-buffer
+                          (endb/arrow:to-arrow array)
+                          #'buffer-to-vector)))
     (is (equal (list array)
                (loop for x in (read-arrow-array-from-ipc-buffer expected)
-                     collect (coerce x 'list))))))
+                     collect (coerce x 'list))))
+
+    (dolist (array '((1 :null 2 4 8)
+                     (1 2 3 4 8)
+                     (#(12 -7 25) :null #(0 -127 127 50) #())
+                     (#(#(1 2) #(3 4)) #(#(5 6 7) :null #(8)) #(#(9 10)))
+                     (1.2d0 :null 3.4d0 5)
+                     ;; wrapped in a list as a top-level row cannot be null.
+                     (#((("name" . "joe") ("id" . 1))
+                        (("name" . :null) ("id" . 2))
+                        :null
+                        (("name" . "mark") ("id" . 4))))))
+      (is (equalp (list array)
+                  (loop for x in (read-arrow-array-from-ipc-buffer
+                                  (write-arrow-array-to-ipc-buffer
+                                   (endb/arrow:to-arrow array)
+                                   #'buffer-to-vector))
+                        collect (mapcar #'cdar (coerce x 'list))))))))
 
 (test lib-parser
   (let ((sql "SELECT a, b, 123, myfunc(b) FROM table_1 WHERE a > b AND b < 100 ORDER BY a DESC, b"))

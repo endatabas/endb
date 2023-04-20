@@ -410,7 +410,7 @@
                           for n from 0
                           for schema-ptr = (track-alloc (cffi:foreign-alloc '(:struct ArrowSchema)))
                           do (export-arrow-schema k v schema-ptr)
-                             (setf (cffi:mem-ref children-ptr :pointer n) schema-ptr))
+                             (setf (cffi:mem-aref children-ptr :pointer n) schema-ptr))
                     (setf children children-ptr))
                   (setf children (cffi:null-pointer))))
 
@@ -454,7 +454,7 @@
                           for n from 0
                           for array-ptr = (track-alloc (cffi:foreign-alloc '(:struct ArrowArray)))
                           do (export-arrow-array c array-ptr)
-                             (setf (cffi:mem-ref children-ptr :pointer n) array-ptr)
+                             (setf (cffi:mem-aref children-ptr :pointer n) array-ptr)
                              (setf children children-ptr)))
                   (setf children (cffi:null-pointer))))
 
@@ -479,7 +479,8 @@
 (defun write-arrow-array-to-ipc-buffer (array on-success)
   (%init-lib)
   (let ((last-error (cffi:null-pointer))
-        (arrays (list array)))
+        (arrays (list array))
+        (result))
     (unwind-protect
          (#+sbcl sb-sys:with-pinned-objects
           #+sbcl (arrays)
@@ -514,21 +515,32 @@
                   (*arrow-array-stream-get-last-error* (lambda (c-stream)
                                                          (declare (ignore c-stream))
                                                          last-error))
-                  (*arrow-array-stream-consumer-on-success* on-success))
+                  (*arrow-array-stream-consumer-on-success* (lambda (buffer-ptr buffer-size)
+                                                              (setf result (funcall on-success buffer-ptr buffer-size)))))
              (endb-arrow-array-stream-consumer (cffi:callback arrow-array-stream-consumer-init-stream)
                                                (cffi:callback arrow-array-stream-consumer-on-success)
-                                               (cffi:callback arrow-array-stream-consumer-on-error))))
+                                               (cffi:callback arrow-array-stream-consumer-on-error))
+             result))
       (unless (cffi:null-pointer-p last-error)
         (cffi:foreign-free last-error)))))
 
 (defstruct arrow-schema format name children)
 
+(defun vector-byte-size (b length)
+  (etypecase b
+    ((vector bit) (truncate (+ 7 length) 8))
+    ((vector (unsigned-byte 8)) length)
+    ((vector (signed-byte 8)) length)
+    ((vector (signed-byte 32)) (* 4 length))
+    ((vector (signed-byte 64)) (* 8 length))
+    ((vector double-float) (* 8 length))))
+
 (defun import-arrow-schema (c-schema)
-  (cffi:with-foreign-slots ((format name n_children children) c-schema (:struct ArrowSchema))
+  (cffi:with-foreign-slots ((format name flags n_children children) c-schema (:struct ArrowSchema))
     (make-arrow-schema :format (cffi:foreign-string-to-lisp format)
                        :name (cffi:foreign-string-to-lisp name)
                        :children (loop for n below n_children
-                                       collect (import-arrow-schema (cffi:mem-ref children :pointer n))))))
+                                       collect (import-arrow-schema (cffi:mem-aref children :pointer n))))))
 
 (defun import-arrow-array (schema c-array)
   (cffi:with-foreign-slots ((length null_count n_buffers buffers n_children children) c-array (:struct ArrowArray))
@@ -537,19 +549,27 @@
            (array-children (loop for n below n_children
                                  for schema in (arrow-schema-children schema)
                                  collect (cons (arrow-schema-name schema)
-                                               (import-arrow-array schema (cffi:mem-ref children :pointer n)))))
+                                               (import-arrow-array schema (cffi:mem-aref children :pointer n)))))
            (array (apply #'make-instance array-class
                          (append (list :length length
                                        :null-count null_count)
                                  (when array-children
                                    (list :children array-children))))))
       (unless (cffi:null-pointer-p buffers)
-        (loop for n below n_buffers
-              for b in (endb/arrow:arrow-buffers array)
+        (loop with buffers-list = (endb/arrow:arrow-buffers array)
+              for n below n_buffers
+              for b in buffers-list
               for src = (cffi:mem-aref buffers :pointer n)
-              when (and b (not (cffi:null-pointer-p src)))
-                do (cffi:with-pointer-to-vector-data (dest b)
-                     (memcpy dest src length))))
+              when (not (cffi:null-pointer-p src))
+                do (let ((b (if (and (null b)
+                                     (typep array 'endb/arrow::binary-array)
+                                     (= 2 n))
+                                (let* ((offsets (elt buffers-list 1))
+                                       (data (make-array (aref offsets length) :element-type '(unsigned-byte 8))))
+                                  (setf (slot-value array 'endb/arrow::data) data))
+                                b)))
+                     (cffi:with-pointer-to-vector-data (dest b)
+                       (memcpy dest src (vector-byte-size b (length b)))))))
       array)))
 
 (defun read-arrow-array-from-ipc-pointer (buffer-ptr buffer-size)

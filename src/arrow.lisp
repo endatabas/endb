@@ -416,16 +416,15 @@
 
 (defclass binary-array (validity-array)
   ((offsets :type (vector int32))
-   (data :type (vector uint8))))
+   (data :type (or null (vector uint8)))))
 
 (defmethod initialize-instance :after ((array binary-array) &key (length 0 lengthp))
   (with-slots (offsets data) array
     (setf offsets (make-array (1+ length) :element-type 'int32
                                           :fill-pointer (unless lengthp
                                                           (1+ length))))
-    (setf data (make-array length :element-type 'uint8
-                                  :fill-pointer (unless lengthp
-                                                  length)))))
+    (setf data (unless lengthp
+                 (make-array 0 :element-type 'uint8 :fill-pointer 0)))))
 
 (defmethod arrow-push ((array binary-array) (x vector))
   (with-slots (offsets data) array
@@ -607,7 +606,8 @@
    (offsets :initarg :offsets :initform nil :type (or null (vector int32)))
    (children :type vector)))
 
-(defmethod initialize-instance :after ((array dense-union-array) &key (length 0 lengthp) children)
+(defmethod initialize-instance :after ((array dense-union-array) &key (length 0 lengthp) (null-count 0) children)
+  (assert (zerop null-count))
   (with-slots (type-ids offsets) array
     (unless type-ids
       (setf type-ids (make-array length :element-type 'int8
