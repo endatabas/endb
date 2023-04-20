@@ -553,6 +553,7 @@
       array)))
 
 (defun read-arrow-array-from-ipc-pointer (buffer-ptr buffer-size)
+  (%init-lib)
   (cffi:with-foreign-objects ((c-stream '(:struct ArrowArrayStream))
                               (c-schema '(:struct ArrowSchema))
                               (c-array '(:struct ArrowArray)))
