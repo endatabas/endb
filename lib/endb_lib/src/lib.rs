@@ -10,6 +10,11 @@ use endb_storage::arrow;
 
 use std::panic;
 
+fn handle_error(error_str: String, on_error: extern "C" fn(*const c_char)) {
+    let c_error_str = CString::new(error_str).unwrap();
+    on_error(c_error_str.as_ptr());
+}
+
 #[no_mangle]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn endb_parse_sql(
@@ -29,15 +34,13 @@ pub extern "C" fn endb_parse_sql(
                     let result = parser.parse(input_str);
                     let error_str =
                         sql_parser::parse_errors_to_string(input_str, result.into_errors());
-                    let c_error_str = CString::new(error_str).unwrap();
-                    on_error(c_error_str.as_ptr());
+                    handle_error(error_str, on_error);
                 });
             }
         })
     }) {
         let msg = err.downcast_ref::<&str>().unwrap_or(&"unknown panic!!");
-        let c_error_str = CString::new(msg.to_string()).unwrap();
-        on_error(c_error_str.as_ptr());
+        handle_error(msg.to_string(), on_error);
     }
 }
 
@@ -70,14 +73,19 @@ pub extern "C" fn endb_arrow_array_stream_producer(
     buffer_size: usize,
     on_error: extern "C" fn(*const c_char),
 ) {
-    let buffer = unsafe { std::slice::from_raw_parts(buffer_ptr, buffer_size) };
-    match arrow::read_arrow_array_stream_from_ipc_buffer(buffer) {
-        Ok(exported_stream) => unsafe {
+    match panic::catch_unwind(|| {
+        let buffer = unsafe { std::slice::from_raw_parts(buffer_ptr, buffer_size) };
+        arrow::read_arrow_array_stream_from_ipc_buffer(buffer)
+    }) {
+        Ok(Ok(exported_stream)) => unsafe {
             std::ptr::write(stream, exported_stream);
         },
+        Ok(Err(err)) => {
+            handle_error(err.to_string(), on_error);
+        }
         Err(err) => {
-            let c_error_str = CString::new(err.to_string()).unwrap();
-            on_error(c_error_str.as_ptr());
+            let msg = err.downcast_ref::<&str>().unwrap_or(&"unknown panic!!");
+            handle_error(msg.to_string(), on_error);
         }
     }
 }
@@ -88,14 +96,18 @@ pub extern "C" fn endb_arrow_array_stream_consumer(
     on_success: extern "C" fn(*const u8, usize),
     on_error: extern "C" fn(*const c_char),
 ) {
-    let mut stream = ArrowArrayStream::empty();
-    init_stream(&mut stream);
-
-    match arrow::write_arrow_array_stream_to_ipc_buffer(stream) {
-        Ok(buffer) => on_success(buffer.as_ptr(), buffer.len()),
+    match panic::catch_unwind(|| {
+        let mut stream = ArrowArrayStream::empty();
+        init_stream(&mut stream);
+        arrow::write_arrow_array_stream_to_ipc_buffer(stream)
+    }) {
+        Ok(Ok(buffer)) => on_success(buffer.as_ptr(), buffer.len()),
+        Ok(Err(err)) => {
+            handle_error(err.to_string(), on_error);
+        }
         Err(err) => {
-            let c_error_str = CString::new(err.to_string()).unwrap();
-            on_error(c_error_str.as_ptr());
+            let msg = err.downcast_ref::<&str>().unwrap_or(&"unknown panic!!");
+            handle_error(msg.to_string(), on_error);
         }
     }
 }
