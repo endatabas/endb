@@ -461,9 +461,9 @@
           (error e))))))
 
 (cffi:defcfun "memcpy" :pointer
-  (dst :pointer)
+  (dest :pointer)
   (src :pointer)
-  (size :size))
+  (n :size))
 
 (defun buffer-to-vector (buffer-ptr buffer-size &optional buffer)
   (let ((out (or buffer (make-array buffer-size :element-type '(unsigned-byte 8)))))
