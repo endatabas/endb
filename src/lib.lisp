@@ -386,60 +386,79 @@
   (on-error :pointer))
 
 (defun export-arrow-schema (field-name array c-schema)
-  (cffi:with-foreign-slots ((format name metadata flags n_children children dictionary release) c-schema (:struct ArrowSchema))
-    (setf format (cffi:foreign-string-alloc (endb/arrow:arrow-data-type array)))
-    (setf name (cffi:foreign-string-alloc (princ-to-string field-name)))
-    (setf metadata (cffi:null-pointer))
-    (setf flags '(:nullable))
+  (let ((ptrs))
+    (labels ((track-alloc (ptr)
+               (push ptr ptrs)
+               ptr))
+      (handler-case
+          (cffi:with-foreign-slots ((format name metadata flags n_children children dictionary release) c-schema (:struct ArrowSchema))
+            (setf format (track-alloc (cffi:foreign-string-alloc (endb/arrow:arrow-data-type array))))
+            (setf name (track-alloc (cffi:foreign-string-alloc (princ-to-string field-name))))
+            (setf metadata (cffi:null-pointer))
+            (setf flags '(:nullable))
 
-    (let ((children-alist (endb/arrow:arrow-children array)))
-      (setf n_children (length children-alist))
-      (if children-alist
-          (let ((children-ptr (cffi:foreign-alloc :pointer :count (length children-alist))))
-            (loop for (k . v) in children-alist
-                  for n from 0
-                  for schema-ptr = (cffi:foreign-alloc '(:struct ArrowSchema))
-                  do (export-arrow-schema k v schema-ptr)
-                     (setf (cffi:mem-ref children-ptr :pointer n) schema-ptr))
-            (setf children children-ptr))
-          (setf children (cffi:null-pointer))))
+            (let ((children-alist (endb/arrow:arrow-children array)))
+              (setf n_children (length children-alist))
+              (if children-alist
+                  (let ((children-ptr (track-alloc (cffi:foreign-alloc :pointer :count (length children-alist)))))
+                    (loop for (k . v) in children-alist
+                          for n from 0
+                          for schema-ptr = (track-alloc (cffi:foreign-alloc '(:struct ArrowSchema)))
+                          do (export-arrow-schema k v schema-ptr)
+                             (setf (cffi:mem-ref children-ptr :pointer n) schema-ptr))
+                    (setf children children-ptr))
+                  (setf children (cffi:null-pointer))))
 
-    (setf dictionary (cffi:null-pointer))
-    (setf release (cffi:callback arrow-schema-release))))
+            (setf dictionary (cffi:null-pointer))
+            (setf release (cffi:callback arrow-schema-release)))
+        (error (e)
+          (dolist (ptr ptrs)
+            (cffi:foreign-free ptr))
+          (error e))))))
 
 (defun export-arrow-array (array c-array)
-  (cffi:with-foreign-slots ((length null_count offset n_buffers n_children buffers children dictionary release) c-array (:struct ArrowArray))
-    (setf length (endb/arrow:arrow-length array))
-    (setf null_count (endb/arrow:arrow-null-count array))
-    (setf offset 0)
+  (let ((ptrs))
+    (labels ((track-alloc (ptr)
+               (push ptr ptrs)
+               ptr))
+      (handler-case
+          (cffi:with-foreign-slots ((length null_count offset n_buffers n_children buffers children dictionary release) c-array (:struct ArrowArray))
+            (setf length (endb/arrow:arrow-length array))
+            (setf null_count (endb/arrow:arrow-null-count array))
+            (setf offset 0)
 
-    (let ((buffers-list (endb/arrow:arrow-buffers array)))
-      (setf n_buffers (length buffers-list))
-      (if buffers-list
-          (let ((buffers-ptr (cffi:foreign-alloc :pointer :count (length buffers-list))))
-            (loop for b in buffers-list
-                  for n from 0
-                  do (if b
-                         (cffi:with-pointer-to-vector-data (ptr (sb-ext:array-storage-vector b))
-                           (setf (cffi:mem-aref buffers-ptr :pointer n) ptr))
-                         (setf (cffi:mem-aref buffers-ptr :pointer n) (cffi:null-pointer))))
-            (setf buffers buffers-ptr))
-          (setf buffers (cffi:null-pointer))))
+            (let ((buffers-list (endb/arrow:arrow-buffers array)))
+              (setf n_buffers (length buffers-list))
+              (if buffers-list
+                  (let ((buffers-ptr (track-alloc (cffi:foreign-alloc :pointer :count (length buffers-list)))))
+                    (loop for b in buffers-list
+                          for n from 0
+                          do (if b
+                                 (cffi:with-pointer-to-vector-data (ptr #+sbcl (sb-ext:array-storage-vector b)
+                                                                        #-sbcl b)
+                                   (setf (cffi:mem-aref buffers-ptr :pointer n) ptr))
+                                 (setf (cffi:mem-aref buffers-ptr :pointer n) (cffi:null-pointer))))
+                    (setf buffers buffers-ptr))
+                  (setf buffers (cffi:null-pointer))))
 
-    (let ((children-alist (endb/arrow:arrow-children array)))
-      (setf n_children (length children-alist))
-      (if children-alist
-          (let ((children-ptr (cffi:foreign-alloc :pointer :count (length children-alist))))
-            (loop for (nil . c) in children-alist
-                  for n from 0
-                  for array-ptr = (cffi:foreign-alloc '(:struct ArrowArray))
-                  do (export-arrow-array c array-ptr)
-                     (setf (cffi:mem-ref children-ptr :pointer n) array-ptr))
-            (setf children children-ptr))
-          (setf children (cffi:null-pointer))))
+            (let ((children-alist (endb/arrow:arrow-children array)))
+              (setf n_children (length children-alist))
+              (if children-alist
+                  (let ((children-ptr (track-alloc (cffi:foreign-alloc :pointer :count (length children-alist)))))
+                    (loop for (nil . c) in children-alist
+                          for n from 0
+                          for array-ptr = (track-alloc (cffi:foreign-alloc '(:struct ArrowArray)))
+                          do (export-arrow-array c array-ptr)
+                             (setf (cffi:mem-ref children-ptr :pointer n) array-ptr)
+                             (setf children children-ptr)))
+                  (setf children (cffi:null-pointer))))
 
-    (setf dictionary (cffi:null-pointer))
-    (setf release (cffi:callback arrow-array-release))))
+            (setf dictionary (cffi:null-pointer))
+            (setf release (cffi:callback arrow-array-release)))
+        (error (e)
+          (dolist (ptr ptrs)
+            (cffi:foreign-free ptr))
+          (error e))))))
 
 (cffi:defcfun "memcpy" :pointer
   (dst :pointer)
@@ -454,26 +473,45 @@
 
 (defun write-arrow-array-to-ipc-buffer (array on-success)
   (%init-lib)
-  (sb-sys:with-pinned-objects (array)
-    (let* ((get-next-calls 0)
-           (*arrow-array-stream-get-schema* (lambda (c-stream c-schema)
-                                              (declare (ignore c-stream))
-                                              (export-arrow-schema "" array c-schema)
-                                              0))
-           (*arrow-array-stream-get-next* (lambda (c-stream c-array)
-                                            (declare (ignore c-stream))
-                                            (if (zerop get-next-calls)
-                                                (progn
-                                                  (export-arrow-array array c-array)
-                                                  (incf get-next-calls)
-                                                  0)
-                                                (cffi:with-foreign-slots ((release) c-array (:struct ArrowArray))
-                                                  (setf release (cffi:null-pointer))
-                                                  0))))
-           (*arrow-array-stream-get-last-error* (lambda (c-stream)
-                                                  (declare (ignore c-stream))
-                                                  (cffi:null-pointer)))
-           (*arrow-array-stream-consumer-on-success* on-success))
-      (endb-arrow-array-stream-consumer (cffi:callback arrow-array-stream-consumer-init-stream)
-                                        (cffi:callback arrow-array-stream-consumer-on-success)
-                                        (cffi:callback arrow-array-stream-consumer-on-error)))))
+  (let ((last-error (cffi:null-pointer))
+        (arrays (list array)))
+    (unwind-protect
+         (#+sbcl sb-sys:with-pinned-objects
+          #+sbcl (arrays)
+          #-sbcl progn
+           (let* ((*arrow-array-stream-get-schema* (lambda (c-stream c-schema)
+                                                     (declare (ignore c-stream))
+                                                     (handler-case
+                                                         (progn
+                                                           (export-arrow-schema "" array c-schema)
+                                                           0)
+                                                       (error (e)
+                                                         (unless (cffi:null-pointer-p last-error)
+                                                           (cffi:foreign-free last-error))
+                                                         (setf last-error (cffi:foreign-string-alloc (princ-to-string e)))
+                                                         1))
+                                                     0))
+                  (*arrow-array-stream-get-next* (lambda (c-stream c-array)
+                                                   (declare (ignore c-stream))
+                                                   (if arrays
+                                                       (handler-case
+                                                           (progn
+                                                             (export-arrow-array (pop arrays) c-array)
+                                                             0)
+                                                         (error (e)
+                                                           (unless (cffi:null-pointer-p last-error)
+                                                             (cffi:foreign-free last-error))
+                                                           (setf last-error (cffi:foreign-string-alloc (princ-to-string e)))
+                                                           1))
+                                                       (cffi:with-foreign-slots ((release) c-array (:struct ArrowArray))
+                                                         (setf release (cffi:null-pointer))
+                                                         0))))
+                  (*arrow-array-stream-get-last-error* (lambda (c-stream)
+                                                         (declare (ignore c-stream))
+                                                         last-error))
+                  (*arrow-array-stream-consumer-on-success* on-success))
+             (endb-arrow-array-stream-consumer (cffi:callback arrow-array-stream-consumer-init-stream)
+                                               (cffi:callback arrow-array-stream-consumer-on-success)
+                                               (cffi:callback arrow-array-stream-consumer-on-error))))
+      (unless (cffi:null-pointer-p last-error)
+        (cffi:foreign-free last-error)))))
