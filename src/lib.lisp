@@ -397,7 +397,7 @@
       (handler-case
           (cffi:with-foreign-slots ((format name metadata flags n_children children dictionary release) c-schema (:struct ArrowSchema))
             (setf format (track-alloc (cffi:foreign-string-alloc (endb/arrow:arrow-data-type array))))
-            (setf name (track-alloc (cffi:foreign-string-alloc (princ-to-string field-name))))
+            (setf name (track-alloc (cffi:foreign-string-alloc field-name)))
             (setf metadata (cffi:null-pointer))
             (setf flags '(:nullable))
 
@@ -535,7 +535,7 @@
            (array-class (endb/arrow:arrow-class-for-format format))
            (array-children (loop for n below n_children
                                  for schema in (arrow-schema-children schema)
-                                 collect (cons (intern (string-upcase (arrow-schema-name schema)) :keyword)
+                                 collect (cons (arrow-schema-name schema)
                                                (import-arrow-array schema (cffi:mem-ref children :pointer n)))))
            (array (apply #'make-instance array-class
                          (append (list :length length

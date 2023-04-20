@@ -75,7 +75,7 @@
         (is (equal '(1 2 3 4 5 6 7 8 9 10) (coerce values 'list)))))))
 
 (test struct-layout
-  (let* ((expected '(((:name . "joe") (:id . 1)) ((:name . :null) (:id . 2)) :null ((:name . "mark") (:id . 4))))
+  (let* ((expected '((("name" . "joe") ("id" . 1)) (("name" . :null) ("id" . 2)) :null (("name" . "mark") ("id" . 4))))
          (array (to-arrow expected)))
     (is (typep array 'endb/arrow::struct-array))
     (is (= 4 (arrow-length array)))
@@ -138,7 +138,7 @@
       (is (equal '(5) (coerce i 'list))))))
 
 (test empty-structs
-  (let* ((expected '(((:x . 1) (:y . "foo")) ((:x . 2) (:z . "bar")) :empty-struct))
+  (let* ((expected '((("x" . 1) ("y" . "foo")) (("x" . 2) ("z" . "bar")) :empty-struct))
          (array (to-arrow expected)))
     (is (typep array 'endb/arrow::dense-union-array))
     (is (= 3 (arrow-length array)))
@@ -148,7 +148,7 @@
     (is (= 3 (length (arrow-children array))))
     (is (= 2 (length (arrow-buffers array)))))
 
-  (let* ((expected '(:empty-struct ((:x . 1) (:y . "foo"))))
+  (let* ((expected '(:empty-struct (("x" . 1) ("y" . "foo"))))
          (array (to-arrow expected)))
     (is (typep array 'endb/arrow::dense-union-array))
     (is (= 2 (arrow-length array)))
