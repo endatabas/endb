@@ -86,9 +86,9 @@
     (is (= 2 (length (arrow-children array))))
     (is (= 1 (length (arrow-buffers array))))
 
-    (let* ((values (slot-value array 'endb/arrow::values))
-           (names (cdr (elt values 0)))
-           (ids (cdr (elt values 1))))
+    (let* ((children (slot-value array 'endb/arrow::children))
+           (names (cdr (elt children 0)))
+           (ids (cdr (elt children 1))))
 
       (is (typep names 'endb/arrow::utf8-array))
       (is (= 4 (arrow-length names)))

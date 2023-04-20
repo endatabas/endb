@@ -21,12 +21,17 @@
   '(and vector (not (or string arrow-binary))))
 
 (defun %alistp (x)
-  (or (and (listp x)
-           (plusp (length x))
-           (every #'consp x))
+  (and (listp x)
+       (every #'consp x)))
+
+(deftype alist () '(satisfies %alistp))
+
+(defun %arrow-struct-p (x)
+  (or (and (%alistp x)
+           (plusp (length x)))
       (eq :empty-struct x)))
 
-(deftype arrow-struct () '(satisfies %alistp))
+(deftype arrow-struct () '(satisfies %arrow-struct-p))
 
 (defgeneric arrow-push (array x))
 (defgeneric arrow-valid-p (array n))
@@ -145,9 +150,9 @@
 (defclass null-array (arrow-array)
   ((null-count :type integer)))
 
-(defmethod initialize-instance :after ((array null-array) &key (length 0))
-  (with-slots (null-count) array
-    (setf null-count length)))
+(defmethod initialize-instance :after ((array null-array) &key (length 0) (null-count 0))
+  (assert (= length null-count))
+  (setf (slot-value array 'null-count) null-count))
 
 (defmethod arrow-push ((array null-array) x)
   (let ((new-array (make-arrow-array-for x)))
@@ -188,10 +193,11 @@
 (defclass validity-array (arrow-array)
   ((validity :initform nil :type (or null bit-vector))))
 
-(defmethod initialize-instance :after ((array validity-array) &key length)
-  (when length
+(defmethod initialize-instance :after ((array validity-array) &key length null-count)
+  (when (and length null-count)
+    (assert (<= null-count length))
     (with-slots (validity) array
-      (setf validity (make-array length :element-type 'bit :initial-element 1)))))
+      (setf validity (make-array length :element-type 'bit)))))
 
 (defmethod arrow-valid-p ((array validity-array) (n fixnum))
   (with-slots (validity) array
@@ -470,10 +476,11 @@
     (setf offsets (make-array (1+ length) :element-type 'int32
                                           :fill-pointer (unless lengthp
                                                           (1+ length))))
-    (setf values (if children
-                     (cdr (first children))
-                     (make-instance 'null-array)))))
-
+    (if children
+        (progn
+          (assert (= 1 (length children)))
+          (setf values (cdr (first children))))
+        (setf values (make-instance 'null-array)))))
 
 (defmethod arrow-push ((array list-array) (x vector))
   (with-slots (offsets values) array
@@ -518,35 +525,35 @@
     (list (cons :item values))))
 
 (defun %same-struct-fields-p (array x)
-  (with-slots (values) array
+  (with-slots (children) array
     (if (eq :empty-struct x)
-        (null values)
+        (null children)
         (equal (mapcar #'car x)
-               (mapcar #'car values)))))
+               (mapcar #'car children)))))
 
 (defclass struct-array (validity-array)
-  ((values :initarg :children :initform () :type list)))
+  ((children :initarg :children :initform () :type alist)))
 
 (defmethod arrow-push ((array struct-array) (x list))
   (if (%same-struct-fields-p array x)
-      (with-slots (values) array
+      (with-slots (children) array
         (%push-valid array)
-        (loop for kv-pair in values
+        (loop for kv-pair in children
               for (k . v) in x
               do (setf (cdr kv-pair) (arrow-push (cdr kv-pair) v)))
         array)
       (call-next-method)))
 
 (defmethod arrow-push ((array struct-array) (x (eql :null)))
-  (with-slots (values) array
+  (with-slots (children) array
     (%push-invalid array)
-    (loop for kv-pair in values
+    (loop for kv-pair in children
           do (setf (cdr kv-pair) (arrow-push (cdr kv-pair) :null)))
     array))
 
 (defmethod arrow-push ((array struct-array) (x (eql :empty-struct)))
-  (with-slots (values) array
-    (if (null values)
+  (with-slots (children) array
+    (if (null children)
         (progn
           (%ensure-validity-buffer array)
           (%push-valid array)
@@ -554,14 +561,14 @@
         (call-next-method))))
 
 (defmethod arrow-value ((array struct-array) (n fixnum))
-  (with-slots (values) array
-    (or (loop for (k . v) in values
+  (with-slots (children) array
+    (or (loop for (k . v) in children
               collect (cons k (arrow-get v n)))
         :empty-struct)))
 
 (defmethod arrow-length ((array struct-array))
-  (with-slots (values validity) array
-    (let ((first-array (cdr (first values))))
+  (with-slots (children validity) array
+    (let ((first-array (cdr (first children))))
       (if first-array
           (arrow-length first-array)
           (length validity)))))
@@ -573,12 +580,12 @@
   'arrow-struct)
 
 (defmethod arrow-children ((array struct-array))
-  (with-slots (values) array
-    values))
+  (with-slots (children) array
+    children))
 
 (defclass dense-union-array (arrow-array)
-  ((type-ids :initarg :type-ids :type (vector int8))
-   (offsets :initarg :offsets :type (vector int32))
+  ((type-ids :initarg :type-ids :initform nil :type (or null (vector int8)))
+   (offsets :initarg :offsets :initform nil :type (or null (vector int32)))
    (children :type vector)))
 
 (defmethod initialize-instance :after ((array dense-union-array) &key (length 0 lengthp) children)
