@@ -1,9 +1,10 @@
 (defpackage :endb/arrow
   (:use :cl)
-  (:export #:to-arrow #:make-arrow-array-for
+  (:export #:to-arrow #:make-arrow-array-for #:arrow-class-for-format
            #:arrow-push #:arrow-valid-p #:arrow-get #:arrow-value
            #:arrow-length #:arrow-null-count #:arrow-data-type #:arrow-lisp-type
            #:arrow-children #:arrow-buffers)
+  (:import-from :cl-ppcre)
   (:import-from :local-time)
   (:import-from :trivial-utf-8))
 (in-package :endb/arrow)
@@ -119,6 +120,23 @@
                                            collect (cons k (make-arrow-array-for v)))))
         (make-instance c))))
 
+(defun arrow-class-for-format (format)
+  (cond
+    ((equal "n" format) 'null-array)
+    ((equal "b" format) 'boolean-array)
+    ((equal "i" format) 'int32-array)
+    ((equal "l" format) 'int64-array)
+    ((equal "g" format) 'float64-array)
+    ((equal "tsu:" format) 'timestamp-micros-array)
+    ((equal "tdD" format) 'date-days-array)
+    ((equal "z" format) 'binary-array)
+    ((equal "u" format) 'utf8-array)
+    ((equal "+s" format) 'struct-array)
+    ((equal "+l" format) 'list-array)
+    (t (if (cl-ppcre:scan "^\\+ud:" format)
+           'dense-union-array
+           (error "unknown format: ~s" format)))))
+
 (defun to-arrow (xs)
   (reduce
    (lambda (acc x)
@@ -196,8 +214,9 @@
 (defmethod initialize-instance :after ((array validity-array) &key length null-count)
   (when (and length null-count)
     (assert (<= null-count length))
-    (with-slots (validity) array
-      (setf validity (make-array length :element-type 'bit)))))
+    (when (plusp null-count)
+      (with-slots (validity) array
+        (setf validity (make-array length :element-type 'bit))))))
 
 (defmethod arrow-valid-p ((array validity-array) (n fixnum))
   (with-slots (validity) array

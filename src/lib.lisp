@@ -1,6 +1,6 @@
 (defpackage :endb/lib
   (:use :cl)
-  (:export #:parse-sql #:write-arrow-array-to-ipc-buffer #:buffer-to-vector)
+  (:export #:parse-sql #:write-arrow-array-to-ipc-buffer #:read-arrow-array-from-ipc-buffer #:buffer-to-vector)
   (:import-from :endb/arrow)
   (:import-from :cffi)
   (:import-from :cl-ppcre)
@@ -351,6 +351,10 @@
     ((stream (:pointer (:struct ArrowArrayStream))))
   (funcall *arrow-array-stream-release* stream))
 
+(cffi:defcallback arrow-array-stream-producer-on-error :void
+    ((err :string))
+  (error err))
+
 (cffi:defcfun "endb_arrow_array_stream_producer" :void
   (stream (:pointer (:struct ArrowArrayStream)))
   (buffer-ptr :pointer)
@@ -515,3 +519,71 @@
                                                (cffi:callback arrow-array-stream-consumer-on-error))))
       (unless (cffi:null-pointer-p last-error)
         (cffi:foreign-free last-error)))))
+
+(defstruct arrow-schema format name children)
+
+(defun import-arrow-schema (c-schema)
+  (cffi:with-foreign-slots ((format name n_children children) c-schema (:struct ArrowSchema))
+    (make-arrow-schema :format (cffi:foreign-string-to-lisp format)
+                       :name (cffi:foreign-string-to-lisp name)
+                       :children (loop for n below n_children
+                                       collect (import-arrow-schema (cffi:mem-ref children :pointer n))))))
+
+(defun import-arrow-array (schema c-array)
+  (cffi:with-foreign-slots ((length null_count n_buffers buffers n_children children) c-array (:struct ArrowArray))
+    (let* ((format (arrow-schema-format schema))
+           (array-class (endb/arrow:arrow-class-for-format format))
+           (array-children (loop for n below n_children
+                                 for schema in (arrow-schema-children schema)
+                                 collect (cons (intern (string-upcase (arrow-schema-name schema)) :keyword)
+                                               (import-arrow-array schema (cffi:mem-ref children :pointer n)))))
+           (array (apply #'make-instance array-class
+                         (append (list :length length
+                                       :null-count null_count)
+                                 (when array-children
+                                   (list :children array-children))))))
+      (unless (cffi:null-pointer-p buffers)
+        (loop for n below n_buffers
+              for b in (endb/arrow:arrow-buffers array)
+              for src = (cffi:mem-aref buffers :pointer n)
+              when (and b (not (cffi:null-pointer-p src)))
+                do (cffi:with-pointer-to-vector-data (dest b)
+                     (memcpy dest src length))))
+      array)))
+
+(defun read-arrow-array-from-ipc-buffer (buffer)
+  (%init-lib)
+  (assert (typep buffer '(vector (unsigned-byte 8))))
+  (cffi:with-foreign-objects ((c-stream '(:struct ArrowArrayStream))
+                              (c-schema '(:struct ArrowSchema))
+                              (c-array '(:struct ArrowArray)))
+    (cffi:with-pointer-to-vector-data (buffer-ptr buffer)
+      (endb-arrow-array-stream-producer
+       c-stream
+       buffer-ptr
+       (length buffer)
+       (cffi:callback arrow-array-stream-producer-on-error)))
+    (cffi:with-foreign-slots ((get_schema get_next get_last_error release) c-stream (:struct ArrowArrayStream))
+      (unwind-protect
+           (let ((result (cffi:foreign-funcall-pointer get_schema () :pointer c-stream :pointer c-schema :int)))
+             (if (zerop result)
+                 (cffi:with-foreign-slots ((release) c-schema (:struct ArrowSchema))
+                   (unwind-protect
+                        (let ((acc)
+                              (schema (import-arrow-schema c-schema)))
+                          (loop
+                            (let ((result (cffi:foreign-funcall-pointer get_next () :pointer c-stream :pointer c-array :int)))
+                              (cffi:with-foreign-slots ((release) c-array (:struct ArrowArray))
+                                (unwind-protect
+                                     (if (zerop result)
+                                         (if (cffi:null-pointer-p release)
+                                             (return acc)
+                                             (push (import-arrow-array schema c-array) acc))
+                                         (error (cffi:foreign-funcall-pointer get_last_error () :pointer c-stream :string)))
+                                  (unless (cffi:null-pointer-p release)
+                                    (cffi:foreign-funcall-pointer release () :pointer c-array :void)))))))
+                     (unless (cffi:null-pointer-p release)
+                       (cffi:foreign-funcall-pointer release () :pointer c-schema :void))))
+                 (error (cffi:foreign-funcall-pointer get_last_error () :pointer c-stream :string))))
+        (unless (cffi:null-pointer-p release)
+          (cffi:foreign-funcall-pointer release () :pointer c-stream :void))))))
