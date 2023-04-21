@@ -470,8 +470,8 @@
   (src :pointer)
   (n :size))
 
-(defun buffer-to-vector (buffer-ptr buffer-size &optional buffer)
-  (let ((out (or buffer (make-array buffer-size :element-type '(unsigned-byte 8)))))
+(defun buffer-to-vector (buffer-ptr buffer-size &optional out)
+  (let ((out (or out (make-array buffer-size :element-type '(unsigned-byte 8)))))
     (cffi:with-pointer-to-vector-data (out-ptr out)
       (endb/lib::memcpy out-ptr buffer-ptr buffer-size))
     out))
@@ -559,17 +559,16 @@
         (loop with buffers-list = (endb/arrow:arrow-buffers array)
               for n below n_buffers
               for b in buffers-list
-              for src = (cffi:mem-aref buffers :pointer n)
-              when (not (cffi:null-pointer-p src))
+              for src-ptr = (cffi:mem-aref buffers :pointer n)
+              when (not (cffi:null-pointer-p src-ptr))
                 do (let ((b (if (and (null b)
                                      (typep array 'endb/arrow::binary-array)
                                      (= 2 n))
-                                (let* ((offsets (elt buffers-list 1))
+                                (let* ((offsets (nth 1 buffers-list))
                                        (data (make-array (aref offsets length) :element-type '(unsigned-byte 8))))
                                   (setf (slot-value array 'endb/arrow::data) data))
                                 b)))
-                     (cffi:with-pointer-to-vector-data (dest b)
-                       (memcpy dest src (vector-byte-size b (length b)))))))
+                     (buffer-to-vector src-ptr (vector-byte-size b (length b)) b))))
       array)))
 
 (defun read-arrow-array-from-ipc-pointer (buffer-ptr buffer-size)
