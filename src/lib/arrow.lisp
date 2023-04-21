@@ -242,8 +242,18 @@
   (src :pointer)
   (n :size))
 
+(defun vector-byte-size (b length)
+  (etypecase b
+    ((vector bit) (truncate (+ 7 length) 8))
+    ((vector (unsigned-byte 8)) length)
+    ((vector (signed-byte 8)) length)
+    ((vector (signed-byte 32)) (* 4 length))
+    ((vector (signed-byte 64)) (* 8 length))
+    ((vector double-float) (* 8 length))))
+
 (defun buffer-to-vector (buffer-ptr buffer-size &optional out)
   (let ((out (or out (make-array buffer-size :element-type '(unsigned-byte 8)))))
+    (assert (<= buffer-size (vector-byte-size out buffer-size)))
     (cffi:with-pointer-to-vector-data (out-ptr out)
       (memcpy out-ptr buffer-ptr buffer-size))
     out))
@@ -299,15 +309,6 @@
             result))
       (unless (cffi:null-pointer-p last-error)
         (cffi:foreign-free last-error)))))
-
-(defun vector-byte-size (b length)
-  (etypecase b
-    ((vector bit) (truncate (+ 7 length) 8))
-    ((vector (unsigned-byte 8)) length)
-    ((vector (signed-byte 8)) length)
-    ((vector (signed-byte 32)) (* 4 length))
-    ((vector (signed-byte 64)) (* 8 length))
-    ((vector double-float) (* 8 length))))
 
 (defun import-arrow-array (schema c-array)
   (cffi:with-foreign-slots ((length null_count n_buffers buffers n_children children) c-array (:struct ArrowArray))
