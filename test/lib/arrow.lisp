@@ -54,3 +54,17 @@
                                   (write-arrow-arrays-to-ipc-buffer
                                    (mapcar #'endb/arrow:to-arrow arrays)))
                         collect (mapcar #'cdar (coerce x 'list))))))))
+
+(test arrow-ffi-ipc-files
+  (let* ((target-dir (asdf:system-relative-pathname :endb-test "target/"))
+         (test-file (merge-pathnames "example.arrow" target-dir))
+         (arrays '(((("a" . 1)))
+                   ((("a" . 2))))))
+    (ensure-directories-exist target-dir)
+    (unwind-protect
+         (progn
+           (write-arrow-arrays-to-ipc-file test-file (mapcar #'endb/arrow:to-arrow arrays))
+           (is (equal arrays (loop for x in (read-arrow-arrays-from-ipc-file test-file)
+                                   collect (coerce x 'list)))))
+      (when (probe-file test-file)
+        (delete-file test-file)))))

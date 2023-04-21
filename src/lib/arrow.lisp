@@ -1,11 +1,12 @@
 (defpackage :endb/lib/arrow
   (:use :cl)
-  (:export #:write-arrow-arrays-to-ipc-buffer
-           #:read-arrow-arrays-from-ipc-pointer #:read-arrow-arrays-from-ipc-buffer
+  (:export #:write-arrow-arrays-to-ipc-buffer #:write-arrow-arrays-to-ipc-file
+           #:read-arrow-arrays-from-ipc-pointer #:read-arrow-arrays-from-ipc-buffer #:read-arrow-arrays-from-ipc-file
            #:buffer-to-vector)
   (:import-from :endb/arrow)
   (:import-from :endb/lib)
-  (:import-from :cffi))
+  (:import-from :cffi)
+  (:import-from :mmap))
 (in-package :endb/lib/arrow)
 
 (cffi:defbitfield arrow-flags
@@ -310,6 +311,16 @@
       (unless (cffi:null-pointer-p last-error)
         (cffi:foreign-free last-error)))))
 
+(defun write-arrow-arrays-to-ipc-file (file arrays)
+  (with-open-file (out file :direction :output
+                            :if-exists :supersede
+                            :if-does-not-exist :create
+                            :element-type '(unsigned-byte 8))
+    (write-sequence (write-arrow-arrays-to-ipc-buffer
+                     (mapcar #'endb/arrow:to-arrow arrays))
+                    out)
+    file))
+
 (defun import-arrow-array (schema c-array)
   (cffi:with-foreign-slots ((length null_count n_buffers buffers n_children children) c-array (:struct ArrowArray))
     (let* ((format (arrow-schema-format schema))
@@ -378,3 +389,7 @@
   (check-type buffer (vector (unsigned-byte 8)))
   (cffi:with-pointer-to-vector-data (buffer-ptr buffer)
     (read-arrow-arrays-from-ipc-pointer buffer-ptr (length buffer))))
+
+(defun read-arrow-arrays-from-ipc-file (file)
+  (mmap:with-mmap (addr fd size file)
+    (read-arrow-arrays-from-ipc-pointer addr size)))
