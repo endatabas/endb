@@ -26,11 +26,11 @@
                           '(vector (unsigned-byte 8))))
         (array '((("a" . 1)))))
 
-    (is (equalp expected (write-arrow-array-to-ipc-buffer
-                          (endb/arrow:to-arrow array)
+    (is (equalp expected (write-arrow-arrays-to-ipc-buffer
+                          (list (endb/arrow:to-arrow array))
                           #'buffer-to-vector)))
     (is (equal (list array)
-               (loop for x in (read-arrow-array-from-ipc-buffer expected)
+               (loop for x in (read-arrow-arrays-from-ipc-buffer expected)
                      collect (coerce x 'list))))
 
     (dolist (array '((1 :null 2 4 8)
@@ -44,9 +44,18 @@
                         :null
                         (("name" . "mark") ("id" . 4))))))
       (is (equalp (list array)
-                  (loop for x in (read-arrow-array-from-ipc-buffer
-                                  (write-arrow-array-to-ipc-buffer
-                                   (endb/arrow:to-arrow array)
+                  (loop for x in (read-arrow-arrays-from-ipc-buffer
+                                  (write-arrow-arrays-to-ipc-buffer
+                                   (list (endb/arrow:to-arrow array))
+                                   #'buffer-to-vector))
+                        collect (mapcar #'cdar (coerce x 'list))))))
+
+    (let ((arrays '((1 :null 2 4 8)
+                    (1 2 3 4 8))))
+      (is (equalp arrays
+                  (loop for x in (read-arrow-arrays-from-ipc-buffer
+                                  (write-arrow-arrays-to-ipc-buffer
+                                   (mapcar #'endb/arrow:to-arrow arrays)
                                    #'buffer-to-vector))
                         collect (mapcar #'cdar (coerce x 'list))))))))
 
