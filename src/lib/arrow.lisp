@@ -258,7 +258,7 @@
       (memcpy out-ptr buffer-ptr buffer-size))
     out))
 
-(defun write-arrow-arrays-to-ipc-buffer (arrays on-success)
+(defun write-arrow-arrays-to-ipc-buffer (arrays &optional (on-success #'buffer-to-vector))
   (endb/lib:init-lib)
   (let* ((last-error (cffi:null-pointer))
          (schemas (remove-duplicates (loop for a in arrays

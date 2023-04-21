@@ -26,8 +26,7 @@
         (array '((("a" . 1)))))
 
     (is (equalp expected (write-arrow-arrays-to-ipc-buffer
-                          (list (endb/arrow:to-arrow array))
-                          #'buffer-to-vector)))
+                          (list (endb/arrow:to-arrow array)))))
     (is (equal (list array)
                (loop for x in (read-arrow-arrays-from-ipc-buffer expected)
                      collect (coerce x 'list))))
@@ -45,8 +44,7 @@
       (is (equalp (list array)
                   (loop for x in (read-arrow-arrays-from-ipc-buffer
                                   (write-arrow-arrays-to-ipc-buffer
-                                   (list (endb/arrow:to-arrow array))
-                                   #'buffer-to-vector))
+                                   (list (endb/arrow:to-arrow array))))
                         collect (mapcar #'cdar (coerce x 'list))))))
 
     (let ((arrays '((1 :null 2 4 8)
@@ -54,6 +52,5 @@
       (is (equalp arrays
                   (loop for x in (read-arrow-arrays-from-ipc-buffer
                                   (write-arrow-arrays-to-ipc-buffer
-                                   (mapcar #'endb/arrow:to-arrow arrays)
-                                   #'buffer-to-vector))
+                                   (mapcar #'endb/arrow:to-arrow arrays)))
                         collect (mapcar #'cdar (coerce x 'list))))))))
