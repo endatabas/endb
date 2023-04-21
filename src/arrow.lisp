@@ -517,12 +517,18 @@
 (defmethod arrow-value ((array list-array) (n fixnum))
   (with-slots (offsets values) array
     (let* ((start (aref offsets n))
-           (end (aref offsets (1+ n)))
-           (acc (make-array (- end start))))
-      (loop for src-idx from start below end
-            for dst-idx from 0
-            do (setf (aref acc dst-idx) (arrow-get values src-idx))
-            finally (return acc)))))
+           (end (aref offsets (1+ n))))
+      (if (and (typep values 'primitive-array)
+               (zerop (arrow-null-count values)))
+          (let* ((len (- end start)))
+            (make-array len :element-type (slot-value values 'element-type)
+                            :displaced-to (slot-value values 'values)
+                            :displaced-index-offset start))
+          (loop with acc = (make-array (- end start))
+                for src-idx from start below end
+                for dst-idx from 0
+                do (setf (aref acc dst-idx) (arrow-get values src-idx))
+                finally (return acc))))))
 
 (defmethod arrow-length ((array list-array))
   (with-slots (offsets) array
