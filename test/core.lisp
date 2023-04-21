@@ -4,7 +4,8 @@
   (:import-from :endb-test/sql/expr)
   (:import-from :endb-test/sql)
   (:import-from :endb-test/arrow)
-  (:import-from :endb-test/lib))
+  (:import-from :endb-test/lib/arrow)
+  (:import-from :endb-test/lib/parser))
 (in-package :endb-test/core)
 
 (setf fiveam:*run-test-when-defined* t)

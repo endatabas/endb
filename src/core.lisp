@@ -84,6 +84,7 @@
 
 (defun %main (args)
   (declare (ignore args))
+  (endb/lib:init-lib)
   (let ((endb-system (asdf:find-system :endb)))
     (when (interactive-stream-p *standard-input*)
       (format t
