@@ -1,6 +1,7 @@
 (defpackage :endb-test/lib/arrow
   (:use :cl :fiveam :endb/lib/arrow)
-  (:import-from :endb/arrow))
+  (:import-from :endb/arrow)
+  (:import-from :asdf))
 (in-package :endb-test/lib/arrow)
 
 (in-suite* :all-tests)
