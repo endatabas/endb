@@ -338,6 +338,10 @@
                      (buffer-to-vector src-ptr (vector-byte-size b (length b)) b))))
       array)))
 
+(defun %call-release (release c-obj)
+  (unless (cffi:null-pointer-p release)
+    (cffi:foreign-funcall-pointer release () :pointer c-obj :void)))
+
 (defun read-arrow-arrays-from-ipc-pointer (buffer-ptr buffer-size)
   (endb/lib:init-lib)
   (cffi:with-foreign-objects ((c-stream '(:struct ArrowArrayStream))
@@ -354,24 +358,20 @@
              (if (zerop result)
                  (cffi:with-foreign-slots ((release) c-schema (:struct ArrowSchema))
                    (unwind-protect
-                        (let ((acc)
-                              (schema (import-arrow-schema c-schema)))
-                          (loop
-                            (let ((result (cffi:foreign-funcall-pointer get_next () :pointer c-stream :pointer c-array :int)))
-                              (cffi:with-foreign-slots ((release) c-array (:struct ArrowArray))
-                                (unwind-protect
-                                     (if (zerop result)
-                                         (if (cffi:null-pointer-p release)
-                                             (return acc)
-                                             (setf acc (append acc (list (import-arrow-array schema c-array)))))
-                                         (error (cffi:foreign-funcall-pointer get_last_error () :pointer c-stream :string)))
-                                  (unless (cffi:null-pointer-p release)
-                                    (cffi:foreign-funcall-pointer release () :pointer c-array :void)))))))
-                     (unless (cffi:null-pointer-p release)
-                       (cffi:foreign-funcall-pointer release () :pointer c-schema :void))))
+                        (loop with acc = ()
+                              with schema = (import-arrow-schema c-schema)
+                              for result = (cffi:foreign-funcall-pointer get_next () :pointer c-stream :pointer c-array :int)
+                              do (cffi:with-foreign-slots ((release) c-array (:struct ArrowArray))
+                                   (unwind-protect
+                                        (if (zerop result)
+                                            (if (cffi:null-pointer-p release)
+                                                (return acc)
+                                                (setf acc (append acc (list (import-arrow-array schema c-array)))))
+                                            (error (cffi:foreign-funcall-pointer get_last_error () :pointer c-stream :string)))
+                                     (%call-release release c-array))))
+                     (%call-release release c-schema)))
                  (error (cffi:foreign-funcall-pointer get_last_error () :pointer c-stream :string))))
-        (unless (cffi:null-pointer-p release)
-          (cffi:foreign-funcall-pointer release () :pointer c-stream :void))))))
+        (%call-release release c-stream)))))
 
 (defun read-arrow-arrays-from-ipc-buffer (buffer)
   (check-type buffer (vector (unsigned-byte 8)))
