@@ -1,5 +1,5 @@
 [package]
-name = "endb_storage"
+name = "endb_arrow"
 
 version.workspace = true
 edition.workspace = true

@@ -3,10 +3,10 @@ use std::ffi::{CStr, CString};
 
 use arrow2::ffi::ArrowArrayStream;
 use chumsky::Parser;
+use endb_arrow::arrow;
 use endb_parser::parser::ast::Ast;
 use endb_parser::parser::sql_parser;
 use endb_parser::{SQL_AST_PARSER_NO_ERRORS, SQL_AST_PARSER_WITH_ERRORS};
-use endb_storage::arrow;
 
 use std::panic;
 

@@ -216,14 +216,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a357d28ed41a50f9c765dbfe56cbc04a64e53e5fc58ba79fbc34c10ef3df831f"
 
 [[package]]
+name = "endb_arrow"
+version = "0.1.0"
+dependencies = [
+ "arrow2",
+]
+
+[[package]]
 name = "endb_lib"
 version = "0.1.0"
 dependencies = [
  "arrow2",
  "cbindgen",
  "chumsky",
+ "endb_arrow",
  "endb_parser",
- "endb_storage",
  "libc",
 ]
 
@@ -236,13 +243,6 @@ dependencies = [
  "chumsky",
  "insta",
  "serde",
-]
-
-[[package]]
-name = "endb_storage"
-version = "0.1.0"
-dependencies = [
- "arrow2",
 ]
 
 [[package]]
