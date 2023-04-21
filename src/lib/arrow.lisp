@@ -316,9 +316,7 @@
                             :if-exists :supersede
                             :if-does-not-exist :create
                             :element-type '(unsigned-byte 8))
-    (write-sequence (write-arrow-arrays-to-ipc-buffer
-                     (mapcar #'endb/arrow:to-arrow arrays))
-                    out)
+    (write-sequence (write-arrow-arrays-to-ipc-buffer arrays) out)
     file))
 
 (defun import-arrow-array (schema c-array)
