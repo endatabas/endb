@@ -271,12 +271,6 @@
 (defmethod sql-* ((x number) (y number))
   (* x y))
 
-(defmethod sql-* ((x real) (y integer))
-  (* x y))
-
-(defmethod sql-* ((x integer) (y real))
-  (* x y))
-
 (defmethod sql-* (x (y number))
   (* 0 y))
 
