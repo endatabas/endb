@@ -733,25 +733,31 @@
 (defgeneric sql-agg-accumulate (agg x))
 (defgeneric sql-agg-finish (agg))
 
-(defstruct sql-agg-sum sum)
+(defstruct sql-agg-sum sum has-value-p)
 
 (defmethod sql-agg-accumulate ((agg sql-agg-sum) x)
-  (with-slots (sum) agg
-    (setf sum (if (numberp sum)
-                  (sql-+ sum x)
-                  x))
+  (with-slots (sum has-value-p) agg
+    (if has-value-p
+        (setf sum (sql-+ sum x))
+        (setf sum x has-value-p t))
     agg))
 
 (defmethod sql-agg-accumulate ((agg sql-agg-sum) (x (eql :null)))
   agg)
 
 (defmethod sql-agg-finish ((agg sql-agg-sum))
-  (or (sql-agg-sum-sum agg) :null))
+  (with-slots (sum has-value-p) agg
+    (if has-value-p
+        sum
+        :null)))
 
 (defstruct (sql-agg-total (:include sql-agg-sum)))
 
 (defmethod sql-agg-finish ((agg sql-agg-total))
-  (or (sql-agg-total-sum agg) 0))
+  (with-slots (sum has-value-p) agg
+    (if has-value-p
+        sum
+        0.0d0)))
 
 (defstruct sql-agg-count (count 0 :type integer))
 
@@ -788,36 +794,52 @@
         :null
         (sql-/ sum (coerce count 'double-float)))))
 
-(defstruct sql-agg-min min)
+(defstruct sql-agg-min min has-value-p)
 
 (defmethod sql-agg-accumulate ((agg sql-agg-min) x)
-  (with-slots (min) agg
-    (setf min (if (and (numberp min) (sql-< min x))
-                  min
-                  x))
+  (with-slots (min has-value-p) agg
+    (if has-value-p
+        (setf min (if (sql-< min x)
+                      min
+                      x))
+        (setf min x has-value-p t))
     agg))
+
+(defmethod sql-agg-accumulate ((agg sql-agg-min) (x (eql :null)))
+  agg)
 
 (defmethod sql-agg-finish ((agg sql-agg-min))
-  (or (sql-agg-min-min agg) :null))
+  (with-slots (min has-value-p) agg
+    (if has-value-p
+        min
+        :null)))
 
-(defstruct sql-agg-max max)
+(defstruct sql-agg-max max has-value-p)
 
 (defmethod sql-agg-accumulate ((agg sql-agg-max) x)
-  (with-slots (max) agg
-    (setf max (if (and (numberp max) (sql-> max x))
-                  max
-                  x))
+  (with-slots (max has-value-p) agg
+    (if has-value-p
+        (setf max (if (sql-> max x)
+                      max
+                      x))
+        (setf max x has-value-p t))
     agg))
 
+(defmethod sql-agg-accumulate ((agg sql-agg-max) (x (eql :null)))
+  agg)
+
 (defmethod sql-agg-finish ((agg sql-agg-max))
-  (or (sql-agg-max-max agg) :null))
+  (with-slots (max has-value-p) agg
+    (if has-value-p
+        max
+        :null)))
 
 (defstruct sql-agg-group_concat (acc nil :type (or null string)) (separator ","))
 
 (defmethod sql-agg-accumulate ((agg sql-agg-group_concat) x)
   (with-slots (acc separator) agg
     (setf acc (if acc
-                  (concatenate 'string (sql-cast x :varchar) separator acc)
+                  (concatenate 'string acc separator (sql-cast x :varchar))
                   (sql-cast x :varchar)))
     agg))
 
@@ -825,7 +847,7 @@
   agg)
 
 (defmethod sql-agg-finish ((agg sql-agg-group_concat))
-  (or (sql-agg-group_concat-acc agg) ""))
+  (or (sql-agg-group_concat-acc agg) :null))
 
 (defstruct sql-agg-distinct (acc ()) agg)
 
