@@ -79,12 +79,11 @@
        (dolist (x (subseq initial-contents 0 (min length (length initial-contents))))
          (arrow-push new-array x)))
       (t
-       (dotimes (n (min length (length array)))
+       (dotimes (n (min length (arrow-length array)))
          (arrow-push new-array (arrow-get array n)))))
-    (loop
-      (if (< (arrow-length new-array) length)
-          (arrow-push new-array :null)
-          (return new-array)))))
+    (loop while (< (arrow-length new-array) length)
+          do (arrow-push new-array :null))
+    new-array))
 
 (defmethod sequence:adjust-sequence ((array arrow-array) length &key (initial-element nil initial-element-p) (initial-contents nil initial-contents-p))
   (apply #'sequence:make-sequence-like array length
@@ -94,10 +93,10 @@
                    (list :initial-contents initial-contents)))))
 
 (defmethod sequence:subseq ((array arrow-array) start &optional end)
-  (let ((new-array (make-instance (type-of array))))
-    (loop for n from start below (or end (length array))
-          do (arrow-push new-array (arrow-get array n)))
-    new-array))
+  (loop with new-array = (make-instance (type-of array))
+        for n from start below (or end (arrow-length array))
+        do (arrow-push new-array (arrow-get array n))
+        finally (return new-array)))
 
 (defun %array-class-for (x)
   (etypecase x
