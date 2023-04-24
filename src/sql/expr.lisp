@@ -12,7 +12,7 @@
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-like #:sql-substring #:sql-strftime
            #:sql-count-star #:sql-count #:sql-sum #:sql-avg #:sql-min #:sql-max #:sql-total #:sql-group_concat
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
-           #:base-table-rows #:base-table-columns
+           #:base-table-rows #:base-table-columns #:base-table-visible-rows #:base-table-size
            #:sql-runtime-error))
 (in-package :endb/sql/expr)
 
@@ -666,9 +666,20 @@
                          (mapcar #'cons (subseq row group-count) group-acc)))))
     acc))
 
-(defstruct base-table
-  columns
-  rows)
+(defstruct base-table columns rows deleted-row-ids)
+
+(defun base-table-visible-rows (base-table)
+  (with-slots (deleted-row-ids rows) base-table
+    (if deleted-row-ids
+        (loop for row in rows
+              for row-id downfrom (1- (length rows))
+              unless (member row-id deleted-row-ids :test 'eq)
+                collect row)
+        rows)))
+
+(defun base-table-size (base-table)
+  (- (length (base-table-rows base-table))
+     (length (base-table-deleted-row-ids base-table))))
 
 (defun sql-create-table (db table-name columns)
   (unless (gethash table-name db)
@@ -717,10 +728,14 @@
 (defun sql-delete (db table-name values)
   (let ((table (gethash table-name db)))
     (unless (listp table)
-      (let* ((table (gethash table-name db))
-             (rows (base-table-rows table)))
-        (setf (base-table-rows table) (nset-difference rows values :test 'equal))
-        (values nil (length values))))))
+      (with-slots (deleted-row-ids rows) table
+        (let ((new-deleted-row-ids (loop for row in rows
+                                         for row-id downfrom (1- (length rows))
+                                         when (and (member row values :test 'equal)
+                                                   (not (member row-id deleted-row-ids :test 'eq)))
+                                           collect row-id)))
+          (setf deleted-row-ids (append deleted-row-ids new-deleted-row-ids))
+          (values nil (length new-deleted-row-ids)))))))
 
 ;;; new aggregates
 

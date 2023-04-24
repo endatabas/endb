@@ -31,10 +31,10 @@
   (let ((db-table (gethash (symbol-name table) (cdr (assoc :db ctx)))))
     (if (listp db-table)
         (%ast->cl-with-free-vars ctx db-table)
-        (values `(endb/sql/expr:base-table-rows (gethash ,(symbol-name table) ,(cdr (assoc :db-sym ctx))))
+        (values `(endb/sql/expr:base-table-visible-rows (gethash ,(symbol-name table) ,(cdr (assoc :db-sym ctx))))
                 (endb/sql/expr:base-table-columns db-table)
                 ()
-                (length (endb/sql/expr:base-table-rows db-table))))))
+                (endb/sql/expr:base-table-size db-table)))))
 
 (defun %wrap-with-order-by-and-limit (src order-by limit offset)
   (let* ((src (if order-by

@@ -36,7 +36,38 @@
       (is (null result))
       (is (eq t result-code)))))
 
-(test simple-select
+(test dml
+  (let ((db (create-db)))
+    (multiple-value-bind (result result-code)
+        (execute-sql db "CREATE TABLE t1(a INTEGER, b INTEGER)")
+      (is (null result))
+      (is (eq t result-code)))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql db "INSERT INTO t1 VALUES(1,2), (1,3)")
+      (is (null result))
+      (is (= 2 result-code))
+      (is (equal '((1 2) (1 3))
+                 (endb/sql/expr:base-table-visible-rows (gethash "t1" db))))
+      (is (equal '((1 2) (1 3)) (execute-sql db "SELECT * FROM t1 ORDER BY 2"))))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql db "UPDATE t1 SET a = 2 WHERE b = 2")
+      (is (null result))
+      (is (= 1 result-code))
+      (is (equal '((2 2) (1 3))
+                 (endb/sql/expr:base-table-visible-rows (gethash "t1" db))))
+      (is (equal '((2 2) (1 3)) (execute-sql db "SELECT * FROM t1 ORDER BY 2"))))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql db "DELETE FROM t1 WHERE b = 3")
+      (is (null result))
+      (is (= 1 result-code))
+      (is (equal '((2 2))
+                 (endb/sql/expr:base-table-visible-rows (gethash "t1" db))))
+      (is (equal '((2 2)) (execute-sql db "SELECT * FROM t1 ORDER BY 2"))))))
+
+(test dql
   (let ((db (create-db)))
 
     (multiple-value-bind (result columns)
