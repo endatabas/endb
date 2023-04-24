@@ -509,8 +509,7 @@
                (update-sym (gensym)))
           (when (subsetp update-col-names columns :test 'equal)
             `(let ((,update-sym ,(ast->cl ctx (list :select update-select-list :from (list (list table-name)) :where where))))
-               (endb/sql/expr:sql-delete ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name)
-                                         ,(ast->cl ctx (list :select (list (list :*)) :from (list (list table-name)) :where where)))
+               ,(ast->cl ctx (list :delete table-name where))
                (endb/sql/expr:sql-insert ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name) ,update-sym))))))))
 
 (defmethod sql->cl (ctx (type (eql :in-query)) &rest args)
