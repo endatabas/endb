@@ -11,7 +11,7 @@
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-like #:sql-substring #:sql-strftime
            #:sql-count-star #:sql-count #:sql-sum #:sql-avg #:sql-min #:sql-max #:sql-total #:sql-group_concat
-           #:make-sql-agg #:sql-make-agg  #:sql-agg-accumulate
+           #:make-sql-agg #:sql-agg-accumulate #:sql-agg-finish
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
            #:base-table-rows #:base-table-columns #:base-table-visible-rows #:base-table-size
            #:sql-runtime-error))
@@ -542,88 +542,6 @@
       :null
       (caar rows)))
 
-(defun sql-count-star (xs &key distinct)
-  (when distinct
-    (error 'sql-runtime-error :message "COUNT(*) does not support DISTINCT."))
-  (length xs))
-
-(defun sql-count (xs &key distinct)
-  (count-if-not (lambda (x)
-                  (eq :null x))
-                (%sql-distinct xs distinct)))
-
-(defun sql-avg (xs &key distinct)
-  (let ((xs-no-nulls (delete :null (%sql-distinct xs distinct))))
-    (if xs-no-nulls
-        (sql-/ (reduce #'sql-+ xs-no-nulls)
-               (coerce (length xs-no-nulls) 'double-float))
-        :null)))
-
-(defun sql-sum (xs &key distinct)
-  (let ((xs-no-nulls (delete :null (%sql-distinct xs distinct))))
-    (if xs-no-nulls
-        (reduce #'sql-+ xs-no-nulls)
-        :null)))
-
-(defun sql-total (xs &key distinct)
-  (let ((xs-no-nulls (delete :null (%sql-distinct xs distinct))))
-    (if xs-no-nulls
-        (reduce #'sql-+ xs-no-nulls)
-        0)))
-
-(defun sql-group_concat (xs &rest args)
-  (multiple-value-bind (separator distinct)
-      (if (= 2 (length args))
-          (destructuring-bind (&key distinct)
-              args
-            (values "," distinct))
-          (destructuring-bind (separator &key distinct)
-              args
-            (when distinct
-              (error 'sql-runtime-error :message "GROUP_CONCAT with argument doesn't support DISTINCT."))
-            (values separator distinct)))
-    (let ((xs (reverse (delete :null (%sql-distinct xs distinct)))))
-      (apply #'concatenate 'string
-             (loop for x in xs
-                   for y upto (length xs)
-                   collect (if (= y (1- (length xs)))
-                               (sql-cast x :varchar)
-                               (concatenate 'string (sql-cast x :varchar) separator)))))))
-
-(defun sql-min (xs &key distinct)
-  (let ((xs-no-nulls (delete :null (%sql-distinct xs distinct))))
-    (if xs-no-nulls
-        (reduce
-         (lambda (x y)
-           (let ((x (if (numberp x)
-                        x
-                        0))
-                 (y (if (numberp y)
-                        y
-                        0)))
-             (if (sql-< x y)
-                 x
-                 y)))
-         xs-no-nulls)
-        :null)))
-
-(defun sql-max (xs &key distinct)
-  (let ((xs-no-nulls (delete :null (%sql-distinct xs distinct))))
-    (if xs-no-nulls
-        (reduce
-         (lambda (x y)
-           (let ((x (if (numberp x)
-                        x
-                        0))
-                 (y (if (numberp y)
-                        y
-                        0)))
-             (if (sql-> x y)
-                 x
-                 y)))
-         xs-no-nulls)
-        :null)))
-
 (defun %sql-distinct (rows &optional (distinct :distinct))
   (if (eq :distinct distinct)
       (delete-duplicates rows :test 'equal)
@@ -655,17 +573,6 @@
                        for yv = (nth (1- idx) y)
                        thereis (funcall cmp xv yv)
                        until (funcall cmp yv xv))))))
-
-(defun %sql-group-by (rows group-count group-expr-count)
-  (let ((acc (make-hash-table :test 'equal)))
-    (if (and (null rows) (zerop group-count))
-        (setf (gethash () acc) ())
-        (loop for row in rows
-              for k = (subseq row 0 group-count)
-              do (setf (gethash k acc)
-                       (let ((group-acc (or (gethash k acc) (make-list group-expr-count))))
-                         (mapcar #'cons (subseq row group-count) group-acc)))))
-    acc))
 
 (defstruct base-table columns rows deleted-row-ids)
 
@@ -749,12 +656,13 @@
 
 (defmethod sql-agg-accumulate ((agg sql-agg-distinct) x)
   (with-slots (acc) agg
-    (pushnew x acc)
+    (push x acc)
     agg))
 
 (defmethod sql-agg-finish ((agg sql-agg-distinct))
   (with-slots (acc (inner-agg agg)) agg
-    (sql-agg-finish (reduce #'sql-agg-accumulate (nreverse acc) :initial-value inner-agg))))
+    (sql-agg-finish (reduce #'sql-agg-accumulate (%sql-distinct (nreverse acc) :distinct)
+                            :initial-value inner-agg))))
 
 (defun %sql-agg-distinct (agg &optional (distinct :distinct))
   (if (eq :distinct distinct)
@@ -810,7 +718,7 @@
 
 (defstruct (sql-agg-count-star (:include sql-agg-count)))
 
-(defmethod make-sql-agg ((type (eql :count)) &key distinct)
+(defmethod make-sql-agg ((type (eql :count-star)) &key distinct)
   (when distinct
     (error 'sql-runtime-error :message "COUNT(*) does not support DISTINCT."))
   (make-sql-agg-count-star))
@@ -903,7 +811,7 @@
 (defmethod sql-agg-accumulate ((agg sql-agg-group_concat) x)
   (with-slots (acc separator) agg
     (setf acc (if acc
-                  (concatenate 'string acc separator (sql-cast x :varchar))
+                  (concatenate 'string (sql-cast x :varchar) separator acc)
                   (sql-cast x :varchar)))
     agg))
 

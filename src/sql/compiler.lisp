@@ -221,15 +221,27 @@
                                     collect (ast->cl ctx g)))
          (group-by-exprs-projection (loop for k being the hash-key of aggregate-table
                                           collect k))
-         (group-by-exprs (loop for v being the hash-value of aggregate-table
-                               collect (aggregate-src v)))
          (group-acc-sym (gensym))
-         (group-ctx (cons (cons :acc-sym group-acc-sym) ctx))
-         (group-by-selected-src (%selection-with-limit-offset->cl group-ctx (append group-by-projection group-by-exprs)))
-         (from-src `(let ((,group-acc-sym))
-                      ,(%from->cl group-ctx from-tables where-clauses group-by-selected-src correlated-vars)
-                      ,group-acc-sym))
-         (group-by-src `(endb/sql/expr::%sql-group-by ,from-src ,(length group-by-projection) ,(length group-by-exprs))))
+         (group-key-sym (gensym))
+         (group-sym (gensym))
+         (group-key-form `(list ,@(%unique-vars group-by-projection)))
+         (init-srcs (loop for v being the hash-value of aggregate-table
+                          collect (aggregate-init-src v)))
+         (group-by-selected-src `(do (let* ((,group-key-sym ,group-key-form)
+                                            (,group-sym  (gethash ,group-key-sym ,group-acc-sym)))
+                                       (unless ,group-sym
+                                         (setf ,group-sym (list ,@init-srcs))
+                                         (setf (gethash ,group-key-sym ,group-acc-sym) ,group-sym))
+                                       (destructuring-bind ,group-by-exprs-projection
+                                           ,group-sym
+                                         ,@(loop for v being the hash-value of aggregate-table
+                                                 collect `(endb/sql/expr:sql-agg-accumulate ,(aggregate-var v) ,(aggregate-src v)))))))
+         (group-by-src `(let ((,group-acc-sym (make-hash-table :test 'equal)))
+                          ,(%from->cl ctx from-tables where-clauses group-by-selected-src correlated-vars)
+                          (when (zerop (hash-table-count ,group-acc-sym))
+                            (setf (gethash () ,group-acc-sym)
+                                  (list ,@init-srcs)))
+                          ,group-acc-sym)))
     (append `(loop for ,(%unique-vars group-by-projection) being the hash-key
                      using (hash-value ,group-by-exprs-projection)
                        of ,group-by-src
@@ -569,12 +581,10 @@
                                                           collect (ast->cl ctx ast))
                                                   :distinct ,distinct))
            (src (ast->cl ctx (first args)))
-           (agg (make-aggregate :src src :init-src init-src :var aggregate-sym )))
+           (agg (make-aggregate :src src :init-src init-src :var aggregate-sym)))
       (assert fn-sym nil (format nil "Unknown aggregate function: ~A" fn))
       (setf (gethash aggregate-sym aggregate-table) agg)
-      `(,fn-sym ,aggregate-sym ,@(loop for ast in (rest args)
-                                       collect (ast->cl ctx ast))
-                :distinct ,distinct))))
+      `(endb/sql/expr:sql-agg-finish ,aggregate-sym))))
 
 (defmethod sql->cl (ctx (type (eql :case)) &rest args)
   (destructuring-bind (cases-or-expr &optional cases)
