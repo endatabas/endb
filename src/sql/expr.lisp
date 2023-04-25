@@ -10,7 +10,6 @@
            #:sql-between #:sql-in #:sql-exists #:sql-coalesce
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-like #:sql-substring #:sql-strftime
-           #:sql-count-star #:sql-count #:sql-sum #:sql-avg #:sql-min #:sql-max #:sql-total #:sql-group_concat
            #:make-sql-agg #:sql-agg-accumulate #:sql-agg-finish
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
            #:base-table-rows #:base-table-columns #:base-table-visible-rows #:base-table-size
