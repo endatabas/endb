@@ -2,7 +2,6 @@
   (:use :cl)
   (:import-from :cl-ppcre)
   (:import-from :local-time)
-  (:import-from :sqlite)
   (:import-from :endb/sql/parser)
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
