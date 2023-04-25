@@ -645,8 +645,6 @@
           (setf deleted-row-ids (append deleted-row-ids new-deleted-row-ids))
           (values nil (length new-deleted-row-ids)))))))
 
-;;; new aggregates
-
 (defgeneric make-sql-agg (type &rest args))
 
 (defgeneric sql-agg-accumulate (agg x))
