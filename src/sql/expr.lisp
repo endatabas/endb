@@ -11,6 +11,7 @@
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-like #:sql-substring #:sql-strftime
            #:sql-count-star #:sql-count #:sql-sum #:sql-avg #:sql-min #:sql-max #:sql-total #:sql-group_concat
+           #:make-sql-agg #:sql-make-agg  #:sql-agg-accumulate
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
            #:base-table-rows #:base-table-columns #:base-table-visible-rows #:base-table-size
            #:sql-runtime-error))
@@ -739,10 +740,31 @@
 
 ;;; new aggregates
 
+(defgeneric make-sql-agg (type &rest args))
+
 (defgeneric sql-agg-accumulate (agg x))
 (defgeneric sql-agg-finish (agg))
 
+(defstruct sql-agg-distinct (acc ()) agg)
+
+(defmethod sql-agg-accumulate ((agg sql-agg-distinct) x)
+  (with-slots (acc) agg
+    (pushnew x acc)
+    agg))
+
+(defmethod sql-agg-finish ((agg sql-agg-distinct))
+  (with-slots (acc (inner-agg agg)) agg
+    (sql-agg-finish (reduce #'sql-agg-accumulate (nreverse acc) :initial-value inner-agg))))
+
+(defun %sql-agg-distinct (agg &optional (distinct :distinct))
+  (if (eq :distinct distinct)
+      (make-sql-agg-distinct :agg agg)
+      agg))
+
 (defstruct sql-agg-sum sum has-value-p)
+
+(defmethod make-sql-agg ((type (eql :sum)) &key distinct)
+  (%sql-agg-distinct (make-sql-agg-sum) distinct))
 
 (defmethod sql-agg-accumulate ((agg sql-agg-sum) x)
   (with-slots (sum has-value-p) agg
@@ -762,6 +784,9 @@
 
 (defstruct (sql-agg-total (:include sql-agg-sum)))
 
+(defmethod make-sql-agg ((type (eql :total)) &key distinct)
+  (%sql-agg-distinct (make-sql-agg-total) distinct))
+
 (defmethod sql-agg-finish ((agg sql-agg-total))
   (with-slots (sum has-value-p) agg
     (if has-value-p
@@ -769,6 +794,9 @@
         0.0d0)))
 
 (defstruct sql-agg-count (count 0 :type integer))
+
+(defmethod make-sql-agg ((type (eql :count)) &key distinct)
+  (%sql-agg-distinct (make-sql-agg-count) distinct))
 
 (defmethod sql-agg-accumulate ((agg sql-agg-count) x)
   (incf (sql-agg-count-count agg))
@@ -782,11 +810,19 @@
 
 (defstruct (sql-agg-count-star (:include sql-agg-count)))
 
+(defmethod make-sql-agg ((type (eql :count)) &key distinct)
+  (when distinct
+    (error 'sql-runtime-error :message "COUNT(*) does not support DISTINCT."))
+  (make-sql-agg-count-star))
+
 (defmethod sql-agg-accumulate ((agg sql-agg-count-star) x)
   (incf (sql-agg-count-star-count agg))
   agg)
 
 (defstruct sql-agg-avg sum (count 0 :type integer))
+
+(defmethod make-sql-agg ((type (eql :avg)) &key distinct)
+  (%sql-agg-distinct (make-sql-agg-avg) distinct))
 
 (defmethod sql-agg-accumulate ((agg sql-agg-avg) x)
   (with-slots (sum count) agg
@@ -804,6 +840,9 @@
         (sql-/ sum (coerce count 'double-float)))))
 
 (defstruct sql-agg-min min has-value-p)
+
+(defmethod make-sql-agg ((type (eql :min)) &key distinct)
+  (%sql-agg-distinct (make-sql-agg-min) distinct))
 
 (defmethod sql-agg-accumulate ((agg sql-agg-min) x)
   (with-slots (min has-value-p) agg
@@ -825,6 +864,9 @@
 
 (defstruct sql-agg-max max has-value-p)
 
+(defmethod make-sql-agg ((type (eql :max)) &key distinct)
+  (%sql-agg-distinct (make-sql-agg-max) distinct))
+
 (defmethod sql-agg-accumulate ((agg sql-agg-max) x)
   (with-slots (max has-value-p) agg
     (if has-value-p
@@ -845,6 +887,19 @@
 
 (defstruct sql-agg-group_concat (acc nil :type (or null string)) (separator ","))
 
+(defmethod make-sql-agg ((type (eql :group_concat)) &rest args)
+  (multiple-value-bind (separator distinct)
+      (if (= 2 (length args))
+          (destructuring-bind (&key distinct)
+              args
+            (values "," distinct))
+          (destructuring-bind (separator &key distinct)
+              args
+            (when distinct
+              (error 'sql-runtime-error :message "GROUP_CONCAT with argument doesn't support DISTINCT."))
+            (values separator distinct)))
+    (%sql-agg-distinct (make-sql-agg-group_concat :separator separator) distinct)))
+
 (defmethod sql-agg-accumulate ((agg sql-agg-group_concat) x)
   (with-slots (acc separator) agg
     (setf acc (if acc
@@ -857,14 +912,3 @@
 
 (defmethod sql-agg-finish ((agg sql-agg-group_concat))
   (or (sql-agg-group_concat-acc agg) :null))
-
-(defstruct sql-agg-distinct (acc ()) agg)
-
-(defmethod sql-agg-accumulate ((agg sql-agg-distinct) x)
-  (with-slots (acc) agg
-    (pushnew x acc)
-    agg))
-
-(defmethod sql-agg-finish ((agg sql-agg-distinct))
-  (with-slots (acc (inner-agg agg)) agg
-    (sql-agg-finish (reduce #'sql-agg-accumulate (nreverse acc) :initial-value inner-agg))))

@@ -65,17 +65,11 @@
         (t (list expr)))
       (list expr)))
 
-(defstruct from-table
-  src
-  vars
-  free-vars
-  size
-  projection)
+(defstruct from-table src vars free-vars size projection)
 
-(defstruct where-clause
-  src
-  free-vars
-  ast)
+(defstruct where-clause src free-vars ast)
+
+(defstruct aggregate src init-src var)
 
 (defun %binary-predicate-p (x)
   (and (listp x)
@@ -228,7 +222,7 @@
          (group-by-exprs-projection (loop for k being the hash-key of aggregate-table
                                           collect k))
          (group-by-exprs (loop for v being the hash-value of aggregate-table
-                               collect v))
+                               collect (aggregate-src v)))
          (group-acc-sym (gensym))
          (group-ctx (cons (cons :acc-sym group-acc-sym) ctx))
          (group-by-selected-src (%selection-with-limit-offset->cl group-ctx (append group-by-projection group-by-exprs)))
@@ -567,11 +561,17 @@
 (defmethod sql->cl (ctx (type (eql :aggregate-function)) &rest args)
   (destructuring-bind (fn args &key distinct)
       args
-    (let ((aggregate-table (cdr (assoc :aggregate-table ctx)))
-          (fn-sym (%find-sql-expr-symbol fn))
-          (aggregate-sym (gensym)))
+    (let* ((aggregate-table (cdr (assoc :aggregate-table ctx)))
+           (fn-sym (%find-sql-expr-symbol fn))
+           (aggregate-sym (gensym))
+           (init-src `(endb/sql/expr:make-sql-agg ,fn
+                                                  ,@(loop for ast in (rest args)
+                                                          collect (ast->cl ctx ast))
+                                                  :distinct ,distinct))
+           (src (ast->cl ctx (first args)))
+           (agg (make-aggregate :src src :init-src init-src :var aggregate-sym )))
       (assert fn-sym nil (format nil "Unknown aggregate function: ~A" fn))
-      (setf (gethash aggregate-sym aggregate-table) (ast->cl ctx (first args)))
+      (setf (gethash aggregate-sym aggregate-table) agg)
       `(,fn-sym ,aggregate-sym ,@(loop for ast in (rest args)
                                        collect (ast->cl ctx ast))
                 :distinct ,distinct))))
