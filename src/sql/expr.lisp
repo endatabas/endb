@@ -25,6 +25,11 @@
   (:report (lambda (condition stream)
              (write (sql-runtime-error-message condition) :stream stream))))
 
+(defun %sql-distinct (rows &optional (distinct :distinct))
+  (if (eq :distinct distinct)
+      (delete-duplicates rows :test 'equal)
+      rows))
+
 (defmethod sql-= ((x (eql :null)) (y (eql :null)))
   :null)
 
@@ -542,108 +547,7 @@
       :null
       (caar rows)))
 
-(defun %sql-distinct (rows &optional (distinct :distinct))
-  (if (eq :distinct distinct)
-      (delete-duplicates rows :test 'equal)
-      rows))
-
-(defun %sql-limit (rows limit offset)
-  (subseq rows (or offset 0) (min (length rows)
-                                  (if offset
-                                      (+ offset limit)
-                                      limit))))
-
-(defun %sql-order-by (rows order-by)
-  (labels ((asc (x y)
-             (cond
-               ((eq :null x) t)
-               ((eq :null y) nil)
-               (t (sql-< x y))))
-           (desc (x y)
-             (cond
-               ((eq :null y) t)
-               ((eq :null x) nil)
-               (t (sql-> x y)))))
-    (sort rows (lambda (x y)
-                 (loop for (idx direction) in order-by
-                       for cmp = (ecase direction
-                                   ((nil :asc) #'asc)
-                                   (:desc #'desc))
-                       for xv = (nth (1- idx) x)
-                       for yv = (nth (1- idx) y)
-                       thereis (funcall cmp xv yv)
-                       until (funcall cmp yv xv))))))
-
-(defstruct base-table columns rows deleted-row-ids)
-
-(defun base-table-visible-rows (base-table)
-  (with-slots (deleted-row-ids rows) base-table
-    (if deleted-row-ids
-        (loop for row in rows
-              for row-id downfrom (1- (length rows))
-              unless (member row-id deleted-row-ids :test 'eq)
-                collect row)
-        rows)))
-
-(defun base-table-size (base-table)
-  (- (length (base-table-rows base-table))
-     (length (base-table-deleted-row-ids base-table))))
-
-(defun sql-create-table (db table-name columns)
-  (unless (gethash table-name db)
-    (let ((table (make-base-table :columns columns :rows ())))
-      (setf (gethash table-name db) table)
-      (values nil t))))
-
-(defun sql-drop-table (db table-name &key if-exists)
-  (when (or (remhash table-name db) if-exists)
-    (values nil t)))
-
-(defun sql-create-view (db view-name query)
-  (unless (gethash view-name db)
-    (setf (gethash view-name db) query)
-    (values nil t)))
-
-(defun sql-drop-view (db view-name &key if-exists)
-  (when (or (remhash view-name db) if-exists)
-    (values nil t)))
-
-(defun sql-create-index (db)
-  (declare (ignore db))
-  (values nil t))
-
-(defun sql-drop-index (db)
-  (declare (ignore db)))
-
-(defun sql-insert (db table-name values &key column-names)
-  (let ((table (gethash table-name db)))
-    (unless (listp table)
-      (let* ((rows (base-table-rows table))
-             (values (if column-names
-                         (let ((column->idx (make-hash-table :test 'equal)))
-                           (loop for column in column-names
-                                 for idx from 0
-                                 do (setf (gethash column column->idx) idx))
-                           (mapcar (lambda (row)
-                                     (mapcar (lambda (column)
-                                               (nth (gethash column column->idx) row))
-                                             (base-table-columns table)))
-                                   values))
-                         values)))
-        (setf (base-table-rows table) (append values rows))
-        (values nil (length values))))))
-
-(defun sql-delete (db table-name values)
-  (let ((table (gethash table-name db)))
-    (unless (listp table)
-      (with-slots (deleted-row-ids rows) table
-        (let ((new-deleted-row-ids (loop for row in rows
-                                         for row-id downfrom (1- (length rows))
-                                         when (and (member row values :test 'equal)
-                                                   (not (member row-id deleted-row-ids :test 'eq)))
-                                           collect row-id)))
-          (setf deleted-row-ids (append deleted-row-ids new-deleted-row-ids))
-          (values nil (length new-deleted-row-ids)))))))
+;; Aggregates
 
 (defgeneric make-sql-agg (type &rest args))
 
@@ -818,3 +722,105 @@
 
 (defmethod sql-agg-finish ((agg sql-agg-group_concat))
   (or (sql-agg-group_concat-acc agg) :null))
+
+;; Internals
+
+(defun %sql-limit (rows limit offset)
+  (subseq rows (or offset 0) (min (length rows)
+                                  (if offset
+                                      (+ offset limit)
+                                      limit))))
+
+(defun %sql-order-by (rows order-by)
+  (labels ((asc (x y)
+             (cond
+               ((eq :null x) t)
+               ((eq :null y) nil)
+               (t (sql-< x y))))
+           (desc (x y)
+             (cond
+               ((eq :null y) t)
+               ((eq :null x) nil)
+               (t (sql-> x y)))))
+    (sort rows (lambda (x y)
+                 (loop for (idx direction) in order-by
+                       for cmp = (ecase direction
+                                   ((nil :asc) #'asc)
+                                   (:desc #'desc))
+                       for xv = (nth (1- idx) x)
+                       for yv = (nth (1- idx) y)
+                       thereis (funcall cmp xv yv)
+                       until (funcall cmp yv xv))))))
+
+;; DML/DDL
+
+(defstruct base-table columns rows deleted-row-ids)
+
+(defun base-table-visible-rows (base-table)
+  (with-slots (deleted-row-ids rows) base-table
+    (if deleted-row-ids
+        (loop for row in rows
+              for row-id downfrom (1- (length rows))
+              unless (member row-id deleted-row-ids :test 'eq)
+                collect row)
+        rows)))
+
+(defun base-table-size (base-table)
+  (- (length (base-table-rows base-table))
+     (length (base-table-deleted-row-ids base-table))))
+
+(defun sql-create-table (db table-name columns)
+  (unless (gethash table-name db)
+    (let ((table (make-base-table :columns columns :rows ())))
+      (setf (gethash table-name db) table)
+      (values nil t))))
+
+(defun sql-drop-table (db table-name &key if-exists)
+  (when (or (remhash table-name db) if-exists)
+    (values nil t)))
+
+(defun sql-create-view (db view-name query)
+  (unless (gethash view-name db)
+    (setf (gethash view-name db) query)
+    (values nil t)))
+
+(defun sql-drop-view (db view-name &key if-exists)
+  (when (or (remhash view-name db) if-exists)
+    (values nil t)))
+
+(defun sql-create-index (db)
+  (declare (ignore db))
+  (values nil t))
+
+(defun sql-drop-index (db)
+  (declare (ignore db)))
+
+(defun sql-insert (db table-name values &key column-names)
+  (let ((table (gethash table-name db)))
+    (unless (listp table)
+      (let* ((rows (base-table-rows table))
+             (values (if column-names
+                         (let ((column->idx (make-hash-table :test 'equal)))
+                           (loop for column in column-names
+                                 for idx from 0
+                                 do (setf (gethash column column->idx) idx))
+                           (mapcar (lambda (row)
+                                     (mapcar (lambda (column)
+                                               (nth (gethash column column->idx) row))
+                                             (base-table-columns table)))
+                                   values))
+                         values)))
+        (setf (base-table-rows table) (append values rows))
+        (values nil (length values))))))
+
+(defun sql-delete (db table-name values)
+  (let ((table (gethash table-name db)))
+    (unless (listp table)
+      (with-slots (deleted-row-ids rows) table
+        (let ((new-deleted-row-ids (loop for row in rows
+                                         for row-id downfrom (1- (length rows))
+                                         when (and (member row values :test 'equal)
+                                                   (not (member row-id deleted-row-ids :test 'eq)))
+                                           collect row-id)))
+          (setf deleted-row-ids (append deleted-row-ids new-deleted-row-ids))
+          (values nil (length new-deleted-row-ids)))))))
