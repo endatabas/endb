@@ -157,7 +157,7 @@
                               do (push (list ,@vars) (gethash (list ,@out-vars) ,index-table-sym))
                               finally (return ,index-table-sym)))))))))
 
-(defun %selection-with-limit-offset->cl (ctx selected-src limit offset)
+(defun %selection-with-limit-offset->cl (ctx selected-src &optional limit offset)
   (let ((acc-sym (cdr (assoc :acc-sym ctx))))
     (if (or limit offset)
         (let* ((rows-sym (cdr (assoc :rows-sym ctx)))
@@ -182,7 +182,7 @@
           (not (eq :exists (first ast))))
       t))
 
-(defun %from->cl (ctx from-tables where-clauses selected-src &optional vars limit offset)
+(defun %from->cl (ctx from-tables where-clauses selected-src &optional vars)
   (let* ((candidate-tables (remove-if-not (lambda (x)
                                             (subsetp (from-table-free-vars x) vars))
                                           from-tables))
@@ -217,9 +217,9 @@
                                          (append scan-clauses pushdown-clauses))
                        append `(when (eq t ,(where-clause-src clause))))
                ,@(if from-tables
-                     `(do ,(%from->cl ctx from-tables where-clauses selected-src vars limit offset))
+                     `(do ,(%from->cl ctx from-tables where-clauses selected-src vars))
                      (append `(,@(loop for clause in where-clauses append `(when (eq t ,(where-clause-src clause)))))
-                             (%selection-with-limit-offset->cl ctx selected-src limit offset))))))))
+                             selected-src)))))))
 
 (defun %group-by->cl (ctx from-tables where-clauses selected-src limit offset group-by having-src correlated-vars)
   (let* ((aggregate-table (cdr (assoc :aggregate-table ctx)))
@@ -229,9 +229,9 @@
                                           collect k))
          (group-by-exprs (loop for v being the hash-value of aggregate-table
                                collect v))
-         (group-by-selected-src (append group-by-projection group-by-exprs))
          (group-acc-sym (gensym))
          (group-ctx (cons (cons :acc-sym group-acc-sym) ctx))
+         (group-by-selected-src (%selection-with-limit-offset->cl group-ctx (append group-by-projection group-by-exprs)))
          (from-src `(let ((,group-acc-sym))
                       ,(%from->cl group-ctx from-tables where-clauses group-by-selected-src correlated-vars)
                       ,group-acc-sym))
@@ -325,7 +325,7 @@
                            (values
                             (if group-by-needed-p
                                 (%group-by->cl ctx from-tables where-clauses selected-src limit offset group-by having-src correlated-vars)
-                                (%from->cl ctx from-tables where-clauses selected-src correlated-vars limit offset))
+                                (%from->cl ctx from-tables where-clauses (%selection-with-limit-offset->cl ctx selected-src limit offset) correlated-vars))
                             full-projection))))))))
       (let* ((block-sym (gensym))
              (acc-sym (gensym))
