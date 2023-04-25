@@ -236,10 +236,11 @@
                                            ,group-sym
                                          ,@(loop for v being the hash-value of aggregate-table
                                                  collect `(endb/sql/expr:sql-agg-accumulate ,(aggregate-var v) ,(aggregate-src v)))))))
+         (empty-group-key-form `(list ,@(loop repeat (length group-by-projection) collect :null)))
          (group-by-src `(let ((,group-acc-sym (make-hash-table :test 'equal)))
                           ,(%from->cl ctx from-tables where-clauses group-by-selected-src correlated-vars)
                           (when (zerop (hash-table-count ,group-acc-sym))
-                            (setf (gethash () ,group-acc-sym)
+                            (setf (gethash ,empty-group-key-form ,group-acc-sym)
                                   (list ,@init-srcs)))
                           ,group-acc-sym)))
     (append `(loop for ,(%unique-vars group-by-projection) being the hash-key
