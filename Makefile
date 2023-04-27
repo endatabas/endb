@@ -19,12 +19,12 @@ DOCKER_ENDB_OS = debian
 DOCKER_TAGS = -t endatabas/endb:$(DOCKER_ENDB_OS) -t endatabas/endb:latest-$(DOCKER_ENDB_OS) -t latest
 
 LIB_PROFILE = release
-LIB_DIR = $(LIB_PROFILE)
+LIB_PROFILE_DIR = $(LIB_PROFILE)
 ifeq ($(LIB_PROFILE),dev)
-	LIB_DIR = debug
+	LIB_PROFILE_DIR = debug
 endif
 
-LIB_SOURCES = $(shell find lib/ -iname \*.toml) $(shell find lib/*/src -iname \*.rs)
+LIB_SOURCES = lib/Cargo.lock $(shell find lib/ -iname \*.toml) $(shell find lib/*/src -iname \*.rs)
 
 SLT_SOURCES = sqllogictest.c md5.c sqlite3.c
 SLT_ENGINE = endb
@@ -81,10 +81,10 @@ lib-test: lib-lint
 lib-microbench:
 	(cd lib; $(CARGO) run --profile $(LIB_PROFILE) --example micro_bench)
 
-lib/target/$(LIB_DIR)/libendb$(SHARED_LIB_EXT): Makefile $(LIB_SOURCES)
+lib/target/$(LIB_PROFILE_DIR)/libendb$(SHARED_LIB_EXT): Makefile $(LIB_SOURCES)
 	(cd lib; $(CARGO) build --profile $(LIB_PROFILE))
 
-target/libendb$(SHARED_LIB_EXT): lib/target/$(LIB_DIR)/libendb$(SHARED_LIB_EXT)
+target/libendb$(SHARED_LIB_EXT): lib/target/$(LIB_PROFILE_DIR)/libendb$(SHARED_LIB_EXT)
 	mkdir -p target
 	cp $< $@ || true
 
@@ -98,7 +98,7 @@ target/libsqllogictest$(SHARED_LIB_EXT): CFLAGS += -DSQLITE_NO_SYNC=1 -DSQLITE_T
 target/libsqllogictest$(SHARED_LIB_EXT): Makefile target/sqllogictest_src
 	cd target/sqllogictest_src && $(CC) $(CFLAGS) -o $(CURDIR)/$@ $(SLT_SOURCES)
 
-target/slt: Makefile *.asd $(SOURCES) slt/*.lisp target/libsqllogictest$(SHARED_LIB_EXT) lib/target/$(LIB_DIR)/libendb$(SHARED_LIB_EXT)
+target/slt: Makefile *.asd $(SOURCES) slt/*.lisp target/libsqllogictest$(SHARED_LIB_EXT) lib/target/$(LIB_PROFILE_DIR)/libendb$(SHARED_LIB_EXT)
 	$(LISP) --non-interactive \
 		--eval '(ql:quickload :endb-slt :silent t)' \
 		--eval '(asdf:make :endb-slt)'
