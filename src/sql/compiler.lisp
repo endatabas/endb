@@ -29,12 +29,12 @@
 
 (defun %base-table->cl (ctx table)
   (let ((db-table (gethash (symbol-name table) (cdr (assoc :db ctx)))))
-    (if (listp db-table)
-        (%ast->cl-with-free-vars ctx db-table)
-        (values `(endb/sql/expr:base-table-visible-rows (gethash ,(symbol-name table) ,(cdr (assoc :db-sym ctx))))
-                (endb/sql/expr:base-table-columns db-table)
-                ()
-                (endb/sql/expr:base-table-size db-table)))))
+    (etypecase db-table
+      (endb/sql/expr:non-materialized-view (%ast->cl-with-free-vars ctx (endb/sql/expr:non-materialized-view-ast db-table)))
+      (endb/sql/expr:base-table (values `(endb/sql/expr:base-table-visible-rows (gethash ,(symbol-name table) ,(cdr (assoc :db-sym ctx))))
+                                        (endb/sql/expr:base-table-columns db-table)
+                                        ()
+                                        (endb/sql/expr:base-table-size db-table))))))
 
 (defun %wrap-with-order-by-and-limit (src order-by limit offset)
   (let* ((src (if order-by
@@ -498,7 +498,7 @@
   (destructuring-bind (table-name update-cols &key (where :true))
       args
     (let ((db-table (gethash (symbol-name table-name) (cdr (assoc :db ctx)))))
-      (unless (listp db-table)
+      (when (typep db-table 'endb/sql/expr:base-table)
         (let* ((columns (endb/sql/expr:base-table-columns db-table))
                (update-cols (reverse update-cols))
                (update-col-names (mapcar (lambda (x)

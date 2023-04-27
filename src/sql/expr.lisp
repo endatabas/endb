@@ -11,7 +11,7 @@
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-like #:sql-substring #:sql-strftime
            #:make-sql-agg #:sql-agg-accumulate #:sql-agg-finish
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
-           #:base-table-rows #:base-table-columns #:base-table-visible-rows #:base-table-size
+           #:base-table #:base-table-rows #:base-table-columns #:base-table-visible-rows #:base-table-size #:non-materialized-view #:non-materialized-view-ast
            #:sql-runtime-error))
 (in-package :endb/sql/expr)
 
@@ -774,15 +774,23 @@
       (values nil t))))
 
 (defun sql-drop-table (db table-name &key if-exists)
+  (unless (typep (gethash table-name db) '(or null base-table))
+    (error 'sql-runtime-error
+           :message (concatenate 'string "Not a table: " table-name)))
   (when (or (remhash table-name db) if-exists)
     (values nil t)))
 
+(defstruct non-materialized-view ast)
+
 (defun sql-create-view (db view-name query)
   (unless (gethash view-name db)
-    (setf (gethash view-name db) query)
+    (setf (gethash view-name db) (make-non-materialized-view :ast query))
     (values nil t)))
 
 (defun sql-drop-view (db view-name &key if-exists)
+  (unless (typep (gethash view-name db) '(or null non-materialized-view))
+    (error 'sql-runtime-error
+           :message (concatenate 'string "Not a view: " view-name)))
   (when (or (remhash view-name db) if-exists)
     (values nil t)))
 
@@ -795,7 +803,7 @@
 
 (defun sql-insert (db table-name values &key column-names)
   (let ((table (gethash table-name db)))
-    (unless (listp table)
+    (when (typep table 'base-table)
       (let* ((rows (base-table-rows table))
              (values (if column-names
                          (let ((column->idx (make-hash-table :test 'equal)))
@@ -813,7 +821,7 @@
 
 (defun sql-delete (db table-name values)
   (let ((table (gethash table-name db)))
-    (unless (listp table)
+    (when (typep table 'base-table)
       (with-slots (deleted-row-ids rows) table
         (let ((new-deleted-row-ids (loop for row in rows
                                          for row-id downfrom (1- (length rows))
