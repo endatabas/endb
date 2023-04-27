@@ -3,6 +3,7 @@
   (:import-from :cl-ppcre)
   (:import-from :local-time)
   (:import-from :endb/sql/parser)
+  (:import-from :endb/arrow)
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-unary+ #:sql-unary-
@@ -561,7 +562,7 @@
 
 (defmethod sql-agg-finish ((agg sql-distinct))
   (with-slots (acc (inner-agg agg)) agg
-    (sql-agg-finish (reduce #'sql-agg-accumulate (%sql-distinct (nreverse acc) :distinct)
+    (sql-agg-finish (reduce #'sql-agg-accumulate (%sql-distinct acc :distinct)
                             :initial-value inner-agg))))
 
 (defun %make-distinct-sql-agg (agg &optional (distinct :distinct))
@@ -693,7 +694,7 @@
         max
         :null)))
 
-(defstruct sql-group_concat (acc nil :type (or null string)) (separator ","))
+(defstruct sql-group_concat (acc nil :type (or null string)) (separator ",") distinct)
 
 (defmethod make-sql-agg ((type (eql :group_concat)) &rest args)
   (multiple-value-bind (separator distinct)
@@ -706,13 +707,15 @@
             (when distinct
               (error 'sql-runtime-error :message "GROUP_CONCAT with argument doesn't support DISTINCT."))
             (values separator distinct)))
-    (%make-distinct-sql-agg (make-sql-group_concat :separator separator) distinct)))
+    (%make-distinct-sql-agg (make-sql-group_concat :separator separator :distinct distinct) distinct)))
 
 (defmethod sql-agg-accumulate ((agg sql-group_concat) x)
-  (with-slots (acc separator) agg
-    (setf acc (if acc
-                  (concatenate 'string (sql-cast x :varchar) separator acc)
-                  (sql-cast x :varchar)))
+  (with-slots (acc separator distinct) agg
+    (setf acc (cond
+                ((and acc (eq :distinct distinct))
+                 (concatenate 'string (sql-cast x :varchar) separator acc))
+                (acc (concatenate 'string acc separator (sql-cast x :varchar)))
+                (t (sql-cast x :varchar))))
     agg))
 
 (defmethod sql-agg-accumulate ((agg sql-group_concat) (x (eql :null)))
@@ -752,24 +755,33 @@
 
 ;; DML/DDL
 
-(defstruct base-table columns rows deleted-row-ids)
+(defstruct base-table rows deleted-row-ids row-cache)
+
+(defun base-table-columns (base-table)
+  (with-slots (rows) base-table
+    (mapcar #'car (endb/arrow:arrow-children (base-table-rows base-table)))))
 
 (defun base-table-visible-rows (base-table)
-  (with-slots (deleted-row-ids rows) base-table
-    (if deleted-row-ids
-        (loop for row in rows
-              for row-id downfrom (1- (length rows))
-              unless (member row-id deleted-row-ids :test 'eq)
-                collect row)
-        rows)))
+  (with-slots (deleted-row-ids rows row-cache) base-table
+    (or row-cache
+        (setf row-cache
+              (if (plusp (endb/arrow:arrow-length deleted-row-ids))
+                  (loop for row-id below (endb/arrow:arrow-length rows)
+                        unless (find row-id deleted-row-ids)
+                          collect (endb/arrow:arrow-struct-row-get rows row-id))
+                  (loop for row-id below (endb/arrow:arrow-length rows)
+                        collect (endb/arrow:arrow-struct-row-get rows row-id)))))))
 
 (defun base-table-size (base-table)
-  (- (length (base-table-rows base-table))
-     (length (base-table-deleted-row-ids base-table))))
+  (- (endb/arrow:arrow-length (base-table-rows base-table))
+     (endb/arrow:arrow-length (base-table-deleted-row-ids base-table))))
 
 (defun sql-create-table (db table-name columns)
   (unless (gethash table-name db)
-    (let ((table (make-base-table :columns columns :rows ())))
+    (let ((table (make-base-table :rows (endb/arrow:make-arrow-array-for
+                                         (loop for c in columns
+                                               collect (cons c :null)))
+                                  :deleted-row-ids (make-instance 'endb/arrow::int64-array))))
       (setf (gethash table-name db) table)
       (values nil t))))
 
@@ -804,29 +816,33 @@
 (defun sql-insert (db table-name values &key column-names)
   (let ((table (gethash table-name db)))
     (when (typep table 'base-table)
-      (let* ((rows (base-table-rows table))
-             (values (if column-names
-                         (let ((column->idx (make-hash-table :test 'equal)))
-                           (loop for column in column-names
-                                 for idx from 0
-                                 do (setf (gethash column column->idx) idx))
-                           (mapcar (lambda (row)
-                                     (mapcar (lambda (column)
-                                               (nth (gethash column column->idx) row))
-                                             (base-table-columns table)))
-                                   values))
-                         values)))
-        (setf (base-table-rows table) (append values rows))
-        (values nil (length values))))))
+      (with-slots (rows row-cache) table
+        (let* ((columns (base-table-columns table))
+               (values (if column-names
+                           (let ((column->idx (make-hash-table :test 'equal)))
+                             (loop for column in column-names
+                                   for idx from 0
+                                   do (setf (gethash column column->idx) idx))
+                             (mapcar (lambda (row)
+                                       (mapcar (lambda (column)
+                                                 (nth (gethash column column->idx) row))
+                                               columns))
+                                     values))
+                           values)))
+          (dolist (row values)
+            (endb/arrow:arrow-struct-row-push rows row))
+          (setf row-cache nil)
+          (values nil (length values)))))))
 
 (defun sql-delete (db table-name values)
   (let ((table (gethash table-name db)))
     (when (typep table 'base-table)
-      (with-slots (deleted-row-ids rows) table
-        (let ((new-deleted-row-ids (loop for row in rows
-                                         for row-id downfrom (1- (length rows))
-                                         when (and (member row values :test 'equal)
-                                                   (not (member row-id deleted-row-ids :test 'eq)))
+      (with-slots (deleted-row-ids rows row-cache) table
+        (let ((new-deleted-row-ids (loop for row-id below (endb/arrow:arrow-length rows)
+                                         for row = (mapcar #'cdr (endb/arrow:arrow-value rows row-id))
+                                         when (member row values :test 'equal)
                                            collect row-id)))
-          (setf deleted-row-ids (append deleted-row-ids new-deleted-row-ids))
+          (dolist (row-id new-deleted-row-ids)
+            (endb/arrow:arrow-push deleted-row-ids row-id))
+          (setf row-cache nil)
           (values nil (length new-deleted-row-ids)))))))

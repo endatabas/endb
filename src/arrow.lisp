@@ -3,7 +3,8 @@
   (:export #:to-arrow #:make-arrow-array-for #:arrow-class-for-format
            #:arrow-push #:arrow-valid-p #:arrow-get #:arrow-value
            #:arrow-length #:arrow-null-count #:arrow-data-type #:arrow-lisp-type
-           #:arrow-children #:arrow-buffers)
+           #:arrow-children #:arrow-buffers
+           #:arrow-struct-row-get #:arrow-struct-row-push)
   (:import-from :cl-ppcre)
   (:import-from :local-time)
   (:import-from :trivial-utf-8))
@@ -102,8 +103,8 @@
   (etypecase x
     ((eql :null) 'null-array)
     (boolean 'boolean-array)
-    (integer 'int64-array)
-    (float  'float64-array)
+    (int64 'int64-array)
+    ((and number (not int64)) 'float64-array)
     (local-time:date 'date-days-array)
     (local-time:timestamp 'timestamp-micros-array)
     (arrow-struct 'struct-array)
@@ -372,17 +373,22 @@
   ((values :type (vector float64))
    (element-type :initform 'float64)))
 
-(defmethod arrow-push ((array float64-array) (x float))
-  (with-slots (values) array
-    (%push-valid array)
-    (vector-push-extend (coerce x 'float64) values)
-    array))
+(defmethod arrow-push ((array float64-array) (x number))
+  (if (typep x 'int64)
+      (call-next-method)
+      (with-slots (values) array
+        (%push-valid array)
+        (vector-push-extend (coerce x 'float64) values)
+        array)))
 
 (defmethod arrow-value ((array float64-array) (n fixnum))
   (aref (slot-value array 'values) n))
 
 (defmethod arrow-data-type ((array float64-array))
   "g")
+
+(defmethod arrow-lisp-type ((array float64-array))
+  '(and number (not int64)))
 
 (defclass boolean-array (primitive-array)
   ((values :type (vector bit))
@@ -605,6 +611,19 @@
 (defmethod arrow-children ((array struct-array))
   (with-slots (children) array
     children))
+
+(defun arrow-struct-row-get (array n)
+  (with-slots (children) array
+    (loop for (nil . v) in children
+          collect (arrow-get v n))))
+
+(defun arrow-struct-row-push (array row)
+  (with-slots (children) array
+    (%push-valid array)
+    (loop for kv-pair in children
+          for v in row
+          do (setf (cdr kv-pair) (arrow-push (cdr kv-pair) v)))
+    array))
 
 (defclass dense-union-array (arrow-array)
   ((type-ids :initarg :type-ids :initform nil :type (or null (vector int8)))
