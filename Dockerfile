@@ -40,7 +40,7 @@ FROM $ENDB_OS
 ARG ENDB_OS
 
 RUN if [ "$ENDB_OS" = "alpine" ]; then \
-      apk add --no-cache zstd-dev; \
+      apk add --no-cache libgcc zstd-dev; \
     fi;
 
 WORKDIR /app
