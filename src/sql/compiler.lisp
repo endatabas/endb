@@ -736,7 +736,7 @@
                         `(values ,src ,(list 'quote projection))
                         src))
                (src `(lambda (,db-sym)
-                       (declare (optimize (speed 3) (safety 0) (debug 0)))
+                       (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
                        (declare (ignorable ,db-sym))
                        (let ((,index-sym (make-hash-table :test 'equal)))
                          (declare (ignorable ,index-sym))
