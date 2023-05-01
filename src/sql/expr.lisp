@@ -12,7 +12,8 @@
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-like #:sql-substring #:sql-strftime
            #:make-sql-agg #:sql-agg-accumulate #:sql-agg-finish
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
-           #:base-table #:base-table-rows #:base-table-columns #:base-table-visible-rows #:base-table-size #:non-materialized-view #:non-materialized-view-ast
+           #:base-table #:base-table-rows #:base-table-deleted-row-ids  #:base-table-columns #:base-table-visible-rows #:base-table-size
+           #:non-materialized-view #:non-materialized-view-ast
            #:sql-runtime-error))
 (in-package :endb/sql/expr)
 
@@ -755,33 +756,27 @@
 
 ;; DML/DDL
 
-(defstruct base-table rows deleted-row-ids row-cache)
+(defstruct base-table rows deleted-row-ids)
 
 (defun base-table-columns (base-table)
   (with-slots (rows) base-table
-    (mapcar #'car (endb/arrow:arrow-children (base-table-rows base-table)))))
+    (mapcar #'car (endb/arrow:arrow-children rows))))
 
 (defun base-table-visible-rows (base-table)
-  (with-slots (deleted-row-ids rows row-cache) base-table
-    (or row-cache
-        (setf row-cache
-              (if (plusp (endb/arrow:arrow-length deleted-row-ids))
-                  (loop for row-id below (endb/arrow:arrow-length rows)
-                        unless (find row-id deleted-row-ids)
-                          collect (endb/arrow:arrow-struct-row-get rows row-id))
-                  (loop for row-id below (endb/arrow:arrow-length rows)
-                        collect (endb/arrow:arrow-struct-row-get rows row-id)))))))
+  (with-slots (deleted-row-ids rows) base-table
+    (loop for row-id below (endb/arrow:arrow-length rows)
+          unless (find row-id deleted-row-ids)
+            collect (endb/arrow:arrow-struct-row-get rows row-id))))
 
 (defun base-table-size (base-table)
   (- (endb/arrow:arrow-length (base-table-rows base-table))
-     (endb/arrow:arrow-length (base-table-deleted-row-ids base-table))))
+     (length (base-table-deleted-row-ids base-table))))
 
 (defun sql-create-table (db table-name columns)
   (unless (gethash table-name db)
     (let ((table (make-base-table :rows (endb/arrow:make-arrow-array-for
                                          (loop for c in columns
-                                               collect (cons c :null)))
-                                  :deleted-row-ids (make-instance 'endb/arrow::int64-array))))
+                                               collect (cons c :null))))))
       (setf (gethash table-name db) table)
       (values nil t))))
 
@@ -816,7 +811,7 @@
 (defun sql-insert (db table-name values &key column-names)
   (let ((table (gethash table-name db)))
     (when (typep table 'base-table)
-      (with-slots (rows row-cache) table
+      (with-slots (rows) table
         (let* ((columns (base-table-columns table))
                (values (if column-names
                            (let ((column->idx (make-hash-table :test 'equal)))
@@ -831,18 +826,19 @@
                            values)))
           (dolist (row values)
             (endb/arrow:arrow-struct-row-push rows row))
-          (setf row-cache nil)
           (values nil (length values)))))))
 
 (defun sql-delete (db table-name values)
   (let ((table (gethash table-name db)))
     (when (typep table 'base-table)
-      (with-slots (deleted-row-ids rows row-cache) table
+      (with-slots (deleted-row-ids rows) table
+        (unless deleted-row-ids
+          (setf deleted-row-ids (make-instance 'endb/arrow:int64-array)))
         (let ((new-deleted-row-ids (loop for row-id below (endb/arrow:arrow-length rows)
-                                         for row = (mapcar #'cdr (endb/arrow:arrow-value rows row-id))
+                                         for row = (endb/arrow:arrow-struct-row-get rows row-id)
+                                         unless (find row-id deleted-row-ids)
                                          when (member row values :test 'equal)
                                            collect row-id)))
           (dolist (row-id new-deleted-row-ids)
             (endb/arrow:arrow-push deleted-row-ids row-id))
-          (setf row-cache nil)
           (values nil (length new-deleted-row-ids)))))))

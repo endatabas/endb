@@ -1,6 +1,7 @@
 (defpackage :endb/sql/compiler
   (:use :cl)
   (:import-from :endb/sql/expr)
+  (:import-from :endb/arrow)
   (:export #:compile-sql #:*verbose*))
 (in-package :endb/sql/compiler)
 
@@ -27,11 +28,16 @@
                  ((symbolp expr) (list (%unqualified-column-name (symbol-name expr))))
                  (t (list (%anonymous-column-name idx))))))
 
-(defun %base-table->cl (ctx table)
+(defun %base-table-p (ctx table)
+  (and (symbolp table)
+       (typep (gethash (symbol-name table) (cdr (assoc :db ctx)))
+              'endb/sql/expr:base-table)))
+
+(defun %base-table-or-view->cl (ctx table)
   (let ((db-table (gethash (symbol-name table) (cdr (assoc :db ctx)))))
     (etypecase db-table
       (endb/sql/expr:non-materialized-view (%ast->cl-with-free-vars ctx (endb/sql/expr:non-materialized-view-ast db-table)))
-      (endb/sql/expr:base-table (values `(endb/sql/expr:base-table-visible-rows (gethash ,(symbol-name table) ,(cdr (assoc :db-sym ctx))))
+      (endb/sql/expr:base-table (values `(gethash ,(symbol-name table) ,(cdr (assoc :db-sym ctx)))
                                         (endb/sql/expr:base-table-columns db-table)
                                         ()
                                         (endb/sql/expr:base-table-size db-table))))))
@@ -65,7 +71,7 @@
         (t (list expr)))
       (list expr)))
 
-(defstruct from-table src vars free-vars size projection)
+(defstruct from-table src vars free-vars size projection base-table-p)
 
 (defstruct where-clause src free-vars ast)
 
@@ -120,7 +126,47 @@
                        (%from-where-clauses (list table-1 table-2))))))
        (%from-where-clauses (rest from))))))
 
-(defun %join->cl (ctx from-table scan-clauses equi-join-clauses)
+(defun %replace-all (smap x)
+  (cond
+    ((symbolp x) (or (cdr (assoc x smap)) x))
+    ((listp x) (loop for y in x
+                     collect (%replace-all smap y)))
+    (t x)))
+
+(defun %table-scan->cl (ctx vars from-src where-clauses nested-src &optional base-table-p)
+  (declare (ignore ctx))
+  (let ((where-src (loop for clause in where-clauses
+                         append `(when (eq t ,(where-clause-src clause))))))
+    (if base-table-p
+        (let* ((base-table-sym (gensym))
+               (table-sym (gensym))
+               (row-id-sym (gensym))
+               (deleted-row-ids-sym (gensym))
+               (col-syms (loop repeat (length vars) collect (gensym)))
+               (children-sym (gensym))
+               (smap (loop for v in vars
+                           for c in col-syms
+                           collect (cons v `(endb/arrow:arrow-get ,c ,row-id-sym))))
+               (where-src (%replace-all smap where-src))
+               (nested-src (%replace-all smap nested-src)))
+          `(let* ((,base-table-sym ,from-src)
+                  (,table-sym (endb/sql/expr:base-table-rows ,base-table-sym))
+                  (,deleted-row-ids-sym (endb/sql/expr:base-table-deleted-row-ids ,base-table-sym))
+                  (,children-sym (endb/arrow:arrow-struct-children ,table-sym))
+                  ,@(loop for c in col-syms
+                          for idx from 0
+                          collect (list c `(nth ,idx ,children-sym))))
+             (declare (ignorable ,@col-syms))
+             (loop for ,row-id-sym of-type fixnum below (endb/arrow:arrow-length ,table-sym)
+                   unless (find ,row-id-sym ,deleted-row-ids-sym)
+                     ,@where-src
+                   ,@nested-src)))
+        `(loop for ,vars
+                 in ,from-src
+               ,@where-src
+               ,@nested-src))))
+
+(defun %join->cl (ctx from-table scan-where-clauses equi-join-clauses)
   (with-slots (src vars free-vars)
       from-table
     (multiple-value-bind (in-vars out-vars)
@@ -143,13 +189,16 @@
         `(gethash (list ,@in-vars)
                   (let ((,index-key-sym ,index-key-form))
                     (or (gethash ,index-key-sym ,index-sym)
-                        (loop with ,index-table-sym = (setf (gethash ,index-key-sym ,index-sym)
-                                                            (make-hash-table :test 'equal))
-                              for ,(%unique-vars vars)
-                                in ,src
-                              ,@(loop for clause in scan-clauses append `(when (eq t ,(where-clause-src clause))))
-                              do (push (list ,@vars) (gethash (list ,@out-vars) ,index-table-sym))
-                              finally (return ,index-table-sym)))))))))
+                        (let ((,index-table-sym (setf (gethash ,index-key-sym ,index-sym)
+                                                      (make-hash-table :test 'equal))))
+                          ,(%table-scan->cl ctx
+                                            (%unique-vars vars)
+                                            src
+                                            scan-where-clauses
+                                            `(do (push (list ,@(%unique-vars vars))
+                                                       (gethash (list ,@out-vars) ,index-table-sym))
+                                                 finally (return ,index-table-sym))
+                                            (from-table-base-table-p from-table))))))))))
 
 (defun %selection-with-limit-offset->cl (ctx selected-src &optional limit offset)
   (let ((acc-sym (cdr (assoc :acc-sym ctx))))
@@ -201,19 +250,23 @@
               finally
                  (return (values scan-clauses equi-join-clauses pushdown-clauses)))
       (let* ((new-where-clauses (append scan-clauses equi-join-clauses pushdown-clauses))
-             (where-clauses (set-difference where-clauses new-where-clauses)))
-        `(loop for ,(%unique-vars new-vars)
-                 in ,(if equi-join-clauses
-                         (%join->cl ctx from-table scan-clauses equi-join-clauses)
-                         (from-table-src from-table))
-               ,@(loop for clause in (if equi-join-clauses
-                                         pushdown-clauses
-                                         (append scan-clauses pushdown-clauses))
-                       append `(when (eq t ,(where-clause-src clause))))
-               ,@(if from-tables
-                     `(do ,(%from->cl ctx from-tables where-clauses selected-src vars))
-                     (append `(,@(loop for clause in where-clauses append `(when (eq t ,(where-clause-src clause)))))
-                             selected-src)))))))
+             (where-clauses (set-difference where-clauses new-where-clauses))
+             (nested-src (if from-tables
+                             `(do ,(%from->cl ctx from-tables where-clauses selected-src vars))
+                             (append `(,@(loop for clause in where-clauses append `(when (eq t ,(where-clause-src clause)))))
+                                     selected-src))))
+        (if equi-join-clauses
+            (%table-scan->cl ctx
+                             (%unique-vars new-vars)
+                             (%join->cl ctx from-table scan-clauses equi-join-clauses)
+                             pushdown-clauses
+                             nested-src)
+            (%table-scan->cl ctx
+                             (%unique-vars new-vars)
+                             (from-table-src from-table)
+                             (append scan-clauses pushdown-clauses)
+                             nested-src
+                             (from-table-base-table-p from-table)))))))
 
 (defun %group-by->cl (ctx from-tables where-clauses selected-src limit offset group-by having-src correlated-vars)
   (let* ((aggregate-table (cdr (assoc :aggregate-table ctx)))
@@ -277,7 +330,7 @@
                    (first from-ast)
                  (multiple-value-bind (table-src projection free-vars table-size)
                      (if (symbolp table-or-subquery)
-                         (%base-table->cl ctx table-or-subquery)
+                         (%base-table-or-view->cl ctx table-or-subquery)
                          (%ast->cl-with-free-vars ctx table-or-subquery))
                    (let* ((table-alias (or table-alias table-or-subquery))
                           (table-alias (symbol-name table-alias))
@@ -292,7 +345,8 @@
                                                        :vars (remove-duplicates (mapcar #'cdr env-extension))
                                                        :free-vars free-vars
                                                        :size (or table-size most-positive-fixnum)
-                                                       :projection qualified-projection))
+                                                       :projection qualified-projection
+                                                       :base-table-p (%base-table-p ctx table-or-subquery)))
                           (from-tables-acc (append from-tables-acc (list from-table))))
                      (if (rest from-ast)
                          (select->cl ctx (rest from-ast) from-tables-acc)

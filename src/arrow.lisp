@@ -4,7 +4,9 @@
            #:arrow-push #:arrow-valid-p #:arrow-get #:arrow-value
            #:arrow-length #:arrow-null-count #:arrow-data-type #:arrow-lisp-type
            #:arrow-children #:arrow-buffers
-           #:arrow-struct-row-get #:arrow-struct-row-push)
+           #:arrow-struct-children #:arrow-struct-row-get #:arrow-struct-row-push
+           #:arrow-array #:validity-array #:null-array #:int32-array #:int64-array #:float64-array
+           #:date-days-array #:timestamp-micros-array #:binary-array #:utf8-array #:list-array #:struct-array #:dense-union-array)
   (:import-from :cl-ppcre)
   (:import-from :local-time)
   (:import-from :trivial-utf-8))
@@ -227,8 +229,8 @@
   (with-slots (validity) array
     (if (or (null validity)
             (= 1 (aref validity n)))
-      (arrow-value array n)
-      :null)))
+        (arrow-value array n)
+        :null)))
 
 (defmethod arrow-null-count ((array validity-array))
   (with-slots (validity) array
@@ -435,7 +437,7 @@
   (with-slots (offsets data) array
     (%push-valid array)
     (loop for y across x
-          do (vector-push-extend y data (length x)))
+          do (vector-push-extend y data))
     (vector-push-extend (length data) offsets)
     array))
 
@@ -449,8 +451,10 @@
   (with-slots (offsets data) array
     (let* ((start (aref offsets n) )
            (end (aref offsets (1+ n)))
-           (len (- end start)))
-      (make-array len :element-type 'uint8 :displaced-to data :displaced-index-offset start))))
+           (len (- end start))
+           (storage #+sbcl (sb-ext:array-storage-vector data)
+                    #-sbcl data))
+      (make-array len :element-type 'uint8 :displaced-to storage :displaced-index-offset start))))
 
 (defmethod arrow-length ((array binary-array))
   (with-slots (offsets) array
@@ -481,8 +485,10 @@
 (defmethod arrow-value ((array utf8-array) (n fixnum))
   (with-slots (offsets data) array
     (let* ((start (aref offsets n) )
-           (end (aref offsets (1+ n))))
-      (trivial-utf-8:utf-8-bytes-to-string data :start start :end end))))
+           (end (aref offsets (1+ n)))
+           (storage #+sbcl (sb-ext:array-storage-vector data)
+                    #-sbcl data))
+      (trivial-utf-8:utf-8-bytes-to-string storage :start start :end end))))
 
 (defmethod arrow-data-type ((array utf8-array))
   "u")
@@ -611,6 +617,10 @@
 (defmethod arrow-children ((array struct-array))
   (with-slots (children) array
     children))
+
+(defun arrow-struct-children (array)
+  (with-slots (children) array
+    (mapcar #'cdr children)))
 
 (defun arrow-struct-row-get (array n)
   (with-slots (children) array
