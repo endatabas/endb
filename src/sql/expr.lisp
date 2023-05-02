@@ -812,18 +812,13 @@
   (let ((table (gethash table-name db)))
     (when (typep table 'base-table)
       (with-slots (rows) table
-        (let* ((columns (base-table-columns table))
-               (values (if column-names
-                           (let ((column->idx (make-hash-table :test 'equal)))
-                             (loop for column in column-names
-                                   for idx from 0
-                                   do (setf (gethash column column->idx) idx))
-                             (mapcar (lambda (row)
-                                       (mapcar (lambda (column)
-                                                 (nth (gethash column column->idx) row))
-                                               columns))
-                                     values))
-                           values)))
+        (let ((values (if column-names
+                          (loop with idxs = (loop for column in (base-table-columns table)
+                                                  collect (position column column-names :test 'equal))
+                                for row in values
+                                collect (loop for idx in idxs
+                                              collect (nth idx row)))
+                          values)))
           (dolist (row values)
             (endb/arrow:arrow-struct-row-push rows row))
           (values nil (length values)))))))
