@@ -319,6 +319,12 @@
               (t 1)))
       (t 1))))
 
+(defun %env-extension (table-alias projection)
+  (loop for column in projection
+        for qualified-column = (%qualified-column-name table-alias column)
+        for column-sym = (gensym (concatenate 'string qualified-column "__"))
+        append (list (cons column column-sym) (cons qualified-column column-sym))))
+
 (defmethod sql->cl (ctx (type (eql :select)) &rest args)
   (destructuring-bind (select-list &key distinct (from '(((:values ((:null))) #:dual))) (where :true)
                                      (group-by () group-by-p) (having :true havingp)
@@ -335,10 +341,7 @@
                           (table-alias (symbol-name table-alias))
                           (qualified-projection (loop for column in projection
                                                       collect (%qualified-column-name table-alias column)))
-                          (env-extension (loop for column in projection
-                                               for qualified-column = (%qualified-column-name table-alias column)
-                                               for column-sym = (gensym (concatenate 'string qualified-column "__"))
-                                               append (list (cons column column-sym) (cons qualified-column column-sym))))
+                          (env-extension (%env-extension table-alias projection))
                           (ctx (append env-extension ctx))
                           (from-table (make-from-table :src table-src
                                                        :vars (remove-duplicates (mapcar #'cdr env-extension))
@@ -548,10 +551,7 @@
       (multiple-value-bind (from-src projection)
           (%base-table-or-view->cl ctx table-name)
         (let* ((scan-row-id-sym (gensym))
-               (env-extension (loop for column in projection
-                                    for qualified-column = (%qualified-column-name (symbol-name table-name) column)
-                                    for column-sym = (gensym (concatenate 'string qualified-column "__"))
-                                    append (list (cons column column-sym) (cons qualified-column column-sym))))
+               (env-extension (%env-extension (symbol-name table-name) projection))
                (ctx (cons (cons :scan-row-id-sym scan-row-id-sym)
                           (append env-extension ctx)))
                (vars (remove-duplicates (mapcar #'cdr env-extension)))
@@ -568,10 +568,7 @@
       (multiple-value-bind (from-src projection)
           (%base-table-or-view->cl ctx table-name)
         (let* ((scan-row-id-sym (gensym))
-               (env-extension (loop for column in projection
-                                    for qualified-column = (%qualified-column-name (symbol-name table-name) column)
-                                    for column-sym = (gensym (concatenate 'string qualified-column "__"))
-                                    append (list (cons column column-sym) (cons qualified-column column-sym))))
+               (env-extension (%env-extension (symbol-name table-name) projection))
                (ctx (cons (cons :scan-row-id-sym scan-row-id-sym)
                           (append env-extension ctx)))
                (vars (remove-duplicates (mapcar #'cdr env-extension)))
@@ -591,17 +588,17 @@
                                            collect (ast->cl ctx expr)
                                          else
                                            collect (ast->cl ctx (make-symbol column))))
-               (update-sym (gensym))
+               (updated-rows-sym (gensym))
                (deleted-row-ids-sym (gensym)))
           (when (subsetp update-col-names projection :test 'equal)
-            `(let ((,update-sym)
+            `(let ((,updated-rows-sym)
                    (,deleted-row-ids-sym))
                ,(%table-scan->cl ctx vars from-src where-clauses
-                                 `(do (push (list ,@update-select-list) ,update-sym)
+                                 `(do (push (list ,@update-select-list) ,updated-rows-sym)
                                       (push ,scan-row-id-sym ,deleted-row-ids-sym))
                                  t)
                (endb/sql/expr:sql-delete ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name) ,deleted-row-ids-sym)
-               (endb/sql/expr:sql-insert ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name) ,update-sym))))))))
+               (endb/sql/expr:sql-insert ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name) ,updated-rows-sym))))))))
 
 (defmethod sql->cl (ctx (type (eql :in-query)) &rest args)
   (destructuring-bind (expr query)
