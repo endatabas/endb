@@ -160,7 +160,7 @@
                    unless (find ,row-id-sym ,deleted-row-ids-sym)
                      ,@where-src
                    ,@nested-src)))
-        `(loop for ,vars
+        `(loop for ,(%unique-vars vars)
                  in ,from-src
                ,@where-src
                ,@nested-src))))
@@ -191,10 +191,10 @@
                         (let ((,index-table-sym (setf (gethash ,index-key-sym ,index-sym)
                                                       (make-hash-table :test 'equal))))
                           ,(%table-scan->cl ctx
-                                            (%unique-vars vars)
+                                            vars
                                             src
                                             scan-where-clauses
-                                            `(do (push (list ,@(%unique-vars vars))
+                                            `(do (push (list ,@vars)
                                                        (gethash (list ,@out-vars) ,index-table-sym))
                                                  finally (return ,index-table-sym))
                                             (from-table-base-table-p from-table))))))))))
@@ -256,12 +256,12 @@
                                      selected-src))))
         (if equi-join-clauses
             (%table-scan->cl ctx
-                             (%unique-vars new-vars)
+                             new-vars
                              (%join->cl ctx from-table scan-clauses equi-join-clauses)
                              pushdown-clauses
                              nested-src)
             (%table-scan->cl ctx
-                             (%unique-vars new-vars)
+                             new-vars
                              (from-table-src from-table)
                              (append scan-clauses pushdown-clauses)
                              nested-src
@@ -276,7 +276,7 @@
          (group-acc-sym (gensym))
          (group-key-sym (gensym))
          (group-sym (gensym))
-         (group-key-form `(list ,@(%unique-vars group-by-projection)))
+         (group-key-form `(list ,@group-by-projection))
          (init-srcs (loop for v being the hash-value of aggregate-table
                           collect (aggregate-init-src v)))
          (group-by-selected-src `(do (let* ((,group-key-sym ,group-key-form)
