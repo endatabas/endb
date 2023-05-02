@@ -133,7 +133,7 @@
                      collect (%replace-all smap y)))
     (t x)))
 
-(defun %table-scan->cl (ctx vars from-src where-clauses nested-src &optional base-table-p)
+(defun %table-scan->cl (ctx vars projection from-src where-clauses nested-src &optional base-table-p)
   (let ((where-src (loop for clause in where-clauses
                          append `(when (eq t ,(where-clause-src clause))))))
     (if base-table-p
@@ -151,7 +151,7 @@
           `(let* ((,base-table-sym ,from-src)
                   (,table-sym (endb/sql/expr:base-table-rows ,base-table-sym))
                   (,deleted-row-ids-sym (endb/sql/expr:base-table-deleted-row-ids ,base-table-sym))
-                  (,children-sym (endb/arrow:arrow-struct-children ,table-sym))
+                  (,children-sym (endb/arrow:arrow-struct-children ,table-sym ',projection))
                   ,@(loop for c in col-syms
                           for idx from 0
                           collect (list c `(nth ,idx ,children-sym))))
@@ -192,6 +192,7 @@
                                                       (make-hash-table :test 'equal))))
                           ,(%table-scan->cl ctx
                                             vars
+                                            (mapcar #'%unqualified-column-name (from-table-projection from-table))
                                             src
                                             scan-where-clauses
                                             `(do (push (list ,@vars)
@@ -253,15 +254,18 @@
              (nested-src (if from-tables
                              `(do ,(%from->cl ctx from-tables where-clauses selected-src vars))
                              (append `(,@(loop for clause in where-clauses append `(when (eq t ,(where-clause-src clause)))))
-                                     selected-src))))
+                                     selected-src)))
+             (projection (mapcar #'%unqualified-column-name (from-table-projection from-table))))
         (if equi-join-clauses
             (%table-scan->cl ctx
                              new-vars
+                             projection
                              (%join->cl ctx from-table scan-clauses equi-join-clauses)
                              pushdown-clauses
                              nested-src)
             (%table-scan->cl ctx
                              new-vars
+                             projection
                              (from-table-src from-table)
                              (append scan-clauses pushdown-clauses)
                              nested-src
@@ -559,7 +563,7 @@
                                     collect (make-where-clause :src (ast->cl ctx clause)
                                                                :ast clause))))
           `(endb/sql/expr:sql-delete ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name)
-                                     ,(%table-scan->cl ctx vars from-src where-clauses `(collect ,scan-row-id-sym) t)))))))
+                                     ,(%table-scan->cl ctx vars projection from-src where-clauses `(collect ,scan-row-id-sym) t)))))))
 
 (defmethod sql->cl (ctx (type (eql :update)) &rest args)
   (destructuring-bind (table-name update-cols &key (where :true))
@@ -593,7 +597,7 @@
           (when (subsetp update-col-names projection :test 'equal)
             `(let ((,updated-rows-sym)
                    (,deleted-row-ids-sym))
-               ,(%table-scan->cl ctx vars from-src where-clauses
+               ,(%table-scan->cl ctx vars projection from-src where-clauses
                                  `(do (push (list ,@update-select-list) ,updated-rows-sym)
                                       (push ,scan-row-id-sym ,deleted-row-ids-sym))
                                  t)

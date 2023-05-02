@@ -618,9 +618,13 @@
   (with-slots (children) array
     children))
 
-(defun arrow-struct-children (array)
+(defun arrow-struct-children (array projection)
   (with-slots (children) array
-    (mapcar #'cdr children)))
+    (loop with len = (arrow-length array)
+          with missing-column = (make-instance 'null-array :null-count len :length len)
+          with children = (reverse children)
+          for c in projection
+          collect (or (cdr (assoc c children :test 'equal)) missing-column))))
 
 (defun arrow-struct-row-get (array n)
   (with-slots (children) array
