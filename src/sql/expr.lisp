@@ -828,17 +828,12 @@
             (endb/arrow:arrow-struct-row-push rows row))
           (values nil (length values)))))))
 
-(defun sql-delete (db table-name values)
+(defun sql-delete (db table-name new-deleted-row-ids)
   (let ((table (gethash table-name db)))
     (when (typep table 'base-table)
       (with-slots (deleted-row-ids rows) table
         (unless deleted-row-ids
           (setf deleted-row-ids (make-instance 'endb/arrow:int64-array)))
-        (let ((new-deleted-row-ids (loop for row-id below (endb/arrow:arrow-length rows)
-                                         for row = (endb/arrow:arrow-struct-row-get rows row-id)
-                                         unless (find row-id deleted-row-ids)
-                                         when (member row values :test 'equal)
-                                           collect row-id)))
-          (dolist (row-id new-deleted-row-ids)
-            (endb/arrow:arrow-push deleted-row-ids row-id))
-          (values nil (length new-deleted-row-ids)))))))
+        (dolist (row-id new-deleted-row-ids)
+          (endb/arrow:arrow-push deleted-row-ids row-id))
+        (values nil (length new-deleted-row-ids))))))

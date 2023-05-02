@@ -134,13 +134,12 @@
     (t x)))
 
 (defun %table-scan->cl (ctx vars from-src where-clauses nested-src &optional base-table-p)
-  (declare (ignore ctx))
   (let ((where-src (loop for clause in where-clauses
                          append `(when (eq t ,(where-clause-src clause))))))
     (if base-table-p
         (let* ((base-table-sym (gensym))
                (table-sym (gensym))
-               (row-id-sym (gensym))
+               (row-id-sym (or (cdr (assoc :scan-row-id-sym ctx)) (gensym)))
                (deleted-row-ids-sym (gensym))
                (col-syms (loop repeat (length vars) collect (gensym)))
                (children-sym (gensym))
@@ -545,8 +544,21 @@
 (defmethod sql->cl (ctx (type (eql :delete)) &rest args)
   (destructuring-bind (table-name where)
       args
-    `(endb/sql/expr:sql-delete ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name)
-                               ,(ast->cl ctx (list :select (list (list :*)) :from (list (list table-name)) :where where)))))
+    (when (%base-table-p ctx table-name)
+      (multiple-value-bind (from-src projection)
+          (%base-table-or-view->cl ctx table-name)
+        (let* ((scan-row-id-sym (gensym))
+               (ctx (cons (cons :scan-row-id-sym scan-row-id-sym) ctx))
+               (env-extension (loop for column in projection
+                                    for column-sym = (gensym (concatenate 'string column "__"))
+                                    collect (cons column column-sym)))
+               (ctx (append env-extension ctx))
+               (vars (mapcar #'cdr env-extension))
+               (where-clauses (loop for clause in (%and-clauses where)
+                                    collect (make-where-clause :src (ast->cl ctx clause)
+                                                               :ast clause))))
+          `(endb/sql/expr:sql-delete ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name)
+                                     ,(%table-scan->cl ctx vars from-src where-clauses `(collect ,scan-row-id-sym) t)))))))
 
 (defmethod sql->cl (ctx (type (eql :update)) &rest args)
   (destructuring-bind (table-name update-cols &key (where :true))
