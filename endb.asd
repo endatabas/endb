@@ -4,7 +4,7 @@
   :license "AGPL-3.0-only"
   :homepage "https://www.endatabas.com/"
   :class :package-inferred-system
-  :depends-on ("endb/core" "cffi" "cl-ppcre" "yacc" "local-time" "trivial-utf-8" "mmap")
+  :depends-on ("endb/core" "cffi" "cl-ppcre" "yacc" "local-time" "trivial-utf-8" "mmap" "archive" "fast-io")
   :description "Endatabas"
   :pathname "src"
   :build-operation program-op

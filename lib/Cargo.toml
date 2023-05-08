@@ -14,7 +14,7 @@ rust-version = "1.68.0"
 
 [workspace.dependencies]
 chumsky = "1.0.0-alpha.3"
-arrow2 = { version = "0.17.0", features = ["io_ipc"] }
+arrow2 = { version = "0.17.0", features = ["io_ipc", "io_parquet", "io_parquet_compression"] }
 
 [profile.release]
 lto = true
