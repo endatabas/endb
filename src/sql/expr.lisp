@@ -386,10 +386,14 @@
 (defmethod sql-cast ((x real) (type (eql :varchar)))
   (format nil "~F" x))
 
+(defmethod sql-cast ((x endb/arrow:arrow-date) (type (eql :varchar)))
+  (local-time:format-rfc3339-timestring nil x :omit-time-part t))
+
+(defmethod sql-cast ((x endb/arrow:arrow-time) (type (eql :varchar)))
+  (local-time:format-rfc3339-timestring nil x :omit-date-part t))
+
 (defmethod sql-cast ((x local-time:timestamp) (type (eql :varchar)))
-  (if (typep x 'local-time:date)
-      (local-time:format-timestring nil x :format local-time:+rfc3339-format/date-only+)
-      (local-time:format-timestring nil x)))
+  (local-time:format-rfc3339-timestring nil x))
 
 (defmethod sql-cast ((x (eql t)) (type (eql :integer)))
   1)
@@ -482,7 +486,9 @@
   :null)
 
 (defmethod sql-date ((x string))
-  (coerce (local-time:parse-timestring x) 'local-time:timestamp))
+  (let ((date (local-time:parse-timestring x)))
+    (check-type date local-time:date)
+    (make-instance 'endb/arrow:arrow-date :day (local-time:day-of date))))
 
 (defmethod sql-like ((x (eql :null)) (pattern (eql :null)))
   :null)
