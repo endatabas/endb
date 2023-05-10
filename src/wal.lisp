@@ -1,18 +1,23 @@
 (defpackage :endb/wal
   (:use :cl)
-  (:export #:make-wal #:wal-append-entry #:wal-read-next-entry #:wal-fsync #:wal-close)
+  (:export #:open-tar-wal #:wal-append-entry #:wal-read-next-entry #:wal-find-entry #:wal-fsync #:wal-close)
   (:import-from :archive)
   (:import-from :fast-io)
-  (:import-from :local-time))
+  (:import-from :local-time)
+  (:import-from :trivial-gray-streams))
 (in-package :endb/wal)
 
 (defgeneric wal-append-entry (wal path buffer))
 (defgeneric wal-read-next-entry (wal))
+(defgeneric wal-find-entry (wal path))
 (defgeneric wal-fsync (wal))
 (defgeneric wal-close (wal))
 
-(defun make-wal (&key (stream (make-instance 'fast-io:fast-output-stream)) (direction :output))
-  (archive:open-archive 'archive:tar-archive stream :direction direction))
+(defun open-tar-wal (&key (stream (make-instance 'fast-io:fast-output-stream)) (direction :output))
+  (let ((archive (archive:open-archive 'archive:tar-archive stream :direction direction)))
+    (when (typep stream 'fast-io:fast-input-stream)
+      (setf (slot-value archive 'archive::skippable-p) t))
+    archive))
 
 (defconstant +wal-file-mode+ #o100664)
 
@@ -26,12 +31,29 @@
          (stream (make-instance 'fast-io:fast-input-stream :vector buffer)))
     (archive:write-entry-to-archive archive entry :stream stream)))
 
+(defun %extract-entry (archive entry)
+  (let* ((out (make-instance 'fast-io:fast-output-stream :buffer-size (archive::size entry))))
+    (archive::transfer-entry-data-to-stream archive entry out)
+    (values (fast-io:finish-output-stream out) (archive:name entry))))
+
 (defmethod wal-read-next-entry ((archive archive:tar-archive))
   (let ((entry (archive:read-entry-from-archive archive)))
     (when entry
-      (let* ((out (make-instance 'fast-io:fast-output-stream)))
-        (archive::transfer-entry-data-to-stream archive entry out)
-        (values (fast-io:finish-output-stream out) (archive:name entry))))))
+      (%extract-entry archive entry))))
+
+(defmethod wal-find-entry ((archive archive:tar-archive) path)
+  (let* ((stream (archive::archive-stream archive))
+         (pos (trivial-gray-streams:stream-file-position stream)))
+    (assert (input-stream-p stream))
+    (unwind-protect
+         (progn (setf (trivial-gray-streams:stream-file-position stream) 0)
+                (loop for entry = (archive:read-entry-from-archive archive)
+                      while entry
+                      if (equal path (archive:name entry))
+                        do (return (%extract-entry archive entry))
+                      else
+                        do (archive:discard-entry archive entry)))
+      (setf (trivial-gray-streams:stream-file-position stream) pos))))
 
 (defmethod wal-fsync ((archive archive:tar-archive))
   (finish-output (archive::archive-stream archive)))
@@ -63,25 +85,133 @@
 ;; {"add":{"table":"foo","path":"foo/f5c18e7b-d1bf-4ba5-85dd-e63ddc5931bf.arrow","system_time":1674064791593,"data_change":true,"dv_path":"foo/deletion_vector_44ccbf3f-b223-4581-9cd8-a7e569120ada.arrow","stats":{"num_records":100,"min_values":{"value":4},"max_values":{"value":1967},"null_count":{"value":0}},"base_row_id":0}}
 ;; {"remove":{"table":"foo","path":"foo/a9bb3ce8-afba-47ec-8451-13edcd855b15.arrow","system_time":1674064797399,"data_change":true,"dv_path":"foo/deletion_vector_44ccbf3f-b223-4581-9cd8-a7e569120ada.arrow"}}
 
-;; (to-arrow
-;;  '((("meta_data" .
-;;      (("table" . "foo")
-;;       ("columns" . #("value"))
-;;       ("system_time" . @2023-05-08T08:56:43.280788Z))))
-;;    (("add" .
-;;      (("table" . "foo")
-;;       ("path" . "foo/f5c18e7b-d1bf-4ba5-85dd-e63ddc5931bf.arrow")
-;;       ("system_time" . @2023-05-08T08:56:43.280788Z)
-;;       ("data_change" . t)
-;;       ("dv_path" . "foo/_dv/44ccbf3f-b223-4581-9cd8-a7e569120ada.arrow")
-;;       ("stats" . (("num_records" . 100)
-;;                   ("min_values" . (("value" . 4)))
-;;                   ("max_values" . (("value" . 1967)))
-;;                   ("null_count" . (("value" . 0)))))
-;;       ("base_row_id" . 0))))
-;;    (("remove" .
-;;      (("table" . "foo")
-;;       ("path" . "foo/f5c18e7b-d1bf-4ba5-85dd-e63ddc5931bf.arrow")
-;;       ("system_time" . @2023-05-08T08:56:43.280788Z)
-;;       ("data_change" . t)
-;;       ("dv_path" . "foo/_dv/44ccbf3f-b223-4581-9cd8-a7e569120ada.arrow"))))))
+;; (defstruct action table system-time)
+
+;; (defstruct (meta-data-action (:include action)) columns)
+
+;; (defstruct (add-action (:include action)) path (data-change t) dv-path stats (base-row-id 0))
+
+;; (defstruct (remove-action (:include action)) path (data-change t) dv-path)
+
+;; (defstruct column-stats num-records min-values max-values null-count)
+
+;; (make-meta-data-action :table "foo"
+;;                        :system-time @2023-05-08T08:56:43.280788Z
+;;                        :columns #("value"))
+
+;; '(:action :meta-data
+;;   :table "foo"
+;;   :system-time @2023-05-08T08:56:43.280788Z
+;;   :columns #("value"))
+
+;; (make-add-action :table "foo"
+;;                  :system-time @2023-05-08T08:56:43.280788Z
+;;                  :path "foo/f5c18e7b-d1bf-4ba5-85dd-e63ddc5931bf.arrow"
+;;                  :dv-path "foo/_dv/44ccbf3f-b223-4581-9cd8-a7e569120ada.arrow"
+;;                  :stats (make-column-stats :num-records 100
+;;                                            :min-values '(:value 4)
+;;                                            :max-values '(:value 1967)
+;;                                            :null-count '(:value 0)))
+
+;; '(:action :add
+;;   :table "foo"
+;;   :system-time @2023-05-08T08:56:43.280788Z
+;;   :path "foo/f5c18e7b-d1bf-4ba5-85dd-e63ddc5931bf.arrow"
+;;   :dv-path "foo/_dv/44ccbf3f-b223-4581-9cd8-a7e569120ada.arrow"
+;;   :stats (:num-records 100
+;;           :min-values (:value 4)
+;;           :max-values (:value 1967)
+;;           :null-count (:value 0)))
+
+;; (make-remove-action :table "foo"
+;;                     :system-time @2023-05-08T08:56:43.280788Z
+;;                     :path "foo/f5c18e7b-d1bf-4ba5-85dd-e63ddc5931bf.arrow"
+;;                     :dv-path "foo/_dv/44ccbf3f-b223-4581-9cd8-a7e569120ada.arrow")
+
+;; '(:action :remove
+;;   :table "foo"
+;;   :system-time @2023-05-08T08:56:43.280788Z
+;;   :path "foo/f5c18e7b-d1bf-4ba5-85dd-e63ddc5931bf.arrow"
+;;   :dv-path "foo/_dv/44ccbf3f-b223-4581-9cd8-a7e569120ada.arrow")
+
+;; (defmethod clop::serialize ((table clop:table) (style (eql :plist)))
+;;   (loop with children = (clop:children table)
+;;         for key being the hash-keys of children
+;;         append (list (alexandria:make-keyword (string-upcase key)) (clop::serialize (gethash key children) style))))
+
+;; (defmethod clop::serialize ((table clop:inline-table) (style (eql :plist)))
+;;   (loop with children = (clop:children table)
+;;         for key being the hash-keys of children
+;;         append (list (alexandria:make-keyword (string-upcase key)) (clop::serialize (gethash key children) style))))
+
+;; (defmethod clop::serialize ((table clop:table-array) (style (eql :plist)))
+;;   (map 'vector (lambda (it) (clop::serialize it style))
+;;        (clop::children table)))
+
+;; (defmethod clop::serialize ((thing list) (style (eql :plist)))
+;;   (if (listp (cdr thing))
+;;       (map 'vector (lambda (it) (clop::serialize it style)) thing)
+;;       thing))
+
+;; (defmethod clop::serialize ((table clop:table-array) (style (eql :alist)))
+;;   (map 'vector (lambda (it) (clop::serialize it style))
+;;        (clop::children table)))
+
+;; (defmethod clop::serialize ((thing list) (style (eql :alist)))
+;;   (if (listp (cdr thing))
+;;       (map 'vector (lambda (it) (clop::serialize it style)) thing)
+;;       thing))
+
+;; ;; (endb/arrow:to-arrow (rest (first (clop:parse (alexandria:read-file-into-string "target/log.toml")))))
+
+;; (alexandria:write-byte-vector-into-file
+;;  (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer
+;;   (list (endb/arrow:to-arrow (rest (first (clop:parse (alexandria:read-file-into-string "target/log.toml")))))))
+;;  (pathname "target/log.arrow")
+;;  :if-exists :overwrite)
+
+;; (alexandria:write-byte-vector-into-file
+;;  (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer
+;;   (list
+;;    (endb/arrow:to-arrow
+;;     '((("meta_data" .
+;;         (("table" . "foo")
+;;          ("columns" . #("value"))
+;;          ("system_time" . @2023-05-08T08:56:43.280788Z))))
+;;       (("add" .
+;;         (("table" . "foo")
+;;          ("path" . "foo/f5c18e7b-d1bf-4ba5-85dd-e63ddc5931bf.arrow")
+;;          ("system_time" . @2023-05-08T08:56:43.280788Z)
+;;          ("data_change" . t)
+;;          ("dv" . (("path" . "foo/_dv/44ccbf3f-b223-4581-9cd8-a7e569120ada.arrow")
+;;                   ("cardinality" . 10)))
+;;          ("stats" . (("num_records" . 100)
+;;                      ("min_values" . (("value" . 4)))
+;;                      ("max_values" . (("value" . 1967)))
+;;                      ("null_count" . (("value" . 0)))))
+;;          ("base_row_id" . 0))))
+;;       (("remove" .
+;;         (("table" . "foo")
+;;          ("path" . "foo/f5c18e7b-d1bf-4ba5-85dd-e63ddc5931bf.arrow")
+;;          ("system_time" . @2023-05-08T08:56:43.280788Z)
+;;          ("data_change" . t)
+;;          ("dv" . (("path" . "foo/_dv/44ccbf3f-b223-4581-9cd8-a7e569120ada.arrow")
+;;                   ("cardinality" . 10))))))))))
+;;  (pathname "target/log2.arrow")
+;;  :if-exists :overwrite)
+
+
+;; (("actions"
+;;   (("op" . "meta_data") ("table" . "foo") ("columns" "value")
+;;    ("system_time" . @2023-05-09T09:01:06.384631+02:00))
+;;   (("op" . "add") ("table" . "foo")
+;;    ("system_time" . @2023-05-09T09:01:06.384631+02:00) ("date_change" . t)
+;;    ("path" . "foo/f5c18e7b-d1bf-4ba5-85dd-e63ddc5931bf.arrow")
+;;    ("dv_path" . "foo/_dv/44ccbf3f-b223-4581-9cd8-a7e569120ada.arrow")
+;;    ("stats" ("num_records" . 0) ("min_values" ("value" . 4))
+;;     ("max_values" ("value" . 1967)))
+;;    ("stat" ("null_count" ("value" . 0))) ("base_row_id" . 0))
+;;   (("op" . "remove") ("table" . "foo")
+;;    ("system_time" . @2023-05-09T09:01:06.384631+02:00) ("date_change" . t)
+;;    ("path" . "foo/f5c18e7b-d1bf-4ba5-85dd-e63ddc5931bf.arrow")
+;;    ("dv_path" . "foo/_dv/44ccbf3f-b223-4581-9cd8-a7e569120ada.arrow"))))
