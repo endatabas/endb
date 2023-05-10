@@ -400,10 +400,15 @@
 (defmethod arrow-lisp-type ((array date-days-array))
   'arrow-date)
 
+(defun %time-to-micros (x)
+  (let* ((sec (local-time:sec-of x))
+         (nsec (local-time:nsec-of x)))
+    (+ (* 1000000 sec) (/ nsec 1000))))
+
 (defclass time-micros-array (int64-array) ())
 
 (defmethod arrow-push ((array time-micros-array) (x arrow-time))
-  (arrow-push array (%timestamp-to-micros x)))
+  (arrow-push array (%time-to-micros x)))
 
 (defmethod arrow-value ((array time-micros-array) (n fixnum))
   (let ((ts (%micros-to-timestamp (aref (slot-value array 'values) n))))
