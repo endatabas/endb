@@ -34,16 +34,20 @@
 (defun %extract-entry (archive entry)
   (let* ((out (make-instance 'fast-io:fast-output-stream :buffer-size (archive::size entry))))
     (archive::transfer-entry-data-to-stream archive entry out)
-    (values (fast-io:finish-output-stream out) (archive:name entry))))
+    (fast-io:finish-output-stream out)))
 
 (defmethod wal-read-next-entry ((archive archive:tar-archive))
-  (let ((entry (archive:read-entry-from-archive archive)))
-    (when entry
-      (%extract-entry archive entry))))
+  (let* ((entry (archive:read-entry-from-archive archive))
+         (stream (archive::archive-stream archive)))
+    (values (when entry
+              (%extract-entry archive entry))
+            (when entry
+              (archive:name entry))
+            (file-position stream))))
 
 (defmethod wal-find-entry ((archive archive:tar-archive) path &key (offset 0))
   (let* ((stream (archive::archive-stream archive))
-         (pos (trivial-gray-streams:stream-file-position stream)))
+         (pos (file-position stream)))
     (assert (input-stream-p stream))
     (unwind-protect
          (progn (setf (trivial-gray-streams:stream-file-position stream) offset)
