@@ -9,7 +9,7 @@
 
 (defgeneric wal-append-entry (wal path buffer))
 (defgeneric wal-read-next-entry (wal))
-(defgeneric wal-find-entry (wal path))
+(defgeneric wal-find-entry (wal path &key offset))
 (defgeneric wal-fsync (wal))
 (defgeneric wal-close (wal))
 
@@ -41,12 +41,12 @@
     (when entry
       (%extract-entry archive entry))))
 
-(defmethod wal-find-entry ((archive archive:tar-archive) path)
+(defmethod wal-find-entry ((archive archive:tar-archive) path &key (offset 0))
   (let* ((stream (archive::archive-stream archive))
          (pos (trivial-gray-streams:stream-file-position stream)))
     (assert (input-stream-p stream))
     (unwind-protect
-         (progn (setf (trivial-gray-streams:stream-file-position stream) 0)
+         (progn (setf (trivial-gray-streams:stream-file-position stream) offset)
                 (loop for entry = (archive:read-entry-from-archive archive)
                       while entry
                       if (equal path (archive:name entry))

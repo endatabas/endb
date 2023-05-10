@@ -36,7 +36,7 @@
       (is (archive::skippable-p wal))
 
       (multiple-value-bind (buffer name)
-          (wal-find-entry wal "bar.txt")
+          (wal-find-entry wal "bar.txt" :offset 1024)
         (is (equalp (trivial-utf-8:string-to-utf-8-bytes "bar") buffer))
         (is (equal "bar.txt" name)))
 
