@@ -1,6 +1,6 @@
 (defpackage :endb/storage/wal
   (:use :cl)
-  (:export #:open-tar-wal #:wal-append-entry #:wal-read-next-entry #:wal-find-entry #:wal-fsync #:wal-close #:random-uuid)
+  (:export #:open-tar-wal #:tar-wal-position-stream-at-end #:wal-append-entry #:wal-read-next-entry #:wal-find-entry #:wal-fsync #:wal-close #:random-uuid)
   (:import-from :archive)
   (:import-from :fast-io)
   (:import-from :local-time))
@@ -16,6 +16,17 @@
     (when (typep stream 'fast-io:fast-input-stream)
       (setf (slot-value archive 'archive::skippable-p) t))
     archive))
+
+(defun tar-wal-position-stream-at-end (stream)
+  (when (plusp (file-length stream))
+    (file-position stream 0)
+    (loop with archive = (archive:open-archive 'archive:tar-archive stream)
+          for pos = (file-position stream)
+          for entry = (archive:read-entry-from-archive archive)
+          when entry
+            do (archive:discard-entry archive entry)
+          while entry
+          finally (file-position stream pos))))
 
 (defconstant +wal-file-mode+ #o100664)
 

@@ -2,8 +2,7 @@
   (:use :cl)
   (:export #:open-tar-object-store #:object-store-get #:object-store-put #:object-store-close)
   (:import-from :archive)
-  (:import-from :fast-io)
-  (:import-from :trivial-gray-streams))
+  (:import-from :fast-io))
 (in-package :endb/storage/object-store)
 
 (defgeneric object-store-get (os path))
@@ -31,7 +30,7 @@
                  do (return (%extract-entry archive entry))
                else
                  do (archive:discard-entry archive entry))
-      (setf (trivial-gray-streams:stream-file-position stream) pos))))
+      (file-position stream pos))))
 
 (defmethod object-store-close ((archive archive:tar-archive))
   (archive:close-archive archive))

@@ -57,6 +57,63 @@
 
       (is (null (object-store-get wal "baz.txt"))))))
 
+(test tar-wal-reopen-and-append
+  (let* ((target-dir (asdf:system-relative-pathname :endb-test "target/"))
+         (test-log (merge-pathnames "example.log" target-dir)))
+    (ensure-directories-exist target-dir)
+    (unwind-protect
+         (progn
+           (with-open-file (in test-log :direction :io
+                                        :element-type '(unsigned-byte 8)
+                                        :if-exists :overwrite
+                                        :if-does-not-exist :create)
+             (tar-wal-position-stream-at-end in)
+             (let* ((wal (open-tar-wal :stream in :direction :output)))
+
+               (wal-append-entry wal "foo.txt" (trivial-utf-8:string-to-utf-8-bytes "foo"))
+               (wal-append-entry wal "bar.txt" (trivial-utf-8:string-to-utf-8-bytes "bar"))
+               (wal-close wal)))
+
+           (with-open-file (in test-log :direction :io
+                                        :element-type '(unsigned-byte 8)
+                                        :if-exists :overwrite
+                                        :if-does-not-exist :create)
+             (tar-wal-position-stream-at-end in)
+             (let* ((wal (open-tar-wal :stream in :direction :output)))
+
+               (wal-append-entry wal "baz.txt" (trivial-utf-8:string-to-utf-8-bytes "baz"))
+               (wal-close wal)))
+
+           (with-open-file (in test-log :element-type '(unsigned-byte 8))
+             (let* ((wal (open-tar-wal :stream in :direction :input)))
+
+               (multiple-value-bind (buffer name pos)
+                   (wal-read-next-entry wal)
+                 (is (equalp (trivial-utf-8:string-to-utf-8-bytes "foo") buffer))
+                 (is (equal "foo.txt" name))
+                 (is (= 1024 pos)))
+
+               (multiple-value-bind (buffer name pos)
+                   (wal-read-next-entry wal)
+                 (is (equalp (trivial-utf-8:string-to-utf-8-bytes "bar") buffer))
+                 (is (equal "bar.txt" name))
+                 (is (= 2048 pos)))
+
+               (multiple-value-bind (buffer name pos)
+                   (wal-read-next-entry wal)
+                 (is (equalp (trivial-utf-8:string-to-utf-8-bytes "baz") buffer))
+                 (is (equal "baz.txt" name))
+                 (is (= 3072 pos)))
+
+               (multiple-value-bind (buffer name pos)
+                   (wal-read-next-entry wal)
+                 (is (null buffer))
+                 (is (null name))
+                 (is (= 3584 pos))))))
+
+      (when (probe-file test-log)
+        (delete-file test-log)))))
+
 (test buffer-pool
   (let* ((out (make-instance 'fast-io:fast-output-stream))
          (wal (open-tar-wal :stream out))
