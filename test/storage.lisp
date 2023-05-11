@@ -145,7 +145,7 @@
 (defparameter +uuid-scanner+ (ppcre:create-scanner "^[\\da-f]{8}-[\\da-f]{4}-4[\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"))
 
 (test random-uuid
-  (let ((uuid (random-uuid #+sbcl(sb-ext:seed-random-state 0)
+  (let ((uuid (random-uuid #+sbcl (sb-ext:seed-random-state 0)
                            #-sbcl *random-state*)))
     #+sbcl (is (equal "8c7f0aac-97c4-4a2f-b716-a675d821ccc0" uuid))
     (is (ppcre:scan +uuid-scanner+ uuid))))
