@@ -7,7 +7,7 @@
 (in-package :endb/storage/wal)
 
 (defgeneric wal-append-entry (wal path buffer))
-(defgeneric wal-read-next-entry (wal))
+(defgeneric wal-read-next-entry (wal &key skip-if))
 (defgeneric wal-fsync (wal))
 (defgeneric wal-close (wal))
 
@@ -34,11 +34,13 @@
     (archive::transfer-entry-data-to-stream archive entry out)
     (fast-io:finish-output-stream out)))
 
-(defmethod wal-read-next-entry ((archive archive:tar-archive))
+(defmethod wal-read-next-entry ((archive archive:tar-archive) &key skip-if)
   (let* ((entry (archive:read-entry-from-archive archive))
          (stream (archive::archive-stream archive)))
     (values (when entry
-              (%extract-entry archive entry))
+              (if (and skip-if (funcall skip-if (archive:name entry)))
+                  (archive:discard-entry archive entry)
+                  (%extract-entry archive entry)))
             (when entry
               (archive:name entry))
             (file-position stream))))

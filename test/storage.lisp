@@ -10,7 +10,7 @@
 
 (in-suite* :all-tests)
 
-(test tar-wal-and-object-stor
+(test tar-wal-and-object-store
   (let* ((out (make-instance 'fast-io:fast-output-stream))
          (wal (open-tar-wal :stream out)))
 
@@ -20,24 +20,26 @@
     (wal-close wal)
 
     (let* ((in (make-instance 'fast-io:fast-input-stream :vector (fast-io:finish-output-stream out)))
-           (wal (open-tar-wal :stream in :direction :input)))
+           (wal (open-tar-wal :stream in :direction :input))
+           (skip-pred (lambda (path)
+                        (equal "foo.txt" path))))
 
       (is (archive::skippable-p wal))
 
       (multiple-value-bind (buffer name pos)
-          (wal-read-next-entry wal)
-        (is (equalp (trivial-utf-8:string-to-utf-8-bytes "foo") buffer))
+          (wal-read-next-entry wal :skip-if skip-pred)
+        (is (null buffer))
         (is (equal "foo.txt" name))
         (is (= 1024 pos)))
 
       (multiple-value-bind (buffer name pos)
-          (wal-read-next-entry wal)
+          (wal-read-next-entry wal :skip-if skip-pred)
         (is (equalp (trivial-utf-8:string-to-utf-8-bytes "bar") buffer))
         (is (equal "bar.txt" name))
         (is (= 2048 pos)))
 
       (multiple-value-bind (buffer name pos)
-          (wal-read-next-entry wal)
+          (wal-read-next-entry wal :skip-if skip-pred)
         (is (null buffer))
         (is (null name))
         (is (= 2560 pos))))

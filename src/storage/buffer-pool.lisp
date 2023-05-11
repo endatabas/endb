@@ -11,9 +11,11 @@
 (defstruct buffer-pool object-store (pool (make-hash-table :weakness :value :synchronized t)))
 
 (defmethod buffer-pool-get ((bp buffer-pool) path)
-  (or (gethash path (buffer-pool-pool bp))
-      (setf (gethash path (buffer-pool-pool bp))
-            (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer (endb/storage/object-store:object-store-get (buffer-pool-object-store bp) path)))))
+  (with-slots (object-store pool) bp
+    (or (gethash path pool)
+        (setf (gethash path pool)
+              (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer
+               (endb/storage/object-store:object-store-get object-store path))))))
 
 (defmethod buffer-pool-close ((bp buffer-pool))
   (clrhash (buffer-pool-pool bp)))
