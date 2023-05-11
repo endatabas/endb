@@ -1,15 +1,13 @@
-(defpackage :endb/wal
+(defpackage :endb/storage/wal
   (:use :cl)
   (:export #:open-tar-wal #:wal-append-entry #:wal-read-next-entry #:wal-find-entry #:wal-fsync #:wal-close)
   (:import-from :archive)
   (:import-from :fast-io)
-  (:import-from :local-time)
-  (:import-from :trivial-gray-streams))
-(in-package :endb/wal)
+  (:import-from :local-time))
+(in-package :endb/storage/wal)
 
 (defgeneric wal-append-entry (wal path buffer))
 (defgeneric wal-read-next-entry (wal))
-(defgeneric wal-find-entry (wal path &key offset))
 (defgeneric wal-fsync (wal))
 (defgeneric wal-close (wal))
 
@@ -44,20 +42,6 @@
             (when entry
               (archive:name entry))
             (file-position stream))))
-
-(defmethod wal-find-entry ((archive archive:tar-archive) path &key (offset 0))
-  (let* ((stream (archive::archive-stream archive))
-         (pos (file-position stream)))
-    (assert (input-stream-p stream))
-    (unwind-protect
-         (progn (setf (trivial-gray-streams:stream-file-position stream) offset)
-                (loop for entry = (archive:read-entry-from-archive archive)
-                      while entry
-                      if (equal path (archive:name entry))
-                        do (return (%extract-entry archive entry))
-                      else
-                        do (archive:discard-entry archive entry)))
-      (setf (trivial-gray-streams:stream-file-position stream) pos))))
 
 (defmethod wal-fsync ((archive archive:tar-archive))
   (finish-output (archive::archive-stream archive)))
