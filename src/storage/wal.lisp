@@ -1,6 +1,6 @@
 (defpackage :endb/storage/wal
   (:use :cl)
-  (:export #:open-tar-wal #:wal-append-entry #:wal-read-next-entry #:wal-find-entry #:wal-fsync #:wal-close)
+  (:export #:open-tar-wal #:wal-append-entry #:wal-read-next-entry #:wal-find-entry #:wal-fsync #:wal-close #:random-uuid)
   (:import-from :archive)
   (:import-from :fast-io)
   (:import-from :local-time))
