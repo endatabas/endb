@@ -1,10 +1,11 @@
 (defpackage :endb-test/storage
-  (:use :cl :fiveam :endb/storage/wal :endb/storage/object-store :endb/storage/buffer-pool)
+  (:use :cl :fiveam :endb/storage/wal :endb/storage/object-store :endb/storage/buffer-pool :endb/storage/meta-data)
   (:import-from :endb/arrow)
   (:import-from :endb/lib/arrow)
   (:import-from :archive)
   (:import-from :cl-ppcre)
   (:import-from :fast-io)
+  (:import-from :cl-hamt)
   (:import-from :trivial-utf-8))
 (in-package :endb-test/storage)
 
@@ -149,3 +150,33 @@
                            #-sbcl *random-state*)))
     #+sbcl (is (equal "8c7f0aac-97c4-4a2f-b716-a675d821ccc0" uuid))
     (is (ppcre:scan +uuid-scanner+ uuid))))
+
+(test hamt
+  (is (equal "{}" (hamt->json (hamt:empty-dict))))
+  (is (hamt-deep-equal (json->hamt "{}") (hamt:empty-dict)))
+
+  (is (equal "{\"a\":1}" (hamt->json (hamt:dict-insert (hamt:empty-dict) "a" 1))))
+  (is (hamt-deep-equal (json->hamt "{\"a\":1}") (hamt:dict-insert (hamt:empty-dict) "a" 1)))
+
+  (is (equal "{\"a\":[1]}" (hamt->json (hamt:dict-insert (hamt:empty-dict) "a" (vector 1)))))
+  (is (hamt-deep-equal (json->hamt "{\"a\":[1]}") (hamt:dict-insert (hamt:empty-dict) "a" (vector 1))))
+
+  (is (equal "{\"a\":[1,{\"b\":\"foo\"}]}" (hamt->json (hamt:dict-insert (hamt:empty-dict) "a" (vector 1 (hamt:dict-insert (hamt:empty-dict) "b" "foo"))))))
+  (is (hamt-deep-equal (json->hamt "{\"a\":[1,{\"b\":\"foo\"}]}")
+                       (hamt:dict-insert (hamt:empty-dict) "a" (vector 1 (hamt:dict-insert (hamt:empty-dict) "b" "foo"))))))
+
+(test hamt-merge-patch
+  (is (hamt-deep-equal
+       (json->hamt "{\"a\":\"z\",\"c\":{\"d\":\"e\"}}")
+       (hamt-merge-patch
+        (json->hamt "{\"a\":\"b\",\"c\":{\"d\":\"e\",\"f\":\"g\"}}")
+        (json->hamt "{\"a\":\"z\",\"c\":{\"f\":null}}"))))
+
+  (is (hamt-deep-equal
+       (json->hamt
+        "{\"title\":\"Hello!\",\"author\":{\"givenName\":\"John\"},\"tags\":[ \"example\"],\"content\":\"This will be unchanged\"}")
+       (hamt-merge-patch
+        (json->hamt
+         "{\"title\":\"Goodbye!\",\"author\":{\"givenName\":\"John\",\"familyName\":\"Doe\"},\"tags\":[ \"example\",\"sample\"],\"content\":\"This will be unchanged\"}")
+        (json->hamt
+         "{\"title\":\"Hello!\",\"author\":{\"familyName\":null},\"tags\":[ \"example\"]}")))))
