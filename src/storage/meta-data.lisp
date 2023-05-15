@@ -1,54 +1,60 @@
 (defpackage :endb/storage/meta-data
   (:use :cl)
-  (:export #:json->hamt #:hamt->json #:hamt-deep-equal #:hamt-merge-patch)
-  (:import-from :cl-hamt)
-  (:import-from :com.inuoe.jzon))
+  (:export #:json->fset #:fset->json #:fset-merge-patch)
+  (:import-from :com.inuoe.jzon)
+  (:import-from :fset))
 (in-package :endb/storage/meta-data)
 
-(defun %jzon->hamt (x)
+(defun %jzon->fset (x)
   (cond
     ((hash-table-p x)
-     (loop with acc = (hamt:empty-dict)
+     (loop with acc = (fset:empty-map)
            for k being the hash-key
              using (hash-value v)
                of x
-           do (setf acc (hamt:dict-insert acc k (%jzon->hamt v)))
+           do (setf acc (fset:with acc k (%jzon->fset v)))
            finally (return acc)))
     ((and (vectorp x) (not (stringp x)))
-     (map 'vector #'%jzon->hamt x))
+     (fset:convert 'fset:seq (map 'vector #'%jzon->fset x)))
     (t x)))
 
-(defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value hamt:hash-dict))
+(defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value fset:map))
   (com.inuoe.jzon:with-object writer
-    (hamt:dict-reduce
+    (fset:reduce
      (lambda (w k v)
        (com.inuoe.jzon:write-key w k)
        (com.inuoe.jzon:write-value w v)
        w)
      value
-     writer)))
+     :initial-value writer)))
 
-(defun json->hamt (in)
-  (%jzon->hamt (com.inuoe.jzon:parse in)))
+(defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value fset:seq))
+  (com.inuoe.jzon:with-array writer
+    (fset:reduce
+     (lambda (w v)
+       (com.inuoe.jzon:write-value w v)
+       w)
+     value
+     :initial-value writer)))
 
-(defun hamt->json (x)
-  (com.inuoe.jzon:stringify x))
+(defun json->fset (in)
+  (%jzon->fset (com.inuoe.jzon:parse in)))
 
-(defun hamt-deep-equal (x y)
-  (equal (hamt->json x) (hamt->json y)))
+(defun fset->json (x &key stream pretty)
+  (com.inuoe.jzon:stringify x :stream stream :pretty pretty))
 
 ;; https://datatracker.ietf.org/doc/html/rfc7386
 
-(defun hamt-merge-patch (target patch)
-  (if (typep patch 'hamt:hash-dict)
-      (hamt:dict-reduce
+(defun fset-merge-patch (target patch)
+  (if (fset:map? patch)
+      (fset:reduce
        (lambda (target k v)
          (if (eq 'null v)
-             (hamt:dict-remove target k)
-             (let ((target-v (hamt:dict-lookup target k)))
-               (hamt:dict-insert target k (hamt-merge-patch target-v v)))))
+             (fset:less target k)
+             (let ((target-v (fset:lookup target k)))
+               (fset:with target k (fset-merge-patch target-v v)))))
        patch
-       (if (typep target 'hamt:hash-dict)
-           target
-           (hamt:empty-dict)))
+       :initial-value (if (fset:map? target)
+                          target
+                          (fset:empty-map)))
       patch))

@@ -15,8 +15,8 @@
                "fast-io"
                "trivial-gray-streams"
                "com.inuoe.jzon"
-               "cl-hamt"
-               "alexandria")
+               "alexandria"
+               "fset")
   :description "Endatabas"
   :pathname "src"
   :build-operation program-op

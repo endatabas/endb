@@ -17,9 +17,6 @@
            #:sql-runtime-error))
 (in-package :endb/sql/expr)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (local-time:enable-read-macros))
-
 (define-condition sql-runtime-error (error)
   ((message :initarg :message :reader sql-runtime-error-message))
   (:report (lambda (condition stream)

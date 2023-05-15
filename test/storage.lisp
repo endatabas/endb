@@ -4,8 +4,9 @@
   (:import-from :endb/lib/arrow)
   (:import-from :archive)
   (:import-from :cl-ppcre)
-  (:import-from :fast-io)
   (:import-from :cl-hamt)
+  (:import-from :fast-io)
+  (:import-from :fset)
   (:import-from :trivial-utf-8)
   (:import-from :uiop))
 (in-package :endb-test/storage)
@@ -201,32 +202,32 @@
     #+sbcl (is (equal "8c7f0aac-97c4-4a2f-b716-a675d821ccc0" uuid))
     (is (ppcre:scan +uuid-scanner+ uuid))))
 
-(test hamt
-  (is (equal "{}" (hamt->json (hamt:empty-dict))))
-  (is (hamt-deep-equal (json->hamt "{}") (hamt:empty-dict)))
+(test fset-json
+  (is (equal "{}" (fset->json (fset:map))))
+  (is (fset:equal? (json->fset "{}") (fset:map)))
 
-  (is (equal "{\"a\":1}" (hamt->json (hamt:dict-insert (hamt:empty-dict) "a" 1))))
-  (is (hamt-deep-equal (json->hamt "{\"a\":1}") (hamt:dict-insert (hamt:empty-dict) "a" 1)))
+  (is (equal "{\"a\":1}" (fset->json (fset:map ("a" 1)))))
+  (is (fset:equal? (json->fset "{\"a\":1}") (fset:map ("a" 1))))
 
-  (is (equal "{\"a\":[1]}" (hamt->json (hamt:dict-insert (hamt:empty-dict) "a" (vector 1)))))
-  (is (hamt-deep-equal (json->hamt "{\"a\":[1]}") (hamt:dict-insert (hamt:empty-dict) "a" (vector 1))))
+  (is (equal "{\"a\":[1]}" (fset->json (fset:map ("a" (fset:seq 1))))))
+  (is (fset:equal? (json->fset "{\"a\":[1]}")  (fset:map ("a" (fset:seq 1)))))
 
-  (is (equal "{\"a\":[1,{\"b\":\"foo\"}]}" (hamt->json (hamt:dict-insert (hamt:empty-dict) "a" (vector 1 (hamt:dict-insert (hamt:empty-dict) "b" "foo"))))))
-  (is (hamt-deep-equal (json->hamt "{\"a\":[1,{\"b\":\"foo\"}]}")
-                       (hamt:dict-insert (hamt:empty-dict) "a" (vector 1 (hamt:dict-insert (hamt:empty-dict) "b" "foo"))))))
+  (is (equal "{\"a\":[1,{\"b\":\"foo\"}]}" (fset->json (fset:map ("a" (fset:seq 1 (fset:map ("b" "foo"))))))))
+  (is (fset:equal? (json->fset "{\"a\":[1,{\"b\":\"foo\"}]}")
+                   (fset:map ("a" (fset:seq 1 (fset:map ("b" "foo"))))))))
 
-(test hamt-merge-patch
-  (is (hamt-deep-equal
-       (json->hamt "{\"a\":\"z\",\"c\":{\"d\":\"e\"}}")
-       (hamt-merge-patch
-        (json->hamt "{\"a\":\"b\",\"c\":{\"d\":\"e\",\"f\":\"g\"}}")
-        (json->hamt "{\"a\":\"z\",\"c\":{\"f\":null}}"))))
+(test fset-merge-patch
+  (is (fset:equal?
+       (json->fset "{\"a\":\"z\",\"c\":{\"d\":\"e\"}}")
+       (fset-merge-patch
+        (json->fset "{\"a\":\"b\",\"c\":{\"d\":\"e\",\"f\":\"g\"}}")
+        (json->fset "{\"a\":\"z\",\"c\":{\"f\":null}}"))))
 
-  (is (hamt-deep-equal
-       (json->hamt
+  (is (fset:equal?
+       (json->fset
         "{\"title\":\"Hello!\",\"author\":{\"givenName\":\"John\"},\"tags\":[ \"example\"],\"content\":\"This will be unchanged\"}")
-       (hamt-merge-patch
-        (json->hamt
+       (fset-merge-patch
+        (json->fset
          "{\"title\":\"Goodbye!\",\"author\":{\"givenName\":\"John\",\"familyName\":\"Doe\"},\"tags\":[ \"example\",\"sample\"],\"content\":\"This will be unchanged\"}")
-        (json->hamt
+        (json->fset
          "{\"title\":\"Hello!\",\"author\":{\"familyName\":null},\"tags\":[ \"example\"]}")))))
