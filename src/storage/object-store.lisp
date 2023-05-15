@@ -78,12 +78,10 @@
     (alexandria:write-byte-vector-into-file buffer path)))
 
 (defmethod object-store-list ((os directory-object-store) &key (prefix "") (start-after ""))
-  (let* ((path (uiop:ensure-directory-pathname (directory-object-store-path os)))
-         (path-prefix-length (length (namestring (truename path))))
-         (path (merge-pathnames "**/*.*" path)))
-    (%object-store-list-filter (loop for p in (directory path)
-                                     when (pathname-name p)
-                                       collect (subseq (namestring p) path-prefix-length))
+  (let* ((path (uiop:ensure-directory-pathname (directory-object-store-path os))))
+    (%object-store-list-filter (loop for p in (directory (merge-pathnames "**/*.*" path))
+                                     unless (uiop:directory-pathname-p p)
+                                       collect (namestring (uiop:enough-pathname p path)))
                                prefix start-after)))
 
 (defmethod object-store-close ((os directory-object-store)))
