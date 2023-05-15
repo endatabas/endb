@@ -24,12 +24,16 @@
   (let* ((stream (archive::archive-stream archive))
          (pos (file-position stream)))
     (unwind-protect
-         (loop for entry = (archive:read-entry-from-archive archive)
-               while entry
-               if (equal path (archive:name entry))
-                 do (return (%extract-entry archive entry))
-               else
-                 do (archive:discard-entry archive entry))
+         (handler-case
+             (loop for entry = (archive:read-entry-from-archive archive)
+                   while entry
+                   if (equal path (archive:name entry))
+                     do (return (%extract-entry archive entry))
+                   else
+                     do (archive:discard-entry archive entry))
+           (error (e)
+             (unless (zerop (file-position stream))
+               (error e))))
       (file-position stream pos))))
 
 (defmethod object-store-close ((archive archive:tar-archive))

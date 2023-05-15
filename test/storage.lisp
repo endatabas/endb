@@ -141,7 +141,27 @@
 
       (is (equal batches (loop for x in actual
                                collect (coerce x 'list))))
-      (is (eq actual (buffer-pool-get bp "foo.arrow"))))))
+      (is (eq actual (buffer-pool-get bp "foo.arrow")))
+
+      (is (null (buffer-pool-get bp "bar.arrow"))))))
+
+(test writable-buffer-pool
+  (let* ((out (make-instance 'fast-io:fast-output-stream))
+         (batches '(((("x" . 1))
+                     (("x" . 2)))))
+         (in (make-instance 'fast-io:fast-input-stream :vector (fast-io:finish-output-stream out)))
+         (os (open-tar-object-store :stream in))
+         (bp (make-buffer-pool :object-store os))
+         (wbp (make-writeable-buffer-pool :parent-pool bp)))
+
+    (buffer-pool-put wbp "foo.arrow" (mapcar #'endb/arrow:to-arrow batches))
+
+    (is (null (buffer-pool-get bp "foo.arrow")))
+
+    (is (equal batches (loop for x in (buffer-pool-get wbp "foo.arrow")
+                             collect (coerce x 'list))))
+
+    (is (null (buffer-pool-get wbp "bar.arrow")))))
 
 (defparameter +uuid-scanner+ (ppcre:create-scanner "^[\\da-f]{8}-[\\da-f]{4}-4[\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"))
 
