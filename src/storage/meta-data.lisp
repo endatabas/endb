@@ -1,6 +1,6 @@
 (defpackage :endb/storage/meta-data
   (:use :cl)
-  (:export #:json->fset #:fset->json #:fset-merge-patch #:random-uuid)
+  (:export #:json->fset #:fset->json #:fset-merge-patch #:random-uuid #:random-uuid-p)
   (:import-from :com.inuoe.jzon)
   (:import-from :fset))
 (in-package :endb/storage/meta-data)
@@ -75,3 +75,10 @@
             (ldb (byte 16 32) low)
             (ldb (byte 16 16) low)
             (ldb (byte 16 0) low))))
+
+(defparameter +random-uuid-scanner+
+  (ppcre:create-scanner "^[\\da-f]{8}-[\\da-f]{4}-4[\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"))
+
+(defun random-uuid-p (x)
+  (and (stringp x)
+       (not (null (ppcre:scan +random-uuid-scanner+ x)))))
