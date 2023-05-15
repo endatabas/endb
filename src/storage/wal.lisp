@@ -1,6 +1,6 @@
 (defpackage :endb/storage/wal
   (:use :cl)
-  (:export #:open-tar-wal #:tar-wal-position-stream-at-end #:wal-append-entry #:wal-read-next-entry #:wal-find-entry #:wal-fsync #:wal-close #:random-uuid)
+  (:export #:open-tar-wal #:tar-wal-position-stream-at-end #:wal-append-entry #:wal-read-next-entry #:wal-find-entry #:wal-fsync #:wal-close)
   (:import-from :archive)
   (:import-from :fast-io)
   (:import-from :local-time))
@@ -62,23 +62,6 @@
 (defmethod wal-close ((archive archive:tar-archive))
   (archive:finalize-archive archive)
   (archive:close-archive archive))
-
-(defconstant +random-uuid-part-max+ (ash 1 64))
-(defconstant +random-uuid-version+ 4)
-(defconstant +random-uuid-variant+ 2)
-
-(defun random-uuid (&optional (state *random-state*))
-  (let ((high (dpb +random-uuid-version+ (byte 4 12) (random +random-uuid-part-max+ state)))
-        (low (dpb +random-uuid-variant+ (byte 2 62) (random +random-uuid-part-max+ state))))
-    (format nil "~(~4,'0x~)~(~4,'0x~)-~(~4,'0x~)-~(~4,'0x~)-~(~4,'0x~)-~(~4,'0x~)~(~4,'0x~)~(~4,'0x~)"
-            (ldb (byte 16 48) high)
-            (ldb (byte 16 32) high)
-            (ldb (byte 16 16) high)
-            (ldb (byte 16 0) high)
-            (ldb (byte 16 48) low)
-            (ldb (byte 16 32) low)
-            (ldb (byte 16 16) low)
-            (ldb (byte 16 0) low))))
 
 ;; https://github.com/delta-io/delta/blob/master/PROTOCOL.md
 
