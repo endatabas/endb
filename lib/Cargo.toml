@@ -13,7 +13,7 @@ repository = "https://github.com/endatabase/endb"
 rust-version = "1.68.0"
 
 [workspace.dependencies]
-chumsky = "1.0.0-alpha.3"
+chumsky = "1.0.0-alpha.4"
 arrow2 = { version = "0.17.0", features = ["io_ipc", "io_parquet", "io_parquet_compression"] }
 
 [profile.release]

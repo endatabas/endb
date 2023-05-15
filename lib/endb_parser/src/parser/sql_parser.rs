@@ -814,7 +814,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT group_concat(DISTINCT y, ':'"), @r###"
         ---
         Err:
-          - "found ''' expected '*', '/', '%', '+', '-', '<', '>', '=', ',', or ')'"
+          - "found '(' expected '*', '/', '%', '+', '-', '<', '>', '=', ',', or ';'"
         "###);
         assert_yaml_snapshot!(parse("SELECT count(*)"), @r###"
         ---
@@ -851,7 +851,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT x 2"), @r###"
         ---
         Err:
-          - "found end of input expected '(', '*', '/', '%', '+', '-', '<', '>', '=', ',', or ';'"
+          - "found '2' expected '*', '/', '%', '+', '-', '<', '>', '=', ',', or ';'"
         "###);
     }
 
@@ -937,7 +937,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT 1 from"), @r###"
         ---
         Err:
-          - "found end of input expected '('"
+          - found end of input expected something else
         "###);
     }
 
@@ -1052,7 +1052,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT 1 FROM x LEFT JOIN y ON TRUE)"), @r###"
         ---
         Err:
-          - "found end of input expected '(', '*', '/', '%', '+', '-', '<', '>', '=', ',', or ';'"
+          - "found ')' expected '*', '/', '%', '+', '-', '<', '>', '=', ',', or ';'"
         "###);
         assert_yaml_snapshot!(parse("SELECT 1 INTERSECT SELECT 2 UNION SELECT 3"), @r###"
         ---
