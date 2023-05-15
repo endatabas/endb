@@ -6,7 +6,8 @@
   (:import-from :cl-ppcre)
   (:import-from :fast-io)
   (:import-from :cl-hamt)
-  (:import-from :trivial-utf-8))
+  (:import-from :trivial-utf-8)
+  (:import-from :uiop))
 (in-package :endb-test/storage)
 
 (in-suite* :all-tests)
@@ -114,6 +115,27 @@
 
       (when (probe-file test-log)
         (delete-file test-log)))))
+
+(test directory-object-store
+  (let* ((target-dir (asdf:system-relative-pathname :endb-test "target/"))
+         (test-dir (merge-pathnames "object-store/" target-dir)))
+    (unwind-protect
+         (let* ((os (make-directory-object-store :path test-dir)))
+
+           (object-store-put os "foo.txt" (trivial-utf-8:string-to-utf-8-bytes "foo"))
+           (object-store-put os "baz/bar.txt" (trivial-utf-8:string-to-utf-8-bytes "baz/bar"))
+
+           (is (equalp (trivial-utf-8:string-to-utf-8-bytes "foo")
+                       (object-store-get os "foo.txt")))
+
+           (is (equalp (trivial-utf-8:string-to-utf-8-bytes "baz/bar")
+                       (object-store-get os "baz/bar.txt")))
+
+           (is (null (object-store-get os "baz.txt")))
+           (is (null (object-store-get os "baz/foo.txt"))))
+
+      (when (probe-file test-dir)
+        (uiop:delete-directory-tree test-dir :validate t)))))
 
 (test buffer-pool
   (let* ((out (make-instance 'fast-io:fast-output-stream))

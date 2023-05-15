@@ -1,8 +1,10 @@
 (defpackage :endb/storage/object-store
   (:use :cl)
-  (:export #:open-tar-object-store #:object-store-get #:object-store-put #:object-store-close)
+  (:export #:open-tar-object-store #:object-store-get #:object-store-put #:object-store-close #:make-directory-object-store)
+  (:import-from :alexandria)
   (:import-from :archive)
-  (:import-from :fast-io))
+  (:import-from :fast-io)
+  (:import-from :uiop))
 (in-package :endb/storage/object-store)
 
 (defgeneric object-store-get (os path))
@@ -38,3 +40,17 @@
 
 (defmethod object-store-close ((archive archive:tar-archive))
   (archive:close-archive archive))
+
+(defstruct directory-object-store path)
+
+(defmethod object-store-get ((os directory-object-store) path)
+  (let ((path (merge-pathnames path (uiop:ensure-directory-pathname (directory-object-store-path os)))))
+    (when (probe-file path)
+      (alexandria:read-file-into-byte-vector path))))
+
+(defmethod object-store-put ((os directory-object-store) path buffer)
+  (let ((path (merge-pathnames path (uiop:ensure-directory-pathname (directory-object-store-path os)))))
+    (ensure-directories-exist path)
+    (alexandria:write-byte-vector-into-file buffer path)))
+
+(defmethod object-store-close ((os directory-object-store)))
