@@ -3,8 +3,6 @@
   (:import-from :endb/arrow)
   (:import-from :endb/lib/arrow)
   (:import-from :archive)
-  (:import-from :cl-ppcre)
-  (:import-from :cl-hamt)
   (:import-from :fast-io)
   (:import-from :fset)
   (:import-from :trivial-utf-8)

@@ -2,7 +2,8 @@
   (:use :cl)
   (:export #:json->fset #:fset->json #:fset-merge-patch #:random-uuid #:random-uuid-p)
   (:import-from :com.inuoe.jzon)
-  (:import-from :fset))
+  (:import-from :fset)
+  (:import-from :cl-ppcre))
 (in-package :endb/storage/meta-data)
 
 (defun %jzon->fset (x)
