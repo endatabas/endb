@@ -57,7 +57,11 @@
       (is (equalp (trivial-utf-8:string-to-utf-8-bytes "foo")
                   (object-store-get wal "foo.txt")))
 
-      (is (null (object-store-get wal "baz.txt"))))))
+      (is (null (object-store-get wal "baz.txt")))
+
+      (is (equal '("bar.txt" "foo.txt") (object-store-list wal)))
+      (is (equal '("foo.txt") (object-store-list wal :prefix "foo")))
+      (is (equal '("foo.txt") (object-store-list wal :start-after "bar.txt"))))))
 
 (test tar-wal-reopen-and-append
   (let* ((target-dir (asdf:system-relative-pathname :endb-test "target/"))
@@ -132,7 +136,11 @@
                        (object-store-get os "baz/bar.txt")))
 
            (is (null (object-store-get os "baz.txt")))
-           (is (null (object-store-get os "baz/foo.txt"))))
+           (is (null (object-store-get os "baz/foo.txt")))
+
+           (is (equal '("baz/bar.txt" "foo.txt") (object-store-list os)))
+           (is (equal '("baz/bar.txt") (object-store-list os :prefix "baz/")))
+           (is (equal '("foo.txt") (object-store-list os :start-after "baz/bar.txt"))))
 
       (when (probe-file test-dir)
         (uiop:delete-directory-tree test-dir :validate t)))))
