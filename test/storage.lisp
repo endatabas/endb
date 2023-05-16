@@ -202,32 +202,55 @@
     (is (not (random-uuid-p "foobar")))
     (is (not (random-uuid-p 42)))))
 
-(test fset-json
-  (is (equal "{}" (fset->json (fset:map))))
-  (is (fset:equal? (json->fset "{}") (fset:map)))
+(test meta-data-json
+  (is (equal "{}" (meta-data->json (fset:map))))
+  (is (fset:equal? (json->meta-data "{}") (fset:map)))
 
-  (is (equal "{\"a\":1}" (fset->json (fset:map ("a" 1)))))
-  (is (fset:equal? (json->fset "{\"a\":1}") (fset:map ("a" 1))))
+  (is (equal "{\"a\":1}" (meta-data->json (fset:map ("a" 1)))))
+  (is (fset:equal? (json->meta-data "{\"a\":1}") (fset:map ("a" 1))))
 
-  (is (equal "{\"a\":[1]}" (fset->json (fset:map ("a" (fset:seq 1))))))
-  (is (fset:equal? (json->fset "{\"a\":[1]}")  (fset:map ("a" (fset:seq 1)))))
+  (is (equal "{\"a\":[1]}" (meta-data->json (fset:map ("a" (fset:seq 1))))))
+  (is (fset:equal? (json->meta-data "{\"a\":[1]}")  (fset:map ("a" (fset:seq 1)))))
 
-  (is (equal "{\"a\":[1,{\"b\":\"foo\"}]}" (fset->json (fset:map ("a" (fset:seq 1 (fset:map ("b" "foo"))))))))
-  (is (fset:equal? (json->fset "{\"a\":[1,{\"b\":\"foo\"}]}")
+  (is (equal "{\"a\":[1,{\"b\":\"foo\"}]}" (meta-data->json (fset:map ("a" (fset:seq 1 (fset:map ("b" "foo"))))))))
+  (is (fset:equal? (json->meta-data "{\"a\":[1,{\"b\":\"foo\"}]}")
                    (fset:map ("a" (fset:seq 1 (fset:map ("b" "foo"))))))))
 
-(test fset-merge-patch
+(test meta-data-merge-patch
   (is (fset:equal?
-       (json->fset "{\"a\":\"z\",\"c\":{\"d\":\"e\"}}")
-       (fset-merge-patch
-        (json->fset "{\"a\":\"b\",\"c\":{\"d\":\"e\",\"f\":\"g\"}}")
-        (json->fset "{\"a\":\"z\",\"c\":{\"f\":null}}"))))
+       (json->meta-data "{\"a\":\"z\",\"c\":{\"d\":\"e\"}}")
+       (meta-data-merge-patch
+        (json->meta-data "{\"a\":\"b\",\"c\":{\"d\":\"e\",\"f\":\"g\"}}")
+        (json->meta-data "{\"a\":\"z\",\"c\":{\"f\":null}}"))))
 
   (is (fset:equal?
-       (json->fset
+       (json->meta-data
         "{\"title\":\"Hello!\",\"author\":{\"givenName\":\"John\"},\"tags\":[ \"example\"],\"content\":\"This will be unchanged\"}")
-       (fset-merge-patch
-        (json->fset
+       (meta-data-merge-patch
+        (json->meta-data
          "{\"title\":\"Goodbye!\",\"author\":{\"givenName\":\"John\",\"familyName\":\"Doe\"},\"tags\":[ \"example\",\"sample\"],\"content\":\"This will be unchanged\"}")
-        (json->fset
+        (json->meta-data
          "{\"title\":\"Hello!\",\"author\":{\"familyName\":null},\"tags\":[ \"example\"]}")))))
+
+(test extended-meta-data-xsd-json-scalars
+  (let* ((date (local-time:parse-timestring "2001-01-01" :allow-missing-time-part t))
+         (date (make-instance 'endb/arrow:arrow-date :day (local-time:day-of date)))
+         (json "{\"xsd:date\":\"2001-01-01\"}"))
+    (is (local-time:timestamp= date (json->meta-data json)))
+    (is (equal json (meta-data->json date))))
+
+  (let* ((date-time (local-time:parse-timestring "2023-05-16T14:43:39.970062Z"))
+         (json "{\"xsd:dateTime\":\"2023-05-16T14:43:39.970062Z\"}"))
+    (is (local-time:timestamp= date-time (json->meta-data json)))
+    (is (equal json (meta-data->json date-time))))
+
+  (let* ((time (local-time:parse-timestring "14:43:39.970062" :allow-missing-date-part t))
+         (time (make-instance 'endb/arrow:arrow-time :sec (local-time:sec-of time) :nsec (local-time:nsec-of time)))
+         (json "{\"xsd:time\":\"14:43:39.970062\"}"))
+    (is (local-time:timestamp= time (json->meta-data json)))
+    (is (equal json (meta-data->json time))))
+
+  (let* ((binary (trivial-utf-8:string-to-utf-8-bytes "hello world"))
+         (json "{\"xsd:hexBinary\":\"68656C6C6F20776F726C64\"}"))
+    (is (equalp binary (json->meta-data json)))
+    (is (equal json (meta-data->json binary)))))

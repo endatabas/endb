@@ -1,6 +1,6 @@
 (defpackage :endb/arrow
   (:use :cl)
-  (:export #:arrow-date #:arrow-time #:to-arrow #:make-arrow-array-for #:arrow-class-for-format
+  (:export #:arrow-date #:arrow-time #:arrow-binary #:to-arrow #:make-arrow-array-for #:arrow-class-for-format
            #:arrow-push #:arrow-valid-p #:arrow-get #:arrow-value
            #:arrow-length #:arrow-null-count #:arrow-data-type #:arrow-lisp-type
            #:arrow-children #:arrow-buffers
