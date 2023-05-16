@@ -89,6 +89,13 @@
 (defun meta-data->json (x &key stream pretty)
   (com.inuoe.jzon:stringify x :stream stream :pretty pretty))
 
+(defmethod fset:compare ((a local-time:timestamp) (b local-time:timestamp))
+  (cond ((local-time:timestamp< a b) ':less)
+        ((local-time:timestamp> a b) ':greater)
+        (t ':equal)))
+
+(fset:define-cross-type-compare-methods local-time:timestamp)
+
 ;; https://datatracker.ietf.org/doc/html/rfc7386
 
 (defun meta-data-merge-patch (target patch)
