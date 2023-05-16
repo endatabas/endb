@@ -232,25 +232,29 @@
         (json->meta-data
          "{\"title\":\"Hello!\",\"author\":{\"familyName\":null},\"tags\":[ \"example\"]}")))))
 
-(test extended-meta-data-xsd-json-scalars
+(test meta-data-xsd-json-ld-scalars
   (let* ((date (local-time:parse-timestring "2001-01-01" :allow-missing-time-part t))
          (date (make-instance 'endb/arrow:arrow-date :day (local-time:day-of date)))
-         (json "{\"xsd:date\":\"2001-01-01\"}"))
+         (json "{\"@value\":\"2001-01-01\",\"@type\":\"xsd:date\"}"))
     (is (local-time:timestamp= date (json->meta-data json)))
     (is (equal json (meta-data->json date))))
 
   (let* ((date-time (local-time:parse-timestring "2023-05-16T14:43:39.970062Z"))
-         (json "{\"xsd:dateTime\":\"2023-05-16T14:43:39.970062Z\"}"))
+         (json "{\"@value\":\"2023-05-16T14:43:39.970062Z\",\"@type\":\"xsd:dateTime\"}"))
     (is (local-time:timestamp= date-time (json->meta-data json)))
     (is (equal json (meta-data->json date-time))))
 
   (let* ((time (local-time:parse-timestring "14:43:39.970062" :allow-missing-date-part t))
          (time (make-instance 'endb/arrow:arrow-time :sec (local-time:sec-of time) :nsec (local-time:nsec-of time)))
-         (json "{\"xsd:time\":\"14:43:39.970062\"}"))
+         (json "{\"@value\":\"14:43:39.970062\",\"@type\":\"xsd:time\"}"))
     (is (local-time:timestamp= time (json->meta-data json)))
     (is (equal json (meta-data->json time))))
 
   (let* ((binary (trivial-utf-8:string-to-utf-8-bytes "hello world"))
-         (json "{\"xsd:hexBinary\":\"68656C6C6F20776F726C64\"}"))
+         (json "{\"@value\":\"aGVsbG8gd29ybGQ=\",\"@type\":\"xsd:base64Binary\"}"))
     (is (equalp binary (json->meta-data json)))
     (is (equal json (meta-data->json binary)))))
+
+(test meta-data-json-int64
+  (is (= (ash 1 63) (json->meta-data (meta-data->json (ash 1 63)))))
+  (is (= (- 1 (ash 1 63)) (json->meta-data (meta-data->json (- 1 (ash 1 63)))))))

@@ -5,9 +5,9 @@
   (:import-from :cl-ppcre)
   (:import-from :com.inuoe.jzon)
   (:import-from :endb/arrow)
-  (:import-from :endb/sql/parser)
   (:import-from :fset)
-  (:import-from :local-time))
+  (:import-from :local-time)
+  (:import-from :qbase64))
 (in-package :endb/storage/meta-data)
 
 ;; https://www.w3.org/2001/sw/rdb2rdf/wiki/Mapping_SQL_datatypes_to_XML_Schema_datatypes
@@ -16,12 +16,12 @@
 (defun %jzon->meta-data (x)
   (cond
     ((hash-table-p x)
-     (if (and (= 1 (hash-table-count x))
-              (member (first (alexandria:hash-table-keys x))
-                      '("xsd:date" "xsd:dateTime" "xsd:time" "xsd:hexBinary")
-                      :test 'equal))
-         (destructuring-bind (k v)
-             (alexandria:hash-table-plist x)
+     (if (and (= 2 (hash-table-count x))
+              (subsetp '("@value" "@type")
+                       (alexandria:hash-table-keys x)
+                       :test 'equal))
+         (let ((k (gethash "@type" x))
+               (v (gethash "@value" x)))
            (cond
              ((equal "xsd:date" k)
               (let ((date (local-time:parse-timestring v :allow-missing-time-part t)))
@@ -31,8 +31,8 @@
              ((equal "xsd:time" k)
               (let ((time (local-time:parse-timestring v :allow-missing-date-part t)))
                 (make-instance 'endb/arrow:arrow-time :sec (local-time:sec-of time) :nsec (local-time:nsec-of time))))
-             ((equal "xsd:hexBinary" k)
-              (endb/sql/parser::hex-to-binary v))))
+             ((equal "xsd:base64Binary" k)
+              (qbase64:decode-string v))))
          (loop with acc = (fset:empty-map)
                for k being the hash-key
                  using (hash-value v)
@@ -64,24 +64,32 @@
 
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value local-time:timestamp))
   (com.inuoe.jzon:with-object writer
-    (com.inuoe.jzon:write-key writer "xsd:dateTime")
-    (com.inuoe.jzon:write-value writer (local-time:format-rfc3339-timestring nil value :timezone local-time:+utc-zone+))))
+    (com.inuoe.jzon:write-key writer "@value")
+    (com.inuoe.jzon:write-value writer (local-time:format-rfc3339-timestring nil value :timezone local-time:+utc-zone+))
+    (com.inuoe.jzon:write-key writer "@type")
+    (com.inuoe.jzon:write-value writer "xsd:dateTime")))
 
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value endb/arrow:arrow-date))
   (com.inuoe.jzon:with-object writer
-    (com.inuoe.jzon:write-key writer "xsd:date")
-    (com.inuoe.jzon:write-value writer (local-time:format-rfc3339-timestring nil value :omit-time-part t :omit-timezone-part t :timezone local-time:+utc-zone+))))
+    (com.inuoe.jzon:write-key writer "@value")
+    (com.inuoe.jzon:write-value writer (local-time:format-rfc3339-timestring nil value :omit-time-part t :omit-timezone-part t :timezone local-time:+utc-zone+))
+    (com.inuoe.jzon:write-key writer "@type")
+    (com.inuoe.jzon:write-value writer "xsd:date")))
 
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value endb/arrow:arrow-time))
   (com.inuoe.jzon:with-object writer
-    (com.inuoe.jzon:write-key writer "xsd:time")
-    (com.inuoe.jzon:write-value writer (local-time:format-rfc3339-timestring nil value :omit-date-part t :omit-timezone-part t :timezone local-time:+utc-zone+))))
+    (com.inuoe.jzon:write-key writer "@value")
+    (com.inuoe.jzon:write-value writer (local-time:format-rfc3339-timestring nil value :omit-date-part t :omit-timezone-part t :timezone local-time:+utc-zone+))
+    (com.inuoe.jzon:write-key writer "@type")
+    (com.inuoe.jzon:write-value writer "xsd:time")))
 
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value vector))
   (check-type value endb/arrow:arrow-binary)
   (com.inuoe.jzon:with-object writer
-    (com.inuoe.jzon:write-key writer "xsd:hexBinary")
-    (com.inuoe.jzon:write-value writer (format nil "~{~02,'0X~}" (coerce value 'list)))))
+    (com.inuoe.jzon:write-key writer "@value")
+    (com.inuoe.jzon:write-value writer (qbase64:encode-bytes value))
+    (com.inuoe.jzon:write-key writer "@type")
+    (com.inuoe.jzon:write-value writer "xsd:base64Binary")))
 
 (defun json->meta-data (in)
   (%jzon->meta-data (com.inuoe.jzon:parse in)))

@@ -16,7 +16,8 @@
                "trivial-gray-streams"
                "com.inuoe.jzon"
                "alexandria"
-               "fset")
+               "fset"
+               "qbase64")
   :description "Endatabas"
   :pathname "src"
   :build-operation program-op
