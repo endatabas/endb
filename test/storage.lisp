@@ -256,5 +256,5 @@
     (is (equal json (meta-data->json binary)))))
 
 (test meta-data-json-int64
-  (is (= (ash 1 63) (json->meta-data (meta-data->json (ash 1 63)))))
-  (is (= (- 1 (ash 1 63)) (json->meta-data (meta-data->json (- 1 (ash 1 63)))))))
+  (is (= (1- (ash 1 63)) (json->meta-data (meta-data->json (1- (ash 1 63))))))
+  (is (= (- (ash 1 63)) (json->meta-data (meta-data->json (- (ash 1 63)))))))
