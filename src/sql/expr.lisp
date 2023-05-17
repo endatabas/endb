@@ -36,8 +36,14 @@
 (defmethod sql-= (x (y (eql :null)))
   :null)
 
-(defmethod sql-= ((x local-time:timestamp) (y local-time:timestamp))
-  (local-time:timestamp= x y))
+(defmethod sql-= ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-date-days))
+  (= (endb/arrow:arrow-date-days-day x) (endb/arrow:arrow-date-days-day y)))
+
+(defmethod sql-= ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-time-micros))
+  (= (endb/arrow:arrow-time-micros-us x) (endb/arrow:arrow-time-micros-us y)))
+
+(defmethod sql-= ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
+  (= (endb/arrow:arrow-timestamp-micros-us x) (endb/arrow:arrow-timestamp-micros-us y)))
 
 (defmethod sql-= ((x number) (y number))
   (= x y))
@@ -48,8 +54,14 @@
 (defun sql-<> (x y)
   (sql-not (sql-= x y)))
 
-(defmethod sql-is ((x local-time:timestamp) (y local-time:timestamp))
-  (local-time:timestamp= x y))
+(defmethod sql-is ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-date-days))
+  (= (endb/arrow:arrow-date-days-day x) (endb/arrow:arrow-date-days-day y)))
+
+(defmethod sql-is ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-time-micros))
+  (= (endb/arrow:arrow-time-micros-us x) (endb/arrow:arrow-time-micros-us y)))
+
+(defmethod sql-is ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
+  (= (endb/arrow:arrow-timestamp-micros-us x) (endb/arrow:arrow-timestamp-micros-us y)))
 
 (defmethod sql-is ((x number) (y number))
   (= x y))
@@ -69,8 +81,14 @@
 (defmethod sql-< ((x string) (y string))
   (not (null (string< x y))))
 
-(defmethod sql-< ((x local-time:timestamp) (y local-time:timestamp))
-  (local-time:timestamp< x y))
+(defmethod sql-< ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-date-days))
+  (< (endb/arrow:arrow-date-days-day x) (endb/arrow:arrow-date-days-day y)))
+
+(defmethod sql-< ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-time-micros))
+  (< (endb/arrow:arrow-time-micros-us x) (endb/arrow:arrow-time-micros-us y)))
+
+(defmethod sql-< ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
+  (< (endb/arrow:arrow-timestamp-micros-us x) (endb/arrow:arrow-timestamp-micros-us y)))
 
 (defmethod sql-< ((x number) (y number))
   (< x y))
@@ -93,8 +111,14 @@
 (defmethod sql-<= ((x string) (y string))
   (not (null (string<= x y))))
 
-(defmethod sql-<= ((x local-time:timestamp) (y local-time:timestamp))
-  (local-time:timestamp<= x y))
+(defmethod sql-<= ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-date-days))
+  (<= (endb/arrow:arrow-date-days-day x) (endb/arrow:arrow-date-days-day y)))
+
+(defmethod sql-<= ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-time-micros))
+  (<= (endb/arrow:arrow-time-micros-us x) (endb/arrow:arrow-time-micros-us y)))
+
+(defmethod sql-<= ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
+  (<= (endb/arrow:arrow-timestamp-micros-us x) (endb/arrow:arrow-timestamp-micros-us y)))
 
 (defmethod sql-<= ((x number) (y number))
   (<= x y))
@@ -117,8 +141,14 @@
 (defmethod sql-> ((x string) (y string))
   (not (null (string> x y))))
 
-(defmethod sql-> ((x local-time:timestamp) (y local-time:timestamp))
-  (local-time:timestamp> x y))
+(defmethod sql-> ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-date-days))
+  (> (endb/arrow:arrow-date-days-day x) (endb/arrow:arrow-date-days-day y)))
+
+(defmethod sql-> ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-time-micros))
+  (> (endb/arrow:arrow-time-micros-us x) (endb/arrow:arrow-time-micros-us y)))
+
+(defmethod sql-> ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
+  (> (endb/arrow:arrow-timestamp-micros-us x) (endb/arrow:arrow-timestamp-micros-us y)))
 
 (defmethod sql-> ((x number) (y number))
   (> x y))
@@ -141,8 +171,14 @@
 (defmethod sql->= ((x string) (y string))
   (not (null (string>= x y))))
 
-(defmethod sql->= ((x local-time:timestamp) (y local-time:timestamp))
-  (local-time:timestamp>= x y))
+(defmethod sql->= ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-date-days))
+  (>= (endb/arrow:arrow-date-days-day x) (endb/arrow:arrow-date-days-day y)))
+
+(defmethod sql->= ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-time-micros))
+  (>= (endb/arrow:arrow-time-micros-us x) (endb/arrow:arrow-time-micros-us y)))
+
+(defmethod sql->= ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
+  (>= (endb/arrow:arrow-timestamp-micros-us x) (endb/arrow:arrow-timestamp-micros-us y)))
 
 (defmethod sql->= ((x number) (y number))
   (>= x y))
@@ -384,13 +420,13 @@
   (format nil "~F" x))
 
 (defmethod sql-cast ((x endb/arrow:arrow-date-days) (type (eql :varchar)))
-  (local-time:format-rfc3339-timestring nil x :omit-time-part t))
+  (format nil "~A" x))
 
 (defmethod sql-cast ((x endb/arrow:arrow-time-micros) (type (eql :varchar)))
-  (local-time:format-rfc3339-timestring nil x :omit-date-part t))
+  (format nil "~A" x))
 
 (defmethod sql-cast ((x endb/arrow:arrow-timestamp-micros) (type (eql :varchar)))
-  (local-time:format-rfc3339-timestring nil x))
+  (format nil "~A" x))
 
 (defmethod sql-cast ((x (eql t)) (type (eql :integer)))
   1)
@@ -408,7 +444,7 @@
   (round x))
 
 (defmethod sql-cast ((x endb/arrow:arrow-date-days) (type (eql :integer)))
-  (local-time:timestamp-year x))
+  (local-time:timestamp-year (endb/arrow::%epoch-day-to-timestamp (endb/arrow:arrow-date-days-day x))))
 
 (defmethod sql-cast ((x number) (type (eql :signed)))
   (coerce x 'integer))
@@ -483,9 +519,7 @@
   :null)
 
 (defmethod sql-date ((x string))
-  (let ((date (local-time:parse-timestring x)))
-    (check-type date local-time:date)
-    (make-instance 'endb/arrow:arrow-date-days :day (local-time:day-of date))))
+  (endb/arrow:parse-arrow-date-days x))
 
 (defmethod sql-like ((x (eql :null)) (pattern (eql :null)))
   :null)
@@ -511,7 +545,7 @@
 
 (defmethod sql-strftime ((format string) (x endb/arrow:arrow-date-days))
   (local-time:format-timestring nil
-                                x
+                                (endb/arrow::%epoch-day-to-timestamp (endb/arrow:arrow-date-days-day x))
                                 :format (if (equal "%Y" format)
                                             '((:year 4))
                                             (error 'sql-runtime-error

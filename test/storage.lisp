@@ -235,17 +235,17 @@
 (test meta-data-xsd-json-ld-scalars
   (let* ((date (endb/arrow:parse-arrow-date-days "2001-01-01"))
          (json "{\"@value\":\"2001-01-01\",\"@type\":\"xsd:date\"}"))
-    (is (local-time:timestamp= date (json->meta-data json)))
+    (is (equalp date (json->meta-data json)))
     (is (equal json (meta-data->json date))))
 
   (let* ((date-time (endb/arrow:parse-arrow-timestamp-micros "2023-05-16T14:43:39.970062Z"))
          (json "{\"@value\":\"2023-05-16T14:43:39.970062Z\",\"@type\":\"xsd:dateTime\"}"))
-    (is (local-time:timestamp= date-time (json->meta-data json)))
+    (is (equalp date-time (json->meta-data json)))
     (is (equal json (meta-data->json date-time))))
 
   (let* ((time (endb/arrow:parse-arrow-time-micros "14:43:39.970062"))
          (json "{\"@value\":\"14:43:39.970062\",\"@type\":\"xsd:time\"}"))
-    (is (local-time:timestamp= time (json->meta-data json)))
+    (is (equalp time (json->meta-data json)))
     (is (equal json (meta-data->json time))))
 
   (let* ((binary (trivial-utf-8:string-to-utf-8-bytes "hello world"))

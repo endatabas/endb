@@ -1,5 +1,4 @@
 (defpackage :endb-test/tpch/core
-  (:import-from :local-time)
   (:import-from :ppcre)
   (:import-from :uiop))
 

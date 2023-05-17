@@ -1,6 +1,6 @@
 (defpackage :endb-test/sql
   (:use :cl :fiveam :endb/sql)
-  (:import-from :local-time)
+  (:import-from :endb/arrow)
   (:import-from :sqlite))
 (in-package :endb-test/sql)
 
@@ -220,26 +220,14 @@
       (is (equal '((1 :null)) result))
       (is (equal '("a" "b") columns)))))
 
-(defun eval-expr (expr)
-  (sqlite:with-open-database (sqlite ":memory:")
-    (let* ((endb (create-db))
-           (query (format nil "SELECT ~A" expr))
-           (sqlite-result (sqlite:execute-single sqlite query))
-           (endb-result (first (first (execute-sql endb query)))))
-      (list endb-result sqlite-result))))
-
-(defun expr-test (expr)
-  (destructuring-bind (endb-result sqlite-result)
-      (eval-expr expr)
-      (is (equal (cond
-                   ((null endb-result) 0)
-                   ((eq t endb-result) 1)
-                   ((eq :null endb-result) nil)
-                   ((typep endb-result 'local-time:date)
-                    (local-time:format-timestring nil endb-result :format local-time:+rfc3339-format/date-only+))
-                   (t endb-result))
-                 sqlite-result))))
-
+(defun endb->sqlite (x)
+  (cond
+    ((null x) 0)
+    ((eq t x) 1)
+    ((eq :null x) nil)
+    ((typep x 'endb/arrow:arrow-date-days)
+     (format nil "~A" x))
+    (t x)))
 
 (defun expr (expr)
   (sqlite:with-open-database (sqlite ":memory:")
@@ -248,15 +236,6 @@
            (sqlite-result (sqlite:execute-single sqlite query))
            (endb-result (first (first (execute-sql endb query)))))
       (list endb-result sqlite-result expr))))
-
-(defun endb->sqlite (x)
-  (cond
-    ((null x) 0)
-    ((eq t x) 1)
-    ((eq :null x) nil)
-    ((typep x 'local-time:date)
-     (local-time:format-timestring nil x :format local-time:+rfc3339-format/date-only+))
-    (t x)))
 
 (defun is-valid (result)
   (destructuring-bind (endb-result sqlite-result expr)
