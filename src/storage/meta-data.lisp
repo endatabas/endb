@@ -24,13 +24,11 @@
                (v (gethash "@value" x)))
            (cond
              ((equal "xsd:date" k)
-              (let ((date (local-time:parse-timestring v :allow-missing-time-part t)))
-                (make-instance 'endb/arrow:arrow-date :day (local-time:day-of date))))
+              (endb/arrow:parse-arrow-date-days v))
              ((equal "xsd:dateTime" k)
-              (local-time:parse-timestring v))
+              (endb/arrow:parse-arrow-timestamp-micros v))
              ((equal "xsd:time" k)
-              (let ((time (local-time:parse-timestring v :allow-missing-date-part t)))
-                (make-instance 'endb/arrow:arrow-time :sec (local-time:sec-of time) :nsec (local-time:nsec-of time))))
+              (endb/arrow:parse-arrow-time-micros v))
              ((equal "xsd:base64Binary" k)
               (qbase64:decode-string v))))
          (loop with acc = (fset:empty-map)
@@ -62,24 +60,24 @@
      value
      :initial-value writer)))
 
-(defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value local-time:timestamp))
+(defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value endb/arrow:arrow-timestamp-micros))
   (com.inuoe.jzon:with-object writer
     (com.inuoe.jzon:write-key writer "@value")
-    (com.inuoe.jzon:write-value writer (local-time:format-rfc3339-timestring nil value :timezone local-time:+utc-zone+))
+    (com.inuoe.jzon:write-value writer (format nil "~A" value))
     (com.inuoe.jzon:write-key writer "@type")
     (com.inuoe.jzon:write-value writer "xsd:dateTime")))
 
-(defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value endb/arrow:arrow-date))
+(defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value endb/arrow:arrow-date-days))
   (com.inuoe.jzon:with-object writer
     (com.inuoe.jzon:write-key writer "@value")
-    (com.inuoe.jzon:write-value writer (local-time:format-rfc3339-timestring nil value :omit-time-part t :omit-timezone-part t :timezone local-time:+utc-zone+))
+    (com.inuoe.jzon:write-value writer (format nil "~A" value))
     (com.inuoe.jzon:write-key writer "@type")
     (com.inuoe.jzon:write-value writer "xsd:date")))
 
-(defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value endb/arrow:arrow-time))
+(defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value endb/arrow:arrow-time-micros))
   (com.inuoe.jzon:with-object writer
     (com.inuoe.jzon:write-key writer "@value")
-    (com.inuoe.jzon:write-value writer (local-time:format-rfc3339-timestring nil value :omit-date-part t :omit-timezone-part t :timezone local-time:+utc-zone+))
+    (com.inuoe.jzon:write-value writer (format nil "~A" value))
     (com.inuoe.jzon:write-key writer "@type")
     (com.inuoe.jzon:write-value writer "xsd:time")))
 

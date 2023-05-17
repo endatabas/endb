@@ -383,13 +383,13 @@
 (defmethod sql-cast ((x real) (type (eql :varchar)))
   (format nil "~F" x))
 
-(defmethod sql-cast ((x endb/arrow:arrow-date) (type (eql :varchar)))
+(defmethod sql-cast ((x endb/arrow:arrow-date-days) (type (eql :varchar)))
   (local-time:format-rfc3339-timestring nil x :omit-time-part t))
 
-(defmethod sql-cast ((x endb/arrow:arrow-time) (type (eql :varchar)))
+(defmethod sql-cast ((x endb/arrow:arrow-time-micros) (type (eql :varchar)))
   (local-time:format-rfc3339-timestring nil x :omit-date-part t))
 
-(defmethod sql-cast ((x local-time:timestamp) (type (eql :varchar)))
+(defmethod sql-cast ((x endb/arrow:arrow-timestamp-micros) (type (eql :varchar)))
   (local-time:format-rfc3339-timestring nil x))
 
 (defmethod sql-cast ((x (eql t)) (type (eql :integer)))
@@ -407,7 +407,7 @@
 (defmethod sql-cast ((x real) (type (eql :integer)))
   (round x))
 
-(defmethod sql-cast ((x local-time:timestamp) (type (eql :integer)))
+(defmethod sql-cast ((x endb/arrow:arrow-date-days) (type (eql :integer)))
   (local-time:timestamp-year x))
 
 (defmethod sql-cast ((x number) (type (eql :signed)))
@@ -485,7 +485,7 @@
 (defmethod sql-date ((x string))
   (let ((date (local-time:parse-timestring x)))
     (check-type date local-time:date)
-    (make-instance 'endb/arrow:arrow-date :day (local-time:day-of date))))
+    (make-instance 'endb/arrow:arrow-date-days :day (local-time:day-of date))))
 
 (defmethod sql-like ((x (eql :null)) (pattern (eql :null)))
   :null)
@@ -509,7 +509,7 @@
 (defmethod sql-strftime (format (x (eql :null)))
   :null)
 
-(defmethod sql-strftime ((format string) (x local-time:timestamp))
+(defmethod sql-strftime ((format string) (x endb/arrow:arrow-date-days))
   (local-time:format-timestring nil
                                 x
                                 :format (if (equal "%Y" format)

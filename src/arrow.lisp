@@ -1,6 +1,8 @@
 (defpackage :endb/arrow
   (:use :cl)
-  (:export #:arrow-date #:arrow-time #:arrow-binary #:to-arrow #:make-arrow-array-for #:arrow-class-for-format
+  (:export #:arrow-date-days #:arrow-time-micros #:arrow-timestamp-micros #:arrow-binary
+           #:parse-arrow-date-days #:parse-arrow-timestamp-micros #:parse-arrow-time-micros
+           #:to-arrow #:make-arrow-array-for #:arrow-class-for-format
            #:arrow-push #:arrow-valid-p #:arrow-get #:arrow-value
            #:arrow-length #:arrow-null-count #:arrow-data-type #:arrow-lisp-type
            #:arrow-children #:arrow-buffers
@@ -12,33 +14,56 @@
   (:import-from :trivial-utf-8))
 (in-package :endb/arrow)
 
-(defclass arrow-date (local-time:timestamp) ())
+(defclass arrow-timestamp-micros (local-time:timestamp) ())
 
-(defmethod initialize-instance :after ((date arrow-date) &key &allow-other-keys)
+(defun parse-arrow-timestamp-micros (s)
+  (let ((date (local-time:parse-timestring s)))
+    (make-instance 'arrow-timestamp-micros :day (local-time:day-of date) :sec (local-time:sec-of date) :nsec (local-time:nsec-of date))))
+
+(defmethod print-object ((object arrow-timestamp-micros) stream)
+  (cond
+    (local-time::*debug-timestamp*
+     (call-next-method))
+    (t
+     (when *print-escape*
+       (write-char #\@ stream))
+     (local-time:format-rfc3339-timestring stream object :timezone local-time:+utc-zone+))))
+
+(defclass arrow-date-days (local-time:timestamp) ())
+
+(defmethod initialize-instance :after ((date arrow-date-days) &key &allow-other-keys)
   (check-type date local-time:date))
 
-(defmethod print-object ((object arrow-date) stream)
+(defmethod print-object ((object arrow-date-days) stream)
   (cond
     (local-time::*debug-timestamp*
      (call-next-method))
     (t
      (when *print-escape*
        (write-char #\@ stream))
-     (local-time:format-rfc3339-timestring stream object :omit-time-part t))))
+     (local-time:format-rfc3339-timestring stream object :omit-time-part t :omit-timezone-part t :timezone local-time:+utc-zone+))))
 
-(defclass arrow-time (local-time:timestamp) ())
+(defun parse-arrow-date-days (s)
+  (let ((date (local-time:parse-timestring s :allow-missing-time-part t)))
+    (make-instance 'arrow-date-days :day (local-time:day-of date))))
 
-(defmethod initialize-instance :after ((time arrow-time) &key &allow-other-keys)
+(defclass arrow-time-micros (local-time:timestamp) ())
+
+(defmethod initialize-instance :after ((time arrow-time-micros) &key &allow-other-keys)
   (check-type time local-time:time-of-day))
 
-(defmethod print-object ((object arrow-time) stream)
+(defmethod print-object ((object arrow-time-micros) stream)
   (cond
     (local-time::*debug-timestamp*
      (call-next-method))
     (t
      (when *print-escape*
        (write-char #\@ stream))
-     (local-time:format-rfc3339-timestring stream object :omit-date-part t))))
+     (local-time:format-rfc3339-timestring stream object :omit-date-part t :omit-timezone-part t :timezone local-time:+utc-zone+))))
+
+(defun parse-arrow-time-micros (s)
+  (let ((date (local-time:parse-timestring s :allow-missing-date-part t)))
+    (make-instance 'arrow-time-micros :sec (local-time:sec-of date) :nsec (local-time:nsec-of date))))
 
 (deftype uint8 () '(unsigned-byte 8))
 (deftype int8 () '(signed-byte 8))
@@ -135,9 +160,9 @@
     (boolean 'boolean-array)
     (int64 'int64-array)
     ((and number (not int64)) 'float64-array)
-    (arrow-date 'date-days-array)
-    (arrow-time 'time-micros-array)
-    (local-time:timestamp 'timestamp-micros-array)
+    (arrow-date-days 'date-days-array)
+    (arrow-time-micros 'time-micros-array)
+    (arrow-timestamp-micros 'timestamp-micros-array)
     (arrow-struct 'struct-array)
     (arrow-binary 'binary-array)
     (string 'utf8-array)
@@ -366,7 +391,7 @@
          (nsec (local-time:nsec-of x)))
     (+ (* 1000000 sec) (/ nsec 1000))))
 
-(defmethod arrow-push ((array timestamp-micros-array) (x local-time:timestamp))
+(defmethod arrow-push ((array timestamp-micros-array) (x arrow-timestamp-micros))
   (arrow-push array (%timestamp-to-micros x)))
 
 (defun %micros-to-timestamp (us)
@@ -382,23 +407,23 @@
   "tsu:")
 
 (defmethod arrow-lisp-type ((array timestamp-micros-array))
-  'local-time:timestamp)
+  'arrow-timestamp-micros)
 
 (defclass date-days-array (int32-array) ())
 
 (defconstant +offset-from-epoch-day+ 11017)
 
-(defmethod arrow-push ((array date-days-array) (x arrow-date))
+(defmethod arrow-push ((array date-days-array) (x arrow-date-days))
   (arrow-push array (+ (local-time:day-of x) +offset-from-epoch-day+)))
 
 (defmethod arrow-value ((array date-days-array) (n fixnum))
-  (make-instance 'arrow-date :day (- (aref (slot-value array 'values) n) +offset-from-epoch-day+)))
+  (make-instance 'arrow-date-days :day (- (aref (slot-value array 'values) n) +offset-from-epoch-day+)))
 
 (defmethod arrow-data-type ((array date-days-array))
   "tdD")
 
 (defmethod arrow-lisp-type ((array date-days-array))
-  'arrow-date)
+  'arrow-date-days)
 
 (defun %time-to-micros (x)
   (let* ((sec (local-time:sec-of x))
@@ -407,18 +432,18 @@
 
 (defclass time-micros-array (int64-array) ())
 
-(defmethod arrow-push ((array time-micros-array) (x arrow-time))
+(defmethod arrow-push ((array time-micros-array) (x arrow-time-micros))
   (arrow-push array (%time-to-micros x)))
 
 (defmethod arrow-value ((array time-micros-array) (n fixnum))
   (let ((ts (%micros-to-timestamp (aref (slot-value array 'values) n))))
-    (make-instance 'arrow-time :sec (local-time:sec-of ts) :nsec (local-time:nsec-of ts))))
+    (make-instance 'arrow-time-micros :sec (local-time:sec-of ts) :nsec (local-time:nsec-of ts))))
 
 (defmethod arrow-data-type ((array time-micros-array))
   "ttu")
 
 (defmethod arrow-lisp-type ((array time-micros-array))
-  'arrow-time)
+  'arrow-time-micros)
 
 (defclass float64-array (primitive-array)
   ((values :type (vector float64))
