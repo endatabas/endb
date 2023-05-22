@@ -1,6 +1,8 @@
 (defpackage :endb/storage/meta-data
   (:use :cl)
-  (:export #:json->meta-data #:meta-data->json #:meta-data-merge-patch #:meta-data-diff #:binary-to-bloom #:calculate-stats #:random-uuid #:random-uuid-p)
+  (:export #:json->meta-data #:meta-data->json #:meta-data-merge-patch #:meta-data-diff
+           #:binary-to-bloom #:binary-bloom-member-p #:calculate-stats
+           #:random-uuid #:random-uuid-p)
   (:import-from :alexandria)
   (:import-from :cl-ppcre)
   (:import-from :cffi)
@@ -172,8 +174,19 @@
       (endb/lib/arrow:buffer-to-vector ptr (length binary) (cl-bloom::filter-array bloom)))
     bloom))
 
+(defun binary-bloom-member-p (binary element)
+  (let* ((order (* 8 (length binary)))
+         (hash1 (murmurhash:murmurhash element :seed murmurhash:*default-seed*))
+         (hash2 (murmurhash:murmurhash element :seed hash1)))
+    (loop for i to (1- (cl-bloom::opt-degree))
+          for index = (cl-bloom::fake-hash hash1 hash2 i order)
+          always (multiple-value-bind (byte-index bit-index)
+                     (truncate index 8)
+                   (logbitp bit-index (aref binary byte-index))))))
+
 (defun calculate-stats (arrays)
-  (let ((bloom-order (* 8 (endb/lib/arrow:vector-byte-size #* (cl-bloom::opt-order (reduce #'+ (mapcar #'endb/arrow:arrow-length arrays)))))))
+  (let* ((total-length (reduce #'+ (mapcar #'endb/arrow:arrow-length arrays)))
+         (bloom-order (* 8 (endb/lib/arrow:vector-byte-size #* (cl-bloom::opt-order total-length)))))
     (labels ((make-col-stats ()
                (fset:map ("count_star" (endb/sql/expr:make-sql-agg :count-star))
                          ("count" (endb/sql/expr:make-sql-agg :count))

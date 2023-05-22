@@ -302,7 +302,12 @@
          (calculate-stats (mapcar #'endb/arrow:to-arrow batches))))))
 
 (test meta-data-binary-to-bloom
-  (let ((bloom (binary-to-bloom (coerce #(10 192 38 170 10 26 185 168) '(vector (unsigned-byte 8))))))
+  (let* ((binary (coerce #(10 192 38 170 10 26 185 168) '(vector (unsigned-byte 8))))
+         (bloom (binary-to-bloom binary)))
     (is (cl-bloom:memberp bloom "mark"))
     (is (cl-bloom:memberp bloom "joe"))
-    (is (not (cl-bloom:memberp bloom "mike")))))
+    (is (not (cl-bloom:memberp bloom "mike")))
+
+    (is (binary-bloom-member-p binary "mark"))
+    (is (binary-bloom-member-p binary "joe"))
+    (is (not (binary-bloom-member-p binary "mike")))))
