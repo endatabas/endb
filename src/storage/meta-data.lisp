@@ -1,12 +1,11 @@
 (defpackage :endb/storage/meta-data
   (:use :cl)
-  (:export #:json->meta-data #:meta-data->json #:meta-data-merge-patch #:random-uuid #:random-uuid-p)
+  (:export #:json->meta-data #:meta-data->json #:meta-data-merge-patch #:meta-data-diff #:random-uuid #:random-uuid-p)
   (:import-from :alexandria)
   (:import-from :cl-ppcre)
   (:import-from :com.inuoe.jzon)
   (:import-from :endb/arrow)
   (:import-from :fset)
-  (:import-from :local-time)
   (:import-from :qbase64))
 (in-package :endb/storage/meta-data)
 
@@ -95,6 +94,22 @@
 (defun meta-data->json (x &key stream pretty)
   (com.inuoe.jzon:stringify x :stream stream :pretty pretty))
 
+(defmethod fset:compare ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-date-days))
+  (fset:compare (endb/arrow:arrow-date-days-day x)
+                (endb/arrow:arrow-date-days-day y)))
+
+(defmethod fset:compare ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
+  (fset:compare (endb/arrow:arrow-timestamp-micros-us x)
+                (endb/arrow:arrow-timestamp-micros-us y)))
+
+(defmethod fset:compare ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-time-micros))
+  (fset:compare (endb/arrow:arrow-time-micros-us x)
+                (endb/arrow:arrow-time-micros-us y)))
+
+(fset:define-cross-type-compare-methods endb/arrow:arrow-date-days)
+(fset:define-cross-type-compare-methods endb/arrow:arrow-timestamp-micros)
+(fset:define-cross-type-compare-methods endb/arrow:arrow-time-micros)
+
 ;; https://datatracker.ietf.org/doc/html/rfc7386
 
 (defun meta-data-merge-patch (target patch)
@@ -110,6 +125,25 @@
                           target
                           (fset:empty-map)))
       patch))
+
+(defun meta-data-diff (version-a version-b)
+  (if (and (fset:map? version-a)
+           (fset:map? version-b))
+      (fset:reduce
+       (lambda (diff k b-v)
+         (let ((a-v (fset:lookup version-a k)))
+           (if (fset:equal? a-v b-v)
+               diff
+               (fset:with diff k (meta-data-diff a-v b-v)))))
+       version-b
+       :initial-value
+       (fset:reduce
+        (lambda (diff k)
+          (fset:with diff k 'null))
+        (fset:set-difference (fset:domain version-a)
+                             (fset:domain version-b))
+        :initial-value (fset:empty-map)))
+      version-b))
 
 (defconstant +random-uuid-part-max+ (ash 1 64))
 (defconstant +random-uuid-version+ 4)

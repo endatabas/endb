@@ -232,26 +232,46 @@
         (json->meta-data
          "{\"title\":\"Hello!\",\"author\":{\"familyName\":null},\"tags\":[ \"example\"]}")))))
 
+(test meta-data-diff
+  (is (fset:equal?
+       (json->meta-data "{\"a\":\"z\",\"c\":{\"f\":null}}")
+       (meta-data-diff
+        (json->meta-data "{\"a\":\"b\",\"c\":{\"d\":\"e\",\"f\":\"g\"}}")
+        (json->meta-data "{\"a\":\"z\",\"c\":{\"d\":\"e\"}}"))))
+
+  (is (fset:equal?
+       (json->meta-data
+        "{\"title\":\"Hello!\",\"author\":{\"familyName\":null},\"tags\":[ \"example\"]}")
+       (meta-data-diff
+        (json->meta-data
+         "{\"title\":\"Goodbye!\",\"author\":{\"givenName\":\"John\",\"familyName\":\"Doe\"},\"tags\":[ \"example\",\"sample\"],\"content\":\"This will be unchanged\"}")
+        (json->meta-data
+         "{\"title\":\"Hello!\",\"author\":{\"givenName\":\"John\"},\"tags\":[ \"example\"],\"content\":\"This will be unchanged\"}")))))
+
 (test meta-data-xsd-json-ld-scalars
   (let* ((date (endb/arrow:parse-arrow-date-days "2001-01-01"))
          (json "{\"@value\":\"2001-01-01\",\"@type\":\"xsd:date\"}"))
     (is (equalp date (json->meta-data json)))
-    (is (equal json (meta-data->json date))))
+    (is (equal json (meta-data->json date)))
+    (is (fset:equal? date (json->meta-data json))))
 
   (let* ((date-time (endb/arrow:parse-arrow-timestamp-micros "2023-05-16T14:43:39.970062Z"))
          (json "{\"@value\":\"2023-05-16T14:43:39.970062Z\",\"@type\":\"xsd:dateTime\"}"))
     (is (equalp date-time (json->meta-data json)))
-    (is (equal json (meta-data->json date-time))))
+    (is (equal json (meta-data->json date-time)))
+    (is (fset:equal? date-time (json->meta-data json))))
 
   (let* ((time (endb/arrow:parse-arrow-time-micros "14:43:39.970062"))
          (json "{\"@value\":\"14:43:39.970062\",\"@type\":\"xsd:time\"}"))
     (is (equalp time (json->meta-data json)))
-    (is (equal json (meta-data->json time))))
+    (is (equal json (meta-data->json time)))
+    (is (fset:equal? time (json->meta-data json))))
 
   (let* ((binary (trivial-utf-8:string-to-utf-8-bytes "hello world"))
          (json "{\"@value\":\"aGVsbG8gd29ybGQ=\",\"@type\":\"xsd:base64Binary\"}"))
     (is (equalp binary (json->meta-data json)))
-    (is (equal json (meta-data->json binary)))))
+    (is (equal json (meta-data->json binary)))
+    (is (fset:equal? binary (json->meta-data json)))))
 
 (test meta-data-json-int64
   (is (= (1- (ash 1 63)) (json->meta-data (meta-data->json (1- (ash 1 63))))))
