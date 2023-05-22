@@ -17,7 +17,9 @@
                "com.inuoe.jzon"
                "alexandria"
                "fset"
-               "qbase64")
+               "qbase64"
+               "cl-bloom"
+               "cl-murmurhash")
   :description "Endatabas"
   :pathname "src"
   :build-operation program-op

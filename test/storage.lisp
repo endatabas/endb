@@ -6,7 +6,8 @@
   (:import-from :fast-io)
   (:import-from :fset)
   (:import-from :trivial-utf-8)
-  (:import-from :uiop))
+  (:import-from :uiop)
+  (:import-from :cl-bloom))
 (in-package :endb-test/storage)
 
 (in-suite* :all-tests)
@@ -280,8 +281,10 @@
 (test meta-data-stats
   (let* ((expected '((("name" . "joe") ("id" . 1)) (("name" . :null) ("id" . 2)) :null (("name" . "mark") ("id" . 4))))
          (array (endb/arrow:to-arrow expected)))
-    (is (fset:equal? (fset:map ("id" (fset:map ("count" 3) ("count_star" 3) ("min" 1) ("max" 4)))
-                               ("name" (fset:map ("count" 2) ("count_star" 3) ("min" "joe") ("max" "mark"))))
+    (is (fset:equal? (fset:map ("id" (fset:map ("count" 3) ("count_star" 3) ("min" 1) ("max" 4)
+                                               ("bloom" (coerce #(20 195 165 82 10 165 210 104) '(vector (unsigned-byte 8))))))
+                               ("name" (fset:map ("count" 2) ("count_star" 3) ("min" "joe") ("max" "mark")
+                                                 ("bloom" (coerce #(10 192 38 170 10 26 185 168) '(vector (unsigned-byte 8)))))))
                      (calculate-stats (list array)))))
 
   (let ((batches '(((("x" . 1))
@@ -294,5 +297,12 @@
                     (("x" . 7))
                     (("x" . 8))))))
     (is (fset:equal?
-         (fset:map ("x" (fset:map ("count" 8) ("count_star" 8) ("min" 1) ("max" 8))))
+         (fset:map ("x" (fset:map ("count" 8) ("count_star" 8) ("min" 1) ("max" 8)
+                                  ("bloom" (coerce #(221 83 121 73 211 117 15 215 69 92 198 129 97 148 5) '(vector (unsigned-byte 8)))))))
          (calculate-stats (mapcar #'endb/arrow:to-arrow batches))))))
+
+(test meta-data-binary-to-bloom
+  (let ((bloom (binary-to-bloom (coerce #(10 192 38 170 10 26 185 168) '(vector (unsigned-byte 8))))))
+    (is (cl-bloom:memberp bloom "mark"))
+    (is (cl-bloom:memberp bloom "joe"))
+    (is (not (cl-bloom:memberp bloom "mike")))))

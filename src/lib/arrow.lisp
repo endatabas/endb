@@ -2,7 +2,7 @@
   (:use :cl)
   (:export #:write-arrow-arrays-to-ipc-buffer #:write-arrow-arrays-to-ipc-file
            #:read-arrow-arrays-from-ipc-pointer #:read-arrow-arrays-from-ipc-buffer #:read-arrow-arrays-from-ipc-file
-           #:buffer-to-vector)
+           #:vector-byte-size #:buffer-to-vector)
   (:import-from :endb/arrow)
   (:import-from :endb/lib)
   (:import-from :cffi)
@@ -345,7 +345,7 @@
                                        (data (make-array (aref offsets length) :element-type '(unsigned-byte 8))))
                                   (setf (slot-value array 'endb/arrow::data) data))
                                 b)))
-                     (buffer-to-vector src-ptr (vector-byte-size b (length b)) b))))
+                     (buffer-to-vector src-ptr (vector-byte-size b) b))))
       array)))
 
 (defun %call-release (release c-obj)
