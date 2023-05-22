@@ -1,6 +1,6 @@
 (defpackage :endb/arrow
   (:use :cl)
-  (:export #:arrow-date-days #:arrow-time-micros #:arrow-timestamp-micros #:arrow-binary
+  (:export #:arrow-date-days #:arrow-time-micros #:arrow-timestamp-micros #:arrow-binary #:arrow-struct
            #:parse-arrow-date-days #:parse-arrow-timestamp-micros #:parse-arrow-time-micros
            #:arrow-date-days-day #:arrow-time-micros-us #:arrow-timestamp-micros-us
            #:to-arrow #:make-arrow-array-for #:arrow-class-for-format

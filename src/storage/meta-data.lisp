@@ -1,10 +1,11 @@
 (defpackage :endb/storage/meta-data
   (:use :cl)
-  (:export #:json->meta-data #:meta-data->json #:meta-data-merge-patch #:meta-data-diff #:random-uuid #:random-uuid-p)
+  (:export #:json->meta-data #:meta-data->json #:meta-data-merge-patch #:meta-data-diff #:calculate-stats #:random-uuid #:random-uuid-p)
   (:import-from :alexandria)
   (:import-from :cl-ppcre)
   (:import-from :com.inuoe.jzon)
   (:import-from :endb/arrow)
+  (:import-from :endb/sql/expr)
   (:import-from :fset)
   (:import-from :qbase64))
 (in-package :endb/storage/meta-data)
@@ -144,6 +145,39 @@
                              (fset:domain version-b))
         :initial-value (fset:empty-map)))
       version-b))
+
+(defun calculate-stats (arrays)
+  (labels ((make-col-stats ()
+             (fset:map ("count_star" (endb/sql/expr:make-sql-agg :count-star))
+                       ("count" (endb/sql/expr:make-sql-agg :count))
+                       ("min" (endb/sql/expr:make-sql-agg :min))
+                       ("max" (endb/sql/expr:make-sql-agg :max))))
+           (calculate-col-stats (stats kv)
+             (destructuring-bind (k . v)
+                 kv
+               (let ((col-stats (or (fset:lookup stats k) (make-col-stats))))
+                 (fset:with stats k (fset:image
+                                     (lambda (agg-k agg-v)
+                                       (values agg-k (endb/sql/expr:sql-agg-accumulate agg-v v)))
+                                     col-stats))))))
+    (let ((stats (reduce
+                  (lambda (stats array)
+                    (reduce
+                     (lambda (stats row)
+                       (if (typep row 'endb/arrow:arrow-struct)
+                           (reduce #'calculate-col-stats row :initial-value stats)
+                           stats))
+                     array
+                     :initial-value stats))
+                  arrays
+                  :initial-value (fset:empty-map))))
+      (fset:image
+       (lambda (k v)
+         (values k (fset:image
+                    (lambda (k v)
+                      (values k (endb/sql/expr:sql-agg-finish v)))
+                    v)))
+       stats))))
 
 (defconstant +random-uuid-part-max+ (ash 1 64))
 (defconstant +random-uuid-version+ 4)

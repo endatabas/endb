@@ -276,3 +276,23 @@
 (test meta-data-json-int64
   (is (= (1- (ash 1 63)) (json->meta-data (meta-data->json (1- (ash 1 63))))))
   (is (= (- (ash 1 63)) (json->meta-data (meta-data->json (- (ash 1 63)))))))
+
+(test meta-data-stats
+  (let* ((expected '((("name" . "joe") ("id" . 1)) (("name" . :null) ("id" . 2)) :null (("name" . "mark") ("id" . 4))))
+         (array (endb/arrow:to-arrow expected)))
+    (is (fset:equal? (fset:map ("id" (fset:map ("count" 3) ("count_star" 3) ("min" 1) ("max" 4)))
+                               ("name" (fset:map ("count" 2) ("count_star" 3) ("min" "joe") ("max" "mark"))))
+                     (calculate-stats (list array)))))
+
+  (let ((batches '(((("x" . 1))
+                    (("x" . 2))
+                    (("x" . 3))
+                    (("x" . 4)))
+
+                   ((("x" . 5))
+                    (("x" . 6))
+                    (("x" . 7))
+                    (("x" . 8))))))
+    (is (fset:equal?
+         (fset:map ("x" (fset:map ("count" 8) ("count_star" 8) ("min" 1) ("max" 8))))
+         (calculate-stats (mapcar #'endb/arrow:to-arrow batches))))))
