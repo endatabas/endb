@@ -793,6 +793,32 @@
 
 ;; DML/DDL
 
+;; INFORMATION_SCHEMA:
+
+;; "main" is the default schema in SQLite and DuckDB.
+
+;; INFORMATION_SCHEMA.COLUMNS
+;; table_catalog (NULL), table_schema ("main"), table_name, column_name, ordinal_position (1-based, used by SLT and CREATE TABLE, otherwise 0)
+
+;; SELECT column_name FROM information_schema.columns WHERE table_name = 'foo' ORDER_BY ordinal_position, column_name ;; normal usage orders by name.
+
+;; INFORMATION_SCHEMA.INDEXES (only needed for SLT)
+;; table_catalog (NULL), table_schema ("main"), table_name, index_name ("PRIMARY_KEY")
+
+;; INFORMATION_SCHEMA.TABLES
+;; table_catalog (NULL), table_schema ("main"), table_name, table_type ("BASE TABLE", "VIEW")
+
+;; INFORMATION_SCHEMA.VIEWS
+;; table_catalog (NULL), table_schema ("main"), table_name, view_definition
+
+;; Extra:
+
+;; INFORMATION_SCHEMA.COLUMNS (type related information, for future reference)
+;; column_default, is_nullable ("YES", "NO"), data_type
+
+;; INFORMATION_SCHEMA.SCHEMATA
+;; catalog_name (NULL), schema_name ("main", "information_schema"), schema_owner (NULL)
+
 (defstruct base-table rows deleted-row-ids)
 
 (defun base-table-columns (base-table)
