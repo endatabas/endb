@@ -54,7 +54,9 @@
               (view-row (find-if (lambda (row)
                                    (equal (symbol-name table) (cdr (assoc "table_name" row :test 'equal))))
                                  (coerce (endb/sql/expr:base-table-rows views) 'list)
-                                 :from-end t)))
+                                 :from-end t))
+              (*read-eval* nil)
+              (*read-default-float-format* 'double-float))
          (%ast->cl-with-free-vars ctx (read-from-string (cdr (assoc "view_definition" view-row :test 'equal)))))))))
 
 (defun %wrap-with-order-by-and-limit (src order-by limit offset)
