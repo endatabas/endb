@@ -13,7 +13,6 @@
            #:make-sql-agg #:sql-agg-accumulate #:sql-agg-finish
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
            #:base-table #:base-table-rows #:base-table-deleted-row-ids  #:base-table-columns #:base-table-visible-rows #:base-table-size
-           #:non-materialized-view #:non-materialized-view-ast
            #:sql-runtime-error))
 (in-package :endb/sql/expr)
 
@@ -802,9 +801,6 @@
 
 ;; SELECT column_name FROM information_schema.columns WHERE table_name = 'foo' ORDER_BY ordinal_position, column_name ;; normal usage orders by name.
 
-;; INFORMATION_SCHEMA.INDEXES (only needed for SLT)
-;; table_catalog (NULL), table_schema ("main"), table_name, index_name ("PRIMARY_KEY")
-
 ;; INFORMATION_SCHEMA.TABLES
 ;; table_catalog (NULL), table_schema ("main"), table_name, table_type ("BASE TABLE", "VIEW")
 
@@ -819,50 +815,131 @@
 ;; INFORMATION_SCHEMA.SCHEMATA
 ;; catalog_name (NULL), schema_name ("main", "information_schema"), schema_owner (NULL)
 
+(defvar *default-schema* "main")
+
 (defstruct base-table rows deleted-row-ids)
 
-(defun base-table-columns (base-table)
-  (with-slots (rows) base-table
-    (mapcar #'car (endb/arrow:arrow-children rows))))
+(defun base-table-visible-rows (db table-name)
+  (let ((base-table (gethash table-name db)))
+    (when base-table
+      (with-slots (deleted-row-ids rows) base-table
+        (let ((deleted-row-ids-cache (make-hash-table)))
+          (when deleted-row-ids
+            (dotimes (n (endb/arrow:arrow-length deleted-row-ids))
+              (setf (gethash (endb/arrow:arrow-get deleted-row-ids n) deleted-row-ids-cache) t)))
+          (loop for row-id below (endb/arrow:arrow-length rows)
+                unless (gethash row-id deleted-row-ids-cache)
+                  collect (endb/arrow:arrow-struct-row-get rows row-id)))))))
 
-(defun base-table-visible-rows (base-table)
-  (with-slots (deleted-row-ids rows) base-table
-    (loop for row-id below (endb/arrow:arrow-length rows)
-          unless (find row-id deleted-row-ids)
-            collect (endb/arrow:arrow-struct-row-get rows row-id))))
+(defun base-table-columns (db table-name)
+  (cond
+    ((equal "information_schema.columns" table-name)
+     '("table_catalog" "table_schema" "table_name" "column_name" "ordinal_position"))
+    ((equal "information_schema.tables" table-name)
+     '("table_catalog" "table_schema" "table_name" "table_type"))
+    ((equal "information_schema.views" table-name)
+     '("table_catalog" "table_schema" "table_name" "view_definition"))
+    (t (mapcar #'second (%sql-order-by (loop with rows = (base-table-visible-rows db "information_schema.columns")
+                                             for (nil nil table c idx) in rows
+                                             when (equal table-name table)
+                                               collect (list idx c))
+                                       (list (list 1 :asc) (list 2 :asc)))))))
 
-(defun base-table-size (base-table)
-  (- (endb/arrow:arrow-length (base-table-rows base-table))
-     (length (base-table-deleted-row-ids base-table))))
+(defun base-table-size (db table-name)
+  (let ((base-table (gethash table-name db)))
+    (- (endb/arrow:arrow-length (base-table-rows base-table))
+       (length (base-table-deleted-row-ids base-table)))))
+
+(defun %get-or-create-information-schema-columns (db)
+  (or (gethash "information_schema.columns" db)
+      (let ((table (make-base-table :rows (endb/arrow:make-arrow-array-for
+                                           (loop for c in (base-table-columns db "information_schema.columns")
+                                                 collect (cons c :null))))))
+        (setf (gethash "information_schema.columns" db) table))))
+
+(defun %get-or-create-information-schema-tables (db)
+  (or (gethash "information_schema.tables" db)
+      (let ((table (make-base-table :rows (endb/arrow:make-arrow-array-for
+                                           (loop for c in (base-table-columns db "information_schema.tables")
+                                                 collect (cons c :null))))))
+        (setf (gethash "information_schema.tables" db) table))))
+
+(defun %get-or-create-information-schema-views (db)
+  (or (gethash "information_schema.views" db)
+      (let ((table (make-base-table :rows (endb/arrow:make-arrow-array-for
+                                           (loop for c in (base-table-columns db "information_schema.views")
+                                                 collect (cons c :null))))))
+        (setf (gethash "information_schema.views" db) table))))
 
 (defun sql-create-table (db table-name columns)
-  (unless (gethash table-name db)
-    (let ((table (make-base-table :rows (endb/arrow:make-arrow-array-for
-                                         (loop for c in columns
-                                               collect (cons c :null))))))
-      (setf (gethash table-name db) table)
-      (values nil t))))
+  (%get-or-create-information-schema-columns db)
+  (let* ((tables (%get-or-create-information-schema-tables db))
+         (row-id (position-if (lambda (row)
+                                (equal table-name (cdr (assoc "table_name" row :test 'equal))))
+                              (coerce (base-table-rows tables) 'list)
+                              :from-end t))
+         (row-id (unless (find row-id (base-table-deleted-row-ids tables))
+                   row-id)))
+    (unless row-id
+      (sql-insert db "information_schema.tables" (list (list :null *default-schema* table-name "BASE TABLE")))
+      (sql-insert db "information_schema.columns" (loop for c in columns
+                                                        for idx from 1
+                                                        collect  (list :null *default-schema* table-name c idx)))
+      (let ((table (make-base-table :rows (endb/arrow:make-arrow-array-for
+                                           (loop for c in columns
+                                                 collect (cons c :null))))))
+        (setf (gethash table-name db) table)
+        (values nil t)))))
 
 (defun sql-drop-table (db table-name &key if-exists)
-  (unless (typep (gethash table-name db) '(or null base-table))
-    (error 'sql-runtime-error
-           :message (concatenate 'string "Not a table: " table-name)))
-  (when (or (remhash table-name db) if-exists)
-    (values nil t)))
-
-(defstruct non-materialized-view ast)
+  (let* ((tables (%get-or-create-information-schema-tables db))
+         (row-id (position-if (lambda (row)
+                                (and (equal table-name (cdr (assoc "table_name" row :test 'equal)))
+                                     (equal "BASE TABLE" (cdr (assoc "table_type" row :test 'equal)))))
+                              (coerce (base-table-rows tables) 'list)
+                              :from-end t))
+         (row-id (unless (find row-id (base-table-deleted-row-ids tables))
+                   row-id)))
+    (when row-id
+      (sql-delete db "information_schema.columns" (loop for row in (coerce (base-table-rows (gethash "information_schema.columns" db)) 'list)
+                                                        for row-id from 0
+                                                        when (equal table-name (cdr (assoc "table_name" row :test 'equal)))
+                                                          collect row-id))
+      (sql-delete db "information_schema.tables" (list row-id)))
+    (when (or row-id if-exists)
+      (values nil t))))
 
 (defun sql-create-view (db view-name query)
-  (unless (gethash view-name db)
-    (setf (gethash view-name db) (make-non-materialized-view :ast query))
-    (values nil t)))
+  (%get-or-create-information-schema-views db)
+  (let* ((tables (%get-or-create-information-schema-tables db))
+         (row-id (position-if (lambda (row)
+                                (equal view-name (cdr (assoc "table_name" row :test 'equal))))
+                              (coerce (base-table-rows tables) 'list)
+                              :from-end t))
+         (row-id (unless (find row-id (base-table-deleted-row-ids tables))
+                   row-id)))
+    (unless row-id
+      (sql-insert db "information_schema.tables" (list (list :null *default-schema* view-name "VIEW")))
+      (sql-insert db "information_schema.views" (list (list :null *default-schema* view-name (prin1-to-string query))))
+      (values nil t))))
 
 (defun sql-drop-view (db view-name &key if-exists)
-  (unless (typep (gethash view-name db) '(or null non-materialized-view))
-    (error 'sql-runtime-error
-           :message (concatenate 'string "Not a view: " view-name)))
-  (when (or (remhash view-name db) if-exists)
-    (values nil t)))
+  (let* ((row-id (position-if (lambda (row)
+                                (and (equal view-name (cdr (assoc "table_name" row :test 'equal)))
+                                     (equal "VIEW" (cdr (assoc "table_type" row :test 'equal)))))
+                              (coerce (base-table-rows (gethash "information_schema.tables" db)) 'list)
+                              :from-end t))
+         (row-id (unless (find row-id (base-table-deleted-row-ids (gethash "information_schema.tables" db)))
+                   row-id)))
+    (when row-id
+      (sql-delete db "information_schema.tables" (list row-id))
+      (let ((row-id (position-if (lambda (row)
+                                   (equal view-name (cdr (assoc "table_name" row :test 'equal))))
+                                 (coerce (base-table-rows (gethash "information_schema.views" db)) 'list)
+                                 :from-end t)))
+        (sql-delete db "information_schema.views" (list row-id))))
+    (when (or row-id if-exists)
+      (values nil t))))
 
 (defun sql-create-index (db)
   (declare (ignore db))
@@ -876,7 +953,7 @@
     (when (typep table 'base-table)
       (with-slots (rows) table
         (let ((values (if column-names
-                          (loop with idxs = (loop for column in (base-table-columns table)
+                          (loop with idxs = (loop for column in (base-table-columns db table-name)
                                                   collect (position column column-names :test 'equal))
                                 for row in values
                                 collect (loop for idx in idxs

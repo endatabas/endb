@@ -13,14 +13,14 @@
       (is (null result))
       (is (eq t result-code))
       (is (equal '("a" "b" "c" "d" "e")
-                 (endb/sql/expr:base-table-columns (gethash "t1" db)))))
+                 (endb/sql/expr:base-table-columns db "t1"))))
 
     (multiple-value-bind (result result-code)
         (execute-sql db "INSERT INTO t1 VALUES(103,102,100,101,104)")
       (is (null result))
       (is (= 1 result-code))
       (is (equal '((103 102 100 101 104))
-                 (endb/sql/expr:base-table-visible-rows (gethash "t1" db)))))
+                 (endb/sql/expr:base-table-visible-rows db "t1"))))
 
     (multiple-value-bind (result result-code)
         (execute-sql db "INSERT INTO t1(e,c,b,d,a) VALUES(103,102,100,101,104), (NULL,102,NULL,101,104)")
@@ -29,12 +29,27 @@
       (is (equal '((103 102 100 101 104)
                    (104 100 102 101 103)
                    (104 :null 102 101 :null))
-                 (endb/sql/expr:base-table-visible-rows (gethash "t1" db)))))
+                 (endb/sql/expr:base-table-visible-rows db "t1"))))
 
     (multiple-value-bind (result result-code)
         (execute-sql db "CREATE INDEX t1i0 ON t1(a1,b1,c1,d1,e1,x1)")
       (is (null result))
-      (is (eq t result-code)))))
+      (is (eq t result-code)))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql db "CREATE TABLE t1(a INTEGER, b INTEGER, c INTEGER, d INTEGER, e INTEGER)")
+      (is (null result))
+      (is (null result-code)))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql db "DROP TABLE t1")
+      (is (null result))
+      (is (eq t result-code)))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql db "DROP TABLE t1")
+      (is (null result))
+      (is (null result-code)))))
 
 (test dml
   (let ((db (create-db)))
@@ -48,7 +63,7 @@
       (is (null result))
       (is (= 2 result-code))
       (is (equal '((1 2) (1 3))
-                 (endb/sql/expr:base-table-visible-rows (gethash "t1" db))))
+                 (endb/sql/expr:base-table-visible-rows db "t1")))
       (is (equal '((1 2) (1 3)) (execute-sql db "SELECT * FROM t1 ORDER BY 2"))))
 
     (multiple-value-bind (result result-code)
@@ -56,7 +71,7 @@
       (is (null result))
       (is (= 1 result-code))
       (is (equal '((1 3) (2 2))
-                 (endb/sql/expr:base-table-visible-rows (gethash "t1" db))))
+                 (endb/sql/expr:base-table-visible-rows db "t1")))
       (is (equal '((2 2) (1 3)) (execute-sql db "SELECT * FROM t1 ORDER BY 2"))))
 
     (multiple-value-bind (result result-code)
@@ -64,7 +79,7 @@
       (is (null result))
       (is (= 1 result-code))
       (is (equal '((2 2))
-                 (endb/sql/expr:base-table-visible-rows (gethash "t1" db))))
+                 (endb/sql/expr:base-table-visible-rows db "t1")))
       (is (equal '((2 2)) (execute-sql db "SELECT * FROM t1 ORDER BY 2"))))))
 
 (test dql

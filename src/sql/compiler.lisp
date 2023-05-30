@@ -28,19 +28,34 @@
                  ((symbolp expr) (list (%unqualified-column-name (symbol-name expr))))
                  (t (list (%anonymous-column-name idx))))))
 
+(defun %table-type (ctx table)
+  (let ((tables (gethash "information_schema.tables" (cdr (assoc :db ctx)))))
+    (let* ((table-row (find-if (lambda (row)
+                                 (equal (symbol-name table) (cdr (assoc "table_name" row :test 'equal))))
+                               (coerce (endb/sql/expr:base-table-rows tables) 'list)
+                               :from-end t)))
+      (cdr (assoc "table_type" table-row :test 'equal)))))
+
 (defun %base-table-p (ctx table)
   (and (symbolp table)
-       (typep (gethash (symbol-name table) (cdr (assoc :db ctx)))
-              'endb/sql/expr:base-table)))
+       (equal "BASE TABLE" (%table-type ctx table))))
 
 (defun %base-table-or-view->cl (ctx table)
-  (let ((db-table (gethash (symbol-name table) (cdr (assoc :db ctx)))))
-    (etypecase db-table
-      (endb/sql/expr:non-materialized-view (%ast->cl-with-free-vars ctx (endb/sql/expr:non-materialized-view-ast db-table)))
-      (endb/sql/expr:base-table (values `(gethash ,(symbol-name table) ,(cdr (assoc :db-sym ctx)))
-                                        (endb/sql/expr:base-table-columns db-table)
-                                        ()
-                                        (endb/sql/expr:base-table-size db-table))))))
+  (let ((table-type (%table-type ctx table)))
+    (cond
+      ((equal "BASE TABLE" table-type)
+       (let ((db (cdr (assoc :db ctx))))
+         (values `(gethash ,(symbol-name table) ,(cdr (assoc :db-sym ctx)))
+                 (endb/sql/expr:base-table-columns db (symbol-name table))
+                 ()
+                 (endb/sql/expr:base-table-size db (symbol-name table)))))
+      ((equal "VIEW" table-type)
+       (let* ((views (gethash "information_schema.views" (cdr (assoc :db ctx))))
+              (view-row (find-if (lambda (row)
+                                   (equal (symbol-name table) (cdr (assoc "table_name" row :test 'equal))))
+                                 (coerce (endb/sql/expr:base-table-rows views) 'list)
+                                 :from-end t)))
+         (%ast->cl-with-free-vars ctx (read-from-string (cdr (assoc "view_definition" view-row :test 'equal)))))))))
 
 (defun %wrap-with-order-by-and-limit (src order-by limit offset)
   (let* ((src (if order-by
