@@ -2,6 +2,7 @@
   (:use :cl)
   (:import-from :endb/sql/expr)
   (:import-from :endb/arrow)
+  (:import-from :fset)
   (:export #:compile-sql #:*verbose*))
 (in-package :endb/sql/compiler)
 
@@ -29,7 +30,7 @@
                  (t (list (%anonymous-column-name idx))))))
 
 (defun %table-type (ctx table)
-  (let ((tables (gethash "information_schema.tables" (cdr (assoc :db ctx)))))
+  (let ((tables (gethash "information_schema.tables" (fset:lookup ctx :db))))
     (let* ((table-row (find-if (lambda (row)
                                  (equal (symbol-name table) (cdr (assoc "table_name" row :test 'equal))))
                                (coerce (endb/sql/expr:base-table-rows tables) 'list)
@@ -41,16 +42,16 @@
        (equal "BASE TABLE" (%table-type ctx table))))
 
 (defun %base-table-or-view->cl (ctx table)
-  (let ((table-type (%table-type ctx table)))
+  (let ((table-type (%table-type ctx table))
+        (db (fset:lookup ctx :db)))
     (cond
       ((equal "BASE TABLE" table-type)
-       (let ((db (cdr (assoc :db ctx))))
-         (values `(gethash ,(symbol-name table) ,(cdr (assoc :db-sym ctx)))
-                 (endb/sql/expr:base-table-columns db (symbol-name table))
-                 ()
-                 (endb/sql/expr:base-table-size db (symbol-name table)))))
+       (values `(gethash ,(symbol-name table) ,(fset:lookup ctx :db-sym))
+               (endb/sql/expr:base-table-columns db (symbol-name table))
+               ()
+               (endb/sql/expr:base-table-size db (symbol-name table))))
       ((equal "VIEW" table-type)
-       (let* ((views (gethash "information_schema.views" (cdr (assoc :db ctx))))
+       (let* ((views (gethash "information_schema.views" db))
               (view-row (find-if (lambda (row)
                                    (equal (symbol-name table) (cdr (assoc "table_name" row :test 'equal))))
                                  (coerce (endb/sql/expr:base-table-rows views) 'list)
@@ -157,7 +158,7 @@
     (if base-table-p
         (let* ((base-table-sym (gensym))
                (table-sym (gensym))
-               (row-id-sym (or (cdr (assoc :scan-row-id-sym ctx)) (gensym)))
+               (row-id-sym (or (fset:lookup ctx :scan-row-id-sym) (gensym)))
                (deleted-row-ids-sym (gensym))
                (col-syms (loop repeat (length vars) collect (gensym)))
                (children-sym (gensym))
@@ -199,7 +200,7 @@
               finally
                  (return (values in-vars out-vars)))
       (let* ((new-free-vars (set-difference free-vars in-vars))
-             (index-sym (cdr (assoc :index-sym ctx)))
+             (index-sym (fset:lookup ctx :index-sym))
              (index-table-sym (gensym))
              (index-key-sym (gensym))
              (index-key-form `(list ',(gensym) ,@new-free-vars)))
@@ -219,10 +220,10 @@
                                             (from-table-base-table-p from-table))))))))))
 
 (defun %selection-with-limit-offset->cl (ctx selected-src &optional limit offset)
-  (let ((acc-sym (cdr (assoc :acc-sym ctx))))
+  (let ((acc-sym (fset:lookup ctx :acc-sym)))
     (if (or limit offset)
-        (let* ((rows-sym (cdr (assoc :rows-sym ctx)))
-               (block-sym (cdr (assoc :block-sym ctx)))
+        (let* ((rows-sym (fset:lookup ctx :rows-sym))
+               (block-sym (fset:lookup ctx :block-sym))
                (limit (if offset
                           (+ offset limit)
                           limit))
@@ -290,7 +291,7 @@
                              (from-table-base-table-p from-table)))))))
 
 (defun %group-by->cl (ctx from-tables where-clauses selected-src limit offset group-by having-src correlated-vars)
-  (let* ((aggregate-table (cdr (assoc :aggregate-table ctx)))
+  (let* ((aggregate-table (fset:lookup ctx :aggregate-table))
          (group-by-projection (loop for g in group-by
                                     collect (ast->cl ctx g)))
          (group-by-exprs-projection (loop for k being the hash-key of aggregate-table
@@ -342,10 +343,14 @@
       (t 1))))
 
 (defun %env-extension (table-alias projection)
-  (loop for column in projection
-        for qualified-column = (%qualified-column-name table-alias column)
-        for column-sym = (gensym (concatenate 'string qualified-column "__"))
-        append (list (cons column column-sym) (cons qualified-column column-sym))))
+  (reduce
+   (lambda (acc column)
+     (let* ((qualified-column (%qualified-column-name table-alias column))
+            (column-sym (gensym (concatenate 'string qualified-column "__")))
+            (acc (fset:with acc column column-sym)))
+       (fset:with acc qualified-column column-sym)))
+   projection
+   :initial-value (fset:empty-map)))
 
 (defmethod sql->cl (ctx (type (eql :select)) &rest args)
   (destructuring-bind (select-list &key distinct (from '(((:values ((:null))) #:dual))) (where :true)
@@ -364,9 +369,10 @@
                           (qualified-projection (loop for column in projection
                                                       collect (%qualified-column-name table-alias column)))
                           (env-extension (%env-extension table-alias projection))
-                          (ctx (append env-extension ctx))
+                          (ctx (fset:map-union ctx env-extension))
                           (from-table (make-from-table :src table-src
-                                                       :vars (remove-duplicates (mapcar #'cdr env-extension))
+                                                       :vars (loop for p in projection
+                                                                   collect (fset:lookup env-extension p))
                                                        :free-vars free-vars
                                                        :size (or table-size most-positive-fixnum)
                                                        :projection qualified-projection
@@ -375,7 +381,7 @@
                      (if (rest from-ast)
                          (select->cl ctx (rest from-ast) from-tables-acc)
                          (let* ((aggregate-table (make-hash-table))
-                                (ctx (cons (cons :aggregate-table aggregate-table) ctx))
+                                (ctx (fset:with ctx :aggregate-table aggregate-table))
                                 (full-projection (loop for from-table in from-tables-acc
                                                        append (from-table-projection from-table)))
                                 (selected-src (loop for (expr) in select-list
@@ -415,9 +421,9 @@
       (let* ((block-sym (gensym))
              (acc-sym (gensym))
              (rows-sym (gensym))
-             (ctx (cons (cons :rows-sym rows-sym)
-                        (cons (cons :acc-sym acc-sym)
-                              (cons (cons :block-sym block-sym) ctx))))
+             (ctx (fset:map-union ctx (fset:map (:rows-sym rows-sym)
+                                                (:acc-sym acc-sym)
+                                                (:block-sym block-sym))))
              (from (%flatten-from from)))
         (multiple-value-bind (src full-projection)
             (select->cl ctx from ())
@@ -468,7 +474,7 @@
     (multiple-value-bind (src projection free-vars)
         (%ast->cl-with-free-vars ctx query)
       (declare (ignore projection))
-      (let* ((index-sym (cdr (assoc :index-sym ctx)))
+      (let* ((index-sym (fset:lookup ctx :index-sym))
              (index-key-sym (gensym))
              (index-key-form `(list ',(gensym) ,@free-vars)))
         `(let* ((,index-key-sym ,index-key-form))
@@ -533,37 +539,37 @@
 (defmethod sql->cl (ctx (type (eql :create-table)) &rest args)
   (destructuring-bind (table-name column-names)
       args
-    `(endb/sql/expr:sql-create-table ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name) ',(mapcar #'symbol-name column-names))))
+    `(endb/sql/expr:sql-create-table ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ',(mapcar #'symbol-name column-names))))
 
 (defmethod sql->cl (ctx (type (eql :create-index)) &rest args)
   (declare (ignore args))
-  `(endb/sql/expr:sql-create-index ,(cdr (assoc :db-sym ctx))))
+  `(endb/sql/expr:sql-create-index ,(fset:lookup ctx :db-sym)))
 
 (defmethod sql->cl (ctx (type (eql :drop-index)) &rest args)
   (declare (ignore args))
-  `(endb/sql/expr:sql-drop-index ,(cdr (assoc :db-sym ctx))))
+  `(endb/sql/expr:sql-drop-index ,(fset:lookup ctx :db-sym)))
 
 (defmethod sql->cl (ctx (type (eql :drop-table)) &rest args)
   (destructuring-bind (table-name &key if-exists)
       args
-    `(endb/sql/expr:sql-drop-table ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name) :if-exists ,(when if-exists
+    `(endb/sql/expr:sql-drop-table ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) :if-exists ,(when if-exists
                                                                                                       t))))
 
 (defmethod sql->cl (ctx (type (eql :create-view)) &rest args)
   (destructuring-bind (table-name query)
       args
-    `(endb/sql/expr:sql-create-view ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name) ',query)))
+    `(endb/sql/expr:sql-create-view ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ',query)))
 
 (defmethod sql->cl (ctx (type (eql :drop-view)) &rest args)
   (destructuring-bind (view-name &key if-exists)
       args
-    `(endb/sql/expr:sql-drop-view ,(cdr (assoc :db-sym ctx)) ,(symbol-name view-name)  :if-exists ,(when if-exists
+    `(endb/sql/expr:sql-drop-view ,(fset:lookup ctx :db-sym) ,(symbol-name view-name)  :if-exists ,(when if-exists
                                                                                                      t))))
 
 (defmethod sql->cl (ctx (type (eql :insert)) &rest args)
   (destructuring-bind (table-name values &key column-names)
       args
-    `(endb/sql/expr:sql-insert ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name) ,(ast->cl ctx values)
+    `(endb/sql/expr:sql-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx values)
                                :column-names ',(mapcar #'symbol-name column-names))))
 
 (defmethod sql->cl (ctx (type (eql :delete)) &rest args)
@@ -574,13 +580,13 @@
           (%base-table-or-view->cl ctx table-name)
         (let* ((scan-row-id-sym (gensym))
                (env-extension (%env-extension (symbol-name table-name) projection))
-               (ctx (cons (cons :scan-row-id-sym scan-row-id-sym)
-                          (append env-extension ctx)))
-               (vars (remove-duplicates (mapcar #'cdr env-extension)))
+               (ctx (fset:with (fset:map-union ctx env-extension) :scan-row-id-sym scan-row-id-sym ))
+               (vars (loop for p in projection
+                           collect (fset:lookup env-extension p)))
                (where-clauses (loop for clause in (%and-clauses where)
                                     collect (make-where-clause :src (ast->cl ctx clause)
                                                                :ast clause))))
-          `(endb/sql/expr:sql-delete ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name)
+          `(endb/sql/expr:sql-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name)
                                      ,(%table-scan->cl ctx vars projection from-src where-clauses `(collect ,scan-row-id-sym) t)))))))
 
 (defmethod sql->cl (ctx (type (eql :update)) &rest args)
@@ -591,9 +597,9 @@
           (%base-table-or-view->cl ctx table-name)
         (let* ((scan-row-id-sym (gensym))
                (env-extension (%env-extension (symbol-name table-name) projection))
-               (ctx (cons (cons :scan-row-id-sym scan-row-id-sym)
-                          (append env-extension ctx)))
-               (vars (remove-duplicates (mapcar #'cdr env-extension)))
+               (ctx (fset:with (fset:map-union ctx env-extension) :scan-row-id-sym scan-row-id-sym ))
+               (vars (loop for p in projection
+                           collect (fset:lookup env-extension p)))
                (where-clauses (loop for clause in (%and-clauses where)
                                     collect (make-where-clause :src (ast->cl ctx clause)
                                                                :ast clause)))
@@ -619,8 +625,8 @@
                                  `(do (push (list ,@update-select-list) ,updated-rows-sym)
                                       (push ,scan-row-id-sym ,deleted-row-ids-sym))
                                  t)
-               (endb/sql/expr:sql-delete ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name) ,deleted-row-ids-sym)
-               (endb/sql/expr:sql-insert ,(cdr (assoc :db-sym ctx)) ,(symbol-name table-name) ,updated-rows-sym))))))))
+               (endb/sql/expr:sql-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)
+               (endb/sql/expr:sql-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,updated-rows-sym))))))))
 
 (defmethod sql->cl (ctx (type (eql :in-query)) &rest args)
   (destructuring-bind (expr query)
@@ -637,8 +643,8 @@
              (index-key-sym (gensym))
              (index-key-form `(list ',(gensym) ,@free-vars)))
         `(let* ((,index-key-sym ,index-key-form)
-                (,index-table-sym (or (gethash ,index-key-sym ,(cdr (assoc :index-sym ctx)))
-                                      (loop with ,index-table-sym = (setf (gethash ,index-key-sym ,(cdr (assoc :index-sym ctx)))
+                (,index-table-sym (or (gethash ,index-key-sym ,(fset:lookup ctx :index-sym))
+                                      (loop with ,index-table-sym = (setf (gethash ,index-key-sym ,(fset:lookup ctx :index-sym))
                                                                           (make-hash-table :test 'equal))
                                             for (,in-var-sym) in ,src
                                             do (setf (gethash ,in-var-sym ,index-table-sym)
@@ -677,7 +683,7 @@
 (defmethod sql->cl (ctx (type (eql :aggregate-function)) &rest args)
   (destructuring-bind (fn args &key distinct)
       args
-    (let* ((aggregate-table (cdr (assoc :aggregate-table ctx)))
+    (let* ((aggregate-table (fset:lookup ctx :aggregate-table))
            (fn-sym (%find-sql-expr-symbol fn))
            (aggregate-sym (gensym))
            (init-src `(endb/sql/expr:make-sql-agg ,fn
@@ -729,28 +735,30 @@
               ast)
         (cons 'list (loop for ast in ast
                           collect (ast->cl ctx ast))))
-       ((assoc :quote ctx)
+       ((fset:lookup ctx :quote)
         (loop for ast in ast
               collect (ast->cl ctx ast)))
-       (t (let ((ctx (cons (cons :quote t) ctx)))
+       (t (let ((ctx (fset:with ctx :quote t)))
             (list 'quote (loop for ast in ast
                                collect (ast->cl ctx ast)))))))
     ((and (symbolp ast)
           (not (keywordp ast)))
-     (let ((symbol-var-pair (assoc (symbol-name ast) ctx :test 'equal)))
-       (dolist (cb (cdr (assoc :on-var-access ctx)))
-         (funcall cb symbol-var-pair))
-       (cdr symbol-var-pair)))
+     (let* ((k (symbol-name ast))
+            (v (fset:lookup ctx k)))
+       (dolist (cb (fset:lookup ctx :on-var-access))
+         (funcall cb k v))
+       v))
     (t ast)))
 
 (defun %ast->cl-with-free-vars (ctx ast)
   (let* ((vars ())
-         (ctx (cons (cons :on-var-access
-                          (cons (lambda (x)
-                                  (when (member x ctx)
-                                    (pushnew (cdr x) vars)))
-                                (cdr (assoc :on-var-access ctx))))
-                    ctx)))
+         (ctx (fset:with
+               ctx
+               :on-var-access
+               (cons (lambda (k v)
+                       (when (eq v (fset:lookup ctx k))
+                         (pushnew v vars)))
+                     (fset:lookup ctx :on-var-access)))))
     (multiple-value-bind (src projection)
         (ast->cl ctx ast)
       (values src projection vars))))
@@ -774,8 +782,8 @@
       (terpri))
     (let* ((db-sym (gensym))
            (index-sym (gensym))
-           (ctx (cons (cons :db-sym db-sym) ctx))
-           (ctx (cons (cons :index-sym index-sym) ctx)))
+           (ctx (fset:with ctx :db-sym db-sym))
+           (ctx (fset:with ctx :index-sym index-sym)))
       (multiple-value-bind (src projection)
           (ast->cl ctx ast)
         (when *verbose*

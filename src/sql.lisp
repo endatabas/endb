@@ -3,7 +3,8 @@
   (:export #:*query-timing* #:*lib-parser* #:create-db #:execute-sql)
   (:import-from :endb/sql/parser)
   (:import-from :endb/sql/compiler)
-  (:import-from :endb/lib/parser))
+  (:import-from :endb/lib/parser)
+  (:import-from :fset))
 (in-package :endb/sql)
 
 (defvar *query-timing* nil)
@@ -16,7 +17,7 @@
   (let* ((ast (if *lib-parser*
                   (endb/lib/parser:parse-sql sql)
                   (endb/sql/parser:parse-sql sql)))
-         (ctx (list (cons :db db)))
+         (ctx (fset:map (:db db)))
          (sql-fn (endb/sql/compiler:compile-sql ctx ast))
          (*print-length* 16))
     (funcall sql-fn db)))
