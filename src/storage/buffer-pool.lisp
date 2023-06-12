@@ -9,7 +9,7 @@
 (defgeneric buffer-pool-put (bp path arrays))
 (defgeneric buffer-pool-close (bp))
 
-(defstruct buffer-pool object-store (pool (make-hash-table :weakness :value :synchronized t)))
+(defstruct buffer-pool object-store (pool (make-hash-table :weakness :value :synchronized t :test 'equal)))
 
 (defmethod buffer-pool-get ((bp buffer-pool) path)
   (with-slots (object-store pool) bp
@@ -22,7 +22,7 @@
 (defmethod buffer-pool-close ((bp buffer-pool))
   (clrhash (buffer-pool-pool bp)))
 
-(defstruct writeable-buffer-pool parent-pool (pool (make-hash-table)))
+(defstruct writeable-buffer-pool parent-pool (pool (make-hash-table :test 'equal)))
 
 (defmethod buffer-pool-get ((bp writeable-buffer-pool) path)
   (with-slots (parent-pool pool) bp

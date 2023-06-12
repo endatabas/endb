@@ -1,6 +1,6 @@
 (defpackage :endb/storage/object-store
   (:use :cl)
-  (:export #:open-tar-object-store #:object-store-get #:object-store-put #:object-store-list #:object-store-close #:make-directory-object-store)
+  (:export #:open-tar-object-store #:object-store-get #:object-store-put #:object-store-list #:object-store-close #:make-directory-object-store #:make-memory-object-store)
   (:import-from :alexandria)
   (:import-from :archive)
   (:import-from :fast-io)
@@ -38,6 +38,8 @@
              (unless (zerop (file-position stream))
                (error e))))
       (file-position stream pos))))
+
+(defmethod object-store-put ((archive archive:tar-archive) path buffer))
 
 (defun %object-store-list-filter (files prefix start-after)
   (let ((prefix-scanner (ppcre:create-scanner (format nil "^~A" prefix))))
@@ -85,3 +87,18 @@
                                prefix start-after)))
 
 (defmethod object-store-close ((os directory-object-store)))
+
+(defun make-memory-object-store ()
+  (make-hash-table :synchronized t :test 'equal))
+
+(defmethod object-store-get ((os hash-table) path)
+  (gethash path os))
+
+(defmethod object-store-put ((os hash-table) path buffer)
+  (setf (gethash path os) buffer))
+
+(defmethod object-store-list  ((os hash-table) &key (prefix "") (start-after ""))
+  (%object-store-list-filter (alexandria:hash-table-keys os) prefix start-after))
+
+(defmethod object-store-close ((os hash-table))
+  (clrhash os))

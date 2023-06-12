@@ -43,7 +43,7 @@
     (format stream "(~D row~:P)~%~%" (length rows))))
 
 (defun %repl ()
-  (let ((db (endb/sql:create-db)))
+  (let ((db (endb/sql:make-db)))
     (loop
       (finish-output)
       (when (interactive-stream-p *standard-input*)

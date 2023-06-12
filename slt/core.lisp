@@ -150,7 +150,7 @@
      (ppConn (:pointer :pointer))
      (zOpt :string))
   (declare (ignorable NotUsed zCon ppConn zOpt))
-  (let* ((endb (endb/sql:create-db)))
+  (let* ((endb (endb/sql:make-db)))
     (setf (cffi:mem-ref ppConn :pointer) (cffi:null-pointer))
     (setf (gethash (cffi:pointer-address (cffi:null-pointer)) *connections*) endb)
     0))

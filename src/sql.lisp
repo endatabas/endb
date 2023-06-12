@@ -1,16 +1,26 @@
 (defpackage :endb/sql
   (:use :cl)
-  (:export #:*query-timing* #:*lib-parser* #:create-db #:execute-sql)
+  (:export #:*query-timing* #:*lib-parser* #:make-db #:execute-sql)
   (:import-from :endb/sql/parser)
   (:import-from :endb/sql/compiler)
   (:import-from :endb/lib/parser)
+  (:import-from :endb/storage/buffer-pool)
+  (:import-from :endb/storage/meta-data)
+  (:import-from :endb/storage/object-store)
+  (:import-from :endb/storage/wal)
   (:import-from :fset))
 (in-package :endb/sql)
 
 (defvar *query-timing* nil)
 (defvar *lib-parser* nil)
 
-(defun create-db ()
+;; (defstruct db
+;;   (wal (endb/storage/wal:make-memory-wal))
+;;   (object-store (endb/storage/object-store:make-memory-object-store))
+;;   (buffer-pool (endb/storage/buffer-pool:make-buffer-pool))
+;;   (meta-data (fset:empty-map)))
+
+(defun make-db ()
   (make-hash-table :test 'equal))
 
 (defun %execute-sql (db sql)

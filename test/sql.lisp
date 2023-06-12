@@ -6,8 +6,8 @@
 
 (in-suite* :all-tests)
 
-(test create-db-and-insert
-  (let ((db (create-db)))
+(test create-table-and-insert
+  (let ((db (make-db)))
     (multiple-value-bind (result result-code)
         (execute-sql db "CREATE TABLE t1(a INTEGER, b INTEGER, c INTEGER, d INTEGER, e INTEGER)")
       (is (null result))
@@ -52,7 +52,7 @@
       (is (null result-code)))))
 
 (test dml
-  (let ((db (create-db)))
+  (let ((db (make-db)))
     (multiple-value-bind (result result-code)
         (execute-sql db "CREATE TABLE t1(a INTEGER, b INTEGER)")
       (is (null result))
@@ -83,7 +83,7 @@
       (is (equal '((2 2)) (execute-sql db "SELECT * FROM t1 ORDER BY 2"))))))
 
 (test dql
-  (let ((db (create-db)))
+  (let ((db (make-db)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT 1 + 1")
@@ -246,7 +246,7 @@
 
 (defun expr (expr)
   (sqlite:with-open-database (sqlite ":memory:")
-    (let* ((endb (create-db))
+    (let* ((endb (make-db))
            (query (format nil "SELECT ~A" expr))
            (sqlite-result (sqlite:execute-single sqlite query))
            (endb-result (first (first (execute-sql endb query)))))

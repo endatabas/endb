@@ -1,6 +1,6 @@
 (defpackage :endb/storage/wal
   (:use :cl)
-  (:export #:open-tar-wal #:tar-wal-position-stream-at-end #:wal-append-entry #:wal-read-next-entry #:wal-find-entry #:wal-fsync #:wal-close)
+  (:export #:open-tar-wal #:tar-wal-position-stream-at-end #:wal-append-entry #:wal-read-next-entry #:wal-find-entry #:wal-fsync #:wal-close #:make-memory-wal)
   (:import-from :archive)
   (:import-from :fast-io)
   (:import-from :local-time))
@@ -62,6 +62,23 @@
 (defmethod wal-close ((archive archive:tar-archive))
   (archive:finalize-archive archive)
   (archive:close-archive archive))
+
+(defstruct memory-wal (wal (make-array 0 :fill-pointer 0)) (pos 0))
+
+(defmethod wal-append-entry ((wal memory-wal) path buffer)
+  (vector-push-extend (cons path buffer) (slot-value wal 'wal)))
+
+(defmethod wal-read-next-entry ((wal memory-wal) &key skip-if)
+  (unless (= (length (slot-value wal 'wal)) (slot-value wal 'pos))
+    (let ((entry (aref (slot-value wal 'wal) (slot-value wal 'pos))))
+      (incf (slot-value wal 'pos))
+      (if (and skip-if (funcall skip-if (car entry)))
+          (wal-read-next-entry wal :skip-if skip-if)
+          (cdr entry)))))
+
+(defmethod wal-fsync ((wal memory-wal)))
+
+(defmethod wal-close ((wal memory-wal)))
 
 ;; https://github.com/delta-io/delta/blob/master/PROTOCOL.md
 
