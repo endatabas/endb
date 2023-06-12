@@ -4,6 +4,7 @@
   (:import-from :local-time)
   (:import-from :endb/sql/parser)
   (:import-from :endb/arrow)
+  (:import-from :fset)
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-unary+ #:sql-unary-
@@ -12,6 +13,7 @@
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-like #:sql-substring #:sql-strftime
            #:make-sql-agg #:sql-agg-accumulate #:sql-agg-finish
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
+           #:make-db #:copy-db #:db-buffer-pool #:db-wal #:db-object-store #:db-meta-data
            #:base-table #:base-table-rows #:base-table-deleted-row-ids  #:base-table-columns #:base-table-visible-rows #:base-table-size #:base-table-meta
            #:sql-runtime-error))
 (in-package :endb/sql/expr)
@@ -817,10 +819,12 @@
 
 (defvar *default-schema* "main")
 
+(defstruct db wal object-store buffer-pool (meta-data (fset:map ("_last_tx" 0))) (legacy-db (make-hash-table :test 'equal)))
+
 (defstruct base-table rows deleted-row-ids)
 
 (defun base-table-meta (db table-name)
-  (gethash table-name db))
+  (gethash table-name (slot-value db 'legacy-db)))
 
 (defun base-table-visible-rows (db table-name)
   (let ((base-table (base-table-meta db table-name)))
@@ -858,21 +862,21 @@
       (let ((table (make-base-table :rows (endb/arrow:make-arrow-array-for
                                            (loop for c in (base-table-columns db "information_schema.columns")
                                                  collect (cons c :null))))))
-        (setf (gethash "information_schema.columns" db) table))))
+        (setf (gethash "information_schema.columns" (slot-value db 'legacy-db)) table))))
 
 (defun %get-or-create-information-schema-tables (db)
   (or (base-table-meta db "information_schema.tables")
       (let ((table (make-base-table :rows (endb/arrow:make-arrow-array-for
                                            (loop for c in (base-table-columns db "information_schema.tables")
                                                  collect (cons c :null))))))
-        (setf (gethash "information_schema.tables" db) table))))
+        (setf (gethash "information_schema.tables" (slot-value db 'legacy-db)) table))))
 
 (defun %get-or-create-information-schema-views (db)
   (or (base-table-meta db "information_schema.views")
       (let ((table (make-base-table :rows (endb/arrow:make-arrow-array-for
                                            (loop for c in (base-table-columns db "information_schema.views")
                                                  collect (cons c :null))))))
-        (setf (gethash "information_schema.views" db) table))))
+        (setf (gethash "information_schema.views" (slot-value db 'legacy-db)) table))))
 
 (defun sql-create-table (db table-name columns)
   (let* ((tables (%get-or-create-information-schema-tables db))
@@ -891,7 +895,7 @@
       (let ((table (make-base-table :rows (endb/arrow:make-arrow-array-for
                                            (loop for c in columns
                                                  collect (cons c :null))))))
-        (setf (gethash table-name db) table)
+        (setf (gethash table-name (slot-value db 'legacy-db)) table)
         (values nil t)))))
 
 (defun sql-drop-table (db table-name &key if-exists)

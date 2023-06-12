@@ -1,8 +1,11 @@
 (defpackage :endb/sql
   (:use :cl)
-  (:export #:*query-timing* #:*lib-parser* #:make-db #:execute-sql)
+  (:export #:*query-timing* #:*lib-parser* #:make-db #:begin-write-tx #:commit-write-tx #:execute-sql)
+  (:import-from :alexandria)
+  (:import-from :endb/sql/expr)
   (:import-from :endb/sql/parser)
   (:import-from :endb/sql/compiler)
+  (:import-from :endb/lib/arrow)
   (:import-from :endb/lib/parser)
   (:import-from :endb/storage/buffer-pool)
   (:import-from :endb/storage/meta-data)
@@ -14,14 +17,40 @@
 (defvar *query-timing* nil)
 (defvar *lib-parser* nil)
 
-;; (defstruct db
-;;   (wal (endb/storage/wal:make-memory-wal))
-;;   (object-store (endb/storage/object-store:make-memory-object-store))
-;;   (buffer-pool (endb/storage/buffer-pool:make-buffer-pool))
-;;   (meta-data (fset:empty-map)))
+(defun make-db (&key (wal (endb/storage/wal:make-memory-wal)) (object-store (endb/storage/object-store:make-memory-object-store)))
+  (let* ((buffer-pool (endb/storage/buffer-pool:make-buffer-pool :object-store object-store))
+         (db (endb/sql/expr:make-db :wal wal :object-store object-store :buffer-pool buffer-pool)))
+    (loop with entry = (endb/storage/wal:wal-read-next-entry wal :skip-if (lambda (x)
+                                                                            (not (alexandria:starts-with-subseq "_log/" x))))
+          while entry
+          do (setf (endb/sql/expr:db-meta-data db)
+                   (endb/storage/meta-data:meta-data-merge-patch (endb/sql/expr:db-meta-data db)
+                                                                 (endb/storage/meta-data:json->meta-data (cdr entry)))))
+    db))
 
-(defun make-db ()
-  (make-hash-table :test 'equal))
+(defun begin-write-tx (db)
+  (let* ((buffer-pool (endb/storage/buffer-pool:make-writeable-buffer-pool :parent-pool (endb/sql/expr:db-buffer-pool db)))
+         (tx-db (endb/sql/expr:copy-db db)))
+    (setf (endb/sql/expr:db-buffer-pool tx-db) buffer-pool)
+    tx-db))
+
+(defun commit-write-tx (db tx-db &key (fsync t))
+  (let* ((current-md (endb/sql/expr:db-meta-data db))
+         (tx-md (endb/sql/expr:db-meta-data tx-db))
+         (tx-id (1+ (or (fset:lookup tx-md "_last_tx") 0)))
+         (tx-md (fset:with tx-md "_last_tx" tx-id))
+         (md-diff (endb/storage/meta-data:meta-data-diff current-md tx-md))
+         (bp (endb/sql/expr:db-buffer-pool tx-db))
+         (wal (endb/sql/expr:db-wal tx-db)))
+    (loop for k being the hash-key
+            using (hash-value v)
+              of (endb/storage/buffer-pool:new-buffers bp)
+          do (endb/storage/wal:wal-append-entry wal k (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer v)))
+    (endb/storage/wal:wal-append-entry wal (format nil "_log/~16,'0X.json" tx-id) (endb/storage/meta-data:meta-data->json md-diff))
+    (when fsync
+      (endb/storage/wal:wal-fsync wal))
+    (setf (endb/sql/expr:db-meta-data db) (endb/storage/meta-data:meta-data-merge-patch current-md md-diff))
+    db))
 
 (defun %execute-sql (db sql)
   (let* ((ast (if *lib-parser*

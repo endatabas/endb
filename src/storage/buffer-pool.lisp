@@ -1,6 +1,6 @@
 (defpackage :endb/storage/buffer-pool
   (:use :cl)
-  (:export #:make-buffer-pool #:buffer-pool-get #:buffer-pool-put #:buffer-pool-close #:make-writeable-buffer-pool)
+  (:export #:make-buffer-pool #:buffer-pool-get #:buffer-pool-put #:buffer-pool-close #:make-writeable-buffer-pool #:new-buffers)
   (:import-from :endb/storage/object-store)
   (:import-from :endb/lib/arrow))
 (in-package :endb/storage/buffer-pool)
@@ -36,3 +36,6 @@
 
 (defmethod buffer-pool-close ((bp writeable-buffer-pool))
   (clrhash (writeable-buffer-pool-pool bp)))
+
+(defun new-buffers (bp)
+  (writeable-buffer-pool-pool bp))
