@@ -40,12 +40,15 @@
          (tx-id (1+ (or (fset:lookup tx-md "_last_tx") 0)))
          (tx-md (fset:with tx-md "_last_tx" tx-id))
          (md-diff (endb/storage/meta-data:meta-data-diff current-md tx-md))
+         (os (endb/sql/expr:db-object-store tx-db))
          (bp (endb/sql/expr:db-buffer-pool tx-db))
          (wal (endb/sql/expr:db-wal tx-db)))
     (loop for k being the hash-key
             using (hash-value v)
               of (endb/storage/buffer-pool:new-buffers bp)
-          do (endb/storage/wal:wal-append-entry wal k (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer v)))
+          for buffer = (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer v)
+          do (endb/storage/object-store:object-store-put os k buffer)
+             (endb/storage/wal:wal-append-entry wal k buffer))
     (endb/storage/wal:wal-append-entry wal (format nil "_log/~16,'0X.json" tx-id) (endb/storage/meta-data:meta-data->json md-diff))
     (when fsync
       (endb/storage/wal:wal-fsync wal))
