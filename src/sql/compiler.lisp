@@ -30,7 +30,7 @@
                  (t (list (%anonymous-column-name idx))))))
 
 (defun %table-type (ctx table)
-  (let ((tables (gethash "information_schema.tables" (fset:lookup ctx :db))))
+  (let ((tables (endb/sql/expr:base-table-meta (fset:lookup ctx :db) "information_schema.tables")))
     (let* ((table-row (find-if (lambda (row)
                                  (equal (symbol-name table) (cdr (assoc "table_name" row :test 'equal))))
                                (coerce (endb/sql/expr:base-table-rows tables) 'list)
@@ -46,12 +46,12 @@
         (db (fset:lookup ctx :db)))
     (cond
       ((equal "BASE TABLE" table-type)
-       (values `(gethash ,(symbol-name table) ,(fset:lookup ctx :db-sym))
+       (values `(endb/sql/expr:base-table-meta ,(fset:lookup ctx :db-sym) ,(symbol-name table))
                (endb/sql/expr:base-table-columns db (symbol-name table))
                ()
                (endb/sql/expr:base-table-size db (symbol-name table))))
       ((equal "VIEW" table-type)
-       (let* ((views (gethash "information_schema.views" db))
+       (let* ((views (endb/sql/expr:base-table-meta db "information_schema.views"))
               (view-row (find-if (lambda (row)
                                    (equal (symbol-name table) (cdr (assoc "table_name" row :test 'equal))))
                                  (coerce (endb/sql/expr:base-table-rows views) 'list)

@@ -12,7 +12,7 @@
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-like #:sql-substring #:sql-strftime
            #:make-sql-agg #:sql-agg-accumulate #:sql-agg-finish
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
-           #:base-table #:base-table-rows #:base-table-deleted-row-ids  #:base-table-columns #:base-table-visible-rows #:base-table-size
+           #:base-table #:base-table-rows #:base-table-deleted-row-ids  #:base-table-columns #:base-table-visible-rows #:base-table-size #:base-table-meta
            #:sql-runtime-error))
 (in-package :endb/sql/expr)
 
@@ -819,8 +819,11 @@
 
 (defstruct base-table rows deleted-row-ids)
 
+(defun base-table-meta (db table-name)
+  (gethash table-name db))
+
 (defun base-table-visible-rows (db table-name)
-  (let ((base-table (gethash table-name db)))
+  (let ((base-table (base-table-meta db table-name)))
     (when base-table
       (with-slots (deleted-row-ids rows) base-table
         (let ((deleted-row-ids-cache (make-hash-table)))
@@ -846,26 +849,26 @@
                                        (list (list 1 :asc) (list 2 :asc)))))))
 
 (defun base-table-size (db table-name)
-  (let ((base-table (gethash table-name db)))
+  (let ((base-table (base-table-meta db table-name)))
     (- (endb/arrow:arrow-length (base-table-rows base-table))
        (length (base-table-deleted-row-ids base-table)))))
 
 (defun %get-or-create-information-schema-columns (db)
-  (or (gethash "information_schema.columns" db)
+  (or (base-table-meta db "information_schema.columns")
       (let ((table (make-base-table :rows (endb/arrow:make-arrow-array-for
                                            (loop for c in (base-table-columns db "information_schema.columns")
                                                  collect (cons c :null))))))
         (setf (gethash "information_schema.columns" db) table))))
 
 (defun %get-or-create-information-schema-tables (db)
-  (or (gethash "information_schema.tables" db)
+  (or (base-table-meta db "information_schema.tables")
       (let ((table (make-base-table :rows (endb/arrow:make-arrow-array-for
                                            (loop for c in (base-table-columns db "information_schema.tables")
                                                  collect (cons c :null))))))
         (setf (gethash "information_schema.tables" db) table))))
 
 (defun %get-or-create-information-schema-views (db)
-  (or (gethash "information_schema.views" db)
+  (or (base-table-meta db "information_schema.views")
       (let ((table (make-base-table :rows (endb/arrow:make-arrow-array-for
                                            (loop for c in (base-table-columns db "information_schema.views")
                                                  collect (cons c :null))))))
@@ -931,7 +934,7 @@
                                      (equal "VIEW" (cdr (assoc "table_type" row :test 'equal)))))
                               (coerce (base-table-rows tables) 'list)
                               :from-end t))
-         (row-id (unless (find row-id (base-table-deleted-row-ids (gethash "information_schema.tables" db)))
+         (row-id (unless (find row-id (base-table-deleted-row-ids (base-table-meta db "information_schema.tables")))
                    row-id)))
     (when row-id
       (sql-delete db "information_schema.tables" (list row-id))
@@ -952,7 +955,7 @@
   (declare (ignore db)))
 
 (defun sql-insert (db table-name values &key column-names)
-  (let ((table (gethash table-name db)))
+  (let ((table (base-table-meta db table-name)))
     (when (typep table 'base-table)
       (with-slots (rows) table
         (let ((values (if column-names
@@ -967,7 +970,7 @@
           (values nil (length values)))))))
 
 (defun sql-delete (db table-name new-deleted-row-ids)
-  (let ((table (gethash table-name db)))
+  (let ((table (base-table-meta db table-name)))
     (when (typep table 'base-table)
       (with-slots (deleted-row-ids rows) table
         (unless deleted-row-ids
