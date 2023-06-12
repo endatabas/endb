@@ -52,8 +52,9 @@
     (endb/storage/wal:wal-append-entry wal (format nil "_log/~16,'0X.json" tx-id) (endb/storage/meta-data:meta-data->json md-diff))
     (when fsync
       (endb/storage/wal:wal-fsync wal))
-    (setf (endb/sql/expr:db-meta-data db) (endb/storage/meta-data:meta-data-merge-patch current-md md-diff))
-    db))
+    (let ((new-db (endb/sql/expr:copy-db db)))
+      (setf (endb/sql/expr:db-meta-data new-db) (endb/storage/meta-data:meta-data-merge-patch current-md md-diff))
+      new-db)))
 
 (defun %execute-sql (db sql)
   (let* ((ast (if *lib-parser*
