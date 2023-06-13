@@ -174,12 +174,16 @@
   (let ((endb (gethash (cffi:pointer-address pConn) *connections*)))
     (if endb
         (handler-case
-            (multiple-value-bind (result result-code)
-                (endb/sql:execute-sql endb zSql)
-              (declare (ignore result))
-              (if result-code
-                  0
-                  1))
+            (let ((write-db (endb/sql:begin-write-tx endb)))
+              (multiple-value-bind (result result-code)
+                  (endb/sql:execute-sql write-db zSql)
+                (declare (ignore result))
+                (if result-code
+                    (progn
+                      (setf (gethash (cffi:pointer-address pConn) *connections*)
+                            (endb/sql:commit-write-tx endb write-db))
+                      0)
+                    1)))
           (endb/sql/expr:sql-runtime-error (e)
             (declare (ignore e))
             1))

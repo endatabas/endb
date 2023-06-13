@@ -227,7 +227,7 @@
 (defun random-uuid (&optional (state *random-state*))
   (let ((high (dpb +random-uuid-version+ (byte 4 12) (random +random-uuid-part-max+ state)))
         (low (dpb +random-uuid-variant+ (byte 2 62) (random +random-uuid-part-max+ state))))
-    (format nil "~(~4,'0x~)~(~4,'0x~)-~(~4,'0x~)-~(~4,'0x~)-~(~4,'0x~)-~(~4,'0x~)~(~4,'0x~)~(~4,'0x~)"
+    (format nil "~(~4,'0x~4,'0x-~4,'0x-~4,'0x-~4,'0x-~4,'0x~4,'0x~4,'0x~)"
             (ldb (byte 16 48) high)
             (ldb (byte 16 32) high)
             (ldb (byte 16 16) high)

@@ -59,13 +59,16 @@
                        '(("\\q" "quits this session.")
                          ("help" "displays this help."))))
               ((equal "\\q" trimmed-line) (uiop:quit 0))
-              (t (multiple-value-bind (result result-code)
-                     (endb/sql:execute-sql db line)
-                   (cond
-                     (result (progn
-                               (%print-table result-code result t)))
-                     (result-code (format t "~A~%" result-code))
-                     (t (format *error-output* "error~%~%")))))))
+              (t (let ((write-db (endb/sql:begin-write-tx db)))
+                   (multiple-value-bind (result result-code)
+                       (endb/sql:execute-sql write-db line)
+                     (cond
+                       (result (progn
+                                 (%print-table result-code result t)))
+                       (result-code (progn
+                                      (setf db (endb/sql:commit-write-tx db write-db))
+                                      (format t "~A~%" result-code)))
+                       (t (format *error-output* "error~%~%"))))))))
         (end-of-file (e)
           (declare (ignore e))
           (if (interactive-stream-p *standard-input*)

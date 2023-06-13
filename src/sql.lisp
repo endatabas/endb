@@ -36,7 +36,7 @@
     tx-db))
 
 (defun %log-filename (tx-id)
-  (format nil "_log/~16,'0X.json" tx-id))
+  (format nil "_log/~(~16,'0x~).json" tx-id))
 
 (defun %write-new-buffers (tx-db)
   (let ((os (endb/sql/expr:db-object-store tx-db))
@@ -49,21 +49,23 @@
           do (endb/storage/object-store:object-store-put os k buffer)
              (endb/storage/wal:wal-append-entry wal k buffer))))
 
-(defun commit-write-tx (db tx-db &key (fsyncp t))
-  (let* ((current-md (endb/sql/expr:db-meta-data db))
-         (tx-md (endb/sql/expr:db-meta-data tx-db))
-         (tx-id (1+ (or (fset:lookup tx-md "_last_tx") 0)))
-         (tx-md (fset:with tx-md "_last_tx" tx-id))
-         (md-diff (endb/storage/meta-data:meta-data-diff current-md tx-md))
-         (wal (endb/sql/expr:db-wal tx-db)))
-    (%write-new-buffers tx-db)
-    (endb/storage/wal:wal-append-entry wal (%log-filename tx-id) (endb/storage/meta-data:meta-data->json md-diff))
-    (when fsyncp
-      (endb/storage/wal:wal-fsync wal))
-    (let ((new-db (endb/sql/expr:copy-db db))
-          (new-md (endb/storage/meta-data:meta-data-merge-patch current-md md-diff)))
-      (setf (endb/sql/expr:db-meta-data new-db) new-md)
-      new-db)))
+(defun commit-write-tx (current-db tx-db &key (fsyncp t))
+  (let ((current-md (endb/sql/expr:db-meta-data current-db))
+        (tx-md (endb/sql/expr:db-meta-data tx-db)))
+    (if (eq current-md tx-md)
+        current-db
+        (let* ((tx-id (1+ (or (fset:lookup tx-md "_last_tx") 0)))
+               (tx-md (fset:with tx-md "_last_tx" tx-id))
+               (md-diff (endb/storage/meta-data:meta-data-diff current-md tx-md))
+               (wal (endb/sql/expr:db-wal tx-db)))
+          (%write-new-buffers tx-db)
+          (endb/storage/wal:wal-append-entry wal (%log-filename tx-id) (endb/storage/meta-data:meta-data->json md-diff))
+          (when fsyncp
+            (endb/storage/wal:wal-fsync wal))
+          (let ((new-db (endb/sql/expr:copy-db current-db))
+                (new-md (endb/storage/meta-data:meta-data-merge-patch current-md md-diff)))
+            (setf (endb/sql/expr:db-meta-data new-db) new-md)
+            new-db)))))
 
 (defun %execute-sql (db sql)
   (let* ((ast (if *lib-parser*
