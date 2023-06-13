@@ -44,46 +44,48 @@
 
 (defun %repl ()
   (let ((db (endb/sql:make-db)))
-    (loop
-      (finish-output)
-      (when (interactive-stream-p *standard-input*)
-        (format t "-> ")
-        (finish-output))
-      (handler-case
-          (let* ((line (read-line))
-                 (trimmed-line (string-trim " " line)))
-            (cond
-              ((equal "" trimmed-line))
-              ((equal "help" trimmed-line)
-               (format t "~:{~8A ~A~%~}~%"
-                       '(("\\q" "quits this session.")
-                         ("help" "displays this help."))))
-              ((equal "\\q" trimmed-line) (uiop:quit 0))
-              (t (let ((write-db (endb/sql:begin-write-tx db)))
-                   (multiple-value-bind (result result-code)
-                       (endb/sql:execute-sql write-db line)
-                     (cond
-                       (result (progn
-                                 (%print-table result-code result t)))
-                       (result-code (progn
-                                      (setf db (endb/sql:commit-write-tx db write-db))
-                                      (format t "~A~%" result-code)))
-                       (t (format *error-output* "error~%~%"))))))))
-        (end-of-file (e)
-          (declare (ignore e))
-          (if (interactive-stream-p *standard-input*)
-              (progn
-                (format *error-output* "~%")
-                (uiop:quit 1))
-              (uiop:quit 0)))
-        #+sbcl (sb-sys:interactive-interrupt (e)
-                 (declare (ignore e))
-                 (format *error-output* "~%")
-                 (uiop:quit 1))
-        (error (e)
-          (format *error-output* "~A~%~%" e)
-          (unless (interactive-stream-p *standard-input*)
-            (uiop:quit 1)))))))
+    (unwind-protect
+         (loop
+           (finish-output)
+           (when (interactive-stream-p *standard-input*)
+             (format t "-> ")
+             (finish-output))
+           (handler-case
+               (let* ((line (read-line))
+                      (trimmed-line (string-trim " " line)))
+                 (cond
+                   ((equal "" trimmed-line))
+                   ((equal "help" trimmed-line)
+                    (format t "~:{~8A ~A~%~}~%"
+                            '(("\\q" "quits this session.")
+                              ("help" "displays this help."))))
+                   ((equal "\\q" trimmed-line) (uiop:quit 0))
+                   (t (let ((write-db (endb/sql:begin-write-tx db)))
+                        (multiple-value-bind (result result-code)
+                            (endb/sql:execute-sql write-db line)
+                          (cond
+                            (result (progn
+                                      (%print-table result-code result t)))
+                            (result-code (progn
+                                           (setf db (endb/sql:commit-write-tx db write-db))
+                                           (format t "~A~%" result-code)))
+                            (t (format *error-output* "error~%~%"))))))))
+             (end-of-file (e)
+               (declare (ignore e))
+               (if (interactive-stream-p *standard-input*)
+                   (progn
+                     (format *error-output* "~%")
+                     (uiop:quit 1))
+                   (uiop:quit 0)))
+             #+sbcl (sb-sys:interactive-interrupt (e)
+                      (declare (ignore e))
+                      (format *error-output* "~%")
+                      (uiop:quit 1))
+             (error (e)
+               (format *error-output* "~A~%~%" e)
+               (unless (interactive-stream-p *standard-input*)
+                 (uiop:quit 1)))))
+      (endb/sql:close-db db))))
 
 (defun %main (args)
   (declare (ignore args))

@@ -221,11 +221,13 @@
 
 (cffi:defcallback endbDisconnect :int
     ((pConn :pointer))
-  (if (gethash (cffi:pointer-address pConn) *connections*)
-      (progn
-        (remhash (cffi:pointer-address pConn) *connections*)
-        0)
-      1))
+  (let ((endb (gethash (cffi:pointer-address pConn) *connections*)))
+    (if endb
+        (progn
+          (endb/sql:close-db endb)
+          (remhash (cffi:pointer-address pConn) *connections*)
+          0)
+        1)))
 
 (cffi:define-foreign-library libsqllogictest
   (t (:default "libsqllogictest")))
