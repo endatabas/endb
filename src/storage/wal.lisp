@@ -13,7 +13,7 @@
 
 (defun open-tar-wal (&key (stream (make-instance 'fast-io:fast-output-stream)) (direction :output))
   (let ((archive (archive:open-archive 'archive:tar-archive stream :direction direction)))
-    (when (typep stream 'fast-io:fast-input-stream)
+    (when (input-stream-p stream)
       (setf (slot-value archive 'archive::skippable-p) t))
     archive))
 
@@ -72,9 +72,10 @@
   (unless (= (length (slot-value wal 'wal)) (slot-value wal 'pos))
     (let ((entry (aref (slot-value wal 'wal) (slot-value wal 'pos))))
       (incf (slot-value wal 'pos))
-      (if (and skip-if (funcall skip-if (car entry)))
-          (wal-read-next-entry wal :skip-if skip-if)
-          (cdr entry)))))
+      (values (when entry
+                (unless (and skip-if (funcall skip-if (car entry)))
+                  (cdr entry)))
+              (car entry)))))
 
 (defmethod wal-fsync ((wal memory-wal)))
 
