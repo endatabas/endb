@@ -4,13 +4,16 @@
   (:import-from :alexandria)
   (:import-from :archive)
   (:import-from :fast-io)
-  (:import-from :uiop))
+  (:import-from :uiop)
+  (:import-from :bordeaux-threads))
 (in-package :endb/storage/object-store)
 
 (defgeneric object-store-get (os path))
 (defgeneric object-store-put (os path buffer))
 (defgeneric object-store-list (os &key prefix start-after))
 (defgeneric object-store-close (os))
+
+(defvar *tar-object-store-lock* (bt:make-lock))
 
 (defun open-tar-object-store (&key (stream (make-instance 'fast-io:fast-input-stream)))
   (let ((archive (archive:open-archive 'archive:tar-archive stream)))
@@ -24,20 +27,21 @@
     (fast-io:finish-output-stream out)))
 
 (defmethod object-store-get ((archive archive:tar-archive) path)
-  (let* ((stream (archive::archive-stream archive))
-         (pos (file-position stream)))
-    (unwind-protect
-         (handler-case
-             (loop for entry = (archive:read-entry-from-archive archive)
-                   while entry
-                   if (equal path (archive:name entry))
-                     do (return (%extract-entry archive entry))
-                   else
-                     do (archive:discard-entry archive entry))
-           (error (e)
-             (unless (zerop (file-position stream))
-               (error e))))
-      (file-position stream pos))))
+  (bt:with-lock-held (*tar-object-store-lock*)
+    (let* ((stream (archive::archive-stream archive))
+           (pos (file-position stream)))
+      (unwind-protect
+           (handler-case
+               (loop for entry = (archive:read-entry-from-archive archive)
+                     while entry
+                     if (equal path (archive:name entry))
+                       do (return (%extract-entry archive entry))
+                     else
+                       do (archive:discard-entry archive entry))
+             (error (e)
+               (unless (zerop (file-position stream))
+                 (error e))))
+        (file-position stream pos)))))
 
 (defmethod object-store-put ((archive archive:tar-archive) path buffer))
 
@@ -48,21 +52,22 @@
             collect f)))
 
 (defmethod object-store-list ((archive archive:tar-archive) &key (prefix "") (start-after ""))
-  (let* ((stream (archive::archive-stream archive))
-         (pos (file-position stream)))
-    (unwind-protect
-         (handler-case
-             (%object-store-list-filter
-              (loop for entry = (archive:read-entry-from-archive archive)
-                    while entry
-                    do (archive:discard-entry archive entry)
-                    collect (archive:name entry))
-              prefix
-              start-after)
-           (error (e)
-             (unless (zerop (file-position stream))
-               (error e))))
-      (file-position stream pos))))
+  (bt:with-lock-held (*tar-object-store-lock*)
+    (let* ((stream (archive::archive-stream archive))
+           (pos (file-position stream)))
+      (unwind-protect
+           (handler-case
+               (%object-store-list-filter
+                (loop for entry = (archive:read-entry-from-archive archive)
+                      while entry
+                      do (archive:discard-entry archive entry)
+                      collect (archive:name entry))
+                prefix
+                start-after)
+             (error (e)
+               (unless (zerop (file-position stream))
+                 (error e))))
+        (file-position stream pos)))))
 
 (defmethod object-store-close ((archive archive:tar-archive))
   (archive:close-archive archive))
