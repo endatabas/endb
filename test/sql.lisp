@@ -7,7 +7,7 @@
 (in-suite* :all-tests)
 
 (test create-table-and-insert
-  (let ((db (make-db)))
+  (let ((db (begin-write-tx (make-db))))
     (multiple-value-bind (result result-code)
         (execute-sql db "CREATE TABLE t1(a INTEGER, b INTEGER, c INTEGER, d INTEGER, e INTEGER)")
       (is (null result))
@@ -52,7 +52,7 @@
       (is (null result-code)))))
 
 (test dml
-  (let ((db (make-db)))
+  (let ((db (begin-write-tx (make-db))))
     (multiple-value-bind (result result-code)
         (execute-sql db "CREATE TABLE t1(a INTEGER, b INTEGER)")
       (is (null result))
@@ -83,8 +83,7 @@
       (is (equal '((2 2)) (execute-sql db "SELECT * FROM t1 ORDER BY 2"))))))
 
 (test dql
-  (let ((db (make-db)))
-
+  (let ((db (begin-write-tx (make-db))))
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT 1 + 1")
       (is (equal '((2)) result))
