@@ -15,6 +15,7 @@
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
            #:make-db #:copy-db #:db-buffer-pool #:db-wal #:db-object-store #:db-meta-data
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:base-table-type #:base-table-columns #:base-table-visible-rows #:base-table-size #:base-table-meta
+           #:view-definition
            #:sql-runtime-error))
 (in-package :endb/sql/expr)
 
@@ -833,6 +834,16 @@
                                (coerce (base-table-rows tables) 'list)
                                :from-end t)))
       (cdr (assoc "table_type" table-row :test 'equal)))))
+
+(defun view-definition (db view-name)
+  (let* ((views (base-table-meta db "information_schema.views"))
+         (view-row (find-if (lambda (row)
+                              (equal view-name (cdr (assoc "table_name" row :test 'equal))))
+                            (coerce (base-table-rows views) 'list)
+                            :from-end t))
+         (*read-eval* nil)
+         (*read-default-float-format* 'double-float))
+    (read-from-string (cdr (assoc "view_definition" view-row :test 'equal)))))
 
 (defun base-table-visible-rows (db table-name)
   (let ((base-table (base-table-meta db table-name)))
