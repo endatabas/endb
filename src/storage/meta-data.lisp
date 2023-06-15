@@ -11,8 +11,7 @@
   (:import-from :endb/sql/expr)
   (:import-from :fset)
   (:import-from :qbase64)
-  (:import-from :cl-bloom)
-  (:import-from :cl-murmurhash))
+  (:import-from :cl-bloom))
 (in-package :endb/storage/meta-data)
 
 ;; https://www.w3.org/2001/sw/rdb2rdf/wiki/Mapping_SQL_datatypes_to_XML_Schema_datatypes
@@ -151,23 +150,6 @@
         :initial-value (fset:empty-map)))
       version-b))
 
-(defmethod murmurhash:murmurhash ((x endb/arrow:arrow-date-days) &key (seed murmurhash:*default-seed*) mix-only)
-  (murmurhash:murmurhash (endb/arrow:arrow-date-days-day x) :seed seed :mix-only  mix-only))
-
-(defmethod murmurhash:murmurhash ((x endb/arrow:arrow-timestamp-micros) &key (seed murmurhash:*default-seed*) mix-only)
-  (murmurhash:murmurhash (endb/arrow:arrow-timestamp-micros-us x) :seed seed :mix-only  mix-only))
-
-(defmethod murmurhash:murmurhash ((x endb/arrow:arrow-time-micros) &key (seed murmurhash:*default-seed*) mix-only)
-  (murmurhash:murmurhash (endb/arrow:arrow-time-micros-us x) :seed seed :mix-only  mix-only))
-
-(defmethod endb/sql/expr:sql-agg-accumulate ((agg cl-bloom::bloom-filter) x)
-  (cl-bloom:add agg x)
-  agg)
-
-(defmethod endb/sql/expr:sql-agg-finish ((agg cl-bloom::bloom-filter))
-  (cffi:with-pointer-to-vector-data (ptr (cl-bloom::filter-array agg))
-    (endb/lib/arrow:buffer-to-vector ptr (endb/lib/arrow:vector-byte-size (cl-bloom::filter-array agg)))))
-
 (defun binary-to-bloom (binary)
   (let ((bloom (make-instance 'cl-bloom::bloom-filter :order (* (length binary) 8))))
     (cffi:with-pointer-to-vector-data (ptr binary)
@@ -185,40 +167,7 @@
                    (logbitp bit-index (aref binary byte-index))))))
 
 (defun calculate-stats (arrays)
-  (let* ((total-length (reduce #'+ (mapcar #'endb/arrow:arrow-length arrays)))
-         (bloom-order (* 8 (endb/lib/arrow:vector-byte-size #* (cl-bloom::opt-order total-length)))))
-    (labels ((make-col-stats ()
-               (fset:map ("count_star" (endb/sql/expr:make-sql-agg :count-star))
-                         ("count" (endb/sql/expr:make-sql-agg :count))
-                         ("min" (endb/sql/expr:make-sql-agg :min))
-                         ("max" (endb/sql/expr:make-sql-agg :max))
-                         ("bloom" (make-instance 'cl-bloom::bloom-filter :order bloom-order))))
-             (calculate-col-stats (stats kv)
-               (destructuring-bind (k . v)
-                   kv
-                 (let ((col-stats (or (fset:lookup stats k) (make-col-stats))))
-                   (fset:with stats k (fset:image
-                                       (lambda (agg-k agg-v)
-                                         (values agg-k (endb/sql/expr:sql-agg-accumulate agg-v v)))
-                                       col-stats))))))
-      (let ((stats (reduce
-                    (lambda (stats array)
-                      (reduce
-                       (lambda (stats row)
-                         (if (typep row 'endb/arrow:arrow-struct)
-                             (reduce #'calculate-col-stats row :initial-value stats)
-                             stats))
-                       array
-                       :initial-value stats))
-                    arrays
-                    :initial-value (fset:empty-map))))
-        (fset:image
-         (lambda (k v)
-           (values k (fset:image
-                      (lambda (k v)
-                        (values k (endb/sql/expr:sql-agg-finish v)))
-                      v)))
-         stats)))))
+  (endb/sql/expr:calculate-stats arrays))
 
 (defconstant +random-uuid-part-max+ (ash 1 64))
 (defconstant +random-uuid-version+ 4)

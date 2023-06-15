@@ -4,6 +4,8 @@
   (:import-from :local-time)
   (:import-from :endb/sql/parser)
   (:import-from :endb/arrow)
+  (:import-from :endb/storage/buffer-pool)
+  (:import-from :cl-bloom)
   (:import-from :fset)
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
@@ -15,7 +17,7 @@
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
            #:make-db #:copy-db #:db-buffer-pool #:db-wal #:db-object-store #:db-meta-data
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:base-table-type #:base-table-columns #:base-table-visible-rows #:base-table-size #:base-table-meta
-           #:view-definition
+           #:view-definition #:calculate-stats
            #:sql-runtime-error))
 (in-package :endb/sql/expr)
 
@@ -977,20 +979,86 @@
 (defun sql-drop-index (db)
   (declare (ignore db)))
 
+(defmethod sql-agg-accumulate ((agg cl-bloom::bloom-filter) x)
+  (cl-bloom:add agg x)
+  agg)
+
+(defmethod sql-agg-finish ((agg cl-bloom::bloom-filter))
+  (cffi:with-pointer-to-vector-data (ptr (cl-bloom::filter-array agg))
+    (endb/lib/arrow:buffer-to-vector ptr (endb/lib/arrow:vector-byte-size (cl-bloom::filter-array agg)))))
+
+(defun calculate-stats (arrays)
+  (let* ((total-length (reduce #'+ (mapcar #'endb/arrow:arrow-length arrays)))
+         (bloom-order (* 8 (endb/lib/arrow:vector-byte-size #* (cl-bloom::opt-order total-length)))))
+    (labels ((make-col-stats ()
+               (fset:map ("count_star" (make-sql-agg :count-star))
+                         ("count" (make-sql-agg :count))
+                         ("min" (make-sql-agg :min))
+                         ("max" (make-sql-agg :max))
+                         ("bloom" (make-instance 'cl-bloom::bloom-filter :order bloom-order))))
+             (calculate-col-stats (stats kv)
+               (destructuring-bind (k . v)
+                   kv
+                 (let ((col-stats (or (fset:lookup stats k) (make-col-stats))))
+                   (fset:with stats k (fset:image
+                                       (lambda (agg-k agg-v)
+                                         (values agg-k (sql-agg-accumulate agg-v v)))
+                                       col-stats))))))
+      (let ((stats (reduce
+                    (lambda (stats array)
+                      (reduce
+                       (lambda (stats row)
+                         (if (typep row 'endb/arrow:arrow-struct)
+                             (reduce #'calculate-col-stats row :initial-value stats)
+                             stats))
+                       array
+                       :initial-value stats))
+                    arrays
+                    :initial-value (fset:empty-map))))
+        (fset:image
+         (lambda (k v)
+           (values k (fset:image
+                      (lambda (k v)
+                        (values k (sql-agg-finish v)))
+                      v)))
+         stats)))))
+
 (defun sql-insert (db table-name values &key column-names)
   (let ((table (base-table-meta db table-name)))
     (when (typep table 'base-table)
       (with-slots (rows) table
-        (let ((values (if column-names
-                          (loop with idxs = (loop for column in (base-table-columns db table-name)
-                                                  collect (position column column-names :test 'equal))
-                                for row in values
-                                collect (loop for idx in idxs
-                                              collect (nth idx row)))
-                          values)))
-          (dolist (row values)
-            (endb/arrow:arrow-struct-row-push rows row))
-          (values nil (length values)))))))
+        (with-slots (buffer-pool meta-data) db
+          (let* ((columns (base-table-columns db table-name))
+                 (values (if column-names
+                             (loop with idxs = (loop for column in columns
+                                                     collect (position column column-names :test 'equal))
+                                   for row in values
+                                   collect (loop for idx in idxs
+                                                 collect (nth idx row)))
+                             values))
+                 (tx-id (1+ (or (fset:lookup meta-data "_last_tx") 0)))
+                 (batch-file (format nil "~(~16,'0x~).arrow" tx-id))
+                 (batch-key (format nil "~A/~A" table-name batch-file))
+                 (batch (or (car (endb/storage/buffer-pool:buffer-pool-get buffer-pool batch-key))
+                            (endb/arrow:make-arrow-array-for
+                             (loop for c in columns
+                                   collect (cons c :null))))))
+            (dolist (row values)
+              (endb/arrow:arrow-struct-row-push rows row)
+              (endb/arrow:arrow-struct-row-push batch row))
+
+            (endb/storage/buffer-pool:buffer-pool-put buffer-pool batch-key (list batch))
+
+            (let* ((table-md (or (fset:lookup meta-data table-name)
+                                 (fset:empty-map)))
+                   (batch-md (fset:map-union (or (fset:lookup table-md batch-file)
+                                                 (fset:empty-map))
+                                             (fset:map
+                                              ("length" (endb/arrow:arrow-length batch))
+                                              ("stats" (calculate-stats (list batch)))))))
+              (setf meta-data (fset:with meta-data table-name (fset:with table-md batch-file batch-md))))
+
+            (values nil (length values))))))))
 
 (defun sql-delete (db table-name new-deleted-row-ids)
   (let ((table (base-table-meta db table-name)))

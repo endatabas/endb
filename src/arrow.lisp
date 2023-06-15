@@ -11,6 +11,7 @@
            #:arrow-array #:validity-array #:null-array #:int32-array #:int64-array #:float64-array
            #:date-days-array #:timestamp-micros-array #:time-micros-array #:binary-array #:utf8-array #:list-array #:struct-array #:dense-union-array)
   (:import-from :cl-ppcre)
+  (:import-from :cl-murmurhash)
   (:import-from :local-time)
   (:import-from :trivial-utf-8))
 (in-package :endb/arrow)
@@ -22,6 +23,9 @@
 (deftype float64 () 'double-float)
 
 (defstruct arrow-timestamp-micros (us 0 :type int64))
+
+(defmethod murmurhash:murmurhash ((x endb/arrow:arrow-timestamp-micros) &key (seed murmurhash:*default-seed*) mix-only)
+  (murmurhash:murmurhash (endb/arrow:arrow-timestamp-micros-us x) :seed seed :mix-only mix-only))
 
 (defun %timestamp-to-micros (x)
   (let* ((sec (local-time:timestamp-to-unix x))
@@ -50,6 +54,9 @@
 
 (defstruct arrow-date-days (day 0 :type int32))
 
+(defmethod murmurhash:murmurhash ((x endb/arrow:arrow-date-days) &key (seed murmurhash:*default-seed*) mix-only)
+  (murmurhash:murmurhash (endb/arrow:arrow-date-days-day x) :seed seed :mix-only mix-only))
+
 (defun %epoch-day-to-timestamp (day)
   (local-time:make-timestamp :day (- day +offset-from-epoch-day+)))
 
@@ -68,6 +75,9 @@
     (make-arrow-date-days :day (+ (local-time:day-of date) +offset-from-epoch-day+))))
 
 (defstruct arrow-time-micros (us 0 :type int64))
+
+(defmethod murmurhash:murmurhash ((x endb/arrow:arrow-time-micros) &key (seed murmurhash:*default-seed*) mix-only)
+  (murmurhash:murmurhash (endb/arrow:arrow-time-micros-us x) :seed seed :mix-only mix-only))
 
 (defun %time-to-micros (x)
   (let* ((sec (local-time:sec-of x))
