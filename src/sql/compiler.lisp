@@ -151,18 +151,18 @@
                            collect (cons v `(endb/arrow:arrow-get ,c ,row-id-sym))))
                (where-src (%replace-all smap where-src))
                (nested-src (%replace-all smap nested-src)))
-          `(let* ((,base-table-sym ,from-src)
-                  (,table-sym (endb/sql/expr:base-table-rows ,base-table-sym))
-                  (,deleted-row-ids-sym (endb/sql/expr:base-table-deleted-row-ids ,base-table-sym))
-                  (,children-sym (endb/arrow:arrow-struct-children ,table-sym ',projection))
-                  ,@(loop for c in col-syms
-                          for idx from 0
-                          collect (list c `(nth ,idx ,children-sym))))
-             (declare (ignorable ,@col-syms))
-             (loop for ,row-id-sym of-type fixnum below (endb/arrow:arrow-length ,table-sym)
-                   unless (find ,row-id-sym ,deleted-row-ids-sym)
-                     ,@where-src
-                   ,@nested-src)))
+          `(loop with ,base-table-sym = ,from-src
+                 for ,table-sym in (list (endb/sql/expr:base-table-rows ,base-table-sym))
+                 for ,deleted-row-ids-sym = (endb/sql/expr:base-table-deleted-row-ids ,base-table-sym)
+                 for ,children-sym = (endb/arrow:arrow-struct-children ,table-sym ',projection)
+                 do (let* (,@(loop for c in col-syms
+                                   for idx from 0
+                                   collect (list c `(nth ,idx ,children-sym))))
+                      (declare (ignorable ,@col-syms))
+                      (loop for ,row-id-sym of-type fixnum below (endb/arrow:arrow-length ,table-sym)
+                            unless (find ,row-id-sym ,deleted-row-ids-sym)
+                              ,@where-src
+                            ,@nested-src))))
         `(loop for ,(%unique-vars vars)
                  in ,from-src
                ,@where-src
@@ -199,9 +199,9 @@
                                             src
                                             scan-where-clauses
                                             `(do (push (list ,@vars)
-                                                       (gethash (list ,@out-vars) ,index-table-sym))
-                                                 finally (return ,index-table-sym))
-                                            (from-table-base-table-p from-table))))))))))
+                                                       (gethash (list ,@out-vars) ,index-table-sym)))
+                                            (from-table-base-table-p from-table))
+                          ,index-table-sym))))))))
 
 (defun %selection-with-limit-offset->cl (ctx selected-src &optional limit offset)
   (let ((acc-sym (fset:lookup ctx :acc-sym)))
@@ -569,9 +569,13 @@
                            collect (fset:lookup env-extension p)))
                (where-clauses (loop for clause in (%and-clauses where)
                                     collect (make-where-clause :src (ast->cl ctx clause)
-                                                               :ast clause))))
-          `(endb/sql/expr:sql-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name)
-                                     ,(%table-scan->cl ctx vars projection from-src where-clauses `(collect ,scan-row-id-sym) t)))))))
+                                                               :ast clause)))
+               (deleted-row-ids-sym (gensym)))
+          `(let ((,deleted-row-ids-sym))
+             ,(%table-scan->cl ctx vars projection from-src where-clauses
+                               `(do (push ,scan-row-id-sym ,deleted-row-ids-sym))
+                               t)
+             (endb/sql/expr:sql-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)))))))
 
 (defmethod sql->cl (ctx (type (eql :update)) &rest args)
   (destructuring-bind (table-name update-cols &key (where :true))
