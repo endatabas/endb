@@ -29,20 +29,12 @@
                  ((symbolp expr) (list (%unqualified-column-name (symbol-name expr))))
                  (t (list (%anonymous-column-name idx))))))
 
-(defun %table-type (ctx table)
-  (let ((tables (endb/sql/expr:base-table-meta (fset:lookup ctx :db) "information_schema.tables")))
-    (let* ((table-row (find-if (lambda (row)
-                                 (equal (symbol-name table) (cdr (assoc "table_name" row :test 'equal))))
-                               (coerce (endb/sql/expr:base-table-rows tables) 'list)
-                               :from-end t)))
-      (cdr (assoc "table_type" table-row :test 'equal)))))
-
 (defun %base-table-p (ctx table)
   (and (symbolp table)
-       (equal "BASE TABLE" (%table-type ctx table))))
+       (equal "BASE TABLE" (endb/sql/expr:base-table-type (fset:lookup ctx :db) (symbol-name table)))))
 
 (defun %base-table-or-view->cl (ctx table)
-  (let ((table-type (%table-type ctx table))
+  (let ((table-type (endb/sql/expr:base-table-type (fset:lookup ctx :db) (symbol-name table)))
         (db (fset:lookup ctx :db)))
     (cond
       ((equal "BASE TABLE" table-type)
