@@ -829,24 +829,6 @@
 (defun base-table-meta (db table-name)
   (gethash table-name (slot-value db 'legacy-db)))
 
-(defun base-table-type (db table-name)
-  (let ((tables (base-table-meta db "information_schema.tables")))
-    (let* ((table-row (find-if (lambda (row)
-                                 (equal table-name (cdr (assoc "table_name" row :test 'equal))))
-                               (coerce (base-table-rows tables) 'list)
-                               :from-end t)))
-      (cdr (assoc "table_type" table-row :test 'equal)))))
-
-(defun view-definition (db view-name)
-  (let* ((views (base-table-meta db "information_schema.views"))
-         (view-row (find-if (lambda (row)
-                              (equal view-name (cdr (assoc "table_name" row :test 'equal))))
-                            (coerce (base-table-rows views) 'list)
-                            :from-end t))
-         (*read-eval* nil)
-         (*read-default-float-format* 'double-float))
-    (read-from-string (cdr (assoc "view_definition" view-row :test 'equal)))))
-
 (defun base-table-visible-rows (db table-name)
   (let ((base-table (base-table-meta db table-name)))
     (when base-table
@@ -858,6 +840,20 @@
           (loop for row-id below (endb/arrow:arrow-length rows)
                 unless (gethash row-id deleted-row-ids-cache)
                   collect (endb/arrow:arrow-struct-row-get rows row-id)))))))
+
+(defun base-table-type (db table-name)
+  (let* ((table-row (find-if (lambda (row)
+                               (equal table-name (nth 2 row)))
+                             (base-table-visible-rows db "information_schema.tables"))))
+    (nth 3 table-row)))
+
+(defun view-definition (db view-name)
+  (let* ((view-row (find-if (lambda (row)
+                              (equal view-name (nth 2 row)))
+                            (base-table-visible-rows db "information_schema.views")))
+         (*read-eval* nil)
+         (*read-default-float-format* 'double-float))
+    (read-from-string (nth 3 view-row))))
 
 (defun base-table-columns (db table-name)
   (cond
@@ -1064,7 +1060,7 @@
 (defun sql-delete (db table-name new-deleted-row-ids)
   (let ((table (base-table-meta db table-name)))
     (when (typep table 'base-table)
-      (with-slots (deleted-row-ids rows) table
+      (with-slots (deleted-row-ids) table
         (unless deleted-row-ids
           (setf deleted-row-ids (make-instance 'endb/arrow:int64-array)))
         (dolist (row-id new-deleted-row-ids)
