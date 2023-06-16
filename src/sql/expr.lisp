@@ -829,7 +829,7 @@
 (defun base-table-meta (db table-name)
   (gethash table-name (slot-value db 'legacy-db)))
 
-(defun base-table-visible-rows (db table-name)
+(defun base-table-visible-rows (db table-name &key row-id-p)
   (with-slots (meta-data buffer-pool) db
     (let ((table-md (fset:lookup meta-data table-name)))
       (when table-md
@@ -845,7 +845,9 @@
                                append (loop for row-id from total-row-id
                                             for idx below (endb/arrow:arrow-length batch)
                                             unless (gethash row-id deleted-row-ids-cache)
-                                              collect (endb/arrow:arrow-struct-row-get batch idx)
+                                              collect (if row-id-p
+                                                          (cons row-id (endb/arrow:arrow-struct-row-get batch idx))
+                                                          (endb/arrow:arrow-struct-row-get batch idx))
                                             finally (setf total-row-id row-id))))))))))
 
 (defun base-table-type (db table-name)
@@ -909,19 +911,16 @@
         (setf (gethash "information_schema.views" (slot-value db 'legacy-db)) table))))
 
 (defun %find-row-id (db table-name predicate)
-  (let* ((table (base-table-meta db table-name))
-         (row-id (position-if predicate
-                              (coerce (base-table-rows table) 'list)
-                              :from-end t)))
-    (unless (find row-id (base-table-deleted-row-ids table))
-      row-id)))
+  (loop for (row-id . row) in (base-table-visible-rows db table-name :row-id-p t)
+        when (funcall predicate row)
+          do (return row-id)))
 
 (defun sql-create-table (db table-name columns)
   (%get-or-create-information-schema-tables db)
   (unless (%find-row-id db
                         "information_schema.tables"
                         (lambda (row)
-                          (equal table-name (cdr (assoc "table_name" row :test 'equal)))))
+                          (equal table-name (nth 2 row))))
     (sql-insert db "information_schema.tables" (list (list :null *default-schema* table-name "BASE TABLE")))
     (%get-or-create-information-schema-columns db)
     (sql-insert db "information_schema.columns" (loop for c in columns
@@ -938,8 +937,7 @@
   (let* ((row-id (%find-row-id db
                                "information_schema.tables"
                                (lambda (row)
-                                 (and (equal table-name (cdr (assoc "table_name" row :test 'equal)))
-                                      (equal "BASE TABLE" (cdr (assoc "table_type" row :test 'equal))))))))
+                                 (and (equal table-name (nth 2 row)) (equal "BASE TABLE" (nth 3 row)))))))
     (when row-id
       (sql-delete db "information_schema.tables" (list row-id))
       (%get-or-create-information-schema-columns db)
@@ -947,9 +945,7 @@
                                                         collect (%find-row-id db
                                                                               "information_schema.columns"
                                                                               (lambda (row)
-                                                                                (and
-                                                                                 (equal table-name (cdr (assoc "table_name" row :test 'equal)))
-                                                                                 (equal c (cdr (assoc "column_name" row :test 'equal)))))))))
+                                                                                (and (equal table-name (nth 2 row)) (equal c (nth 3 row))))))))
     (when (or row-id if-exists)
       (values nil t))))
 
@@ -958,7 +954,7 @@
   (unless (%find-row-id db
                         "information_schema.tables"
                         (lambda (row)
-                          (equal view-name (cdr (assoc "table_name" row :test 'equal)))))
+                          (equal view-name (nth 2 row))))
     (sql-insert db "information_schema.tables" (list (list :null *default-schema* view-name "VIEW")))
     (%get-or-create-information-schema-views db)
     (sql-insert db "information_schema.views" (list (list :null *default-schema* view-name (prin1-to-string query))))
@@ -969,15 +965,14 @@
   (let* ((row-id (%find-row-id db
                                "information_schema.tables"
                                (lambda (row)
-                                 (and (equal view-name (cdr (assoc "table_name" row :test 'equal)))
-                                      (equal "VIEW" (cdr (assoc "table_type" row :test 'equal))))))))
+                                 (and (equal view-name (nth 2 row)) (equal "VIEW" (nth 3 row)))))))
     (when row-id
       (sql-delete db "information_schema.tables" (list row-id))
       (%get-or-create-information-schema-views db)
       (let* ((row-id (%find-row-id db
                                    "information_schema.views"
                                    (lambda (row)
-                                     (equal view-name (cdr (assoc "table_name" row :test 'equal)))))))
+                                     (equal view-name (nth 2 row))))))
         (sql-delete db "information_schema.views" (list row-id))))
     (when (or row-id if-exists)
       (values nil t))))
