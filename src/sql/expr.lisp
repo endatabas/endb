@@ -830,16 +830,23 @@
   (gethash table-name (slot-value db 'legacy-db)))
 
 (defun base-table-visible-rows (db table-name)
-  (let ((base-table (base-table-meta db table-name)))
-    (when base-table
-      (with-slots (deleted-row-ids rows) base-table
-        (let ((deleted-row-ids-cache (make-hash-table)))
-          (when deleted-row-ids
-            (dotimes (n (endb/arrow:arrow-length deleted-row-ids))
-              (setf (gethash (endb/arrow:arrow-get deleted-row-ids n) deleted-row-ids-cache) t)))
-          (loop for row-id below (endb/arrow:arrow-length rows)
-                unless (gethash row-id deleted-row-ids-cache)
-                  collect (endb/arrow:arrow-struct-row-get rows row-id)))))))
+  (with-slots (meta-data buffer-pool) db
+    (let ((table-md (fset:lookup meta-data table-name)))
+      (when table-md
+        (with-slots (deleted-row-ids) (base-table-meta db table-name)
+          (let ((deleted-row-ids-cache (make-hash-table)))
+            (when deleted-row-ids
+              (dotimes (n (endb/arrow:arrow-length deleted-row-ids))
+                (setf (gethash (endb/arrow:arrow-get deleted-row-ids n) deleted-row-ids-cache) t)))
+            (loop with total-row-id = 0
+                  for batch-file in (fset:convert 'list (fset:domain table-md))
+                  for batch-key = (format nil "~A/~A" table-name batch-file)
+                  append (loop for batch in (endb/storage/buffer-pool:buffer-pool-get buffer-pool batch-key)
+                               append (loop for row-id from total-row-id
+                                            for idx below (endb/arrow:arrow-length batch)
+                                            unless (gethash row-id deleted-row-ids-cache)
+                                              collect (endb/arrow:arrow-struct-row-get batch idx)
+                                            finally (setf total-row-id row-id))))))))))
 
 (defun base-table-type (db table-name)
   (let* ((table-row (find-if (lambda (row)
@@ -870,9 +877,15 @@
                                        (list (list 1 :asc) (list 2 :asc)))))))
 
 (defun base-table-size (db table-name)
-  (let ((base-table (base-table-meta db table-name)))
-    (- (endb/arrow:arrow-length (base-table-rows base-table))
-       (length (base-table-deleted-row-ids base-table)))))
+  (with-slots (meta-data) db
+    (let ((table-md (fset:lookup meta-data table-name)))
+      (if table-md
+          (- (fset:reduce (lambda (acc md)
+                            (+ acc (fset:lookup md "length")))
+                          (fset:range table-md)
+                          :initial-value 0)
+             (length (base-table-deleted-row-ids (base-table-meta db table-name))))
+          0))))
 
 (defun %get-or-create-information-schema-columns (db)
   (or (base-table-meta db "information_schema.columns")
