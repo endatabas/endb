@@ -899,75 +899,76 @@
                                                  collect (cons c :null))))))
         (setf (gethash "information_schema.views" (slot-value db 'legacy-db)) table))))
 
+(defun %find-row-id (db table-name predicate)
+  (let* ((table (base-table-meta db table-name))
+         (row-id (position-if predicate
+                              (coerce (base-table-rows table) 'list)
+                              :from-end t)))
+    (unless (find row-id (base-table-deleted-row-ids table))
+      row-id)))
+
 (defun sql-create-table (db table-name columns)
-  (let* ((tables (%get-or-create-information-schema-tables db))
-         (row-id (position-if (lambda (row)
-                                (equal table-name (cdr (assoc "table_name" row :test 'equal))))
-                              (coerce (base-table-rows tables) 'list)
-                              :from-end t))
-         (row-id (unless (find row-id (base-table-deleted-row-ids tables))
-                   row-id)))
-    (unless row-id
-      (sql-insert db "information_schema.tables" (list (list :null *default-schema* table-name "BASE TABLE")))
-      (%get-or-create-information-schema-columns db)
-      (sql-insert db "information_schema.columns" (loop for c in columns
-                                                        for idx from 1
-                                                        collect  (list :null *default-schema* table-name c idx)))
-      (let ((table (make-base-table :rows (endb/arrow:make-arrow-array-for
-                                           (loop for c in columns
-                                                 collect (cons c :null))))))
-        (setf (gethash table-name (slot-value db 'legacy-db)) table)
-        (values nil t)))))
+  (%get-or-create-information-schema-tables db)
+  (unless (%find-row-id db
+                        "information_schema.tables"
+                        (lambda (row)
+                          (equal table-name (cdr (assoc "table_name" row :test 'equal)))))
+    (sql-insert db "information_schema.tables" (list (list :null *default-schema* table-name "BASE TABLE")))
+    (%get-or-create-information-schema-columns db)
+    (sql-insert db "information_schema.columns" (loop for c in columns
+                                                      for idx from 1
+                                                      collect  (list :null *default-schema* table-name c idx)))
+    (let ((table (make-base-table :rows (endb/arrow:make-arrow-array-for
+                                         (loop for c in columns
+                                               collect (cons c :null))))))
+      (setf (gethash table-name (slot-value db 'legacy-db)) table)
+      (values nil t))))
 
 (defun sql-drop-table (db table-name &key if-exists)
-  (let* ((tables (%get-or-create-information-schema-tables db))
-         (row-id (position-if (lambda (row)
-                                (and (equal table-name (cdr (assoc "table_name" row :test 'equal)))
-                                     (equal "BASE TABLE" (cdr (assoc "table_type" row :test 'equal)))))
-                              (coerce (base-table-rows tables) 'list)
-                              :from-end t))
-         (row-id (unless (find row-id (base-table-deleted-row-ids tables))
-                   row-id)))
+  (%get-or-create-information-schema-tables db)
+  (let* ((row-id (%find-row-id db
+                               "information_schema.tables"
+                               (lambda (row)
+                                 (and (equal table-name (cdr (assoc "table_name" row :test 'equal)))
+                                      (equal "BASE TABLE" (cdr (assoc "table_type" row :test 'equal))))))))
     (when row-id
       (sql-delete db "information_schema.tables" (list row-id))
-      (let ((columns (%get-or-create-information-schema-columns db)))
-        (sql-delete db "information_schema.columns" (loop for row in (coerce (base-table-rows columns) 'list)
-                                                          for row-id from 0
-                                                          when (equal table-name (cdr (assoc "table_name" row :test 'equal)))
-                                                            collect row-id))))
+      (%get-or-create-information-schema-columns db)
+      (sql-delete db "information_schema.columns" (loop for c in (base-table-columns db table-name)
+                                                        collect (%find-row-id db
+                                                                              "information_schema.columns"
+                                                                              (lambda (row)
+                                                                                (and
+                                                                                 (equal table-name (cdr (assoc "table_name" row :test 'equal)))
+                                                                                 (equal c (cdr (assoc "column_name" row :test 'equal)))))))))
     (when (or row-id if-exists)
       (values nil t))))
 
 (defun sql-create-view (db view-name query)
-  (let* ((tables (%get-or-create-information-schema-tables db))
-         (row-id (position-if (lambda (row)
-                                (equal view-name (cdr (assoc "table_name" row :test 'equal))))
-                              (coerce (base-table-rows tables) 'list)
-                              :from-end t))
-         (row-id (unless (find row-id (base-table-deleted-row-ids tables))
-                   row-id)))
-    (unless row-id
-      (sql-insert db "information_schema.tables" (list (list :null *default-schema* view-name "VIEW")))
-      (%get-or-create-information-schema-views db)
-      (sql-insert db "information_schema.views" (list (list :null *default-schema* view-name (prin1-to-string query))))
-      (values nil t))))
+  (%get-or-create-information-schema-tables db)
+  (unless (%find-row-id db
+                        "information_schema.tables"
+                        (lambda (row)
+                          (equal view-name (cdr (assoc "table_name" row :test 'equal)))))
+    (sql-insert db "information_schema.tables" (list (list :null *default-schema* view-name "VIEW")))
+    (%get-or-create-information-schema-views db)
+    (sql-insert db "information_schema.views" (list (list :null *default-schema* view-name (prin1-to-string query))))
+    (values nil t)))
 
 (defun sql-drop-view (db view-name &key if-exists)
-  (let* ((tables (%get-or-create-information-schema-tables db))
-         (row-id (position-if (lambda (row)
-                                (and (equal view-name (cdr (assoc "table_name" row :test 'equal)))
-                                     (equal "VIEW" (cdr (assoc "table_type" row :test 'equal)))))
-                              (coerce (base-table-rows tables) 'list)
-                              :from-end t))
-         (row-id (unless (find row-id (base-table-deleted-row-ids (base-table-meta db "information_schema.tables")))
-                   row-id)))
+  (%get-or-create-information-schema-tables db)
+  (let* ((row-id (%find-row-id db
+                               "information_schema.tables"
+                               (lambda (row)
+                                 (and (equal view-name (cdr (assoc "table_name" row :test 'equal)))
+                                      (equal "VIEW" (cdr (assoc "table_type" row :test 'equal))))))))
     (when row-id
       (sql-delete db "information_schema.tables" (list row-id))
-      (let* ((views (%get-or-create-information-schema-views db))
-             (row-id (position-if (lambda (row)
-                                    (equal view-name (cdr (assoc "table_name" row :test 'equal))))
-                                  (coerce (base-table-rows views) 'list)
-                                  :from-end t)))
+      (%get-or-create-information-schema-views db)
+      (let* ((row-id (%find-row-id db
+                                   "information_schema.views"
+                                   (lambda (row)
+                                     (equal view-name (cdr (assoc "table_name" row :test 'equal)))))))
         (sql-delete db "information_schema.views" (list row-id))))
     (when (or row-id if-exists)
       (values nil t))))
