@@ -822,33 +822,41 @@
 
 (defvar *default-schema* "main")
 
-(defstruct db wal object-store buffer-pool (meta-data (fset:map ("_last_tx" 0))) (legacy-db (make-hash-table :test 'equal)))
+(defstruct db wal object-store buffer-pool (meta-data (fset:map ("_last_tx" 0))))
 
 (defstruct base-table rows deleted-row-ids)
 
-(defun base-table-meta (db table-name)
-  (gethash table-name (slot-value db 'legacy-db)))
-
-(defun base-table-visible-rows (db table-name &key row-id-p)
+(defun base-table-batches (db table-name)
   (with-slots (meta-data buffer-pool) db
     (let ((table-md (fset:lookup meta-data table-name)))
       (when table-md
-        (with-slots (deleted-row-ids) (base-table-meta db table-name)
-          (let ((deleted-row-ids-cache (make-hash-table)))
-            (when deleted-row-ids
-              (dotimes (n (endb/arrow:arrow-length deleted-row-ids))
-                (setf (gethash (endb/arrow:arrow-get deleted-row-ids n) deleted-row-ids-cache) t)))
-            (loop with total-row-id = 0
-                  for batch-file in (fset:convert 'list (fset:domain table-md))
-                  for batch-key = (format nil "~A/~A" table-name batch-file)
-                  append (loop for batch in (endb/storage/buffer-pool:buffer-pool-get buffer-pool batch-key)
-                               append (loop for row-id from total-row-id
-                                            for idx below (endb/arrow:arrow-length batch)
-                                            unless (gethash row-id deleted-row-ids-cache)
-                                              collect (if row-id-p
-                                                          (cons row-id (endb/arrow:arrow-struct-row-get batch idx))
-                                                          (endb/arrow:arrow-struct-row-get batch idx))
-                                            finally (setf total-row-id row-id))))))))))
+        (loop for batch-file in (fset:convert 'list (fset:domain table-md))
+              for batch-key = (format nil "~A/~A" table-name batch-file)
+              unless (equal "deletes" batch-file)
+                append (endb/storage/buffer-pool:buffer-pool-get buffer-pool batch-key))))))
+
+(defun base-table-meta (db table-name)
+  (with-slots (meta-data) db
+    (let ((table-md (fset:lookup meta-data table-name)))
+      (make-base-table :rows (base-table-batches db table-name)
+                       :deleted-row-ids (if table-md
+                                          (fset:convert 'fset:set (fset:lookup table-md "deletes"))
+                                          (fset:empty-set))))))
+
+(defun base-table-visible-rows (db table-name &key row-id-p)
+  (with-slots (meta-data) db
+    (let ((table-md (fset:lookup meta-data table-name)))
+      (when table-md
+        (loop with deleted-row-ids-set = (fset:convert 'fset:set (or (fset:lookup table-md "deletes") (fset:empty-seq)))
+              with total-row-id = 0
+              for batch in (base-table-batches db table-name)
+              append (loop for row-id from total-row-id
+                           for idx below (endb/arrow:arrow-length batch)
+                           unless (fset:contains? deleted-row-ids-set row-id)
+                             collect (if row-id-p
+                                         (cons row-id (endb/arrow:arrow-struct-row-get batch idx))
+                                         (endb/arrow:arrow-struct-row-get batch idx))
+                           finally (setf total-row-id row-id)))))))
 
 (defun base-table-type (db table-name)
   (let* ((table-row (find-if (lambda (row)
@@ -884,31 +892,10 @@
       (if table-md
           (- (fset:reduce (lambda (acc md)
                             (+ acc (fset:lookup md "length")))
-                          (fset:range table-md)
+                          (fset:range (fset:less table-md "deletes"))
                           :initial-value 0)
-             (length (base-table-deleted-row-ids (base-table-meta db table-name))))
+             (fset:size (fset:lookup table-md "deletes")))
           0))))
-
-(defun %get-or-create-information-schema-columns (db)
-  (or (base-table-meta db "information_schema.columns")
-      (let ((table (make-base-table :rows (endb/arrow:make-arrow-array-for
-                                           (loop for c in (base-table-columns db "information_schema.columns")
-                                                 collect (cons c :null))))))
-        (setf (gethash "information_schema.columns" (slot-value db 'legacy-db)) table))))
-
-(defun %get-or-create-information-schema-tables (db)
-  (or (base-table-meta db "information_schema.tables")
-      (let ((table (make-base-table :rows (endb/arrow:make-arrow-array-for
-                                           (loop for c in (base-table-columns db "information_schema.tables")
-                                                 collect (cons c :null))))))
-        (setf (gethash "information_schema.tables" (slot-value db 'legacy-db)) table))))
-
-(defun %get-or-create-information-schema-views (db)
-  (or (base-table-meta db "information_schema.views")
-      (let ((table (make-base-table :rows (endb/arrow:make-arrow-array-for
-                                           (loop for c in (base-table-columns db "information_schema.views")
-                                                 collect (cons c :null))))))
-        (setf (gethash "information_schema.views" (slot-value db 'legacy-db)) table))))
 
 (defun %find-row-id (db table-name predicate)
   (loop for (row-id . row) in (base-table-visible-rows db table-name :row-id-p t)
@@ -916,59 +903,51 @@
           do (return row-id)))
 
 (defun sql-create-table (db table-name columns)
-  (%get-or-create-information-schema-tables db)
   (unless (%find-row-id db
                         "information_schema.tables"
                         (lambda (row)
                           (equal table-name (nth 2 row))))
     (sql-insert db "information_schema.tables" (list (list :null *default-schema* table-name "BASE TABLE")))
-    (%get-or-create-information-schema-columns db)
     (sql-insert db "information_schema.columns" (loop for c in columns
                                                       for idx from 1
                                                       collect  (list :null *default-schema* table-name c idx)))
-    (let ((table (make-base-table :rows (endb/arrow:make-arrow-array-for
-                                         (loop for c in columns
-                                               collect (cons c :null))))))
-      (setf (gethash table-name (slot-value db 'legacy-db)) table)
-      (values nil t))))
+    (values nil t)))
 
 (defun sql-drop-table (db table-name &key if-exists)
-  (%get-or-create-information-schema-tables db)
-  (let* ((row-id (%find-row-id db
-                               "information_schema.tables"
-                               (lambda (row)
-                                 (and (equal table-name (nth 2 row)) (equal "BASE TABLE" (nth 3 row)))))))
-    (when row-id
-      (sql-delete db "information_schema.tables" (list row-id))
-      (%get-or-create-information-schema-columns db)
-      (sql-delete db "information_schema.columns" (loop for c in (base-table-columns db table-name)
-                                                        collect (%find-row-id db
-                                                                              "information_schema.columns"
-                                                                              (lambda (row)
-                                                                                (and (equal table-name (nth 2 row)) (equal c (nth 3 row))))))))
-    (when (or row-id if-exists)
-      (values nil t))))
+  (with-slots (meta-data) db
+    (let* ((row-id (%find-row-id db
+                                 "information_schema.tables"
+                                 (lambda (row)
+                                   (and (equal table-name (nth 2 row)) (equal "BASE TABLE" (nth 3 row)))))))
+      (when row-id
+        (sql-delete db "information_schema.tables" (list row-id))
+        (sql-delete db "information_schema.columns" (loop for c in (base-table-columns db table-name)
+                                                          collect (%find-row-id db
+                                                                                "information_schema.columns"
+                                                                                (lambda (row)
+                                                                                  (and (equal table-name (nth 2 row)) (equal c (nth 3 row)))))))
+
+        (setf meta-data (fset:less meta-data table-name)))
+
+      (when (or row-id if-exists)
+        (values nil t)))))
 
 (defun sql-create-view (db view-name query)
-  (%get-or-create-information-schema-tables db)
   (unless (%find-row-id db
                         "information_schema.tables"
                         (lambda (row)
                           (equal view-name (nth 2 row))))
     (sql-insert db "information_schema.tables" (list (list :null *default-schema* view-name "VIEW")))
-    (%get-or-create-information-schema-views db)
     (sql-insert db "information_schema.views" (list (list :null *default-schema* view-name (prin1-to-string query))))
     (values nil t)))
 
 (defun sql-drop-view (db view-name &key if-exists)
-  (%get-or-create-information-schema-tables db)
   (let* ((row-id (%find-row-id db
                                "information_schema.tables"
                                (lambda (row)
                                  (and (equal view-name (nth 2 row)) (equal "VIEW" (nth 3 row)))))))
     (when row-id
       (sql-delete db "information_schema.tables" (list row-id))
-      (%get-or-create-information-schema-views db)
       (let* ((row-id (%find-row-id db
                                    "information_schema.views"
                                    (lambda (row)
@@ -1029,48 +1008,42 @@
          stats)))))
 
 (defun sql-insert (db table-name values &key column-names)
-  (let ((table (base-table-meta db table-name)))
-    (when (typep table 'base-table)
-      (with-slots (rows) table
-        (with-slots (buffer-pool meta-data) db
-          (let* ((columns (base-table-columns db table-name))
-                 (values (if column-names
-                             (loop with idxs = (loop for column in columns
-                                                     collect (position column column-names :test 'equal))
-                                   for row in values
-                                   collect (loop for idx in idxs
-                                                 collect (nth idx row)))
-                             values))
-                 (tx-id (1+ (or (fset:lookup meta-data "_last_tx") 0)))
-                 (batch-file (format nil "~(~16,'0x~).arrow" tx-id))
-                 (batch-key (format nil "~A/~A" table-name batch-file))
-                 (batch (or (car (endb/storage/buffer-pool:buffer-pool-get buffer-pool batch-key))
-                            (endb/arrow:make-arrow-array-for
-                             (loop for c in columns
-                                   collect (cons c :null))))))
-            (dolist (row values)
-              (endb/arrow:arrow-struct-row-push rows row)
-              (endb/arrow:arrow-struct-row-push batch row))
+  (with-slots (buffer-pool meta-data) db
+    (let ((columns (base-table-columns db table-name)))
+      (when columns
+        (let* ((values (if column-names
+                           (loop with idxs = (loop for column in columns
+                                                   collect (position column column-names :test 'equal))
+                                 for row in values
+                                 collect (loop for idx in idxs
+                                               collect (nth idx row)))
+                           values))
+               (tx-id (1+ (or (fset:lookup meta-data "_last_tx") 0)))
+               (batch-file (format nil "~(~16,'0x~).arrow" tx-id))
+               (batch-key (format nil "~A/~A" table-name batch-file))
+               (batch (or (car (endb/storage/buffer-pool:buffer-pool-get buffer-pool batch-key))
+                          (endb/arrow:make-arrow-array-for
+                           (loop for c in columns
+                                 collect (cons c :null))))))
+          (dolist (row values)
+            (endb/arrow:arrow-struct-row-push batch row))
 
-            (endb/storage/buffer-pool:buffer-pool-put buffer-pool batch-key (list batch))
+          (endb/storage/buffer-pool:buffer-pool-put buffer-pool batch-key (list batch))
 
-            (let* ((table-md (or (fset:lookup meta-data table-name)
-                                 (fset:empty-map)))
-                   (batch-md (fset:map-union (or (fset:lookup table-md batch-file)
-                                                 (fset:empty-map))
-                                             (fset:map
-                                              ("length" (endb/arrow:arrow-length batch))
-                                              ("stats" (calculate-stats (list batch)))))))
-              (setf meta-data (fset:with meta-data table-name (fset:with table-md batch-file batch-md))))
+          (let* ((table-md (or (fset:lookup meta-data table-name)
+                               (fset:empty-map)))
+                 (batch-md (fset:map-union (or (fset:lookup table-md batch-file)
+                                               (fset:empty-map))
+                                           (fset:map
+                                            ("length" (endb/arrow:arrow-length batch))
+                                            ("stats" (calculate-stats (list batch)))))))
+            (setf meta-data (fset:with meta-data table-name (fset:with table-md batch-file batch-md))))
 
-            (values nil (length values))))))))
+          (values nil (length values)))))))
 
 (defun sql-delete (db table-name new-deleted-row-ids)
-  (let ((table (base-table-meta db table-name)))
-    (when (typep table 'base-table)
-      (with-slots (deleted-row-ids) table
-        (unless deleted-row-ids
-          (setf deleted-row-ids (make-instance 'endb/arrow:int64-array)))
-        (dolist (row-id new-deleted-row-ids)
-          (endb/arrow:arrow-push deleted-row-ids row-id))
-        (values nil (length new-deleted-row-ids))))))
+  (with-slots (meta-data) db
+    (let* ((table-md (fset:lookup meta-data table-name))
+           (deletes (or (fset:lookup table-md "deletes") (fset:empty-seq))))
+      (setf meta-data (fset:with meta-data table-name (fset:with table-md "deletes" (fset:concat deletes new-deleted-row-ids))))
+      (values nil (length new-deleted-row-ids)))))

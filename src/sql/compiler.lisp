@@ -142,7 +142,8 @@
     (if base-table-p
         (let* ((base-table-sym (gensym))
                (table-sym (gensym))
-               (row-id-sym (or (fset:lookup ctx :scan-row-id-sym) (gensym)))
+               (scan-row-id-sym (or (fset:lookup ctx :scan-row-id-sym) (gensym)))
+               (row-id-sym (gensym))
                (deleted-row-ids-sym (gensym))
                (col-syms (loop repeat (length vars) collect (gensym)))
                (children-sym (gensym))
@@ -152,7 +153,8 @@
                (where-src (%replace-all smap where-src))
                (nested-src (%replace-all smap nested-src)))
           `(loop with ,base-table-sym = ,from-src
-                 for ,table-sym in (list (endb/sql/expr:base-table-rows ,base-table-sym))
+                 with ,scan-row-id-sym = -1
+                 for ,table-sym in (endb/sql/expr:base-table-rows ,base-table-sym)
                  for ,deleted-row-ids-sym = (endb/sql/expr:base-table-deleted-row-ids ,base-table-sym)
                  for ,children-sym = (endb/arrow:arrow-struct-children ,table-sym ',projection)
                  do (let* (,@(loop for c in col-syms
@@ -160,7 +162,8 @@
                                    collect (list c `(nth ,idx ,children-sym))))
                       (declare (ignorable ,@col-syms))
                       (loop for ,row-id-sym of-type fixnum below (endb/arrow:arrow-length ,table-sym)
-                            unless (find ,row-id-sym ,deleted-row-ids-sym)
+                            do (incf ,scan-row-id-sym)
+                            unless (fset:contains? ,deleted-row-ids-sym ,scan-row-id-sym)
                               ,@where-src
                             ,@nested-src))))
         `(loop for ,(%unique-vars vars)
@@ -564,7 +567,7 @@
           (%base-table-or-view->cl ctx table-name)
         (let* ((scan-row-id-sym (gensym))
                (env-extension (%env-extension (symbol-name table-name) projection))
-               (ctx (fset:with (fset:map-union ctx env-extension) :scan-row-id-sym scan-row-id-sym ))
+               (ctx (fset:with (fset:map-union ctx env-extension) :scan-row-id-sym scan-row-id-sym))
                (vars (loop for p in projection
                            collect (fset:lookup env-extension p)))
                (where-clauses (loop for clause in (%and-clauses where)
@@ -585,7 +588,7 @@
           (%base-table-or-view->cl ctx table-name)
         (let* ((scan-row-id-sym (gensym))
                (env-extension (%env-extension (symbol-name table-name) projection))
-               (ctx (fset:with (fset:map-union ctx env-extension) :scan-row-id-sym scan-row-id-sym ))
+               (ctx (fset:with (fset:map-union ctx env-extension) :scan-row-id-sym scan-row-id-sym))
                (vars (loop for p in projection
                            collect (fset:lookup env-extension p)))
                (where-clauses (loop for clause in (%and-clauses where)
