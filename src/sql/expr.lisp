@@ -16,7 +16,8 @@
            #:make-sql-agg #:sql-agg-accumulate #:sql-agg-finish
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
            #:make-db #:copy-db #:db-buffer-pool #:db-wal #:db-object-store #:db-meta-data
-           #:base-table #:base-table-rows #:base-table-deleted-row-ids #:base-table-type #:base-table-columns #:base-table-visible-rows #:base-table-size #:base-table-batches
+           #:base-table #:base-table-rows #:base-table-deleted-row-ids #:base-table-type #:base-table-columns
+           #:base-table-meta #:base-table-arrow-batches #:base-table-batch-deletes #:base-table-visible-rows #:base-table-size
            #:view-definition #:calculate-stats
            #:sql-runtime-error))
 (in-package :endb/sql/expr)
@@ -824,29 +825,32 @@
 
 (defstruct db wal object-store buffer-pool (meta-data (fset:map ("_last_tx" 0))))
 
-(defun base-table-batches (db table-name)
-  (with-slots (meta-data buffer-pool) db
-    (let ((table-md (fset:lookup meta-data table-name)))
-      (when table-md
-        (loop for arrow-file in (fset:convert 'list (fset:domain table-md))
-              for arrow-file-key = (format nil "~A/~A" table-name arrow-file)
-              for deletes-md = (or (fset:lookup (fset:lookup table-md arrow-file) "deletes") (fset:empty-map))
-              collect (cons arrow-file (loop for batch in (endb/storage/buffer-pool:buffer-pool-get buffer-pool arrow-file-key)
-                                             for batch-idx from 0
-                                             collect (cons batch (or (fset:lookup deletes-md batch-idx) (fset:empty-seq))))))))))
+(defun base-table-meta (db table-name)
+  (with-slots (meta-data) db
+    (or (fset:lookup meta-data table-name) (fset:empty-map))))
+
+(defun base-table-arrow-batches (db table-name arrow-file)
+  (with-slots (buffer-pool) db
+    (let ((arrow-file-key (format nil "~A/~A" table-name arrow-file)))
+      (endb/storage/buffer-pool:buffer-pool-get buffer-pool arrow-file-key))))
+
+(defun base-table-batch-deletes (db table-name arrow-file batch-idx)
+  (or (fset:lookup (or (fset:lookup (fset:lookup (base-table-meta db table-name) arrow-file) "deletes")
+                       (fset:empty-map))
+                   batch-idx)
+      (fset:empty-seq)))
 
 (defun base-table-visible-rows (db table-name &key arrow-file-idx-row-id-p)
-  (with-slots (meta-data) db
-    (let ((table-md (fset:lookup meta-data table-name)))
-      (when table-md
-        (loop for (arrow-file . batches-deletes) in (base-table-batches db table-name)
-              append (loop for (batch . batch-deletes) in batches-deletes
-                           for batch-idx from 0
-                           append (loop for row-id below (endb/arrow:arrow-length batch)
-                                        unless (fset:find row-id batch-deletes)
-                                          collect (if arrow-file-idx-row-id-p
-                                                      (cons (list arrow-file batch-idx row-id) (endb/arrow:arrow-struct-row-get batch row-id))
-                                                      (endb/arrow:arrow-struct-row-get batch row-id)))))))))
+  (loop with table-md = (base-table-meta db table-name)
+        for arrow-file in (fset:convert 'list (fset:domain table-md))
+        append (loop for batch in (base-table-arrow-batches db table-name arrow-file)
+                     for batch-idx from 0
+                     for batch-deletes = (base-table-batch-deletes db table-name arrow-file batch-idx)
+                     append (loop for row-id below (endb/arrow:arrow-length batch)
+                                  unless (fset:find row-id batch-deletes)
+                                    collect (if arrow-file-idx-row-id-p
+                                                (cons (list arrow-file batch-idx row-id) (endb/arrow:arrow-struct-row-get batch row-id))
+                                                (endb/arrow:arrow-struct-row-get batch row-id))))))
 
 (defun base-table-type (db table-name)
   (let* ((table-row (find-if (lambda (row)
@@ -877,18 +881,15 @@
                                        (list (list 1 :asc) (list 2 :asc)))))))
 
 (defun base-table-size (db table-name)
-  (with-slots (meta-data) db
-    (let ((table-md (fset:lookup meta-data table-name)))
-      (if table-md
-          (fset:reduce (lambda (acc md)
-                         (+ acc (- (fset:lookup md "length")
-                                   (fset:reduce (lambda (acc x)
-                                                  (+ acc (fset:size x)))
-                                                (fset:range (or (fset:lookup md "deletes") (fset:empty-map)))
-                                                :initial-value 0))))
-                       (fset:range table-md)
-                       :initial-value 0)
-          0))))
+  (let ((table-md (base-table-meta db table-name)))
+    (fset:reduce (lambda (acc md)
+                   (+ acc (- (fset:lookup md "length")
+                             (fset:reduce (lambda (acc x)
+                                            (+ acc (fset:size x)))
+                                          (fset:range (or (fset:lookup md "deletes") (fset:empty-map)))
+                                          :initial-value 0))))
+                 (fset:range table-md)
+                 :initial-value 0)))
 
 (defun %find-arrow-file-idx-row-id (db table-name predicate)
   (loop for (arrow-file-idx-row-id . row) in (base-table-visible-rows db table-name :arrow-file-idx-row-id-p t)

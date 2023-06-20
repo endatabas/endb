@@ -38,7 +38,7 @@
          (table-type (endb/sql/expr:base-table-type db (symbol-name table-name))))
     (cond
       ((equal "BASE TABLE" table-type)
-       (values `(endb/sql/expr:base-table-batches ,(fset:lookup ctx :db-sym) ,(symbol-name table-name))
+       (values (symbol-name table-name)
                (endb/sql/expr:base-table-columns db (symbol-name table-name))
                ()
                (endb/sql/expr:base-table-size db (symbol-name table-name))))
@@ -140,11 +140,12 @@
   (let ((where-src (loop for clause in where-clauses
                          append `(when (eq t ,(where-clause-src clause))))))
     (if base-table-p
-        (let* ((batches-sym (gensym))
+        (let* ((table-name from-src)
+               (table-md-sym (gensym))
                (batch-sym (gensym))
                (scan-row-id-sym (or (fset:lookup ctx :scan-row-id-sym) (gensym)))
                (scan-batch-idx-sym (or (fset:lookup ctx :scan-batch-idx-sym) (gensym)))
-               (scan-batch-file-sym (or (fset:lookup ctx :scan-batch-file-sym) (gensym)))
+               (scan-arrow-file-sym (or (fset:lookup ctx :scan-arrow-file-sym) (gensym)))
                (deleted-row-ids-sym (gensym))
                (col-syms (loop repeat (length vars) collect (gensym)))
                (children-sym (gensym))
@@ -153,9 +154,11 @@
                            collect (cons v `(endb/arrow:arrow-get ,c ,scan-row-id-sym))))
                (where-src (%replace-all smap where-src))
                (nested-src (%replace-all smap nested-src)))
-          `(loop for (,scan-batch-file-sym . ,batches-sym) in ,from-src
-                 do (loop for (,batch-sym . ,deleted-row-ids-sym) in ,batches-sym
+          `(loop with ,table-md-sym = (endb/sql/expr:base-table-meta ,(fset:lookup ctx :db-sym) ,table-name)
+                 for ,scan-arrow-file-sym in (fset:convert 'list (fset:domain ,table-md-sym))
+                 do (loop for ,batch-sym in (endb/sql/expr:base-table-arrow-batches ,(fset:lookup ctx :db-sym) ,table-name ,scan-arrow-file-sym)
                           for ,scan-batch-idx-sym from 0
+                          for ,deleted-row-ids-sym = (endb/sql/expr:base-table-batch-deletes ,(fset:lookup ctx :db-sym) ,table-name ,scan-arrow-file-sym ,scan-batch-idx-sym)
                           for ,children-sym = (endb/arrow:arrow-struct-children ,batch-sym ',projection)
                           do (let* (,@(loop for c in col-syms
                                             for idx from 0
@@ -566,11 +569,11 @@
           (%base-table-or-view->cl ctx table-name)
         (let* ((scan-row-id-sym (gensym))
                (scan-batch-idx-sym (gensym))
-               (scan-batch-file-sym (gensym))
+               (scan-arrow-file-sym (gensym))
                (env-extension (%env-extension (symbol-name table-name) projection))
                (ctx (fset:map-union (fset:map-union ctx env-extension)
                                     (fset:map (:scan-row-id-sym scan-row-id-sym)
-                                              (:scan-batch-file-sym scan-batch-file-sym)
+                                              (:scan-arrow-file-sym scan-arrow-file-sym)
                                               (:scan-batch-idx-sym scan-batch-idx-sym))))
                (vars (loop for p in projection
                            collect (fset:lookup env-extension p)))
@@ -580,7 +583,7 @@
                (deleted-row-ids-sym (gensym)))
           `(let ((,deleted-row-ids-sym))
              ,(%table-scan->cl ctx vars projection from-src where-clauses
-                               `(do (push (list ,scan-batch-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym))
+                               `(do (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym))
                                t)
              (endb/sql/expr:sql-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)))))))
 
@@ -592,11 +595,11 @@
           (%base-table-or-view->cl ctx table-name)
         (let* ((scan-row-id-sym (gensym))
                (scan-batch-idx-sym (gensym))
-               (scan-batch-file-sym (gensym))
+               (scan-arrow-file-sym (gensym))
                (env-extension (%env-extension (symbol-name table-name) projection))
                (ctx (fset:map-union (fset:map-union ctx env-extension)
                                     (fset:map (:scan-row-id-sym scan-row-id-sym)
-                                              (:scan-batch-file-sym scan-batch-file-sym)
+                                              (:scan-arrow-file-sym scan-arrow-file-sym)
                                               (:scan-batch-idx-sym scan-batch-idx-sym))))
                (vars (loop for p in projection
                            collect (fset:lookup env-extension p)))
@@ -623,7 +626,7 @@
                    (,deleted-row-ids-sym))
                ,(%table-scan->cl ctx vars projection from-src where-clauses
                                  `(do (push (list ,@update-select-list) ,updated-rows-sym)
-                                      (push (list ,scan-batch-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym))
+                                      (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym))
                                  t)
                (endb/sql/expr:sql-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)
                (endb/sql/expr:sql-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,updated-rows-sym))))))))
