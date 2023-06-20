@@ -828,24 +828,24 @@
   (with-slots (meta-data buffer-pool) db
     (let ((table-md (fset:lookup meta-data table-name)))
       (when table-md
-        (loop for batch-file in (fset:convert 'list (fset:domain table-md))
-              for batch-key = (format nil "~A/~A" table-name batch-file)
-              for deletes-md = (or (fset:lookup (fset:lookup table-md batch-file) "deletes") (fset:empty-map))
-              collect (cons batch-file (loop for batch in (endb/storage/buffer-pool:buffer-pool-get buffer-pool batch-key)
+        (loop for arrow-file in (fset:convert 'list (fset:domain table-md))
+              for arrow-file-key = (format nil "~A/~A" table-name arrow-file)
+              for deletes-md = (or (fset:lookup (fset:lookup table-md arrow-file) "deletes") (fset:empty-map))
+              collect (cons arrow-file (loop for batch in (endb/storage/buffer-pool:buffer-pool-get buffer-pool arrow-file-key)
                                              for batch-idx from 0
                                              collect (cons batch (or (fset:lookup deletes-md batch-idx) (fset:empty-seq))))))))))
 
-(defun base-table-visible-rows (db table-name &key row-id-p)
+(defun base-table-visible-rows (db table-name &key arrow-file-idx-row-id-p)
   (with-slots (meta-data) db
     (let ((table-md (fset:lookup meta-data table-name)))
       (when table-md
-        (loop for (batch-file . batches) in (base-table-batches db table-name)
-              append (loop for (batch . batch-deletes) in batches
+        (loop for (arrow-file . batches-deletes) in (base-table-batches db table-name)
+              append (loop for (batch . batch-deletes) in batches-deletes
                            for batch-idx from 0
                            append (loop for row-id below (endb/arrow:arrow-length batch)
                                         unless (fset:find row-id batch-deletes)
-                                          collect (if row-id-p
-                                                      (cons (list batch-file batch-idx row-id) (endb/arrow:arrow-struct-row-get batch row-id))
+                                          collect (if arrow-file-idx-row-id-p
+                                                      (cons (list arrow-file batch-idx row-id) (endb/arrow:arrow-struct-row-get batch row-id))
                                                       (endb/arrow:arrow-struct-row-get batch row-id)))))))))
 
 (defun base-table-type (db table-name)
@@ -890,13 +890,13 @@
                        :initial-value 0)
           0))))
 
-(defun %find-batch-file-idx-row-id (db table-name predicate)
-  (loop for (batch-file-idx-row-id . row) in (base-table-visible-rows db table-name :row-id-p t)
+(defun %find-arrow-file-idx-row-id (db table-name predicate)
+  (loop for (arrow-file-idx-row-id . row) in (base-table-visible-rows db table-name :arrow-file-idx-row-id-p t)
         when (funcall predicate row)
-          do (return batch-file-idx-row-id)))
+          do (return arrow-file-idx-row-id)))
 
 (defun sql-create-table (db table-name columns)
-  (unless (%find-batch-file-idx-row-id db
+  (unless (%find-arrow-file-idx-row-id db
                                        "information_schema.tables"
                                        (lambda (row)
                                          (equal table-name (nth 2 row))))
@@ -908,14 +908,14 @@
 
 (defun sql-drop-table (db table-name &key if-exists)
   (with-slots (meta-data) db
-    (let* ((batch-file-row-id (%find-batch-file-idx-row-id db
+    (let* ((batch-file-row-id (%find-arrow-file-idx-row-id db
                                                            "information_schema.tables"
                                                            (lambda (row)
                                                              (and (equal table-name (nth 2 row)) (equal "BASE TABLE" (nth 3 row)))))))
       (when batch-file-row-id
         (sql-delete db "information_schema.tables" (list batch-file-row-id))
         (sql-delete db "information_schema.columns" (loop for c in (base-table-columns db table-name)
-                                                          collect (%find-batch-file-idx-row-id db
+                                                          collect (%find-arrow-file-idx-row-id db
                                                                                                "information_schema.columns"
                                                                                                (lambda (row)
                                                                                                  (and (equal table-name (nth 2 row)) (equal c (nth 3 row)))))))
@@ -926,7 +926,7 @@
         (values nil t)))))
 
 (defun sql-create-view (db view-name query)
-  (unless (%find-batch-file-idx-row-id db
+  (unless (%find-arrow-file-idx-row-id db
                                        "information_schema.tables"
                                        (lambda (row)
                                          (equal view-name (nth 2 row))))
@@ -935,13 +935,13 @@
     (values nil t)))
 
 (defun sql-drop-view (db view-name &key if-exists)
-  (let* ((batch-file-row-id (%find-batch-file-idx-row-id db
+  (let* ((batch-file-row-id (%find-arrow-file-idx-row-id db
                                                          "information_schema.tables"
                                                          (lambda (row)
                                                            (and (equal view-name (nth 2 row)) (equal "VIEW" (nth 3 row)))))))
     (when batch-file-row-id
       (sql-delete db "information_schema.tables" (list batch-file-row-id))
-      (let* ((batch-file-row-id (%find-batch-file-idx-row-id db
+      (let* ((batch-file-row-id (%find-arrow-file-idx-row-id db
                                                              "information_schema.views"
                                                              (lambda (row)
                                                                (equal view-name (nth 2 row))))))
