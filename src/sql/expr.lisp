@@ -17,7 +17,7 @@
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
            #:make-db #:copy-db #:db-buffer-pool #:db-wal #:db-object-store #:db-meta-data
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:base-table-type #:base-table-columns
-           #:base-table-meta #:base-table-arrow-batches #:base-table-batch-deletes #:base-table-visible-rows #:base-table-size
+           #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size
            #:view-definition #:calculate-stats
            #:sql-runtime-error))
 (in-package :endb/sql/expr)
@@ -834,23 +834,19 @@
     (let ((arrow-file-key (format nil "~A/~A" table-name arrow-file)))
       (endb/storage/buffer-pool:buffer-pool-get buffer-pool arrow-file-key))))
 
-(defun base-table-batch-deletes (db table-name arrow-file batch-idx)
-  (or (fset:lookup (or (fset:lookup (fset:lookup (base-table-meta db table-name) arrow-file) "deletes")
-                       (fset:empty-map))
-                   (prin1-to-string batch-idx))
-      (fset:empty-seq)))
-
 (defun base-table-visible-rows (db table-name &key arrow-file-idx-row-id-p)
-  (loop with table-md = (base-table-meta db table-name)
-        for arrow-file in (fset:convert 'list (fset:domain table-md))
-        append (loop for batch in (base-table-arrow-batches db table-name arrow-file)
-                     for batch-idx from 0
-                     for batch-deletes = (base-table-batch-deletes db table-name arrow-file batch-idx)
-                     append (loop for row-id below (endb/arrow:arrow-length batch)
-                                  unless (fset:find row-id batch-deletes)
-                                    collect (if arrow-file-idx-row-id-p
-                                                (cons (list arrow-file batch-idx row-id) (endb/arrow:arrow-struct-row-get batch row-id))
-                                                (endb/arrow:arrow-struct-row-get batch row-id))))))
+  (let ((table-md (base-table-meta db table-name))
+        (acc))
+    (fset:do-map (arrow-file arrow-file-md table-md acc)
+      (loop with deletes-md = (or (fset:lookup arrow-file-md "deletes") (fset:empty-map))
+            for batch in (base-table-arrow-batches db table-name arrow-file)
+            for batch-idx from 0
+            for batch-deletes = (or (fset:lookup deletes-md (prin1-to-string batch-idx)) (fset:empty-seq))
+            do (setf acc (append acc (loop for row-id below (endb/arrow:arrow-length batch)
+                                           unless (fset:find row-id batch-deletes)
+                                             collect (if arrow-file-idx-row-id-p
+                                                         (cons (list arrow-file batch-idx row-id) (endb/arrow:arrow-struct-row-get batch row-id))
+                                                         (endb/arrow:arrow-struct-row-get batch row-id)))))))))
 
 (defun base-table-type (db table-name)
   (let* ((table-row (find-if (lambda (row)
