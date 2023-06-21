@@ -54,6 +54,31 @@
       (is (null result))
       (is (null result-code)))))
 
+(test isolation
+  (let* ((db (make-db))
+         (write-db (begin-write-tx db)))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "CREATE TABLE t1(a INTEGER)")
+      (is (null result))
+      (is (eq t result-code)))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "INSERT INTO t1 VALUES(103)")
+      (is (null result))
+      (is (= 1 result-code)))
+
+    (is (equal '((103)) (endb/sql/expr:base-table-visible-rows write-db "t1")))
+    (is (= 1 (endb/sql/expr:base-table-size write-db "t1")))
+
+    (is (null (endb/sql/expr:base-table-visible-rows db "t1")))
+    (is (zerop (endb/sql/expr:base-table-size db "t1")))
+
+    (setf db (commit-write-tx db write-db))
+
+    (is (equal '((103)) (endb/sql/expr:base-table-visible-rows db "t1")))
+    (is (= 1 (endb/sql/expr:base-table-size db "t1")))))
+
 (test dml
   (let ((db (begin-write-tx (make-db))))
     (multiple-value-bind (result result-code)
