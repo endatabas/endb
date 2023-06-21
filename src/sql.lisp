@@ -11,6 +11,7 @@
   (:import-from :endb/storage/meta-data)
   (:import-from :endb/storage/object-store)
   (:import-from :endb/storage/wal)
+  (:import-from :trivial-utf-8)
   (:import-from :fset))
 (in-package :endb/sql)
 
@@ -85,9 +86,10 @@
         (let* ((tx-id (1+ (or (fset:lookup tx-md "_last_tx") 0)))
                (tx-md (fset:with tx-md "_last_tx" tx-id))
                (md-diff (endb/storage/meta-data:meta-data-diff current-md tx-md))
+               (md-diff-bytes (trivial-utf-8:string-to-utf-8-bytes (endb/storage/meta-data:meta-data->json md-diff)))
                (wal (endb/sql/expr:db-wal write-db)))
           (%write-new-buffers write-db)
-          (endb/storage/wal:wal-append-entry wal (%log-filename tx-id) (endb/storage/meta-data:meta-data->json md-diff))
+          (endb/storage/wal:wal-append-entry wal (%log-filename tx-id) md-diff-bytes)
           (when fsyncp
             (endb/storage/wal:wal-fsync wal))
           (let ((new-db (endb/sql/expr:copy-db current-db))

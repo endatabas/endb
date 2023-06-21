@@ -1,7 +1,8 @@
 (defpackage :endb-test/sql
   (:use :cl :fiveam :endb/sql)
   (:import-from :endb/arrow)
-  (:import-from :sqlite))
+  (:import-from :sqlite)
+  (:import-from :uiop))
 (in-package :endb-test/sql)
 
 (in-suite* :all-tests)
@@ -78,6 +79,114 @@
 
     (is (equal '((103)) (endb/sql/expr:base-table-visible-rows db "t1")))
     (is (= 1 (endb/sql/expr:base-table-size db "t1")))))
+
+(test directory-db
+  (let* ((target-dir (asdf:system-relative-pathname :endb-test "target/"))
+         (test-dir (merge-pathnames "endb_data_directory/" target-dir)))
+    (unwind-protect
+         (let ((db (make-directory-db :directory test-dir)))
+           (unwind-protect
+                (let ((write-db (begin-write-tx db)))
+
+                  (multiple-value-bind (result result-code)
+                      (execute-sql write-db "CREATE TABLE t1(a INTEGER)")
+                    (is (null result))
+                    (is (eq t result-code)))
+
+                  (multiple-value-bind (result result-code)
+                      (execute-sql write-db "INSERT INTO t1 VALUES(103)")
+                    (is (null result))
+                    (is (= 1 result-code)))
+
+                  (is (equal '((103)) (execute-sql write-db "SELECT * FROM t1")))
+
+                  (setf db (commit-write-tx db write-db)))
+             (close-db db))
+
+           (let ((db (make-directory-db :directory test-dir)))
+             (unwind-protect
+                  (progn
+                    (is (equal '((103)) (execute-sql db "SELECT * FROM t1")))
+
+                    (let ((write-db (begin-write-tx db)))
+
+                      (multiple-value-bind (result result-code)
+                          (execute-sql write-db "INSERT INTO t1 VALUES(104)")
+                        (is (null result))
+                        (is (= 1 result-code)))
+
+                      (is (equal '((103) (104)) (execute-sql write-db "SELECT * FROM t1 ORDER BY a")))
+
+                      (multiple-value-bind (result result-code)
+                          (execute-sql write-db "DELETE FROM t1 WHERE a = 103")
+                        (is (null result))
+                        (is (= 1 result-code)))
+
+                      (is (equal '((104)) (execute-sql write-db "SELECT * FROM t1 ORDER BY a")))
+
+                      (setf db (commit-write-tx db write-db))))
+               (close-db db)))
+
+           (let ((db (make-directory-db :directory test-dir)))
+             (unwind-protect
+                  (is (equal '((104)) (execute-sql db "SELECT * FROM t1 ORDER BY a")))
+               (close-db db))))
+      (when (probe-file test-dir)
+        (uiop:delete-directory-tree test-dir :validate t)))))
+
+(test wal-only-directory-db
+  (let* ((target-dir (asdf:system-relative-pathname :endb-test "target/"))
+         (test-dir (merge-pathnames "endb_data_wal_only/" target-dir)))
+    (unwind-protect
+         (let ((db (make-directory-db :directory test-dir :object-store-path nil)))
+           (unwind-protect
+                (let ((write-db (begin-write-tx db)))
+
+                  (multiple-value-bind (result result-code)
+                      (execute-sql write-db "CREATE TABLE t1(a INTEGER)")
+                    (is (null result))
+                    (is (eq t result-code)))
+
+                  (multiple-value-bind (result result-code)
+                      (execute-sql write-db "INSERT INTO t1 VALUES(103)")
+                    (is (null result))
+                    (is (= 1 result-code)))
+
+                  (is (equal '((103)) (execute-sql write-db "SELECT * FROM t1")))
+
+                  (setf db (commit-write-tx db write-db)))
+             (close-db db))
+
+           (let ((db (make-directory-db :directory test-dir :object-store-path nil)))
+             (unwind-protect
+                  (progn
+                    (is (equal '((103)) (execute-sql db "SELECT * FROM t1")))
+
+                    (let ((write-db (begin-write-tx db)))
+
+                      (multiple-value-bind (result result-code)
+                          (execute-sql write-db "INSERT INTO t1 VALUES(104)")
+                        (is (null result))
+                        (is (= 1 result-code)))
+
+                      (is (equal '((103) (104)) (execute-sql write-db "SELECT * FROM t1 ORDER BY a")))
+
+                      (multiple-value-bind (result result-code)
+                          (execute-sql write-db "DELETE FROM t1 WHERE a = 103")
+                        (is (null result))
+                        (is (= 1 result-code)))
+
+                      (is (equal '((104)) (execute-sql write-db "SELECT * FROM t1 ORDER BY a")))
+
+                      (setf db (commit-write-tx db write-db))))
+               (close-db db)))
+
+           (let ((db (make-directory-db :directory test-dir :object-store-path nil)))
+             (unwind-protect
+                  (is (equal '((104)) (execute-sql db "SELECT * FROM t1 ORDER BY a")))
+               (close-db db))))
+      (when (probe-file test-dir)
+        (uiop:delete-directory-tree test-dir :validate t)))))
 
 (test dml
   (let ((db (begin-write-tx (make-db))))

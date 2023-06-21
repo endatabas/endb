@@ -837,7 +837,7 @@
 (defun base-table-batch-deletes (db table-name arrow-file batch-idx)
   (or (fset:lookup (or (fset:lookup (fset:lookup (base-table-meta db table-name) arrow-file) "deletes")
                        (fset:empty-map))
-                   batch-idx)
+                   (prin1-to-string batch-idx))
       (fset:empty-seq)))
 
 (defun base-table-visible-rows (db table-name &key arrow-file-idx-row-id-p)
@@ -1043,8 +1043,9 @@
                             batch-file-idx-row-id
                           (let* ((batch-md (fset:lookup acc batch-file))
                                  (deletes-md (or (fset:lookup batch-md "deletes") (fset:empty-map)))
-                                 (batch-deletes (or (fset:lookup deletes-md batch-idx) (fset:empty-seq))))
-                            (fset:with acc batch-file (fset:with batch-md "deletes" (fset:with deletes-md batch-idx (fset:with-last batch-deletes row-id)))))))
+                                 (batch-idx-key (prin1-to-string batch-idx))
+                                 (batch-deletes (or (fset:lookup deletes-md batch-idx-key) (fset:empty-seq))))
+                            (fset:with acc batch-file (fset:with batch-md "deletes" (fset:with deletes-md batch-idx-key (fset:with-last batch-deletes row-id)))))))
                       new-batch-file-idx-deleted-row-ids
                       :initial-value (fset:lookup meta-data table-name))))
       (setf meta-data (fset:with meta-data table-name table-md))
