@@ -1,5 +1,14 @@
 # Endatabas
 
+Endatabas is an immutable, cloud-first, dynamic SQL database.
+
+For more information, please contact us at [hello@endatabas.com](mailto:hello@endatabas.com).
+
+## Status
+
+Endatabas is **experimental software.**
+Learn more by reading our [roadmap.md](https://github.com/endatabas/endb/blob/main/doc/roadmap.md).
+
 ## Building
 
 Install https://www.quicklisp.org/ and https://www.sbcl.org/
