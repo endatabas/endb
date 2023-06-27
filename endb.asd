@@ -12,6 +12,7 @@
                "cl-bloom"
                "cl-murmurhash"
                "cl-ppcre"
+               "clingon"
                "com.inuoe.jzon"
                "fast-io"
                "fset"
