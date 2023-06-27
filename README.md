@@ -1,4 +1,4 @@
-# Endatabas
+![Endatabas](https://www.endatabas.com/resources/images/github-banner-logo_3200x476.png)
 
 Endatabas is an immutable, cloud-first, dynamic SQL database.
 
