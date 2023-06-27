@@ -113,9 +113,10 @@
 (defun endb-command ()
   (let ((endb-system (asdf:find-system :endb)))
     (clingon:make-command :name (asdf:component-name endb-system)
-                          :description "Endatabas"
+                          :description "Endatabas is an immutable, cloud-first, dynamic SQL database."
                           :version (asdf:component-version endb-system)
                           :license (asdf:system-license endb-system)
+                          :usage "[OPTION]..."
                           :options (endb-options)
                           :handler #'endb-handler)))
 
