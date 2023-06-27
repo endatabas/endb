@@ -149,7 +149,7 @@ slt-test-ci:
 	$(SLT_ENV) make slt-test-tpch
 
 docker:
-	docker build \
+	docker build --pull \
 		--build-arg RUST_OS=$(DOCKER_RUST_OS) --build-arg SBCL_OS=$(DOCKER_SBCL_OS) --build-arg ENDB_OS=$(DOCKER_ENDB_OS) \
 		$(DOCKER_TAGS) .
 

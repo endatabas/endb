@@ -13,7 +13,6 @@ RUN if [ "$RUST_OS" = "alpine" ]; then \
 WORKDIR /root/endb
 COPY ./lib /root/endb
 
-ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 ENV RUSTFLAGS="-C target-feature=-crt-static"
 
 RUN cargo test; cargo build --release
