@@ -85,17 +85,17 @@
 
 (defun endb-handler (cmd)
   (endb/lib:init-lib)
-  (let ((endb-system (asdf:find-system :endb)))
-    (let* ((db (endb/sql:make-directory-db :directory (clingon:getopt cmd :data-directory)))
-           (exit-code (unwind-protect
-                           (progn (when (interactive-stream-p *standard-input*)
-                                    (format t
-                                            "~A ~A~%Type \"help\" for help.~%~%"
-                                            (asdf:component-name endb-system)
-                                            (asdf:component-version endb-system)))
-                                  (%repl db))
-                        (endb/sql:close-db db))))
-      (uiop:quit (or exit-code 0)))))
+  (when (interactive-stream-p *standard-input*)
+    (let ((endb-system (asdf:find-system :endb)))
+      (format t
+              "~A ~A~%Type \"help\" for help.~%~%"
+              (asdf:component-name endb-system)
+              (asdf:component-version endb-system))))
+  (let* ((db (endb/sql:make-directory-db :directory (clingon:getopt cmd :data-directory)))
+         (exit-code (unwind-protect
+                         (%repl db)
+                      (endb/sql:close-db db))))
+    (uiop:quit exit-code)))
 
 (defun endb-options ()
   (list
