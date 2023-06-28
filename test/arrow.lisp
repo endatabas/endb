@@ -2,7 +2,7 @@
   (:use :cl :fiveam :endb/arrow))
 (in-package :endb-test/arrow)
 
-(in-suite* :all-tests)
+(in-suite* :arrow)
 
 ;; https://arrow.apache.org/docs/format/Columnar.html
 

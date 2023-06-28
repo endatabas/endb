@@ -2,7 +2,7 @@
   (:use :cl :fiveam :endb/sql/parser))
 (in-package :endb-test/sql/parser)
 
-(in-suite* :all-tests)
+(in-suite* :sql)
 
 (test parse-sql
   (is (parse-sql "CREATE TABLE t1(a INTEGER, b INTEGER, c INTEGER, d INTEGER, e INTEGER)"))

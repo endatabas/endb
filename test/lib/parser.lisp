@@ -3,7 +3,7 @@
   (:import-from :endb/sql/parser))
 (in-package :endb-test/lib/parser)
 
-(in-suite* :all-tests)
+(in-suite* :lib)
 
 (test lib-parser
   (let ((sql "SELECT a, b, 123, myfunc(b) FROM table_1 WHERE a > b AND b < 100 ORDER BY a DESC, b"))

@@ -5,7 +5,7 @@
   (:import-from :uiop))
 (in-package :endb-test/sql)
 
-(in-suite* :all-tests)
+(in-suite* :sql)
 
 (test create-table-and-insert
   (let ((db (begin-write-tx (make-db))))

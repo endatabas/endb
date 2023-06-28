@@ -10,7 +10,7 @@
   (:import-from :cl-bloom))
 (in-package :endb-test/storage)
 
-(in-suite* :all-tests)
+(in-suite* :storage)
 
 (test tar-wal-and-object-store
   (let* ((out (make-instance 'fast-io:fast-output-stream))

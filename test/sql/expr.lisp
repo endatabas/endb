@@ -2,7 +2,7 @@
   (:use :cl :fiveam :endb/sql/expr))
 (in-package :endb-test/sql/expr)
 
-(in-suite* :all-tests)
+(in-suite* :sql)
 
 (test three-valued-logic-=
   (is (eq t (sql-= t t)))

@@ -4,7 +4,7 @@
   (:import-from :asdf))
 (in-package :endb-test/lib/arrow)
 
-(in-suite* :all-tests)
+(in-suite* :lib)
 
 (test arrow-ffi
   (let ((expected (coerce #(65 82 82 79 87 49 0 0 255 255 255 255 120 0 0 0 4 0 0 0 242 255 255 255 20 0
