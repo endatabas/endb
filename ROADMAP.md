@@ -2,7 +2,7 @@
 
 ## 2023 Q1
 
-* pass `sqllogictest`
+* `sqllogictest`
     * parser
     * compiler
     * execution engine
