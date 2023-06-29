@@ -41,23 +41,25 @@
                                 (cond
                                   ((or result (and (listp result-code)
                                                    (not (null result-code))))
-                                   (if (equal "application/x-ndjson" accept)
-                                       (list +http-ok+
-                                             '(:content-type "application/x-ndjson")
-                                             (list (with-output-to-string (out)
-                                                     (loop for row in result
-                                                           do (loop for column in row
-                                                                    for column-name in result-code
-                                                                    do (com.inuoe.jzon:with-writer (writer :stream out)
-                                                                         (com.inuoe.jzon:with-object writer
-                                                                           (com.inuoe.jzon:write-key writer column-name)
-                                                                           (com.inuoe.jzon:write-value writer column)))
-                                                                       (write-char #\NewLine out))))))
-                                       (list +http-ok+
-                                             '(:content-type "application/json")
-                                             (list (if result
-                                                       (com.inuoe.jzon:stringify result)
-                                                       "[]")))))
+                                   (lambda (responder)
+                                     (let ((writer (funcall responder (list +http-ok+ (if (equal "application/x-ndjson" accept)
+                                                                                          '(:content-type "application/x-ndjson")
+                                                                                          '(:content-type "application/json")))) ))
+                                       (if (equal "application/x-ndjson" accept)
+                                           (loop for row in result
+                                                 do (loop for column in row
+                                                          for column-name in result-code
+                                                          do (funcall writer (with-output-to-string (out)
+                                                                               (com.inuoe.jzon:with-writer (writer :stream out)
+                                                                                 (com.inuoe.jzon:with-object writer
+                                                                                   (com.inuoe.jzon:write-key writer column-name)
+                                                                                   (com.inuoe.jzon:write-value writer column)))
+                                                                               (write-char #\NewLine out))))
+                                                 finally (funcall writer nil :close t))
+                                           (progn (funcall writer "[")
+                                                  (loop for row in result
+                                                        do (funcall writer (com.inuoe.jzon:stringify row))
+                                                        finally (funcall writer "]" :close t)))))))
                                   (result-code (if (eq :get (lack.request:request-method req))
                                                    (list +http-method-not-allowed+ nil nil)
                                                    (bt:with-lock-held (write-lock)
