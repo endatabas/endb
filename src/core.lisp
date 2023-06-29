@@ -2,8 +2,11 @@
   (:use :cl)
   (:export #:main)
   (:import-from :asdf)
+  (:import-from :bordeaux-threads)
+  (:import-from :clack)
   (:import-from :clingon)
   (:import-from :uiop)
+  (:import-from :endb/http)
   (:import-from :endb/lib)
   (:import-from :endb/sql))
 (in-package :endb/core)
@@ -82,16 +85,25 @@
 
 (defun endb-handler (cmd)
   (endb/lib:init-lib)
-  (when (interactive-stream-p *standard-input*)
-    (let ((endb-system (asdf:find-system :endb)))
-      (format t
-              "~A ~A~%Type \"help\" for help.~%~%"
-              (asdf:component-name endb-system)
-              (asdf:component-version endb-system))))
   (let* ((db (endb/sql:make-directory-db :directory (clingon:getopt cmd :data-directory)))
+         (http-port (clingon:getopt cmd :http-port))
+         (http-server (unless (clingon:getopt cmd :interactive)
+                        (clack:clackup (endb/http:make-api-handler db) :port http-port :silent t)))
          (exit-code (handler-case
                         (unwind-protect
-                             (%repl db)
+                             (progn
+                               (when (interactive-stream-p *standard-input*)
+                                 (format t "~A ~A~%" (clingon:command-full-name cmd) (clingon:command-version cmd)))
+                               (if http-server
+                                   (progn
+                                     (format t "Listening on port ~A~%"http-port)
+                                     (bt:join-thread (clack.handler::handler-acceptor http-server)))
+                                   (progn
+                                     (when (interactive-stream-p *standard-input*)
+                                       (format t "Type \"help\" for help.~%~%"))
+                                     (%repl db))))
+                          (when http-server
+                            (clack:stop http-server))
                           (endb/sql:close-db db))
                       #+sbcl (sb-sys:interactive-interrupt (e)
                                (declare (ignore e))
@@ -105,10 +117,24 @@
     :string
     :description "data directory"
     :short-name #\d
-    :long-name :data-directory
+    :long-name "data-directory"
     :initial-value "endb_data"
-    :env-vars '("ENDB_DATA")
-    :key :data-directory)))
+    :env-vars '("ENDB_DATA_DIRECTORY")
+    :key :data-directory)
+   (clingon:make-option
+    :integer
+    :description "HTTP port"
+    :short-name #\p
+    :long-name "http-port"
+    :initial-value 3803
+    :env-vars '("ENDB_HTTP_PORT")
+    :key :http-port)
+   (clingon:make-option
+    :flag
+    :description "interactive session"
+    :short-name #\i
+    :long-name "interactive"
+    :key :interactive)))
 
 (defun endb-command ()
   (let ((endb-system (asdf:find-system :endb)))

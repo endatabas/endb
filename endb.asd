@@ -4,7 +4,8 @@
   :license "AGPL-3.0-only"
   :homepage "https://www.endatabas.com/"
   :class :package-inferred-system
-  :depends-on ("endb/core"
+  :depends-on ("lack-request" ;; register-system-packages
+               "endb/core"
                "alexandria"
                "archive"
                "bordeaux-threads"
@@ -12,6 +13,7 @@
                "cl-bloom"
                "cl-murmurhash"
                "cl-ppcre"
+               "clack"
                "clingon"
                "com.inuoe.jzon"
                "fast-io"
