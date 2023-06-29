@@ -33,21 +33,21 @@
 
 (defun %stream-response (req status column-names rows)
   (lambda (responder)
-    (let ((writer (funcall responder (list status (list :content-type
-                                                        (cond
-                                                          ((lack.request:request-accepts-p req "application/json")
-                                                           "application/json")
-                                                          ((lack.request:request-accepts-p req "application/x-ndjson")
-                                                           "application/x-ndjson")
-                                                          ((lack.request:request-accepts-p req "text/csv")
-                                                           "text/csv"))))) ))
+    (let* ((content-type (cond
+                           ((lack.request:request-accepts-p req "application/json")
+                            "application/json")
+                           ((lack.request:request-accepts-p req "application/x-ndjson")
+                            "application/x-ndjson")
+                           ((lack.request:request-accepts-p req "text/csv")
+                            "text/csv")))
+           (writer (funcall responder (list status (list :content-type content-type)))))
       (cond
-        ((lack.request:request-accepts-p req "application/json")
+        ((equal "application/json" content-type)
          (progn (funcall writer "[")
                 (loop for row in rows
                       do (funcall writer (com.inuoe.jzon:stringify row))
                       finally (funcall writer "]" :close t))))
-        ((lack.request:request-accepts-p req "application/x-ndjson")
+        ((equal "application/x-ndjson" content-type)
          (loop for row in rows
                do (loop for column in row
                         for column-name in column-names
@@ -58,7 +58,7 @@
                                                  (com.inuoe.jzon:write-value writer column)))
                                              (write-char #\NewLine out))))
                finally (funcall writer nil :close t)))
-        ((lack.request:request-accepts-p req "text/csv")
+        ((equal "text/csv" content-type)
          (loop for row in (cons column-names rows)
                do (funcall writer (format nil "~{~A~^,~}~A" (mapcar #'%format-csv row) *crlf*))
                finally (funcall writer nil :close t)))))))
