@@ -75,7 +75,7 @@
                 (if (member (lack.request:request-method req) '(:get :post))
                     (if (and (eq :post (lack.request:request-method req))
                              (not (member (lack.request:request-content-type req) *request-media-types* :test 'equal)))
-                        (list +http-unsupported-media-type+ nil nil)
+                        (%empty-response +http-unsupported-media-type+)
                         (let* ((write-db (endb/sql:begin-write-tx db))
                                (original-md (endb/sql/expr:db-meta-data write-db))
                                (sql (if (and (eq :post (lack.request:request-method req))
@@ -100,8 +100,7 @@
                                                                (setf db (endb/sql:commit-write-tx db write-db))
                                                                (%stream-response req +http-created+ '("result") (list (list result-code))))
                                                              (%empty-response +http-conflict+)))))
-                                      (t (%empty-response +http-internal-server-error+))))
-
+                                      (t (%empty-response +http-conflict+))))
                                   (%empty-response +http-not-acceptable+))
                               (%empty-response +http-bad-request+))))
                     (%empty-response +http-method-not-allowed+ '(:allow "GET, POST")))
