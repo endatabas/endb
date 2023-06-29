@@ -96,7 +96,7 @@
                                  (format t "~A ~A~%" (clingon:command-full-name cmd) (clingon:command-version cmd)))
                                (if http-server
                                    (progn
-                                     (format t "Listening on port ~A~%"http-port)
+                                     (format t "Listening on port ~A~%" http-port)
                                      (bt:join-thread (clack.handler::handler-acceptor http-server)))
                                    (progn
                                      (when (interactive-stream-p *standard-input*)
