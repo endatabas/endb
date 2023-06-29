@@ -63,7 +63,8 @@
                  (multiple-value-bind (result result-code)
                      (endb/sql:execute-sql write-db line)
                    (cond
-                     ((or result (listp result-code))
+                     ((or result (and (listp result-code)
+                                      (not (null result-code))))
                       (%print-table result-code result t))
                      (result-code (progn
                                     (setf db (endb/sql:commit-write-tx db write-db))
@@ -74,10 +75,6 @@
         (when (interactive-stream-p *standard-input*)
             (format *error-output* "~%"))
         (return 0))
-      #+sbcl (sb-sys:interactive-interrupt (e)
-               (declare (ignore e))
-               (format *error-output* "~%")
-               (return 130))
       (error (e)
         (format *error-output* "~A~%~%" e)
         (unless (interactive-stream-p *standard-input*)
@@ -92,9 +89,14 @@
               (asdf:component-name endb-system)
               (asdf:component-version endb-system))))
   (let* ((db (endb/sql:make-directory-db :directory (clingon:getopt cmd :data-directory)))
-         (exit-code (unwind-protect
-                         (%repl db)
-                      (endb/sql:close-db db))))
+         (exit-code (handler-case
+                        (unwind-protect
+                             (%repl db)
+                          (endb/sql:close-db db))
+                      #+sbcl (sb-sys:interactive-interrupt (e)
+                               (declare (ignore e))
+                               (format *error-output* "~%")
+                               130))))
     (uiop:quit exit-code)))
 
 (defun endb-options ()
