@@ -3,6 +3,7 @@
   (:export #:make-api-handler)
   (:import-from :bordeaux-threads)
   (:import-from :lack.request)
+  (:import-from :cl-ppcre)
   (:import-from :com.inuoe.jzon)
   (:import-from :trivial-utf-8)
   (:import-from :endb/sql))
