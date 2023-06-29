@@ -67,7 +67,10 @@
                                                            (if (equal "application/x-ndjson" accept)
                                                                (list +http-created+
                                                                      '(:content-type "application/x-ndjson")
-                                                                     (list (format nil "{\"result\":~A}~%" (com.inuoe.jzon:stringify result-code))))
+                                                                     (list (with-output-to-string (out)
+                                                                             (com.inuoe.jzon:with-writer (writer :stream out)
+                                                                               (com.inuoe.jzon:write-object writer :result result-code))
+                                                                             (write-char #\NewLine out))))
                                                                (list +http-created+
                                                                      '(:content-type "application/json")
                                                                      (list (com.inuoe.jzon:stringify result-code)))))
