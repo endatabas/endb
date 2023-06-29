@@ -18,15 +18,10 @@
 (defconstant +http-unsupported-media-type+ 415)
 (defconstant +http-internal-server-error+ 500)
 
-(defun %format-csv-column (col)
-  (format nil (if (floatp col)
-                  "~,3f"
-                  "~A")
-          (cond
-            ((eq :null col) "NULL")
-            ((eq t col) "TRUE")
-            ((null col) "FALSE")
-            (t col))))
+(defparameter +crlf+ (coerce '(#\return #\linefeed) 'string))
+
+(defun %format-csv (x)
+  (cl-ppcre:regex-replace-all "\\\\\"" (com.inuoe.jzon:stringify x) "\"\""))
 
 (defun make-api-handler (db)
   (let ((write-lock (bt:make-lock)))
@@ -72,13 +67,9 @@
                                                                               (write-char #\NewLine out))))
                                                 finally (funcall writer nil :close t)))
                                          ((equal "text/csv" accept)
-                                          (progn
-                                            (funcall writer (format nil "~{~A~^,~}~%" result-code))
-                                            (loop for row in result
-                                                  do (funcall writer (format nil "~{~A~^,~}~%"
-                                                                             (loop for column in row
-                                                                                   collect (%format-csv-column column))))
-                                                  finally (funcall writer nil :close t))))
+                                          (loop for row in (cons result-code result)
+                                                do (funcall writer (format nil "~{~A~^,~}~A" (mapcar #'%format-csv row) +crlf+))
+                                                finally (funcall writer nil :close t)))
                                          (t (progn (funcall writer "[")
                                                    (loop for row in result
                                                          do (funcall writer (com.inuoe.jzon:stringify row))
@@ -98,7 +89,7 @@
                                                                               (com.inuoe.jzon:write-object writer :result result-code))
                                                                             (write-char #\NewLine out)))))
                                                              ((equal "text/csv" accept)
-                                                              (format nil "result~%~A~%" (%format-csv-column result-code)))
+                                                              (concatenate 'string (%format-csv "result") +crlf+ (%format-csv result-code) +crlf+))
                                                              (t (list +http-created+
                                                                       '(:content-type "application/json")
                                                                       (list (com.inuoe.jzon:stringify result-code))))))
