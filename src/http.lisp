@@ -32,28 +32,45 @@
                            (sql (if (and (eq :post (lack.request:request-method req))
                                          (equal "application/sql" (lack.request:request-content-type req)))
                                     (trivial-utf-8:utf-8-bytes-to-string (lack.request:request-content req))
-                                    (cdr (assoc "q" (lack.request:request-parameters req) :test 'equal)))))
+                                    (cdr (assoc "q" (lack.request:request-parameters req) :test 'equal))))
+                           (accept (gethash "accept" (lack.request:request-headers req))))
                       (if sql
-                          (if (member (gethash "accept" (lack.request:request-headers req)) '("*/*" "application/json") :test 'equal)
+                          (if (member accept '("*/*" "application/json" "application/x-ndjson") :test 'equal)
                               (multiple-value-bind (result result-code)
                                   (endb/sql:execute-sql write-db sql)
                                 (cond
                                   ((or result (and (listp result-code)
                                                    (not (null result-code))))
-                                   (list +http-ok+
-                                         '(:content-type "application/json")
-                                         (list (if result
-                                                   (com.inuoe.jzon:stringify result)
-                                                   "[]"))))
+                                   (if (equal "application/x-ndjson" accept)
+                                       (list +http-ok+
+                                             '(:content-type "application/x-ndjson")
+                                             (list (with-output-to-string (out)
+                                                     (loop for row in result
+                                                           do (loop for column in row
+                                                                    for column-name in result-code
+                                                                    do (com.inuoe.jzon:with-writer (writer :stream out)
+                                                                         (com.inuoe.jzon:with-object writer
+                                                                           (com.inuoe.jzon:write-key writer column-name)
+                                                                           (com.inuoe.jzon:write-value writer column)))
+                                                                       (write-char #\NewLine out))))))
+                                       (list +http-ok+
+                                             '(:content-type "application/json")
+                                             (list (if result
+                                                       (com.inuoe.jzon:stringify result)
+                                                       "[]")))))
                                   (result-code (if (eq :get (lack.request:request-method req))
                                                    (list +http-method-not-allowed+ nil nil)
                                                    (bt:with-lock-held (write-lock)
                                                      (if (eq original-md (endb/sql/expr:db-meta-data db))
                                                          (progn
                                                            (setf db (endb/sql:commit-write-tx db write-db))
-                                                           (list +http-created+
-                                                                 '(:content-type "application/json")
-                                                                 (list (com.inuoe.jzon:stringify result-code))))
+                                                           (if (equal "application/x-ndjson" accept)
+                                                               (list +http-created+
+                                                                     '(:content-type "application/x-ndjson")
+                                                                     (list (format nil "{\"result\":~A}~%" (com.inuoe.jzon:stringify result-code))))
+                                                               (list +http-created+
+                                                                     '(:content-type "application/json")
+                                                                     (list (com.inuoe.jzon:stringify result-code)))))
                                                          (list +http-conflict+ nil nil)))))
                                   (t (list +http-internal-server-error+ nil nil))))
                               (list +http-not-acceptable+ nil nil))
