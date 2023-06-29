@@ -18,6 +18,16 @@
 (defconstant +http-unsupported-media-type+ 415)
 (defconstant +http-internal-server-error+ 500)
 
+(defun %format-csv-column (col)
+  (format nil (if (floatp col)
+                  "~,3f"
+                  "~A")
+          (cond
+            ((eq :null col) "NULL")
+            ((eq t col) "TRUE")
+            ((null col) "FALSE")
+            (t col))))
+
 (defun make-api-handler (db)
   (let ((write-lock (bt:make-lock)))
     (lambda (env)
@@ -35,47 +45,63 @@
                                     (cdr (assoc "q" (lack.request:request-parameters req) :test 'equal))))
                            (accept (gethash "accept" (lack.request:request-headers req))))
                       (if sql
-                          (if (member accept '("*/*" "application/json" "application/x-ndjson") :test 'equal)
+                          (if (member accept '("*/*" "application/json" "application/x-ndjson" "text/csv") :test 'equal)
                               (multiple-value-bind (result result-code)
                                   (endb/sql:execute-sql write-db sql)
                                 (cond
                                   ((or result (and (listp result-code)
                                                    (not (null result-code))))
                                    (lambda (responder)
-                                     (let ((writer (funcall responder (list +http-ok+ (if (equal "application/x-ndjson" accept)
-                                                                                          '(:content-type "application/x-ndjson")
-                                                                                          '(:content-type "application/json")))) ))
-                                       (if (equal "application/x-ndjson" accept)
-                                           (loop for row in result
-                                                 do (loop for column in row
-                                                          for column-name in result-code
-                                                          do (funcall writer (with-output-to-string (out)
-                                                                               (com.inuoe.jzon:with-writer (writer :stream out)
-                                                                                 (com.inuoe.jzon:with-object writer
-                                                                                   (com.inuoe.jzon:write-key writer column-name)
-                                                                                   (com.inuoe.jzon:write-value writer column)))
-                                                                               (write-char #\NewLine out))))
-                                                 finally (funcall writer nil :close t))
-                                           (progn (funcall writer "[")
-                                                  (loop for row in result
-                                                        do (funcall writer (com.inuoe.jzon:stringify row))
-                                                        finally (funcall writer "]" :close t)))))))
+                                     (let ((writer (funcall responder (list +http-ok+ (list :content-type
+                                                                                            (cond
+                                                                                              ((equal "application/x-ndjson" accept)
+                                                                                               "application/x-ndjson")
+                                                                                              ((equal "text/csv" accept)
+                                                                                               "text/csv")
+                                                                                              (t "application/json"))))) ))
+                                       (cond
+                                         ((equal "application/x-ndjson" accept)
+                                          (loop for row in result
+                                                do (loop for column in row
+                                                         for column-name in result-code
+                                                         do (funcall writer (with-output-to-string (out)
+                                                                              (com.inuoe.jzon:with-writer (writer :stream out)
+                                                                                (com.inuoe.jzon:with-object writer
+                                                                                  (com.inuoe.jzon:write-key writer column-name)
+                                                                                  (com.inuoe.jzon:write-value writer column)))
+                                                                              (write-char #\NewLine out))))
+                                                finally (funcall writer nil :close t)))
+                                         ((equal "text/csv" accept)
+                                          (progn
+                                            (funcall writer (format nil "~{~A~^,~}~%" result-code))
+                                            (loop for row in result
+                                                  do (funcall writer (format nil "~{~A~^,~}~%"
+                                                                             (loop for column in row
+                                                                                   collect (%format-csv-column column))))
+                                                  finally (funcall writer nil :close t))))
+                                         (t (progn (funcall writer "[")
+                                                   (loop for row in result
+                                                         do (funcall writer (com.inuoe.jzon:stringify row))
+                                                         finally (funcall writer "]" :close t))))))))
                                   (result-code (if (eq :get (lack.request:request-method req))
                                                    (list +http-method-not-allowed+ nil nil)
                                                    (bt:with-lock-held (write-lock)
                                                      (if (eq original-md (endb/sql/expr:db-meta-data db))
                                                          (progn
                                                            (setf db (endb/sql:commit-write-tx db write-db))
-                                                           (if (equal "application/x-ndjson" accept)
-                                                               (list +http-created+
-                                                                     '(:content-type "application/x-ndjson")
-                                                                     (list (with-output-to-string (out)
-                                                                             (com.inuoe.jzon:with-writer (writer :stream out)
-                                                                               (com.inuoe.jzon:write-object writer :result result-code))
-                                                                             (write-char #\NewLine out))))
-                                                               (list +http-created+
-                                                                     '(:content-type "application/json")
-                                                                     (list (com.inuoe.jzon:stringify result-code)))))
+                                                           (cond
+                                                             ((equal "application/x-ndjson" accept)
+                                                              (list +http-created+
+                                                                    '(:content-type "application/x-ndjson")
+                                                                    (list (with-output-to-string (out)
+                                                                            (com.inuoe.jzon:with-writer (writer :stream out)
+                                                                              (com.inuoe.jzon:write-object writer :result result-code))
+                                                                            (write-char #\NewLine out)))))
+                                                             ((equal "text/csv" accept)
+                                                              (format nil "result~%~A~%" (%format-csv-column result-code)))
+                                                             (t (list +http-created+
+                                                                      '(:content-type "application/json")
+                                                                      (list (com.inuoe.jzon:stringify result-code))))))
                                                          (list +http-conflict+ nil nil)))))
                                   (t (list +http-internal-server-error+ nil nil))))
                               (list +http-not-acceptable+ nil nil))
