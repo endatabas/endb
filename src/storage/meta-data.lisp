@@ -1,6 +1,6 @@
 (defpackage :endb/storage/meta-data
   (:use :cl)
-  (:export #:json->meta-data #:meta-data->json #:meta-data-merge-patch #:meta-data-diff
+  (:export #:json->meta-data #:*json-ld-scalars* #:meta-data->json #:meta-data-merge-patch #:meta-data-diff
            #:binary-to-bloom #:binary-bloom-member-p #:calculate-stats
            #:random-uuid #:random-uuid-p)
   (:import-from :alexandria)
@@ -64,34 +64,48 @@
      value
      :initial-value writer)))
 
+(defvar *json-ld-scalars* t)
+
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value endb/arrow:arrow-timestamp-micros))
-  (com.inuoe.jzon:with-object writer
-    (com.inuoe.jzon:write-key writer "@value")
-    (com.inuoe.jzon:write-value writer (format nil "~A" value))
-    (com.inuoe.jzon:write-key writer "@type")
-    (com.inuoe.jzon:write-value writer "xsd:dateTime")))
+  (if *json-ld-scalars*
+      (com.inuoe.jzon:with-object writer
+        (com.inuoe.jzon:write-key writer "@value")
+        (com.inuoe.jzon:write-value writer (format nil "~A" value))
+        (com.inuoe.jzon:write-key writer "@type")
+        (com.inuoe.jzon:write-value writer "xsd:dateTime"))
+      (com.inuoe.jzon:write-value writer (format nil "~A" value))))
 
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value endb/arrow:arrow-date-days))
-  (com.inuoe.jzon:with-object writer
-    (com.inuoe.jzon:write-key writer "@value")
-    (com.inuoe.jzon:write-value writer (format nil "~A" value))
-    (com.inuoe.jzon:write-key writer "@type")
-    (com.inuoe.jzon:write-value writer "xsd:date")))
+  (if *json-ld-scalars*
+      (com.inuoe.jzon:with-object writer
+        (com.inuoe.jzon:write-key writer "@value")
+        (com.inuoe.jzon:write-value writer (format nil "~A" value))
+        (com.inuoe.jzon:write-key writer "@type")
+        (com.inuoe.jzon:write-value writer "xsd:date"))
+      (com.inuoe.jzon:write-value writer (format nil "~A" value))))
 
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value endb/arrow:arrow-time-micros))
-  (com.inuoe.jzon:with-object writer
-    (com.inuoe.jzon:write-key writer "@value")
-    (com.inuoe.jzon:write-value writer (format nil "~A" value))
-    (com.inuoe.jzon:write-key writer "@type")
-    (com.inuoe.jzon:write-value writer "xsd:time")))
+  (if *json-ld-scalars*
+      (if *json-ld-scalars*
+          (com.inuoe.jzon:with-object writer
+            (com.inuoe.jzon:write-key writer "@value")
+            (com.inuoe.jzon:write-value writer (format nil "~A" value))
+            (com.inuoe.jzon:write-key writer "@type")
+            (com.inuoe.jzon:write-value writer "xsd:time")))
+      (com.inuoe.jzon:write-value writer (format nil "~A" value))))
 
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value vector))
   (check-type value endb/arrow:arrow-binary)
-  (com.inuoe.jzon:with-object writer
-    (com.inuoe.jzon:write-key writer "@value")
-    (com.inuoe.jzon:write-value writer (qbase64:encode-bytes value))
-    (com.inuoe.jzon:write-key writer "@type")
-    (com.inuoe.jzon:write-value writer "xsd:base64Binary")))
+  (if *json-ld-scalars*
+      (com.inuoe.jzon:with-object writer
+        (com.inuoe.jzon:write-key writer "@value")
+        (com.inuoe.jzon:write-value writer (qbase64:encode-bytes value))
+        (com.inuoe.jzon:write-key writer "@type")
+        (com.inuoe.jzon:write-value writer "xsd:base64Binary"))
+      (com.inuoe.jzon:write-value writer (qbase64:encode-bytes value))))
+
+(defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value (eql :null)))
+  (com.inuoe.jzon:write-value writer 'null))
 
 (defun json->meta-data (in)
   (%jzon->meta-data (com.inuoe.jzon:parse in)))

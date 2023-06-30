@@ -6,22 +6,17 @@
   (:import-from :bordeaux-threads)
   (:import-from :clack)
   (:import-from :clingon)
+  (:import-from :com.inuoe.jzon)
   (:import-from :endb/http)
   (:import-from :endb/lib)
-  (:import-from :endb/sql))
+  (:import-from :endb/sql)
+  (:import-from :endb/storage/meta-data))
 (in-package :endb/core)
 
 (defvar *table-column-pad* 2)
 
 (defun %format-column (col)
-  (format nil (if (floatp col)
-                  "~,3f"
-                  "~A")
-          (cond
-            ((eq :null col) "NULL")
-            ((eq t col) "TRUE")
-            ((null col) "FALSE")
-            (t col))))
+  (com.inuoe.jzon:stringify col))
 
 (defun %format-row (widths row &optional center)
   (format nil "~{~A~^|~}"
@@ -35,7 +30,8 @@
                                 (%format-column col)))))
 
 (defun %print-table (columns rows &optional stream)
-  (let* ((widths (loop for idx below (length columns)
+  (let* ((endb/storage/meta-data:*json-ld-scalars* nil)
+         (widths (loop for idx below (length columns)
                        collect (loop for row in (cons columns rows)
                                      maximize (+ *table-column-pad* (length (%format-column (nth idx row))))))))
     (format stream "~A~%" (%format-row widths columns t))

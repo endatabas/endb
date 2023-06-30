@@ -8,7 +8,8 @@
   (:import-from :trivial-utf-8)
   (:import-from :yacc)
   (:import-from :endb/lib/parser)
-  (:import-from :endb/sql))
+  (:import-from :endb/sql)
+  (:import-from :endb/storage/meta-data))
 (in-package :endb/http)
 
 (defconstant +http-ok+ 200)
@@ -23,7 +24,7 @@
 
 (defparameter *crlf* (coerce '(#\return #\linefeed) 'string))
 (defparameter *request-media-types* '("application/sql" "application/x-www-form-urlencoded"))
-(defparameter *response-media-types* '("application/json" "application/x-ndjson" "text/csv"))
+(defparameter *response-media-types* '("application/json" "application/x-ndjson" "application/ld+json" "text/csv"))
 
 (defun %format-csv (x)
   (cl-ppcre:regex-replace-all "\\\\\"" (com.inuoe.jzon:stringify x) "\"\""))
@@ -33,16 +34,20 @@
 
 (defun %stream-response (req status column-names rows)
   (lambda (responder)
-    (let* ((content-type (cond
+    (let* ((endb/storage/meta-data:*json-ld-scalars* (lack.request:request-accepts-p req "application/ld+json"))
+           (content-type (cond
                            ((lack.request:request-accepts-p req "application/json")
                             "application/json")
+                           ((lack.request:request-accepts-p req "application/ld+json")
+                            "application/ld+json")
                            ((lack.request:request-accepts-p req "application/x-ndjson")
                             "application/x-ndjson")
                            ((lack.request:request-accepts-p req "text/csv")
                             "text/csv")))
            (writer (funcall responder (list status (list :content-type content-type)))))
       (cond
-        ((equal "application/json" content-type)
+        ((or (equal "application/json" content-type)
+             (equal "application/ld+json" content-type))
          (progn (funcall writer "[")
                 (loop for row in rows
                       for idx from 0

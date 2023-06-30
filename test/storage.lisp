@@ -274,6 +274,29 @@
     (is (equal json (meta-data->json binary)))
     (is (fset:equal? binary (json->meta-data json)))))
 
+(test meta-data-xsd-json-scalars
+  (let ((*json-ld-scalars* nil))
+    (let* ((date (endb/arrow:parse-arrow-date-days "2001-01-01"))
+           (json "\"2001-01-01\""))
+      (is (equal json (meta-data->json date))))
+
+    (let* ((date-time (endb/arrow:parse-arrow-timestamp-micros "2023-05-16T14:43:39.970062Z"))
+           (json "\"2023-05-16T14:43:39.970062Z\""))
+      (is (equal json (meta-data->json date-time))))
+
+    (let* ((time (endb/arrow:parse-arrow-time-micros "14:43:39.970062"))
+           (json "\"14:43:39.970062\""))
+      (is (equal json (meta-data->json time))))
+
+    (let* ((binary (trivial-utf-8:string-to-utf-8-bytes "hello world"))
+           (json "\"aGVsbG8gd29ybGQ=\""))
+      (is (equal json (meta-data->json binary))))
+
+    (let* ((sql-null :null)
+           (json "null"))
+      (is (eql 'null (json->meta-data json)))
+      (is (equal json (meta-data->json sql-null))))))
+
 (test meta-data-json-int64
   (is (= (1- (ash 1 63)) (json->meta-data (meta-data->json (1- (ash 1 63))))))
   (is (= (- (ash 1 63)) (json->meta-data (meta-data->json (- (ash 1 63)))))))
