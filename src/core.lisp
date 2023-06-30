@@ -144,7 +144,7 @@
                           :handler #'endb-handler)))
 
 (defun main ()
-  (let ((app (endb-command)))
-    ;; clingon:exit-error has a guard against existing the REPL, but clack brings in swank.
-    (setf *features* (remove :swank *features*))
+  ;; clingon:exit-error has a guard against existing the REPL, but clack brings in swank.
+  (let ((*features* (remove :swank *features*))
+        (app (endb-command)))
     (clingon:run app)))
