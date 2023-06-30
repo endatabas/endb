@@ -6,7 +6,6 @@
   (:import-from :bordeaux-threads)
   (:import-from :clack)
   (:import-from :clingon)
-  (:import-from :uiop)
   (:import-from :endb/http)
   (:import-from :endb/lib)
   (:import-from :endb/sql))
@@ -62,7 +61,8 @@
              (format t "~:{~8A ~A~%~}~%"
                      '(("\\q" "quits this session.")
                        ("help" "displays this help."))))
-            ((equal "\\q" trimmed-line) (return 0))
+            ((equal "\\q" trimmed-line)
+             (error 'clingon:exit-error :code 0))
             (t (let ((write-db (endb/sql:begin-write-tx db)))
                  (multiple-value-bind (result result-code)
                      (endb/sql:execute-sql write-db line)
@@ -74,43 +74,39 @@
                                     (setf db (endb/sql:commit-write-tx db write-db))
                                     (format t "~A~%" result-code)))
                      (t (format *error-output* "error~%~%"))))))))
+      (clingon:exit-error (e)
+        (error e))
       (end-of-file (e)
         (declare (ignore e))
         (when (interactive-stream-p *standard-input*)
-            (format *error-output* "~%"))
-        (return 0))
+          (format *error-output* "~%"))
+        (error 'clingon:exit-error :code 0))
       (error (e)
         (format *error-output* "~A~%~%" e)
         (unless (interactive-stream-p *standard-input*)
-          (return 1))))))
+          (error 'clingon:exit-error :code 1))))))
 
 (defun endb-handler (cmd)
   (endb/lib:init-lib)
   (let* ((db (endb/sql:make-directory-db :directory (clingon:getopt cmd :data-directory)))
          (http-port (clingon:getopt cmd :http-port))
          (http-server (unless (clingon:getopt cmd :interactive)
-                        (clack:clackup (endb/http:make-api-handler db) :port http-port :silent t)))
-         (exit-code (handler-case
-                        (unwind-protect
-                             (progn
-                               (when (interactive-stream-p *standard-input*)
-                                 (format t "~A ~A~%" (clingon:command-full-name cmd) (clingon:command-version cmd)))
-                               (if http-server
-                                   (progn
-                                     (format t "Listening on port ~A~%" http-port)
-                                     (bt:join-thread (clack.handler::handler-acceptor http-server)))
-                                   (progn
-                                     (when (interactive-stream-p *standard-input*)
-                                       (format t "Type \"help\" for help.~%~%"))
-                                     (%repl db))))
-                          (when http-server
-                            (clack:stop http-server))
-                          (endb/sql:close-db db))
-                      #+sbcl (sb-sys:interactive-interrupt (e)
-                               (declare (ignore e))
-                               (format *error-output* "~%")
-                               130))))
-    (uiop:quit exit-code)))
+                        (clack:clackup (endb/http:make-api-handler db) :port http-port :silent t))))
+    (unwind-protect
+         (progn
+           (when (interactive-stream-p *standard-input*)
+             (format t "~A ~A~%" (clingon:command-full-name cmd) (clingon:command-version cmd)))
+           (if http-server
+               (progn
+                 (format t "Listening on port ~A~%" http-port)
+                 (bt:join-thread (clack.handler::handler-acceptor http-server)))
+               (progn
+                 (when (interactive-stream-p *standard-input*)
+                   (format t "Type \"help\" for help.~%~%"))
+                 (%repl db))))
+      (when http-server
+        (clack:stop http-server))
+      (endb/sql:close-db db))))
 
 (defun endb-options ()
   (list
@@ -149,4 +145,6 @@
 
 (defun main ()
   (let ((app (endb-command)))
+    ;; clingon:exit-error has a guard against existing the REPL, but clack brings in swank.
+    (setf *features* (remove :swank *features*))
     (clingon:run app)))
