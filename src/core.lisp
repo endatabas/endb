@@ -2,6 +2,7 @@
   (:use :cl)
   (:export #:main)
   (:import-from :asdf)
+  (:import-from :asdf/component)
   (:import-from :bordeaux-threads)
   (:import-from :clack)
   (:import-from :clingon)
@@ -139,7 +140,7 @@
 (defun endb-command ()
   (let ((endb-system (asdf:find-system :endb)))
     (clingon:make-command :name (asdf:component-name endb-system)
-                          :description "Endatabas is an immutable, cloud-first, dynamic SQL database."
+                          :description (asdf/component:component-description endb-system)
                           :version (asdf:component-version endb-system)
                           :license (asdf:system-license endb-system)
                           :usage "[OPTION]..."
