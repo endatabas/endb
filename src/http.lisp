@@ -45,6 +45,9 @@
         ((equal "application/json" content-type)
          (progn (funcall writer "[")
                 (loop for row in rows
+                      for idx from 0
+                      unless (zerop idx)
+                        do (funcall writer ",")
                       do (funcall writer (com.inuoe.jzon:stringify row))
                       finally (funcall writer "]" :close t))))
         ((equal "application/x-ndjson" content-type)
