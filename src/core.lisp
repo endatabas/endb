@@ -88,7 +88,7 @@
 
 (defun endb-handler (cmd)
   (endb/lib:init-lib)
-  (let* ((db (endb/sql:make-directory-db :directory (clingon:getopt cmd :data-directory)))
+  (let* ((db (endb/sql:make-directory-db :directory (clingon:getopt cmd :data-directory) :object-store-path nil))
          (http-port (clingon:getopt cmd :http-port))
          (http-server (unless (clingon:getopt cmd :interactive)
                         (clack:clackup (endb/http:make-api-handler db) :port http-port :silent t))))
