@@ -7,6 +7,7 @@
   (:import-from :clack)
   (:import-from :clingon)
   (:import-from :com.inuoe.jzon)
+  (:import-from :log4cl)
   (:import-from :endb/http)
   (:import-from :endb/lib)
   (:import-from :endb/sql)
@@ -83,6 +84,7 @@
           (error 'clingon:exit-error :code 1))))))
 
 (defun endb-handler (cmd)
+  (setf (log4cl:logger-log-level log4cl:*root-logger*) (clingon:getopt cmd :log-level))
   (endb/lib:init-lib)
   (let* ((db (endb/sql:make-directory-db :directory (clingon:getopt cmd :data-directory) :object-store-path nil))
          (http-port (clingon:getopt cmd :http-port))
@@ -91,14 +93,14 @@
     (unwind-protect
          (progn
            (when (interactive-stream-p *standard-input*)
-             (format t "~A ~A~%" (clingon:command-full-name cmd) (clingon:command-version cmd)))
+             (log:info "~A ~A" (clingon:command-full-name cmd) (clingon:command-version cmd)))
            (if http-server
                (progn
-                 (format t "Listening on port ~A~%" http-port)
+                 (log:info "Listening on port ~A" http-port)
                  (bt:join-thread (clack.handler::handler-acceptor http-server)))
                (progn
                  (when (interactive-stream-p *standard-input*)
-                   (format t "Type \"help\" for help.~%~%"))
+                   (log:info "Type \"help\" for help."))
                  (%repl db))))
       (when http-server
         (clack:stop http-server))
@@ -127,7 +129,16 @@
     :description "interactive session"
     :short-name #\i
     :long-name "interactive"
-    :key :interactive)))
+    :key :interactive)
+   (clingon:make-option
+    :choice
+    :description "log level"
+    :short-name #\l
+    :long-name "log-level"
+    :initial-value "info"
+    :items '("info" "warn" "error" "debug")
+    :env-vars '("ENDB_LOG_LEVEL")
+    :key :log-level)))
 
 (defun endb-command ()
   (let ((endb-system (asdf:find-system :endb)))

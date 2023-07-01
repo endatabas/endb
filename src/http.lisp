@@ -5,6 +5,7 @@
   (:import-from :lack.request)
   (:import-from :cl-ppcre)
   (:import-from :com.inuoe.jzon)
+  (:import-from :log4cl)
   (:import-from :trivial-utf-8)
   (:import-from :yacc)
   (:import-from :endb/lib/parser)
@@ -79,6 +80,7 @@
     (lambda (env)
       (handler-case
           (let ((req (lack.request:make-request env)))
+            (log:debug req)
             (if (equal "/sql" (lack.request:request-path-info req))
                 (if (member (lack.request:request-method req) '(:get :post))
                     (if (and (eq :post (lack.request:request-method req))
@@ -118,5 +120,5 @@
         (endb/lib/parser:sql-parse-error (e)
           (%error-response +http-bad-request+ e))
         (error (e)
-          (format *error-output* "~A~%~%" e)
+          (log:error e)
           (%error-response +http-internal-server-error+ e))))))

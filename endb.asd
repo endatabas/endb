@@ -21,6 +21,7 @@
                "fast-io"
                "fset"
                "local-time"
+               "log4cl"
                "mmap"
                "qbase64"
                "trivial-gray-streams"
