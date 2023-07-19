@@ -7,7 +7,7 @@
            #:arrow-push #:arrow-valid-p #:arrow-get #:arrow-value
            #:arrow-length #:arrow-null-count #:arrow-data-type #:arrow-lisp-type
            #:arrow-children #:arrow-buffers
-           #:arrow-struct-children #:arrow-struct-row-get #:arrow-struct-row-push
+           #:arrow-struct-projection #:arrow-struct-children #:arrow-struct-row-get #:arrow-struct-row-push
            #:arrow-array #:validity-array #:null-array #:int32-array #:int64-array #:float64-array
            #:date-days-array #:timestamp-micros-array #:time-micros-array #:binary-array #:utf8-array #:list-array #:struct-array #:dense-union-array)
   (:import-from :cl-ppcre)
@@ -713,6 +713,11 @@
           with children = (reverse children)
           for c in projection
           collect (or (cdr (assoc c children :test 'equal)) missing-column))))
+
+(defun arrow-struct-projection (array n projection)
+  (loop with children = (arrow-get array n)
+        for c in projection
+        collect (or (cdr (assoc c children :test 'equal)) :null)))
 
 (defun arrow-struct-row-get (array n)
   (with-slots (children) array

@@ -148,29 +148,18 @@
                (scan-row-id-sym (or (fset:lookup ctx :scan-row-id-sym) (gensym)))
                (scan-batch-idx-sym (or (fset:lookup ctx :scan-batch-idx-sym) (gensym)))
                (scan-arrow-file-sym (or (fset:lookup ctx :scan-arrow-file-sym) (gensym)))
-               (deleted-row-ids-sym (gensym))
-               (col-syms (loop repeat (length vars) collect (gensym)))
-               (children-sym (gensym))
-               (smap (loop for v in vars
-                           for c in col-syms
-                           collect (cons v `(endb/arrow:arrow-get ,c ,scan-row-id-sym))))
-               (where-src (%replace-all smap where-src))
-               (nested-src (%replace-all smap nested-src)))
+               (deleted-row-ids-sym (gensym)))
           `(let ((,table-md-sym (endb/sql/expr:base-table-meta ,(fset:lookup ctx :db-sym) ,table-name)))
              (fset:do-map (,scan-arrow-file-sym ,arrow-file-md-sym ,table-md-sym)
                (loop with ,deletes-md-sym = (or (fset:lookup ,arrow-file-md-sym "deletes") (fset:empty-map))
                      for ,batch-sym in (endb/sql/expr:base-table-arrow-batches ,(fset:lookup ctx :db-sym) ,table-name ,scan-arrow-file-sym)
                      for ,scan-batch-idx-sym from 0
                      for ,deleted-row-ids-sym = (or (fset:lookup ,deletes-md-sym (prin1-to-string ,scan-batch-idx-sym)) (fset:empty-seq))
-                     for ,children-sym = (endb/arrow:arrow-struct-children ,batch-sym ',projection)
-                     do (let* (,@(loop for c in col-syms
-                                       for idx from 0
-                                       collect (list c `(nth ,idx ,children-sym))))
-                          (declare (ignorable ,@col-syms))
-                          (loop for ,scan-row-id-sym of-type fixnum below (endb/arrow:arrow-length ,batch-sym)
-                                unless (fset:find ,scan-row-id-sym ,deleted-row-ids-sym)
-                                  ,@where-src
-                                ,@nested-src))))))
+                     do (loop for ,scan-row-id-sym of-type fixnum below (endb/arrow:arrow-length ,batch-sym)
+                              for ,vars = (endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',projection)
+                              unless (fset:find ,scan-row-id-sym ,deleted-row-ids-sym)
+                                ,@where-src
+                              ,@nested-src)))))
         `(loop for ,(%unique-vars vars)
                  in ,from-src
                ,@where-src

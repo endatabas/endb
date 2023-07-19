@@ -80,6 +80,26 @@
     (is (equal '((103)) (endb/sql/expr:base-table-visible-rows db "t1")))
     (is (= 1 (endb/sql/expr:base-table-size db "t1")))))
 
+(test no-ddl
+  (let* ((db (make-db))
+         (write-db (begin-write-tx db)))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "INSERT INTO t1(a, b) VALUES(103, 104)")
+      (is (null result))
+      (is (= 1 result-code)))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "INSERT INTO t1(b, c) VALUES(105, 106)")
+      (is (null result))
+      (is (= 1 result-code)))
+
+    (setf db (commit-write-tx db write-db))
+
+    (is (equal '((103 104 :null)
+                 (:null 105 106))
+               (execute-sql db "SELECT * FROM t1 ORDER BY b")))))
+
 (test directory-db
   (let* ((target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-dir (merge-pathnames "endb_data_directory/" target-dir)))
