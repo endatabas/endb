@@ -94,6 +94,9 @@
       (is (null result))
       (is (= 1 result-code)))
 
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql write-db "INSERT INTO t1 VALUES(105, FALSE)"))
+
     (setf db (commit-write-tx db write-db))
 
     (multiple-value-bind (result columns)
