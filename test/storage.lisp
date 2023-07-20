@@ -5,12 +5,22 @@
   (:import-from :archive)
   (:import-from :fast-io)
   (:import-from :fset)
+  (:import-from :trivial-gray-streams)
   (:import-from :trivial-utf-8)
   (:import-from :uiop)
   (:import-from :cl-bloom))
 (in-package :endb-test/storage)
 
 (in-suite* :storage)
+
+(defmethod trivial-gray-streams:stream-listen ((stream fast-io:fast-input-stream))
+  (not (eq :eof (fast-io::peek-byte stream nil nil :eof))))
+
+(test fast-io-gray-stream-listen
+  (let ((in (make-instance 'fast-io:fast-input-stream :vector (make-array 1 :initial-element 42 :element-type '(unsigned-byte 8)))))
+    (is (listen in))
+    (is (= 42 (read-byte in)))
+    (is (null (listen in)))))
 
 (test tar-wal-and-object-store
   (let* ((out (make-instance 'fast-io:fast-output-stream))

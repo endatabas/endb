@@ -26,21 +26,22 @@
     (archive::transfer-entry-data-to-stream archive entry out)
     (fast-io:finish-output-stream out)))
 
+(defun %wal-read-entry-safe (archive)
+  (when (listen (archive::archive-stream archive))
+    (archive:read-entry-from-archive archive)))
+
 (defmethod object-store-get ((archive archive:tar-archive) path)
   (bt:with-lock-held (*tar-object-store-lock*)
     (let* ((stream (archive::archive-stream archive))
            (pos (file-position stream)))
+      (file-position stream 0)
       (unwind-protect
-           (handler-case
-               (loop for entry = (archive:read-entry-from-archive archive)
-                     while entry
-                     if (equal path (archive:name entry))
-                       do (return (%extract-entry archive entry))
-                     else
-                       do (archive:discard-entry archive entry))
-             (error (e)
-               (unless (zerop (file-position stream))
-                 (error e))))
+           (loop for entry = (%wal-read-entry-safe archive)
+                 while entry
+                 if (equal path (archive:name entry))
+                   do (return (%extract-entry archive entry))
+                 else
+                   do (archive:discard-entry archive entry))
         (file-position stream pos)))))
 
 (defmethod object-store-put ((archive archive:tar-archive) path buffer))
@@ -55,18 +56,15 @@
   (bt:with-lock-held (*tar-object-store-lock*)
     (let* ((stream (archive::archive-stream archive))
            (pos (file-position stream)))
+      (file-position stream 0)
       (unwind-protect
-           (handler-case
-               (%object-store-list-filter
-                (loop for entry = (archive:read-entry-from-archive archive)
-                      while entry
-                      do (archive:discard-entry archive entry)
-                      collect (archive:name entry))
-                prefix
-                start-after)
-             (error (e)
-               (unless (zerop (file-position stream))
-                 (error e))))
+           (%object-store-list-filter
+            (loop for entry = (%wal-read-entry-safe archive)
+                  while entry
+                  do (archive:discard-entry archive entry)
+                  collect (archive:name entry))
+            prefix
+            start-after)
         (file-position stream pos)))))
 
 (defmethod object-store-close ((archive archive:tar-archive))
