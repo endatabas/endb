@@ -554,7 +554,8 @@
                                 :format (if (equal "%Y" format)
                                             '((:year 4))
                                             (error 'sql-runtime-error
-                                                   :message (concatenate 'string "Unknown time format: " format)))))
+                                                   :message (concatenate 'string "Unknown time format: " format)))
+                                :timezone local-time:+utc-zone+))
 
 (defmethod sql-substring ((x (eql :null)) (y (eql :null)) &optional z)
   (declare (ignore z))
