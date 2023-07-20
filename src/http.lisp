@@ -14,8 +14,6 @@
   (:import-from :endb/storage/meta-data))
 (in-package :endb/http)
 
-
-
 (defconstant +http-ok+ 200)
 (defconstant +http-created+ 201)
 (defconstant +http-bad-request+ 400)
