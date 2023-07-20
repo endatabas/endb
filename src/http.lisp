@@ -1,6 +1,7 @@
 (defpackage :endb/http
   (:use :cl)
   (:export #:make-api-handler)
+  (:import-from :alexandria)
   (:import-from :bordeaux-threads)
   (:import-from :lack.request)
   (:import-from :cl-ppcre)
@@ -13,6 +14,8 @@
   (:import-from :endb/storage/meta-data))
 (in-package :endb/http)
 
+
+
 (defconstant +http-ok+ 200)
 (defconstant +http-created+ 201)
 (defconstant +http-bad-request+ 400)
@@ -24,7 +27,7 @@
 (defconstant +http-internal-server-error+ 500)
 
 (defparameter *crlf* (coerce '(#\return #\linefeed) 'string))
-(defparameter *request-media-types* '("application/sql" "application/x-www-form-urlencoded"))
+(defparameter *request-media-types* '("application/sql" "application/x-www-form-urlencoded" "multipart/"))
 (defparameter *response-media-types* '("application/json" "application/x-ndjson" "application/ld+json" "text/csv"))
 
 (defun %format-csv (x)
@@ -35,8 +38,7 @@
 
 (defun %stream-response (req status column-names rows)
   (lambda (responder)
-    (let* ((endb/storage/meta-data:*json-ld-scalars* (lack.request:request-accepts-p req "application/ld+json"))
-           (content-type (cond
+    (let* ((content-type (cond
                            ((lack.request:request-accepts-p req "application/json")
                             "application/json")
                            ((lack.request:request-accepts-p req "application/ld+json")
@@ -45,6 +47,7 @@
                             "application/x-ndjson")
                            ((lack.request:request-accepts-p req "text/csv")
                             "text/csv")))
+           (endb/storage/meta-data:*json-ld-scalars* (equal "application/ld+json" content-type))
            (writer (funcall responder (list status (list :content-type content-type)))))
       (cond
         ((or (equal "application/json" content-type)
@@ -84,7 +87,9 @@
             (if (equal "/sql" (lack.request:request-path-info req))
                 (if (member (lack.request:request-method req) '(:get :post))
                     (if (and (eq :post (lack.request:request-method req))
-                             (not (member (lack.request:request-content-type req) *request-media-types* :test 'equal)))
+                             (notany (lambda (x)
+                                       (alexandria:starts-with-subseq x (lack.request:request-content-type req)))
+                                     *request-media-types*))
                         (%empty-response +http-unsupported-media-type+)
                         (let* ((write-db (endb/sql:begin-write-tx db))
                                (original-md (endb/sql/expr:db-meta-data write-db))
