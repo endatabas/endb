@@ -83,8 +83,7 @@ make slt-test
 Install https://podman.io/ or Docker:
 
 ```
-sudo apt install podman
-alias docker=podman
+sudo apt install podman podman-docker
 ```
 
 Build the image:

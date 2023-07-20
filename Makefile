@@ -13,6 +13,7 @@ CFLAGS = -g -Wall
 
 CARGO = cargo
 
+DOCKER = docker
 DOCKER_RUST_OS = bullseye
 DOCKER_SBCL_OS = debian
 DOCKER_ENDB_OS = debian
@@ -149,7 +150,7 @@ slt-test-ci:
 	$(SLT_ENV) make slt-test-tpch
 
 docker:
-	docker build --pull \
+	$(DOCKER) build --pull \
 		--build-arg RUST_OS=$(DOCKER_RUST_OS) --build-arg SBCL_OS=$(DOCKER_SBCL_OS) --build-arg ENDB_OS=$(DOCKER_ENDB_OS) \
 		$(DOCKER_TAGS) .
 
@@ -160,7 +161,7 @@ docker-alpine: DOCKER_TAGS = -t endatabas/endb:$(DOCKER_ENDB_OS) -t endatabas/en
 docker-alpine: docker
 
 run-docker: docker
-	docker run --rm -it endatabas/endb:latest-$(DOCKER_OS)
+	$(DOCKER) run --rm -p 3803:3803 -v "$(PWD)/endb_data":/app/endb_data -it endatabas/endb:latest-$(DOCKER_ENDB_OS)
 
 clean:
 	(cd lib; $(CARGO) clean)

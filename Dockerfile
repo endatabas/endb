@@ -46,4 +46,7 @@ WORKDIR /app
 COPY --from=rust-build-env /root/endb/target/release/libendb.so /app
 COPY --from=sbcl-build-env /root/.roswell/local-projects/endb/target/endb /app
 
-CMD ["./endb"]
+EXPOSE 3803
+VOLUME /app/endb_data
+
+ENTRYPOINT ["./endb"]

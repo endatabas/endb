@@ -1,4 +1,5 @@
 (register-system-packages "clack-handler-hunchentoot" '(:clack.handler.hunchentoot))
+(push :hunchentoot-no-ssl *features*)
 
 (defsystem "endb"
   :version "0.1.0"
