@@ -40,7 +40,6 @@ Clone or link this project under `~/quicklisp/local-projects`:
 
 ```bash
 ln -s $PWD ~/quicklisp/local-projects
-
 ```
 
 Initialise submodules:
@@ -80,7 +79,7 @@ make slt-test
 
 ## Docker
 
-Install https://podman.io/ or Docker:
+Install https://podman.io/ or [Docker](https://docs.docker.com/desktop/install/mac-install/):
 
 ```
 sudo apt install podman podman-docker

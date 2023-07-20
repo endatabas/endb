@@ -50,6 +50,9 @@ TPCH_REFERENCE_ENGINE = sqlite
 
 default: test target/endb
 
+endb_data:
+	mkdir -p endb_data
+
 target/endb: Makefile *.asd $(SOURCES) target/libendb$(SHARED_LIB_EXT)
 	mkdir -p target
 	$(LISP) --non-interactive \
@@ -160,7 +163,7 @@ docker-alpine: DOCKER_ENDB_OS = alpine
 docker-alpine: DOCKER_TAGS = -t endatabas/endb:$(DOCKER_ENDB_OS) -t endatabas/endb:latest-$(DOCKER_ENDB_OS)
 docker-alpine: docker
 
-run-docker: docker
+run-docker: docker endb_data
 	$(DOCKER) run --rm -p 3803:3803 -v "$(PWD)/endb_data":/app/endb_data -it endatabas/endb:latest-$(DOCKER_ENDB_OS)
 
 clean:
