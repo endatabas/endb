@@ -90,15 +90,21 @@
       (is (= 1 result-code)))
 
     (multiple-value-bind (result result-code)
-        (execute-sql write-db "INSERT INTO t1(b, c) VALUES(105, 106)")
+        (execute-sql write-db "INSERT INTO t1(b, c) VALUES(105, FALSE)")
       (is (null result))
       (is (= 1 result-code)))
 
     (setf db (commit-write-tx db write-db))
 
-    (is (equal '((103 104 :null)
-                 (:null 105 106))
-               (execute-sql db "SELECT * FROM t1 ORDER BY b")))))
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM t1 ORDER BY b")
+      (is (equal '((103 104 :null) (:null 105 nil)) result))
+      (is (equal '("a" "b" "c") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT b, b FROM t1 ORDER BY b")
+      (is (equal '((104 104) (105 105)) result))
+      (is (equal '("b" "b") columns)))))
 
 (test directory-db
   (let* ((target-dir (asdf:system-relative-pathname :endb-test "target/"))

@@ -715,9 +715,12 @@
           collect (or (cdr (assoc c children :test 'equal)) missing-column))))
 
 (defun arrow-struct-projection (array n projection)
-  (loop with children = (arrow-get array n)
+  (loop with children = (reverse (arrow-get array n))
         for c in projection
-        collect (or (cdr (assoc c children :test 'equal)) :null)))
+        for kv = (assoc c children :test 'equal)
+        collect (if kv
+                    (cdr kv)
+                    :null)))
 
 (defun arrow-struct-row-get (array n)
   (with-slots (children) array
