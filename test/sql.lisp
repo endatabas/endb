@@ -1,7 +1,9 @@
 (defpackage :endb-test/sql
   (:use :cl :fiveam :endb/sql)
   (:import-from :endb/arrow)
+  (:import-from :endb/sql/expr)
   (:import-from :sqlite)
+  (:import-from :asdf)
   (:import-from :uiop))
 (in-package :endb-test/sql)
 
