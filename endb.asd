@@ -1,3 +1,5 @@
+(register-system-packages "clack-handler-hunchentoot" '(:clack.handler.hunchentoot))
+
 (defsystem "endb"
   :version "0.1.0"
   :author "Håkan Råberg <hakan.raberg@gmail.com>, Steven Deobald <steven@deobald.ca>"
@@ -16,6 +18,7 @@
                "cl-murmurhash"
                "cl-ppcre"
                "clack"
+               "clack-handler-hunchentoot"
                "clingon"
                "com.inuoe.jzon"
                "fast-io"

@@ -5,6 +5,7 @@
   (:import-from :asdf/component)
   (:import-from :bordeaux-threads)
   (:import-from :clack)
+  (:import-from :clack.handler.hunchentoot)
   (:import-from :clingon)
   (:import-from :com.inuoe.jzon)
   (:import-from :log4cl)
