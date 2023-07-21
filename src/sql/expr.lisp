@@ -1015,7 +1015,11 @@
                    (tx-id (1+ (or (fset:lookup meta-data "_last_tx") 0)))
                    (batch-file (format nil "~(~16,'0x~).arrow" tx-id))
                    (batch-key (format nil "~A/~A" table-name batch-file))
-                   (batch (or (car (endb/storage/buffer-pool:buffer-pool-get buffer-pool batch-key))
+                   (table-md (or (fset:lookup meta-data table-name)
+                                 (fset:empty-map)))
+                   (batch-md (fset:lookup table-md batch-file))
+                   (batch (if batch-md
+                              (car (endb/storage/buffer-pool:buffer-pool-get buffer-pool batch-key))
                               (endb/arrow:make-arrow-array-for (list (cons table-name :null))))))
               (loop for row in values
                     do (endb/arrow:arrow-push batch (list (cons table-name
@@ -1027,11 +1031,8 @@
 
               (endb/storage/buffer-pool:buffer-pool-put buffer-pool batch-key (list batch))
 
-              (let* ((table-md (or (fset:lookup meta-data table-name)
-                                   (fset:empty-map)))
-                     (inner-batch (cdar (endb/arrow:arrow-children batch)))
-                     (batch-md (fset:map-union (or (fset:lookup table-md batch-file)
-                                                   (fset:empty-map))
+              (let* ((inner-batch (cdar (endb/arrow:arrow-children batch)))
+                     (batch-md (fset:map-union (or batch-md (fset:empty-map))
                                                (fset:map
                                                 ("length" (endb/arrow:arrow-length inner-batch))
                                                 ("stats" (calculate-stats (list inner-batch)))))))
