@@ -113,16 +113,22 @@
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql write-db "INSERT INTO t1(a, b) VALUES(105, FALSE), (106)"))
 
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql write-db "DELETE FROM t2 WHERE a = 103"))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql write-db "UPDATE t2 SET a = 101 WHERE a = 103"))
+
     (setf db (commit-write-tx db write-db))
 
     (signals endb/sql/expr:sql-runtime-error
-      (execute-sql write-db "SELECT * FROM t2"))
+      (execute-sql db "SELECT * FROM t2"))
 
     (signals endb/sql/expr:sql-runtime-error
-      (execute-sql write-db "SELECT d FROM t1"))
+      (execute-sql db "SELECT d FROM t1"))
 
     (signals endb/sql/expr:sql-runtime-error
-      (execute-sql write-db "SELECT t1.d FROM t1"))
+      (execute-sql db "SELECT t1.d FROM t1"))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT * FROM t1 ORDER BY b")
