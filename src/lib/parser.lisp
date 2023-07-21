@@ -263,9 +263,3 @@
                                         (cffi:callback annotate-input-with-error-on-success)
                                         (cffi:callback annotate-input-with-error-on-error))))
     (strip-ansi-escape-codes result)))
-
-;; (time
-;;  (let ((acc))
-;;    (dotimes (n 100000)
-;;      (setf acc (parse-sql "SELECT a, b, 123, myfunc(b) FROM table_1 WHERE a > b AND b < 100 ORDER BY a DESC, b")))
-;;    acc))
