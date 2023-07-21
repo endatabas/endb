@@ -11,7 +11,8 @@
 (in-suite* :sql)
 
 (test create-table-and-insert
-  (let ((db (begin-write-tx (make-db))))
+  (let ((endb/sql/expr:*sqlite-mode* t)
+        (db (begin-write-tx (make-db))))
     (multiple-value-bind (result result-code)
         (execute-sql db "CREATE TABLE t1(a INTEGER, b INTEGER, c INTEGER, d INTEGER, e INTEGER)")
       (is (null result))
@@ -59,7 +60,8 @@
       (is (null result-code)))))
 
 (test isolation
-  (let* ((db (make-db))
+  (let* ((endb/sql/expr:*sqlite-mode* t)
+         (db (make-db))
          (write-db (begin-write-tx db)))
 
     (multiple-value-bind (result result-code)
@@ -128,7 +130,8 @@
       (is (equal '("b" "b") columns)))))
 
 (test directory-db
-  (let* ((target-dir (asdf:system-relative-pathname :endb-test "target/"))
+  (let* ((endb/sql/expr:*sqlite-mode* t)
+         (target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-dir (merge-pathnames "endb_data_directory/" target-dir)))
     (unwind-protect
          (let ((db (make-directory-db :directory test-dir)))
@@ -182,7 +185,8 @@
         (uiop:delete-directory-tree test-dir :validate t)))))
 
 (test wal-only-directory-db
-  (let* ((target-dir (asdf:system-relative-pathname :endb-test "target/"))
+  (let* ((endb/sql/expr:*sqlite-mode* t)
+         (target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-dir (merge-pathnames "endb_data_wal_only/" target-dir)))
     (unwind-protect
          (let ((db (make-directory-db :directory test-dir :object-store-path nil)))
@@ -285,7 +289,8 @@
         (uiop:delete-directory-tree test-dir :validate t)))))
 
 (test dml
-  (let ((db (begin-write-tx (make-db))))
+  (let ((endb/sql/expr:*sqlite-mode* t)
+        (db (begin-write-tx (make-db))))
     (multiple-value-bind (result result-code)
         (execute-sql db "CREATE TABLE t1(a INTEGER, b INTEGER)")
       (is (null result))
@@ -316,7 +321,8 @@
       (is (equal '((2 2)) (execute-sql db "SELECT * FROM t1 ORDER BY 2"))))))
 
 (test dql
-  (let ((db (begin-write-tx (make-db))))
+  (let ((endb/sql/expr:*sqlite-mode* t)
+        (db (begin-write-tx (make-db))))
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT 1 + 1")
       (is (equal '((2)) result))

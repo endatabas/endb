@@ -19,8 +19,10 @@
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:base-table-type #:base-table-columns
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size
            #:view-definition #:calculate-stats
-           #:sql-runtime-error))
+           #:sql-runtime-error #:*sqlite-mode*))
 (in-package :endb/sql/expr)
+
+(defvar *sqlite-mode* nil)
 
 (define-condition sql-runtime-error (error)
   ((message :initarg :message :reader sql-runtime-error-message))
@@ -879,6 +881,8 @@
           do (return arrow-file-idx-row-id)))
 
 (defun sql-create-table (db table-name columns)
+  (unless *sqlite-mode*
+    (error 'sql-runtime-error :message "CREATE TABLE not supported"))
   (unless (%find-arrow-file-idx-row-id db
                                        "information_schema.tables"
                                        (lambda (row)
@@ -890,6 +894,8 @@
     (values nil t)))
 
 (defun sql-drop-table (db table-name &key if-exists)
+  (unless *sqlite-mode*
+    (error 'sql-runtime-error :message "DROP TABLE not supported"))
   (with-slots (meta-data) db
     (let* ((batch-file-row-id (%find-arrow-file-idx-row-id db
                                                            "information_schema.tables"
@@ -934,10 +940,14 @@
 
 (defun sql-create-index (db)
   (declare (ignore db))
+  (unless *sqlite-mode*
+    (error 'sql-runtime-error :message "CREATE INDEX not supported"))
   (values nil t))
 
 (defun sql-drop-index (db)
-  (declare (ignore db)))
+  (declare (ignore db))
+  (unless *sqlite-mode*
+    (error 'sql-runtime-error :message "DROP INDEX not supported")))
 
 (defmethod sql-agg-accumulate ((agg cl-bloom::bloom-filter) x)
   (cl-bloom:add agg x)
