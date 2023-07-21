@@ -995,62 +995,59 @@
 
 (defun sql-insert (db table-name values &key column-names)
   (with-slots (buffer-pool meta-data) db
-    (let ((created-p (base-table-created-p db table-name)))
-      (when (and (not created-p) (null column-names))
+    (let* ((created-p (base-table-created-p db table-name))
+           (columns (base-table-columns db table-name))
+           (column-names-set (fset:convert 'fset:set column-names))
+           (columns-set (fset:convert 'fset:set columns))
+           (new-columns (fset:convert 'list (fset:set-difference column-names-set columns-set)))
+           (number-of-columns (length (or column-names columns))))
+      (when (and created-p column-names (not (fset:equal? column-names-set columns-set)))
         (error 'sql-runtime-error
-               :message (format nil "Cannot insert into dynamic table without providing columns: ~A" table-name)))
-      (let* ((columns (base-table-columns db table-name))
-             (column-names-set (fset:convert 'fset:set column-names))
-             (columns-set (fset:convert 'fset:set columns))
-             (new-columns (fset:convert 'list (fset:set-difference column-names-set columns-set)))
-             (number-of-columns (length (or column-names columns))))
-        (unless (apply #'= number-of-columns (mapcar #'length values))
-          (error 'sql-runtime-error
-                 :message (format nil "Cannot insert into table: ~A without all values containing same number of columns: ~A" table-name number-of-columns)))
-        (when (and created-p column-names (not (fset:equal? column-names-set columns-set)))
-          (error 'sql-runtime-error
-                 :message (format nil "Cannot insert into table: ~A named columns: ~A doesn't match stored: ~A" table-name column-names columns)))
-        (when new-columns
-          (sql-insert db "information_schema.columns" (loop for c in new-columns
-                                                            collect (list :null *default-schema* table-name c 0))))
-        (if columns
-            (let* ((values (if (and created-p column-names)
-                               (loop with idxs = (loop for column in columns
-                                                       collect (position column column-names :test 'equal))
-                                     for row in values
-                                     collect (loop for idx in idxs
-                                                   collect (nth idx row)))
-                               values))
-                   (tx-id (1+ (or (fset:lookup meta-data "_last_tx") 0)))
-                   (batch-file (format nil "~(~16,'0x~).arrow" tx-id))
-                   (batch-key (format nil "~A/~A" table-name batch-file))
-                   (table-md (or (fset:lookup meta-data table-name)
-                                 (fset:empty-map)))
-                   (batch-md (fset:lookup table-md batch-file))
-                   (batch (if batch-md
-                              (car (endb/storage/buffer-pool:buffer-pool-get buffer-pool batch-key))
-                              (endb/arrow:make-arrow-array-for (list (cons table-name :null))))))
-              (loop for row in values
-                    do (endb/arrow:arrow-push batch (list (cons table-name
-                                                                (loop for v in row
-                                                                      for cn in (if created-p
-                                                                                    columns
-                                                                                    column-names)
-                                                                      collect (cons cn v))))))
+               :message (format nil "Cannot insert into table: ~A named columns: ~A doesn't match stored: ~A" table-name column-names columns)))
+      (unless (apply #'= number-of-columns (mapcar #'length values))
+        (error 'sql-runtime-error
+               :message (format nil "Cannot insert into table: ~A without all values containing same number of columns: ~A" table-name number-of-columns)))
+      (when new-columns
+        (sql-insert db "information_schema.columns" (loop for c in new-columns
+                                                          collect (list :null *default-schema* table-name c 0))))
+      (if columns
+          (let* ((values (if (and created-p column-names)
+                             (loop with idxs = (loop for column in columns
+                                                     collect (position column column-names :test 'equal))
+                                   for row in values
+                                   collect (loop for idx in idxs
+                                                 collect (nth idx row)))
+                             values))
+                 (tx-id (1+ (or (fset:lookup meta-data "_last_tx") 0)))
+                 (batch-file (format nil "~(~16,'0x~).arrow" tx-id))
+                 (batch-key (format nil "~A/~A" table-name batch-file))
+                 (table-md (or (fset:lookup meta-data table-name)
+                               (fset:empty-map)))
+                 (batch-md (fset:lookup table-md batch-file))
+                 (batch (if batch-md
+                            (car (endb/storage/buffer-pool:buffer-pool-get buffer-pool batch-key))
+                            (endb/arrow:make-arrow-array-for (list (cons table-name :null))))))
+            (loop for row in values
+                  do (endb/arrow:arrow-push batch (list (cons table-name
+                                                              (loop for v in row
+                                                                    for cn in (if created-p
+                                                                                  columns
+                                                                                  column-names)
+                                                                    collect (cons cn v))))))
 
-              (endb/storage/buffer-pool:buffer-pool-put buffer-pool batch-key (list batch))
+            (endb/storage/buffer-pool:buffer-pool-put buffer-pool batch-key (list batch))
 
-              (let* ((inner-batch (cdar (endb/arrow:arrow-children batch)))
-                     (batch-md (fset:map-union (or batch-md (fset:empty-map))
-                                               (fset:map
-                                                ("length" (endb/arrow:arrow-length inner-batch))
-                                                ("stats" (calculate-stats (list inner-batch)))))))
-                (setf meta-data (fset:with meta-data table-name (fset:with table-md batch-file batch-md))))
+            (let* ((inner-batch (cdar (endb/arrow:arrow-children batch)))
+                   (batch-md (fset:map-union (or batch-md (fset:empty-map))
+                                             (fset:map
+                                              ("length" (endb/arrow:arrow-length inner-batch))
+                                              ("stats" (calculate-stats (list inner-batch)))))))
+              (setf meta-data (fset:with meta-data table-name (fset:with table-md batch-file batch-md))))
 
-              (values nil (length values)))
-            (unless (base-table-type db table-name)
-              (sql-insert db "information_schema.tables" (list (list :null *default-schema* table-name "BASE TABLE")))
-              (sql-insert db table-name values :column-names column-names)))))))
+            (values nil (length values)))
+          (unless (base-table-type db table-name)
+            (sql-insert db "information_schema.tables" (list (list :null *default-schema* table-name "BASE TABLE")))
+            (sql-insert db table-name values :column-names column-names))))))
 
 (defun sql-delete (db table-name new-batch-file-idx-deleted-row-ids)
   (with-slots (meta-data) db

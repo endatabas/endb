@@ -557,6 +557,12 @@
 (defmethod sql->cl (ctx (type (eql :insert)) &rest args)
   (destructuring-bind (table-name values &key column-names)
       args
+    (when (and (not endb/sql/expr:*sqlite-mode*) (null column-names))
+      (if (get table-name :input)
+          (error 'endb/sql/expr:sql-runtime-error
+                 :message (endb/lib/parser:annotate-input-with-error (get table-name :input) "Column names are required" (get table-name :start) (get table-name :end)))
+          (error 'endb/sql/expr:sql-runtime-error
+                 :message (format nil "Cannot insert into table: ~A column names are required" table-name))))
     `(endb/sql/expr:sql-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx values)
                                :column-names ',(mapcar #'symbol-name column-names))))
 
