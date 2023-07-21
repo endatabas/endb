@@ -11,6 +11,7 @@
   (:import-from :yacc)
   (:import-from :endb/lib/parser)
   (:import-from :endb/sql)
+  (:import-from :endb/sql/expr)
   (:import-from :endb/storage/meta-data))
 (in-package :endb/http)
 
@@ -121,6 +122,8 @@
         (yacc:yacc-parse-error (e)
           (%error-response +http-bad-request+ e))
         (endb/lib/parser:sql-parse-error (e)
+          (%error-response +http-bad-request+ e))
+        (endb/sql/expr:sql-runtime-error (e)
           (%error-response +http-bad-request+ e))
         (error (e)
           (log:error e)
