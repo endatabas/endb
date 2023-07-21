@@ -4,7 +4,8 @@
   (:import-from :endb/sql/expr)
   (:import-from :endb/arrow)
   (:import-from :fset)
-  (:export #:compile-sql #:*verbose*))
+  (:import-from :log4cl)
+  (:export #:compile-sql))
 (in-package :endb/sql/compiler)
 
 (defgeneric sql->cl (ctx type &rest args))
@@ -770,7 +771,6 @@
         (ast->cl ctx ast)
       (values src projection vars))))
 
-(defvar *verbose* nil)
 (defvar *interpreter-from-limit* 8)
 
 (defun %interpretp (ast)
@@ -784,18 +784,14 @@
 (defun compile-sql (ctx ast)
   (let ((*print-length* 16)
         (*print-level* 8))
-    (when *verbose*
-      (pprint ast)
-      (terpri))
+    (log:debug ast)
     (let* ((db-sym (gensym))
            (index-sym (gensym))
            (ctx (fset:with ctx :db-sym db-sym))
            (ctx (fset:with ctx :index-sym index-sym)))
       (multiple-value-bind (src projection)
           (ast->cl ctx ast)
-        (when *verbose*
-          (pprint src)
-          (terpri))
+        (log:debug src)
         (let* ((src (if projection
                         `(values ,src ,(list 'quote projection))
                         src))

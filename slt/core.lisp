@@ -5,9 +5,9 @@
   (:import-from :sqlite)
   (:import-from :asdf)
   (:import-from :uiop)
+  (:import-from :log4cl)
   (:import-from :endb/sql)
   (:import-from :endb/sql/expr)
-  (:import-from :endb/sql/compiler)
   #+sbcl (:import-from :sb-sprof))
 (in-package :endb-slt/core)
 
@@ -314,11 +314,12 @@
 
 (defun main ()
   (unwind-protect
-       (let ((endb/sql/compiler:*verbose* (equal "1" (uiop:getenv "ENDB_VERBOSE")))
-             (endb/sql:*query-timing* (equal "1" (uiop:getenv "ENDB_QUERY_TIMING")))
+       (let ((endb/sql:*query-timing* (equal "1" (uiop:getenv "ENDB_QUERY_TIMING")))
              (endb/sql:*lib-parser* (equal "1" (uiop:getenv "ENDB_LIB_PARSER")))
              (*endb-db-engine-reported-name* (or (uiop:getenv "ENDB_ENGINE_REPORTED_NAME")
                                                  *endb-db-engine-reported-name*)))
+         (when (equal "1" (uiop:getenv "ENDB_VERBOSE"))
+           (setf (log4cl:logger-log-level log4cl:*root-logger*) "debug"))
          (uiop:quit
           (let ((exit-code 0)
                 (args (cons (uiop:argv0) (uiop:command-line-arguments))))
