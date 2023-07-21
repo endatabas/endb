@@ -554,7 +554,7 @@
                                 :format (if (equal "%Y" format)
                                             '((:year 4))
                                             (error 'sql-runtime-error
-                                                   :message (concatenate 'string "Unknown time format: " format)))
+                                                   :message (format nil "Unknown time format: ~A" format)))
                                 :timezone local-time:+utc-zone+))
 
 (defmethod sql-substring ((x (eql :null)) (y (eql :null)) &optional z)
@@ -986,10 +986,9 @@
 (defun sql-insert (db table-name values &key column-names)
   (with-slots (buffer-pool meta-data) db
     (let ((created-p (base-table-created-p db table-name)))
-      (unless created-p
-        (when (null column-names)
-          (error 'sql-runtime-error
-                 :message (concatenate 'string "Cannot insert into dynamic table without providing columns: " table-name))))
+      (when (and (not created-p) (null column-names))
+        (error 'sql-runtime-error
+               :message (format nil "Cannot insert into dynamic table without providing columns: ~A" table-name)))
       (let* ((columns (base-table-columns db table-name))
              (column-names-set (fset:convert 'fset:set column-names))
              (columns-set (fset:convert 'fset:set columns))

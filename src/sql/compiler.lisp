@@ -50,7 +50,7 @@
        (error 'endb/sql/expr:sql-runtime-error
               :message (endb/lib/parser:annotate-input-with-error (get table-name :input) "Unknown table" (get table-name :start) (get table-name :end))))
       (t (error 'endb/sql/expr:sql-runtime-error
-                :message (concatenate 'string "Unknown table: " (symbol-name table-name)))))))
+                :message (format nil "Unknown table: ~A" (symbol-name table-name)))))))
 
 (defun %wrap-with-order-by-and-limit (src order-by limit offset)
   (let* ((src (if order-by
@@ -752,7 +752,7 @@
              (error 'endb/sql/expr:sql-runtime-error
                     :message (endb/lib/parser:annotate-input-with-error (get ast :input) "Unknown column" (get ast :start) (get ast :end)))
              (error 'endb/sql/expr:sql-runtime-error
-                    :message (concatenate 'string "Unknown column: " k))))
+                    :message (format nil "Unknown column: ~A" k))))
        (dolist (cb (fset:lookup ctx :on-var-access))
          (funcall cb k v))
        v))
