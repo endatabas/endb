@@ -1,6 +1,5 @@
 (defpackage :endb-test/core
   (:use :cl :fiveam)
-  (:import-from :endb-test/sql/parser)
   (:import-from :endb-test/sql/expr)
   (:import-from :endb-test/sql)
   (:import-from :endb-test/arrow)

@@ -2,7 +2,7 @@
   (:use :cl)
   (:import-from :cl-ppcre)
   (:import-from :local-time)
-  (:import-from :endb/sql/parser)
+  (:import-from :endb/lib/parser)
   (:import-from :endb/arrow)
   (:import-from :endb/storage/buffer-pool)
   (:import-from :cl-bloom)
@@ -462,13 +462,23 @@
 (defmethod sql-cast ((x (eql nil)) (type (eql :signed)))
   0)
 
+(defun %try-parse-number (x)
+  (handler-case
+      (let ((x (caaadr (endb/lib/parser:parse-sql (concatenate 'string "SELECT " x)))))
+        (cond
+          ((numberp x) x)
+          ((and (listp x)
+                (= 2 (length x))
+                (eq :- (first x))
+                (numberp (second x)))
+           (- (second x)))
+          (t 0)))
+    (endb/lib/parser:sql-parse-error (e)
+      (declare (ignore e))
+      0)))
+
 (defmethod sql-cast ((x string) (type (eql :signed)))
-  (multiple-value-bind (token-type value)
-      (endb/sql/parser:read-sql-token x)
-    (case token-type
-      (:- (- (sql-cast (subseq x (1+ (position #\- x))) :signed)))
-      ((float integer) value)
-      (t 0))))
+  (%try-parse-number x))
 
 (defmethod sql-cast ((x number) (type (eql :signed)))
   x)
@@ -480,12 +490,7 @@
   0)
 
 (defmethod sql-cast ((x string) (type (eql :decimal)))
-  (multiple-value-bind (token-type value)
-      (endb/sql/parser:read-sql-token x)
-    (case token-type
-      (:- (- (sql-cast (subseq x (1+ (position #\- x))) :decimal)))
-      ((float integer) value)
-      (t 0))))
+  (%try-parse-number x))
 
 (defmethod sql-cast ((x number) (type (eql :decimal)))
   (coerce x 'number))
@@ -497,13 +502,7 @@
   0.0d0)
 
 (defmethod sql-cast ((x string) (type (eql :real)))
-  (multiple-value-bind (token-type value)
-      (endb/sql/parser:read-sql-token x)
-    (case token-type
-      (:- (- (sql-cast (subseq x (1+ (position #\- x))) :real)))
-      (float value)
-      (integer (coerce value 'double-float))
-      (t 0.0d0))))
+  (coerce (%try-parse-number x) 'double-float))
 
 (defmethod sql-cast ((x number) (type (eql :real)))
   (coerce x 'double-float))

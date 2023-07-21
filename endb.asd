@@ -29,8 +29,7 @@
                "mmap"
                "qbase64"
                "trivial-gray-streams"
-               "trivial-utf-8"
-               "yacc")
+               "trivial-utf-8")
   :pathname "src"
   :build-operation program-op
   :build-pathname "../target/endb"

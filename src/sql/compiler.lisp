@@ -50,10 +50,7 @@
                (endb/sql/expr:base-table-size db (symbol-name table-name))))
       ((equal "VIEW" table-type)
        (%ast->cl-with-free-vars ctx (endb/sql/expr:view-definition db (symbol-name table-name))))
-      ((get table-name :input)
-       (%annotated-error table-name "Unknown table"))
-      (t (error 'endb/sql/expr:sql-runtime-error
-                :message (format nil "Unknown table: ~A" (symbol-name table-name)))))))
+      (t (%annotated-error table-name "Unknown table")))))
 
 (defun %wrap-with-order-by-and-limit (src order-by limit offset)
   (let* ((src (if order-by
@@ -561,10 +558,7 @@
   (destructuring-bind (table-name values &key column-names)
       args
     (when (and (not endb/sql/expr:*sqlite-mode*) (null column-names))
-      (if (get table-name :input)
-          (%annotated-error table-name "Column names are required")
-          (error 'endb/sql/expr:sql-runtime-error
-                 :message (format nil "Cannot insert into table: ~A column names are required" table-name))))
+      (%annotated-error table-name "Column names are required"))
     `(endb/sql/expr:sql-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx values)
                                :column-names ',(mapcar #'symbol-name column-names))))
 
@@ -756,10 +750,7 @@
      (let* ((k (symbol-name ast))
             (v (fset:lookup ctx k)))
        (unless v
-         (if (get ast :input)
-             (%annotated-error ast "Unknown column")
-             (error 'endb/sql/expr:sql-runtime-error
-                    :message (format nil "Unknown column: ~A" k))))
+         (%annotated-error ast "Unknown column"))
        (dolist (cb (fset:lookup ctx :on-var-access))
          (funcall cb k v))
        v))

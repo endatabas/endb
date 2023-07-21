@@ -1,6 +1,5 @@
 (defpackage :endb-test/lib/parser
   (:use :cl :fiveam :endb/lib/parser)
-  (:import-from :endb/sql/parser)
   (:import-from :trivial-utf-8))
 (in-package :endb-test/lib/parser)
 
@@ -9,7 +8,9 @@
 (test lib-parser
   (let ((sql "SELECT a, b, 123, myfunc(b) FROM table_1 WHERE a > b AND b < 100 ORDER BY a DESC, b"))
     (is (equal
-         (prin1-to-string (endb/sql/parser:parse-sql sql))
+         (prin1-to-string '(:select ((#:|a|) (#:|b|) (123) ((:function #:|myfunc| (#:|b|)))) :from
+                            ((#:|table_1|)) :where (:and (:> #:|a| #:|b|) (:< #:|b| 100)) :order-by
+                            ((#:|a| :desc) (#:|b| :asc))))
          (prin1-to-string (parse-sql sql))))))
 
 (defvar expected-annotation

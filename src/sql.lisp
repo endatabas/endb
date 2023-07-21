@@ -1,9 +1,8 @@
 (defpackage :endb/sql
   (:use :cl)
-  (:export #:*query-timing* #:*lib-parser* #:make-db #:make-directory-db #:close-db #:begin-write-tx #:commit-write-tx #:execute-sql)
+  (:export #:*query-timing* #:make-db #:make-directory-db #:close-db #:begin-write-tx #:commit-write-tx #:execute-sql)
   (:import-from :alexandria)
   (:import-from :endb/sql/expr)
-  (:import-from :endb/sql/parser)
   (:import-from :endb/sql/compiler)
   (:import-from :endb/lib/arrow)
   (:import-from :endb/lib/parser)
@@ -16,7 +15,6 @@
 (in-package :endb/sql)
 
 (defvar *query-timing* nil)
-(defvar *lib-parser* nil)
 
 (defun %replay-log (read-wal)
   (loop with md = (fset:empty-map)
@@ -98,9 +96,7 @@
             new-db)))))
 
 (defun %execute-sql (db sql)
-  (let* ((ast (if *lib-parser*
-                  (endb/lib/parser:parse-sql sql)
-                  (endb/sql/parser:parse-sql sql)))
+  (let* ((ast (endb/lib/parser:parse-sql sql))
          (ctx (fset:map (:db db)))
          (sql-fn (endb/sql/compiler:compile-sql ctx ast))
          (*print-length* 16))

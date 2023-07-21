@@ -316,7 +316,6 @@
   (unwind-protect
        (let ((endb/sql/expr:*sqlite-mode* t)
              (endb/sql:*query-timing* (equal "1" (uiop:getenv "ENDB_QUERY_TIMING")))
-             (endb/sql:*lib-parser* (equal "1" (uiop:getenv "ENDB_LIB_PARSER")))
              (*endb-db-engine-reported-name* (or (uiop:getenv "ENDB_ENGINE_REPORTED_NAME")
                                                  *endb-db-engine-reported-name*))
              (log-level (uiop:getenv "ENDB_LOG_LEVEL")))
