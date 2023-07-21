@@ -986,14 +986,21 @@
 (defun sql-insert (db table-name values &key column-names)
   (with-slots (buffer-pool meta-data) db
     (let ((created-p (base-table-created-p db table-name)))
-      (when (and (not created-p) (not (= (length (first values))
-                                         (length column-names))))
-        (error 'sql-runtime-error
-               :message (concatenate 'string "Cannot insert into dynamic table without providing columns: " table-name)))
+      (unless created-p
+        (when (null column-names)
+          (error 'sql-runtime-error
+                 :message (concatenate 'string "Cannot insert into dynamic table without providing columns: " table-name))))
       (let* ((columns (base-table-columns db table-name))
              (column-names-set (fset:convert 'fset:set column-names))
              (columns-set (fset:convert 'fset:set columns))
-             (new-columns (fset:convert 'list (fset:set-difference column-names-set columns-set))))
+             (new-columns (fset:convert 'list (fset:set-difference column-names-set columns-set)))
+             (number-of-columns (length (or column-names columns))))
+        (unless (apply #'= number-of-columns (mapcar #'length values))
+          (error 'sql-runtime-error
+                 :message (format nil "Cannot insert into table: ~A without all values containing same number of columns: ~A" table-name number-of-columns)))
+        (when (and created-p column-names (not (fset:equal? column-names-set columns-set)))
+          (error 'sql-runtime-error
+                 :message (format nil "Cannot insert into table: ~A named columns: ~A doesn't match stored: ~A" table-name column-names columns)))
         (when new-columns
           (sql-insert db "information_schema.columns" (loop for c in new-columns
                                                             collect (list :null *default-schema* table-name c 0))))

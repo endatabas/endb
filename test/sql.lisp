@@ -100,6 +100,21 @@
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql write-db "INSERT INTO t1 VALUES(105, FALSE)"))
 
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql write-db "INSERT INTO t1(a) VALUES(105, FALSE)"))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql write-db "INSERT INTO t1(a, b) VALUES(105, FALSE), (106)"))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql write-db "SELECT * FROM t2"))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql write-db "SELECT d FROM t1"))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql write-db "SELECT t1.d FROM t1"))
+
     (setf db (commit-write-tx db write-db))
 
     (multiple-value-bind (result columns)

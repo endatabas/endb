@@ -43,7 +43,9 @@
                ()
                (endb/sql/expr:base-table-size db (symbol-name table-name))))
       ((equal "VIEW" table-type)
-       (%ast->cl-with-free-vars ctx (endb/sql/expr:view-definition db (symbol-name table-name)))))))
+       (%ast->cl-with-free-vars ctx (endb/sql/expr:view-definition db (symbol-name table-name))))
+      (t (error 'endb/sql/expr:sql-runtime-error
+                :message (concatenate 'string "Unknown table: " (symbol-name table-name)))))))
 
 (defun %wrap-with-order-by-and-limit (src order-by limit offset)
   (let* ((src (if order-by
@@ -740,6 +742,9 @@
           (not (keywordp ast)))
      (let* ((k (symbol-name ast))
             (v (fset:lookup ctx k)))
+       (unless v
+         (error 'endb/sql/expr:sql-runtime-error
+                :message (concatenate 'string "Unknown column: " k)))
        (dolist (cb (fset:lookup ctx :on-var-access))
          (funcall cb k v))
        v))
