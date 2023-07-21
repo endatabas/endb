@@ -318,9 +318,10 @@
              (endb/sql:*query-timing* (equal "1" (uiop:getenv "ENDB_QUERY_TIMING")))
              (endb/sql:*lib-parser* (equal "1" (uiop:getenv "ENDB_LIB_PARSER")))
              (*endb-db-engine-reported-name* (or (uiop:getenv "ENDB_ENGINE_REPORTED_NAME")
-                                                 *endb-db-engine-reported-name*)))
-         (when (equal "1" (uiop:getenv "ENDB_VERBOSE"))
-           (setf (log4cl:logger-log-level log4cl:*root-logger*) "debug"))
+                                                 *endb-db-engine-reported-name*))
+             (log-level (uiop:getenv "ENDB_LOG_LEVEL")))
+         (when (member log-level '("info" "warn" "error" "debug") :test 'equal)
+           (setf (log4cl:logger-log-level log4cl:*root-logger*) log-level))
          (uiop:quit
           (let ((exit-code 0)
                 (args (cons (uiop:argv0) (uiop:command-line-arguments))))
