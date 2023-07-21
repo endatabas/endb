@@ -628,7 +628,7 @@
                                       (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym))
                                  t)
                (endb/sql/expr:sql-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)
-               (endb/sql/expr:sql-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,updated-rows-sym))))))))
+               (endb/sql/expr:sql-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,updated-rows-sym :column-names ',projection))))))))
 
 (defmethod sql->cl (ctx (type (eql :in-query)) &rest args)
   (destructuring-bind (expr query)

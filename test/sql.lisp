@@ -99,6 +99,11 @@
       (is (null result))
       (is (= 1 result-code)))
 
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "UPDATE t1 SET a = 101 WHERE a = 103")
+      (is (null result))
+      (is (= 1 result-code)))
+
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql write-db "INSERT INTO t1 VALUES(105, FALSE)"))
 
@@ -107,6 +112,8 @@
 
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql write-db "INSERT INTO t1(a, b) VALUES(105, FALSE), (106)"))
+
+    (setf db (commit-write-tx db write-db))
 
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql write-db "SELECT * FROM t2"))
@@ -117,11 +124,9 @@
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql write-db "SELECT t1.d FROM t1"))
 
-    (setf db (commit-write-tx db write-db))
-
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT * FROM t1 ORDER BY b")
-      (is (equal '((103 104 :null) (:null 105 nil)) result))
+      (is (equal '((101 104 :null) (:null 105 nil)) result))
       (is (equal '("a" "b" "c") columns)))
 
     (multiple-value-bind (result columns)
