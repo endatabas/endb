@@ -35,6 +35,8 @@
 * DBaaS ramp-up
 * System Time `BETWEEN`
 * single-node hardening
+    * API authentication
+    * SQL parameters
 
 ## 2024 Q1
 
