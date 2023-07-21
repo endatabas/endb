@@ -1,6 +1,7 @@
 (defpackage :endb-test/lib/parser
   (:use :cl :fiveam :endb/lib/parser)
-  (:import-from :endb/sql/parser))
+  (:import-from :endb/sql/parser)
+  (:import-from :trivial-utf-8))
 (in-package :endb-test/lib/parser)
 
 (in-suite* :lib)
@@ -10,6 +11,21 @@
     (is (equal
          (prin1-to-string (endb/sql/parser:parse-sql sql))
          (prin1-to-string (parse-sql sql))))))
+
+(defvar expected-annotation
+  (make-array 160
+              :initial-contents #(69 114 114 111 114 58 32 85 110 107 110 111 119 110 32 99 111 108 117 109 110
+                                  46 10 32 32 32 226 149 173 226 148 128 91 60 117 110 107 110 111 119 110 62
+                                  58 49 58 56 93 10 32 32 32 226 148 130 10 32 49 32 226 148 130 32 83 69 76 69
+                                  67 84 32 102 111 111 32 60 32 50 10 32 32 32 226 148 130 32 32 32 32 32 32 32
+                                  32 226 148 128 226 148 172 226 148 128 32 32 10 32 32 32 226 148 130 32 32 32
+                                  32 32 32 32 32 32 226 149 176 226 148 128 226 148 128 226 148 128 32 85 110
+                                  107 110 111 119 110 32 99 111 108 117 109 110 46 10 226 148 128 226 148 128
+                                  226 148 128 226 149 175 10)
+              :element-type '(unsigned-byte 8)))
+
+(test lib-annotate-input-with-error
+  (is (equalp expected-annotation (trivial-utf-8:string-to-utf-8-bytes (annotate-input-with-error "SELECT foo < 2" "Unknown column." 7 10)))))
 
 (test lib-parse-sql
   (is (parse-sql "CREATE TABLE t1(a INTEGER, b INTEGER, c INTEGER, d INTEGER, e INTEGER)"))

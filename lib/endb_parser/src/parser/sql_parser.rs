@@ -437,6 +437,13 @@ pub fn parse_errors_to_string(src: &str, errs: Vec<Rich<char>>) -> String {
     String::from_utf8(buf).unwrap()
 }
 
+pub fn annotate_input_with_error(src: &str, message: &str, start: usize, end: usize) -> String {
+    parse_errors_to_string(
+        src,
+        vec![Rich::custom(SimpleSpan::new(start, end), message)],
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use crate::{parser::ast::Ast, sql_parser::sql_ast_parser_with_errors};

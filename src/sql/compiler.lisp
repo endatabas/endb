@@ -1,5 +1,6 @@
 (defpackage :endb/sql/compiler
   (:use :cl)
+  (:import-from :endb/lib/parser)
   (:import-from :endb/sql/expr)
   (:import-from :endb/arrow)
   (:import-from :fset)
@@ -44,6 +45,9 @@
                (endb/sql/expr:base-table-size db (symbol-name table-name))))
       ((equal "VIEW" table-type)
        (%ast->cl-with-free-vars ctx (endb/sql/expr:view-definition db (symbol-name table-name))))
+      ((get table-name :input)
+       (error 'endb/sql/expr:sql-runtime-error
+              :message (endb/lib/parser:annotate-input-with-error (get table-name :input) "Unknown table" (get table-name :start) (get table-name :end))))
       (t (error 'endb/sql/expr:sql-runtime-error
                 :message (concatenate 'string "Unknown table: " (symbol-name table-name)))))))
 
@@ -743,8 +747,11 @@
      (let* ((k (symbol-name ast))
             (v (fset:lookup ctx k)))
        (unless v
-         (error 'endb/sql/expr:sql-runtime-error
-                :message (concatenate 'string "Unknown column: " k)))
+         (if (get ast :input)
+             (error 'endb/sql/expr:sql-runtime-error
+                    :message (endb/lib/parser:annotate-input-with-error (get ast :input) "Unknown column" (get ast :start) (get ast :end)))
+             (error 'endb/sql/expr:sql-runtime-error
+                    :message (concatenate 'string "Unknown column: " k))))
        (dolist (cb (fset:lookup ctx :on-var-access))
          (funcall cb k v))
        v))

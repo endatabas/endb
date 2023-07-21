@@ -10,9 +10,9 @@ use endb_parser::{SQL_AST_PARSER_NO_ERRORS, SQL_AST_PARSER_WITH_ERRORS};
 
 use std::panic;
 
-fn handle_error(error_str: String, on_error: extern "C" fn(*const c_char)) {
-    let c_error_str = CString::new(error_str).unwrap();
-    on_error(c_error_str.as_ptr());
+fn string_callback(s: String, cb: extern "C" fn(*const c_char)) {
+    let c_str = CString::new(s).unwrap();
+    cb(c_str.as_ptr());
 }
 
 #[no_mangle]
@@ -34,13 +34,38 @@ pub extern "C" fn endb_parse_sql(
                     let result = parser.parse(input_str);
                     let error_str =
                         sql_parser::parse_errors_to_string(input_str, result.into_errors());
-                    handle_error(error_str, on_error);
+                    string_callback(error_str, on_error);
                 });
             }
         })
     }) {
         let msg = err.downcast_ref::<&str>().unwrap_or(&"unknown panic!!");
-        handle_error(msg.to_string(), on_error);
+        string_callback(msg.to_string(), on_error);
+    }
+}
+
+#[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn endb_annotate_input_with_error(
+    input: *const c_char,
+    message: *const c_char,
+    start: usize,
+    end: usize,
+    on_success: extern "C" fn(*const c_char),
+    on_error: extern "C" fn(*const c_char),
+) {
+    if let Err(err) = panic::catch_unwind(|| {
+        let c_str = unsafe { CStr::from_ptr(input) };
+        let input_str = c_str.to_str().unwrap();
+
+        let c_str = unsafe { CStr::from_ptr(message) };
+        let message_str = c_str.to_str().unwrap();
+
+        let error_str = sql_parser::annotate_input_with_error(input_str, message_str, start, end);
+        string_callback(error_str, on_success);
+    }) {
+        let msg = err.downcast_ref::<&str>().unwrap_or(&"unknown panic!!");
+        string_callback(msg.to_string(), on_error);
     }
 }
 
@@ -81,11 +106,11 @@ pub extern "C" fn endb_arrow_array_stream_producer(
             std::ptr::write(stream, exported_stream);
         },
         Ok(Err(err)) => {
-            handle_error(err.to_string(), on_error);
+            string_callback(err.to_string(), on_error);
         }
         Err(err) => {
             let msg = err.downcast_ref::<&str>().unwrap_or(&"unknown panic!!");
-            handle_error(msg.to_string(), on_error);
+            string_callback(msg.to_string(), on_error);
         }
     }
 }
@@ -103,11 +128,11 @@ pub extern "C" fn endb_arrow_array_stream_consumer(
     }) {
         Ok(Ok(buffer)) => on_success(buffer.as_ptr(), buffer.len()),
         Ok(Err(err)) => {
-            handle_error(err.to_string(), on_error);
+            string_callback(err.to_string(), on_error);
         }
         Err(err) => {
             let msg = err.downcast_ref::<&str>().unwrap_or(&"unknown panic!!");
-            handle_error(msg.to_string(), on_error);
+            string_callback(msg.to_string(), on_error);
         }
     }
 }

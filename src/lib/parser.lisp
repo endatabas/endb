@@ -1,6 +1,6 @@
 (defpackage :endb/lib/parser
   (:use :cl)
-  (:export  #:sql-parse-error #:parse-sql)
+  (:export  #:sql-parse-error #:parse-sql #:annotate-input-with-error)
   (:import-from :endb/lib)
   (:import-from :cffi)
   (:import-from :cl-ppcre))
@@ -145,6 +145,14 @@
   (on_success :pointer)
   (on_error :pointer))
 
+(cffi:defcfun "endb_annotate_input_with_error" :void
+  (input (:pointer :char))
+  (message (:pointer :char))
+  (start :size)
+  (end :size)
+  (on_success :pointer)
+  (on_error :pointer))
+
 (defstruct ast-builder (acc (list nil)))
 
 (defparameter kw-array (loop with kw-enum-hash = (cffi::value-keywords (cffi::parse-type 'Keyword))
@@ -193,7 +201,9 @@
                   (3 (cffi:with-foreign-slots ((n) value (:struct Float_Union))
                        (push n (first acc))))
                   (4 (cffi:with-foreign-slots ((start end) value (:struct Id_Union))
-                       (push (make-symbol (subseq input start end)) (first acc))))
+                       (let ((s (make-symbol (subseq input start end))))
+                         (setf (get s :start) start (get s :end) end (get s :input) input)
+                         (push s (first acc)))))
                   (5 (cffi:with-foreign-slots ((start end) value (:struct String_Union))
                        (push (subseq input start end) (first acc))))
                   (6 (cffi:with-foreign-slots ((start end) value (:struct Binary_Union))
@@ -228,6 +238,31 @@
         (cffi:with-foreign-string (ptr input)
           (endb-parse-sql ptr (cffi:callback parse-sql-on-success) (cffi:callback parse-sql-on-error))))
     (caar (ast-builder-acc ast-builder))))
+
+(defvar *annotate-input-with-error-on-success*)
+
+(cffi:defcallback annotate-input-with-error-on-success :void
+    ((err :string))
+  (funcall *annotate-input-with-error-on-success* err))
+
+(cffi:defcallback annotate-input-with-error-on-error :void
+    ((err :string))
+  (error err))
+
+(defun annotate-input-with-error (input message start end)
+  (endb/lib:init-lib)
+  (let* ((result)
+         (*annotate-input-with-error-on-success* (lambda (err)
+                                                   (setf result err))))
+    (cffi:with-foreign-string (input-ptr input)
+      (cffi:with-foreign-string (message-ptr message)
+        (endb-annotate-input-with-error input-ptr
+                                        message-ptr
+                                        start
+                                        end
+                                        (cffi:callback annotate-input-with-error-on-success)
+                                        (cffi:callback annotate-input-with-error-on-error))))
+    (strip-ansi-escape-codes result)))
 
 ;; (time
 ;;  (let ((acc))

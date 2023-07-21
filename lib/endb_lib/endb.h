@@ -172,6 +172,13 @@ void endb_parse_sql(const char *input,
                     void (*on_success)(const struct Ast*),
                     void (*on_error)(const char*));
 
+void endb_annotate_input_with_error(const char *input,
+                                    const char *message,
+                                    uintptr_t start,
+                                    uintptr_t end,
+                                    void (*on_success)(const char*),
+                                    void (*on_error)(const char*));
+
 uintptr_t endb_ast_vec_len(const struct Vec_Ast *ast);
 
 const struct Ast *endb_ast_vec_ptr(const struct Vec_Ast *ast);
