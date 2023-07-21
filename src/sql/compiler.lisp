@@ -35,6 +35,10 @@
   (and (symbolp table-name)
        (equal "BASE TABLE" (endb/sql/expr:base-table-type (fset:lookup ctx :db) (symbol-name table-name)))))
 
+(defun %annotated-error (s message)
+  (error 'endb/sql/expr:sql-runtime-error
+         :message (endb/lib/parser:annotate-input-with-error (get s :input) message (get s :start) (get s :end))))
+
 (defun %base-table-or-view->cl (ctx table-name)
   (let* ((db (fset:lookup ctx :db))
          (table-type (endb/sql/expr:base-table-type db (symbol-name table-name))))
@@ -47,8 +51,7 @@
       ((equal "VIEW" table-type)
        (%ast->cl-with-free-vars ctx (endb/sql/expr:view-definition db (symbol-name table-name))))
       ((get table-name :input)
-       (error 'endb/sql/expr:sql-runtime-error
-              :message (endb/lib/parser:annotate-input-with-error (get table-name :input) "Unknown table" (get table-name :start) (get table-name :end))))
+       (%annotated-error table-name "Unknown table"))
       (t (error 'endb/sql/expr:sql-runtime-error
                 :message (format nil "Unknown table: ~A" (symbol-name table-name)))))))
 
@@ -559,8 +562,7 @@
       args
     (when (and (not endb/sql/expr:*sqlite-mode*) (null column-names))
       (if (get table-name :input)
-          (error 'endb/sql/expr:sql-runtime-error
-                 :message (endb/lib/parser:annotate-input-with-error (get table-name :input) "Column names are required" (get table-name :start) (get table-name :end)))
+          (%annotated-error table-name "Column names are required")
           (error 'endb/sql/expr:sql-runtime-error
                  :message (format nil "Cannot insert into table: ~A column names are required" table-name))))
     `(endb/sql/expr:sql-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx values)
@@ -755,8 +757,7 @@
             (v (fset:lookup ctx k)))
        (unless v
          (if (get ast :input)
-             (error 'endb/sql/expr:sql-runtime-error
-                    :message (endb/lib/parser:annotate-input-with-error (get ast :input) "Unknown column" (get ast :start) (get ast :end)))
+             (%annotated-error ast "Unknown column")
              (error 'endb/sql/expr:sql-runtime-error
                     :message (format nil "Unknown column: ~A" k))))
        (dolist (cb (fset:lookup ctx :on-var-access))
