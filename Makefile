@@ -18,6 +18,7 @@ DOCKER_RUST_OS = bullseye
 DOCKER_SBCL_OS = debian
 DOCKER_ENDB_OS = debian
 DOCKER_TAGS = -t endatabas/endb:$(DOCKER_ENDB_OS) -t endatabas/endb:latest-$(DOCKER_ENDB_OS) -t endatabas/endb:latest
+DOCKER_ID = $(shell docker images -q localhost/endatabas/endb:latest)
 
 LIB_PROFILE = release
 LIB_PROFILE_DIR = $(LIB_PROFILE)
@@ -165,6 +166,16 @@ docker-alpine: docker
 
 run-docker: docker endb_data
 	$(DOCKER) run --rm -p 3803:3803 -v "$(PWD)/endb_data":/app/endb_data -it endatabas/endb:latest-$(DOCKER_ENDB_OS)
+
+~/.config/containers/registries.conf:
+	mkdir -p ~/.config/containers/
+	echo 'unqualified-search-registries = ["docker.io"]' > ~/.config/containers/registries.conf
+
+# explicit builds mean `push-docker` does not depend on build directly
+push-docker: ~/.config/containers/registries.conf
+	$(DOCKER) login --username=endatabas --email=hello@endatabas.com
+	$(DOCKER) tag $(DOCKER_ID) endatabas/endb:latest
+	$(DOCKER) push endatabas/endb
 
 clean:
 	(cd lib; $(CARGO) clean)
