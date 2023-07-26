@@ -1,6 +1,6 @@
 ![Endatabas](https://www.endatabas.com/resources/images/github-banner-logo_3200x476.png)
 
-Endatabas is an immutable, cloud-first, dynamic SQL database.
+Endatabase is a SQL document database with full history.
 
 For more information, please contact us at [hello@endatabas.com](mailto:hello@endatabas.com).
 
