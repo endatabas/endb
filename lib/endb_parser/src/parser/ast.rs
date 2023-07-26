@@ -75,6 +75,7 @@ pub enum Keyword {
     IfExists,
     CreateTable,
     DropTable,
+    MultipleStatements,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

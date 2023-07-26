@@ -395,7 +395,7 @@ where
             List(acc)
         });
 
-    choice((
+    let sql_stmt = choice((
         select_stmt,
         insert_stmt,
         delete_stmt,
@@ -404,10 +404,19 @@ where
         create_view_stmt,
         create_table_stmt,
         ddl_drop_stmt,
-    ))
-    .padded()
-    .then_ignore(pad(';').or_not())
-    .then_ignore(end())
+    ));
+
+    let multiple_stmts = sql_stmt
+        .clone()
+        .then_ignore(pad(';'))
+        .repeated()
+        .at_least(1)
+        .collect()
+        .map(|stmts| List(vec![KW(MultipleStatements), List(stmts)]));
+
+    choice((multiple_stmts, sql_stmt))
+        .padded()
+        .then_ignore(end())
 }
 
 pub fn sql_ast_parser_no_errors<'input>() -> impl Parser<'input, &'input str, Ast, Default> + Clone
@@ -821,7 +830,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT group_concat(DISTINCT y, ':'"), @r###"
         ---
         Err:
-          - "found '(' expected '*', '/', '%', '+', '-', '<', '>', '=', ',', or ';'"
+          - "found '(' expected '*', '/', '%', '+', '-', '<', '>', '=', or ','"
         "###);
         assert_yaml_snapshot!(parse("SELECT count(*)"), @r###"
         ---
@@ -858,7 +867,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT x 2"), @r###"
         ---
         Err:
-          - "found '2' expected '*', '/', '%', '+', '-', '<', '>', '=', ',', or ';'"
+          - "found '2' expected '*', '/', '%', '+', '-', '<', '>', '=', or ','"
         "###);
     }
 
@@ -1059,7 +1068,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT 1 FROM x LEFT JOIN y ON TRUE)"), @r###"
         ---
         Err:
-          - "found ')' expected '*', '/', '%', '+', '-', '<', '>', '=', ',', or ';'"
+          - "found ')' expected '*', '/', '%', '+', '-', '<', '>', '=', or ','"
         "###);
         assert_yaml_snapshot!(parse("SELECT 1 INTERSECT SELECT 2 UNION SELECT 3"), @r###"
         ---
@@ -1337,6 +1346,32 @@ mod tests {
             - Id:
                 start: 11
                 end: 14
+        "###);
+    }
+
+    #[test]
+    fn multiple() {
+        assert_yaml_snapshot!(parse("SELECT 1; SELECT 1;"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: MultipleStatements
+            - List:
+                - List:
+                    - KW: Select
+                    - List:
+                        - List:
+                            - Integer: 1
+                - List:
+                    - KW: Select
+                    - List:
+                        - List:
+                            - Integer: 1
+        "###);
+        assert_yaml_snapshot!(parse("SELECT 1; SELECT 1"), @r###"
+        ---
+        Err:
+          - "found end of input expected '*', '/', '%', '+', '-', '<', '>', '=', ',', or ';'"
         "###);
     }
 }

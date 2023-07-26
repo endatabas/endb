@@ -171,4 +171,6 @@ UNION
   (is (parse-sql "SELECT * FROM t1 LEFT JOIN t2 ON t1.a = t2.a"))
   (is (parse-sql "SELECT * FROM t1 JOIN t2 ON t1.a = t2.a"))
   (is (parse-sql "SELECT DISTINCT * FROM t1"))
-  (is (parse-sql "SELECT ALL * FROM t1")))
+  (is (parse-sql "SELECT ALL * FROM t1"))
+  (is (parse-sql "SELECT 1; SELECT 1;"))
+  (is (parse-sql "SELECT 1;")))

@@ -98,8 +98,18 @@
 (defun %execute-sql (db sql)
   (let* ((ast (endb/lib/parser:parse-sql sql))
          (ctx (fset:map (:db db)))
-         (sql-fn (endb/sql/compiler:compile-sql ctx ast))
-         (*print-length* 16))
+         (*print-length* 16)
+         (sql-fn (if (eq :multiple-statments (first ast))
+                     (lambda (db)
+                       (loop with end-idx = (length (second ast))
+                             for ast in (second ast)
+                             for idx from 1
+                             for sql-fn = (endb/sql/compiler:compile-sql ctx ast)
+                             if (= end-idx idx)
+                               do (return (funcall sql-fn db))
+                             else
+                               do (funcall sql-fn db)))
+                     (endb/sql/compiler:compile-sql ctx ast))))
     (funcall sql-fn db)))
 
 (defun execute-sql (db sql)

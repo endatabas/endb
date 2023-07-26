@@ -140,6 +140,26 @@
       (is (equal '((104 104) (105 105)) result))
       (is (equal '("b" "b") columns)))))
 
+(test multiple-statments
+  (let* ((db (make-db)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 1 AS a; SELECT 2 AS b;")
+      (is (equal '((2)) result))
+      (is (equal '("b") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 2 AS b;")
+      (is (equal '((2)) result))
+      (is (equal '("b") columns)))
+
+    (let* ((write-db (begin-write-tx db)))
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "INSERT INTO t1(a, b) VALUES(103, 104); INSERT INTO t1(b, c) VALUES(105, FALSE); SELECT * FROM t1 ORDER BY b;")
+        (is (equal '((103 104 :null) (:null 105 nil)) result))
+        (is (equal '("a" "b" "c") columns))))))
+
 (test directory-db
   (let* ((endb/sql/expr:*sqlite-mode* t)
          (target-dir (asdf:system-relative-pathname :endb-test "target/"))

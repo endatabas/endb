@@ -76,6 +76,7 @@ typedef enum Keyword {
   IfExists,
   CreateTable,
   DropTable,
+  MultipleStatements,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;

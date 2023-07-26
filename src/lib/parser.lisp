@@ -78,7 +78,8 @@
   :drop-view
   :if-exists
   :create-table
-  :drop-table)
+  :drop-table
+  :multiple-statments)
 
 (cffi:defcenum Ast_Tag
   :List
