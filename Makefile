@@ -173,7 +173,7 @@ run-docker: docker endb_data
 
 # explicit builds mean `push-docker` does not depend on build directly
 push-docker: ~/.config/containers/registries.conf
-	$(DOCKER) login --username=endatabas --email=hello@endatabas.com
+	$(DOCKER) login --username=endatabas
 	$(DOCKER) tag $(DOCKER_ID) endatabas/endb:latest
 	$(DOCKER) push endatabas/endb
 
