@@ -59,14 +59,15 @@
                       finally (funcall writer "]" :close t))))
         ((equal "application/x-ndjson" content-type)
          (loop for row in rows
-               do (loop for column in row
-                        for column-name in column-names
-                        do (funcall writer (with-output-to-string (out)
-                                             (com.inuoe.jzon:with-writer (writer :stream out)
-                                               (com.inuoe.jzon:with-object writer
-                                                 (com.inuoe.jzon:write-key writer column-name)
-                                                 (com.inuoe.jzon:write-value writer column)))
-                                             (write-char #\NewLine out))))
+               do (funcall writer
+                           (with-output-to-string (out)
+                             (com.inuoe.jzon:with-writer (writer :stream out)
+                               (com.inuoe.jzon:with-object writer
+                                 (loop for column in row
+                                       for column-name in column-names
+                                       do (com.inuoe.jzon:write-key writer column-name)
+                                          (com.inuoe.jzon:write-value writer column))))
+                             (write-char #\NewLine out)))
                finally (funcall writer nil :close t)))
         ((equal "text/csv" content-type)
          (loop for row in (cons column-names rows)
