@@ -31,6 +31,15 @@
 (defun %format-csv (x)
   (cl-ppcre:regex-replace-all "\\\\\"" (com.inuoe.jzon:stringify x) "\"\""))
 
+(defun %row-to-json (column-names row)
+  (with-output-to-string (out)
+    (com.inuoe.jzon:with-writer (writer :stream out)
+      (com.inuoe.jzon:with-object writer
+        (loop for column in row
+              for column-name in column-names
+              do (com.inuoe.jzon:write-key writer column-name)
+                 (com.inuoe.jzon:write-value writer column))))))
+
 (defun %empty-response (status &optional headers)
   (list status (append headers '(:content-type "text/plain" :content-length 0)) '("")))
 
@@ -62,26 +71,11 @@
                  for idx from 0
                  unless (zerop idx)
                    do (funcall writer ",")
-                 do (funcall writer
-                             (with-output-to-string (out)
-                               (com.inuoe.jzon:with-writer (writer :stream out)
-                                 (com.inuoe.jzon:with-object writer
-                                   (loop for column in row
-                                         for column-name in column-names
-                                         do (com.inuoe.jzon:write-key writer column-name)
-                                            (com.inuoe.jzon:write-value writer column))))))
+                 do (funcall writer (%row-to-json column-names row))
                  finally (funcall writer (format nil "]}~%") :close t))))
         ((equal "application/x-ndjson" content-type)
          (loop for row in rows
-               do (funcall writer
-                           (with-output-to-string (out)
-                             (com.inuoe.jzon:with-writer (writer :stream out)
-                               (com.inuoe.jzon:with-object writer
-                                 (loop for column in row
-                                       for column-name in column-names
-                                       do (com.inuoe.jzon:write-key writer column-name)
-                                          (com.inuoe.jzon:write-value writer column))))
-                             (write-char #\NewLine out)))
+               do (funcall writer (%row-to-json column-names row))
                finally (funcall writer nil :close t)))
         ((equal "text/csv" content-type)
          (loop for row in (cons column-names rows)
