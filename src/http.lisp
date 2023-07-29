@@ -76,6 +76,7 @@
         ((equal "application/x-ndjson" content-type)
          (loop for row in rows
                do (funcall writer (%row-to-json column-names row))
+                  (funcall writer (format nil "~%"))
                finally (funcall writer nil :close t)))
         ((equal "text/csv" content-type)
          (loop for row in (cons column-names rows)
