@@ -45,11 +45,9 @@
                             "application/x-ndjson")
                            ((lack.request:request-accepts-p req "text/csv")
                             "text/csv")))
-           (endb/storage/meta-data:*json-ld-scalars* (equal "application/ld+json" content-type))
            (writer (funcall responder (list status (list :content-type content-type)))))
       (cond
-        ((or (equal "application/json" content-type)
-             (equal "application/ld+json" content-type))
+        ((equal "application/json" content-type)
          (progn (funcall writer "[")
                 (loop for row in rows
                       for idx from 0
@@ -57,6 +55,22 @@
                         do (funcall writer ",")
                       do (funcall writer (com.inuoe.jzon:stringify row))
                       finally (funcall writer (format nil "]~%") :close t))))
+        ((equal "application/ld+json" content-type)
+         (let ((endb/storage/meta-data:*json-ld-scalars* t))
+           (funcall writer "{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endatabas.com/\"},\"@graph\":[")
+           (loop for row in rows
+                 for idx from 0
+                 unless (zerop idx)
+                   do (funcall writer ",")
+                 do (funcall writer
+                             (with-output-to-string (out)
+                               (com.inuoe.jzon:with-writer (writer :stream out)
+                                 (com.inuoe.jzon:with-object writer
+                                   (loop for column in row
+                                         for column-name in column-names
+                                         do (com.inuoe.jzon:write-key writer column-name)
+                                            (com.inuoe.jzon:write-value writer column))))))
+                 finally (funcall writer (format nil "]}~%") :close t))))
         ((equal "application/x-ndjson" content-type)
          (loop for row in rows
                do (funcall writer
