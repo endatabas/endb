@@ -311,6 +311,11 @@
   (is (= (1- (ash 1 63)) (json->meta-data (meta-data->json (1- (ash 1 63))))))
   (is (= (- (ash 1 63)) (json->meta-data (meta-data->json (- (ash 1 63)))))))
 
+(test meta-data-json-arrow
+  (is (equal "[1,2]" (meta-data->json (vector 1 2))))
+  (is (equal "{\"foo\":\"bar\",\"baz\":2}" (meta-data->json (list (cons "foo" "bar") (cons "baz" 2)))))
+  (is (equal "{}" (meta-data->json :empty-struct))))
+
 (test meta-data-stats
   (let* ((expected '((("name" . "joe") ("id" . 1)) (("name" . :null) ("id" . 2)) :null (("name" . "mark") ("id" . 4))))
          (array (endb/arrow:to-arrow expected)))

@@ -273,12 +273,38 @@ where
             .clone()
             .map(|query| List(vec![KW(ScalarSubquery), query]));
 
+        let array = kw("ARRAY").or_not().ignore_then(
+            opt_expr_list
+                .clone()
+                .delimited_by(pad('['), pad(']'))
+                .map(|exprs| List(vec![KW(Array), exprs])),
+        );
+
+        let kw_pair = id
+            .clone()
+            .then_ignore(pad(':'))
+            .then(expr.clone())
+            .map(|(k, v)| List(vec![k, v]));
+
+        let kw_pairs = kw_pair
+            .separated_by(pad(','))
+            .collect()
+            .map(List)
+            .map(|kw_pairs| List(vec![KW(Object), kw_pairs]));
+
+        let object = choice((
+            kw("OBJECT").ignore_then(kw_pairs.clone().delimited_by(pad('('), pad(')'))),
+            kw_pairs.delimited_by(pad('{'), pad('}')),
+        ));
+
         let atom = choice((
             count_star,
             aggregate_function,
             cast,
             case,
             exists,
+            array,
+            object,
             function,
             scalar_subquery,
             atom_ast_parser(),

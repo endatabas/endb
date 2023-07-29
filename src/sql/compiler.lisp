@@ -688,6 +688,20 @@
       args
     `(endb/sql/expr:sql-datetime ,s)))
 
+(defmethod sql->cl (ctx (type (eql :array)) &rest args)
+  (destructuring-bind (args)
+      args
+    `(vector ,@(loop for ast in args
+                     collect (ast->cl ctx ast)))))
+
+(defmethod sql->cl (ctx (type (eql :object)) &rest args)
+  (destructuring-bind (args)
+      args
+    (if args
+        `(list ,@(loop for (k v) in args
+                       collect `(cons ,(symbol-name k) ,(ast->cl ctx v))))
+        :empty-struct)))
+
 (defun %find-sql-expr-symbol (fn)
   (find-symbol (string-upcase (concatenate 'string "sql-" (symbol-name fn))) :endb/sql/expr))
 

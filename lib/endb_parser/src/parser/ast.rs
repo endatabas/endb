@@ -79,6 +79,8 @@ pub enum Keyword {
     Date,
     Time,
     Timestamp,
+    Array,
+    Object,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

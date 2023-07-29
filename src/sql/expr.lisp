@@ -76,6 +76,9 @@
 (defmethod sql-is (x y)
   (equal x y))
 
+(defmethod sql-< (x y)
+  :null)
+
 (defmethod sql-< ((x (eql :null)) (y (eql :null)))
   :null)
 
@@ -105,6 +108,9 @@
 
 (defmethod sql-< ((x string) (y number))
   nil)
+
+(defmethod sql-<= (x y)
+  :null)
 
 (defmethod sql-<= ((x (eql :null)) (y (eql :null)))
   :null)
@@ -136,6 +142,9 @@
 (defmethod sql-<= ((x string) (y number))
   nil)
 
+(defmethod sql-> (x y)
+  :null)
+
 (defmethod sql-> ((x (eql :null)) (y (eql :null)))
   :null)
 
@@ -165,6 +174,9 @@
 
 (defmethod sql-> ((x string) (y number))
   t)
+
+(defmethod sql->= (x y)
+  :null)
 
 (defmethod sql->= ((x (eql :null)) (y (eql :null)))
   :null)

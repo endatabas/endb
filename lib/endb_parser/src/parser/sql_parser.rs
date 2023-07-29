@@ -1468,4 +1468,166 @@ mod tests {
                             end: 37
         "###);
     }
+
+    #[test]
+    fn semi_structured() {
+        assert_yaml_snapshot!(parse("SELECT []"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Array
+                        - List: []
+        "###);
+        assert_yaml_snapshot!(parse("SELECT ARRAY []"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Array
+                        - List: []
+        "###);
+        assert_yaml_snapshot!(parse("SELECT [1, 2]"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Array
+                        - List:
+                            - Integer: 1
+                            - Integer: 2
+        "###);
+
+        assert_yaml_snapshot!(parse("SELECT ARRAY [1, 2]"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Array
+                        - List:
+                            - Integer: 1
+                            - Integer: 2
+        "###);
+
+        assert_yaml_snapshot!(parse("SELECT {}"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Object
+                        - List: []
+        "###);
+        assert_yaml_snapshot!(parse("SELECT OBJECT()"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Object
+                        - List: []
+        "###);
+        assert_yaml_snapshot!(parse("SELECT {foo: 2, bar: 'baz'}"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Object
+                        - List:
+                            - List:
+                                - Id:
+                                    start: 8
+                                    end: 11
+                                - Integer: 2
+                            - List:
+                                - Id:
+                                    start: 16
+                                    end: 19
+                                - String:
+                                    start: 22
+                                    end: 25
+        "###);
+        assert_yaml_snapshot!(parse("SELECT OBJECT(foo: 2, bar: 'baz')"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Object
+                        - List:
+                            - List:
+                                - Id:
+                                    start: 14
+                                    end: 17
+                                - Integer: 2
+                            - List:
+                                - Id:
+                                    start: 22
+                                    end: 25
+                                - String:
+                                    start: 28
+                                    end: 31
+        "###);
+
+        assert_yaml_snapshot!(parse("SELECT {address: {street: 'Street', number: 42}, friends: [1, 2]}"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Object
+                        - List:
+                            - List:
+                                - Id:
+                                    start: 8
+                                    end: 15
+                                - List:
+                                    - KW: Object
+                                    - List:
+                                        - List:
+                                            - Id:
+                                                start: 18
+                                                end: 24
+                                            - String:
+                                                start: 27
+                                                end: 33
+                                        - List:
+                                            - Id:
+                                                start: 36
+                                                end: 42
+                                            - Integer: 42
+                            - List:
+                                - Id:
+                                    start: 49
+                                    end: 56
+                                - List:
+                                    - KW: Array
+                                    - List:
+                                        - Integer: 1
+                                        - Integer: 2
+        "###);
+    }
 }

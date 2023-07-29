@@ -95,17 +95,26 @@
       (com.inuoe.jzon:write-value writer (format nil "~A" value))))
 
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value vector))
-  (check-type value endb/arrow:arrow-binary)
-  (if *json-ld-scalars*
-      (com.inuoe.jzon:with-object writer
-        (com.inuoe.jzon:write-key writer "@value")
-        (com.inuoe.jzon:write-value writer (qbase64:encode-bytes value))
-        (com.inuoe.jzon:write-key writer "@type")
-        (com.inuoe.jzon:write-value writer "xsd:base64Binary"))
-      (com.inuoe.jzon:write-value writer (qbase64:encode-bytes value))))
+  (if (typep value 'endb/arrow:arrow-binary)
+      (if *json-ld-scalars*
+          (com.inuoe.jzon:with-object writer
+            (com.inuoe.jzon:write-key writer "@value")
+            (com.inuoe.jzon:write-value writer (qbase64:encode-bytes value))
+            (com.inuoe.jzon:write-key writer "@type")
+            (com.inuoe.jzon:write-value writer "xsd:base64Binary"))
+          (com.inuoe.jzon:write-value writer (qbase64:encode-bytes value)))
+      (call-next-method)))
+
+(defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value list))
+  (if (endb/arrow::%alistp value)
+      (com.inuoe.jzon:write-value writer (alexandria:alist-hash-table value))
+      (call-next-method)))
 
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value (eql :null)))
   (com.inuoe.jzon:write-value writer 'null))
+
+(defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value (eql :empty-struct)))
+  (com.inuoe.jzon:write-value writer (make-hash-table)))
 
 (defun json->meta-data (in)
   (%jzon->meta-data (com.inuoe.jzon:parse in)))

@@ -82,7 +82,9 @@
   :multiple-statments
   :date
   :time
-  :timestamp)
+  :timestamp
+  :array
+  :object)
 
 (cffi:defcenum Ast_Tag
   :List

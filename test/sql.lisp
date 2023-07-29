@@ -194,6 +194,70 @@
       (is (equalp (list (list (endb/arrow:parse-arrow-timestamp-micros "2023-05-16T14:43:39.970062Z"))) result))
       (is (equal '("column1") columns)))))
 
+(test semi-structured
+  (let* ((db (make-db)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT []")
+      (is (equalp (list (list (vector))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT ARRAY []")
+      (is (equalp (list (list (vector))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [1, 2]")
+      (is (equalp (list (list (vector 1 2))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT ARRAY [1, 2]")
+      (is (equalp (list (list (vector 1 2))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {}")
+      (is (equalp (list (list :empty-struct)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT OBJECT()")
+      (is (equalp (list (list :empty-struct)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {foo: 2, bar: 'baz'}")
+      (is (equalp (list (list (list (cons "foo" 2) (cons "bar" "baz")))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT OBJECT(foo: 2, bar: 'baz')")
+      (is (equalp (list (list (list (cons "foo" 2) (cons "bar" "baz")))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {address: {street: 'Street', number: 42}, friends: [1, 2]}")
+      (is (equalp (list (list (list (cons "address" (list (cons "street" "Street") (cons "number" 42)))
+                                    (cons "friends" (vector 1 2))))) result))
+      (is (equal '("column1") columns)))
+
+    (let ((write-db (begin-write-tx (make-db))))
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "INSERT INTO users(user) VALUES ({address: {street: 'Street', number: 42}, friends: [1, 2]}), ({address: {street: 'Street', number: 43}, friends: [3, 1]})")
+        (is (null result))
+        (is (= 2 result-code)))
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "SELECT * FROM users")
+        (is (equalp (list (list (list (cons "address" (list (cons "street" "Street") (cons "number" 43)))
+                                      (cons "friends" (vector 3 1))))
+                          (list (list (cons "address" (list (cons "street" "Street") (cons "number" 42)))
+                                      (cons "friends" (vector 1 2)))))
+                    result))
+        (is (equal '("user") columns))))))
+
 (test directory-db
   (let* ((endb/sql/expr:*sqlite-mode* t)
          (target-dir (asdf:system-relative-pathname :endb-test "target/"))

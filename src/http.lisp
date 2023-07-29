@@ -55,25 +55,25 @@
                             "application/x-ndjson")
                            ((lack.request:request-accepts-p req "text/csv")
                             "text/csv")))
+           (endb/storage/meta-data:*json-ld-scalars* (equal "application/ld+json" content-type))
            (writer (funcall responder (list status (list :content-type content-type)))))
       (cond
         ((equal "application/json" content-type)
-         (progn (funcall writer "[")
-                (loop for row in rows
-                      for idx from 0
-                      unless (zerop idx)
-                        do (funcall writer ",")
-                      do (funcall writer (com.inuoe.jzon:stringify row))
-                      finally (funcall writer (format nil "]~%") :close t))))
+         (funcall writer "[")
+         (loop for row in rows
+               for idx from 0
+               unless (zerop idx)
+                 do (funcall writer ",")
+               do (funcall writer (com.inuoe.jzon:stringify row))
+               finally (funcall writer (format nil "]~%") :close t)))
         ((equal "application/ld+json" content-type)
-         (let ((endb/storage/meta-data:*json-ld-scalars* t))
-           (funcall writer "{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endatabas.com/\"},\"@graph\":[")
-           (loop for row in rows
-                 for idx from 0
-                 unless (zerop idx)
-                   do (funcall writer ",")
-                 do (funcall writer (%row-to-json column-names row))
-                 finally (funcall writer (format nil "]}~%") :close t))))
+         (funcall writer "{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endatabas.com/\"},\"@graph\":[")
+         (loop for row in rows
+               for idx from 0
+               unless (zerop idx)
+                 do (funcall writer ",")
+               do (funcall writer (%row-to-json column-names row))
+               finally (funcall writer (format nil "]}~%") :close t)))
         ((equal "application/x-ndjson" content-type)
          (loop for row in rows
                do (funcall writer (%row-to-json column-names row))
