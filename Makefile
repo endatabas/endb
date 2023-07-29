@@ -183,4 +183,4 @@ clean:
 
 .PHONY: repl run run-binary test lib-check lib-lint lib-test lib-microbench \
 	slt-test slt-test-select slt-test-random slt-test-index slt-test-evidence slt-test-all slt-test-tpch slt-test-ci \
-	docker docker-alpine run-docker clean
+	docker docker-alpine run-docker push-docker clean
