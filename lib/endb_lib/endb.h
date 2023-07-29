@@ -77,6 +77,9 @@ typedef enum Keyword {
   CreateTable,
   DropTable,
   MultipleStatements,
+  Date,
+  Time,
+  Timestamp,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;

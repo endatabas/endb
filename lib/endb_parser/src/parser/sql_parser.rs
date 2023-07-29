@@ -1374,4 +1374,98 @@ mod tests {
           - "found end of input expected '*', '/', '%', '+', '-', '<', '>', '=', ',', or ';'"
         "###);
     }
+
+    #[test]
+    fn temporal_scalars() {
+        assert_yaml_snapshot!(parse("SELECT 2001-01-01"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Date
+                        - String:
+                            start: 7
+                            end: 17
+        "###);
+        assert_yaml_snapshot!(parse("SELECT 2001-01"), @r###"
+        ---
+        Err:
+          - "found '1' expected '*', '/', '%', '+', '-', '<', '>', '=', or ','"
+        "###);
+        assert_yaml_snapshot!(parse("SELECT DATE '2001-01-01'"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Date
+                        - String:
+                            start: 13
+                            end: 23
+        "###);
+
+        assert_yaml_snapshot!(parse("SELECT 12:01:20"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Time
+                        - String:
+                            start: 7
+                            end: 15
+        "###);
+        assert_yaml_snapshot!(parse("SELECT 12:"), @r###"
+        ---
+        Err:
+          - "found ':' expected '*', '/', '%', '+', '-', '<', '>', '=', or ','"
+        "###);
+        assert_yaml_snapshot!(parse("SELECT TIME '12:01:20'"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Time
+                        - String:
+                            start: 13
+                            end: 21
+        "###);
+
+        assert_yaml_snapshot!(parse("SELECT 2023-05-16T14:43:39.970062Z"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Timestamp
+                        - String:
+                            start: 7
+                            end: 34
+        "###);
+        assert_yaml_snapshot!(parse("SELECT TIMESTAMP '2023-05-16 14:43:39'"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Timestamp
+                        - String:
+                            start: 18
+                            end: 37
+        "###);
+    }
 }

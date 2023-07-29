@@ -16,6 +16,18 @@ where
     just(seq).then_ignore(text::whitespace()).ignored()
 }
 
+pub fn digits<'a, I: StrInput<'a, C>, C: Char<Str = str> + 'a, E: ParserExtra<'a, I> + 'a>(
+    min: usize,
+    max: usize,
+) -> impl Parser<'a, I, &'a C::Str, E> + Clone + 'a {
+    any()
+        .filter(|c: &C| c.is_digit(10))
+        .repeated()
+        .at_least(min)
+        .at_most(max)
+        .slice()
+}
+
 pub fn kw<
     'a,
     I: ValueInput<'a> + StrInput<'a, C>,

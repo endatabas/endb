@@ -673,6 +673,21 @@
       args
     `(endb/sql/expr:sql-cast ,(ast->cl ctx x) ,(intern (symbol-name sql-type) :keyword))))
 
+(defmethod sql->cl (ctx (type (eql :date)) &rest args)
+  (destructuring-bind (s)
+      args
+    `(endb/sql/expr:sql-date ,s)))
+
+(defmethod sql->cl (ctx (type (eql :time)) &rest args)
+  (destructuring-bind (s)
+      args
+    `(endb/sql/expr:sql-time ,s)))
+
+(defmethod sql->cl (ctx (type (eql :timestamp)) &rest args)
+  (destructuring-bind (s)
+      args
+    `(endb/sql/expr:sql-datetime ,s)))
+
 (defun %find-sql-expr-symbol (fn)
   (find-symbol (string-upcase (concatenate 'string "sql-" (symbol-name fn))) :endb/sql/expr))
 

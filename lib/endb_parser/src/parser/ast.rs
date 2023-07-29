@@ -76,6 +76,9 @@ pub enum Keyword {
     CreateTable,
     DropTable,
     MultipleStatements,
+    Date,
+    Time,
+    Timestamp,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

@@ -33,7 +33,13 @@
     (+ (* 1000000 sec) (/ nsec 1000))))
 
 (defun parse-arrow-timestamp-micros (s)
-  (make-arrow-timestamp-micros :us (%timestamp-to-micros (local-time:parse-timestring s))))
+  (let ((s (if (and (> (length s) 10)
+                    (eq #\Space (char s 10)))
+               (let ((s (copy-seq s)))
+                 (setf (char s 10) #\T)
+                 s)
+               s)))
+    (make-arrow-timestamp-micros :us (%timestamp-to-micros (local-time:parse-timestring s)))))
 
 (defun %micros-to-timestamp (us)
   (let* ((ns (* 1000 us)))

@@ -36,6 +36,86 @@ where
 {
     use super::ast::{Ast::*, Keyword::*};
 
+    let iso_date = digits(4, 4)
+        .then_ignore(just('-'))
+        .then(digits(2, 2))
+        .then_ignore(just('-'))
+        .then(digits(2, 2));
+
+    let iso_time = digits(2, 2)
+        .then_ignore(just(':'))
+        .then(digits(2, 2))
+        .then_ignore(just(':'))
+        .then(digits(2, 2))
+        .then(just('.').ignore_then(digits(1, 6)).or_not());
+
+    let date_ctor = |_, span: SimpleSpan<_>| {
+        List(vec![
+            KW(Date),
+            String {
+                start: span.start() as i32,
+                end: span.end() as i32,
+            },
+        ])
+    };
+
+    let date = choice((
+        kw("DATE").ignore_then(
+            iso_date
+                .clone()
+                .map_with_span(date_ctor)
+                .padded_by(just('\'')),
+        ),
+        iso_date.clone().map_with_span(date_ctor),
+    ));
+
+    let time_ctor = |_, span: SimpleSpan<_>| {
+        List(vec![
+            KW(Time),
+            String {
+                start: span.start() as i32,
+                end: span.end() as i32,
+            },
+        ])
+    };
+
+    let time = choice((
+        kw("TIME").ignore_then(
+            iso_time
+                .clone()
+                .map_with_span(time_ctor)
+                .padded_by(just('\'')),
+        ),
+        iso_time.clone().map_with_span(time_ctor),
+    ));
+
+    let timestamp_ctor = |_, span: SimpleSpan<_>| {
+        List(vec![
+            KW(Timestamp),
+            String {
+                start: span.start() as i32,
+                end: span.end() as i32,
+            },
+        ])
+    };
+    let timestamp = choice((
+        kw("TIMESTAMP").ignore_then(
+            iso_date
+                .clone()
+                .then(choice((just(' '), just('T'))))
+                .then(iso_time.clone())
+                .then(just('Z').or_not())
+                .map_with_span(timestamp_ctor)
+                .padded_by(just('\'')),
+        ),
+        iso_date
+            .clone()
+            .then(just('T'))
+            .then(iso_time.clone())
+            .then(just('Z').or_not())
+            .map_with_span(timestamp_ctor),
+    ));
+
     let number = text::int(10)
         .then(just('.').then(text::digits(10)).or_not())
         .map_slice(|s: &str| match s.find('.') {
@@ -67,8 +147,17 @@ where
     ))
     .map(KW);
 
-    choice((number, binary, string, boolean, col_ref_ast_parser_no_pad()))
-        .then_ignore(text::whitespace())
+    choice((
+        timestamp,
+        date,
+        time,
+        number,
+        binary,
+        string,
+        boolean,
+        col_ref_ast_parser_no_pad(),
+    ))
+    .then_ignore(text::whitespace())
 }
 
 pub fn expr_ast_parser<'input, E>(

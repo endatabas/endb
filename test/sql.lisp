@@ -161,6 +161,39 @@
         (is (equal '((103 104 :null) (:null 105 nil)) result))
         (is (equal '("a" "b" "c") columns))))))
 
+(test temporal-scalars
+  (let* ((db (make-db)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 2001-01-01")
+      (is (equalp (list (list (endb/arrow:parse-arrow-date-days "2001-01-01"))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT DATE '2001-01-01'")
+      (is (equalp (list (list (endb/arrow:parse-arrow-date-days "2001-01-01"))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 12:01:20")
+      (is (equalp (list (list (endb/arrow:parse-arrow-time-micros "12:01:20"))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT TIME '12:01:20'")
+      (is (equalp (list (list (endb/arrow:parse-arrow-time-micros "12:01:20"))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 2023-05-16T14:43:39.970062Z")
+      (is (equalp (list (list (endb/arrow:parse-arrow-timestamp-micros "2023-05-16T14:43:39.970062Z"))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT TIMESTAMP '2023-05-16 14:43:39.970062'")
+      (is (equalp (list (list (endb/arrow:parse-arrow-timestamp-micros "2023-05-16T14:43:39.970062Z"))) result))
+      (is (equal '("column1") columns)))))
+
 (test directory-db
   (let* ((endb/sql/expr:*sqlite-mode* t)
          (target-dir (asdf:system-relative-pathname :endb-test "target/"))

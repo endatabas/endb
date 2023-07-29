@@ -79,7 +79,10 @@
   :if-exists
   :create-table
   :drop-table
-  :multiple-statments)
+  :multiple-statments
+  :date
+  :time
+  :timestamp)
 
 (cffi:defcenum Ast_Tag
   :List

@@ -349,6 +349,7 @@ name = "endb_parser"
 version = "0.1.0"
 dependencies = [
  "ariadne",
+ "cbindgen",
  "chumsky",
  "insta",
  "serde",
