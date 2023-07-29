@@ -1,7 +1,7 @@
 use chumsky::extra::ParserExtra;
 use chumsky::prelude::*;
 
-use super::ast::Ast;
+use super::ast::{Ast, Keyword};
 use super::util::*;
 
 pub fn id_ast_parser_no_pad<'input, E>() -> impl Parser<'input, &'input str, Ast, E> + Clone
@@ -30,6 +30,18 @@ where
         })
 }
 
+fn kw_literal(kw: Keyword, span: &SimpleSpan<usize>) -> Ast {
+    use super::ast::Ast::*;
+
+    List(vec![
+        KW(kw),
+        String {
+            start: span.start as i32,
+            end: span.end as i32,
+        },
+    ])
+}
+
 pub fn atom_ast_parser<'input, E>() -> impl Parser<'input, &'input str, Ast, E> + Clone
 where
     E: ParserExtra<'input, &'input str>,
@@ -49,15 +61,7 @@ where
         .then(digits(2, 2))
         .then(just('.').ignore_then(digits(1, 6)).or_not());
 
-    let date_ctor = |_, span: SimpleSpan<_>| {
-        List(vec![
-            KW(Date),
-            String {
-                start: span.start() as i32,
-                end: span.end() as i32,
-            },
-        ])
-    };
+    let date_ctor = |_, span: SimpleSpan<_>| kw_literal(Date, &span);
 
     let date = choice((
         kw("DATE").ignore_then(
@@ -69,15 +73,7 @@ where
         iso_date.clone().map_with_span(date_ctor),
     ));
 
-    let time_ctor = |_, span: SimpleSpan<_>| {
-        List(vec![
-            KW(Time),
-            String {
-                start: span.start() as i32,
-                end: span.end() as i32,
-            },
-        ])
-    };
+    let time_ctor = |_, span: SimpleSpan<_>| kw_literal(Time, &span);
 
     let time = choice((
         kw("TIME").ignore_then(
@@ -89,15 +85,8 @@ where
         iso_time.clone().map_with_span(time_ctor),
     ));
 
-    let timestamp_ctor = |_, span: SimpleSpan<_>| {
-        List(vec![
-            KW(Timestamp),
-            String {
-                start: span.start() as i32,
-                end: span.end() as i32,
-            },
-        ])
-    };
+    let timestamp_ctor = |_, span: SimpleSpan<_>| kw_literal(Timestamp, &span);
+
     let timestamp = choice((
         kw("TIMESTAMP").ignore_then(
             iso_date
