@@ -84,7 +84,8 @@
   :time
   :timestamp
   :array
-  :object)
+  :object
+  :access)
 
 (cffi:defcenum Ast_Tag
   :List

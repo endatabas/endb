@@ -81,6 +81,7 @@ pub enum Keyword {
     Timestamp,
     Array,
     Object,
+    Access,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

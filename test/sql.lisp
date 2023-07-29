@@ -258,6 +258,70 @@
                     result))
         (is (equal '("user") columns))))))
 
+(test semi-structured-access
+  (let* ((db (make-db)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [][0]")
+      (is (equalp (list (list :null)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [1, 2][0]")
+      (is (equalp (list (list 1)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [1, 2][2 - 1]")
+      (is (equalp (list (list 2)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {}.bar")
+      (is (equalp (list (list :null)) result))
+      (is (equal '("bar") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {foo: 2, bar: ['baz']}.bar[0]")
+      (is (equalp (list (list "baz")) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {foo: 2, bar: ['baz']}['bar']")
+      (is (equalp (list (list (vector "baz"))) result))
+      (is (equal '("bar") columns)))
+
+
+    (let ((write-db (begin-write-tx (make-db))))
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "INSERT INTO users(user) VALUES ({address: {street: 'Street', number: 42}, friends: [1, 2]}), ({address: {street: 'Street', number: 43}, friends: [3, 1]})")
+        (is (null result))
+        (is (= 2 result-code)))
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "SELECT users.user.address FROM users")
+        (is (equalp (list (list (list (cons "street" "Street") (cons "number" 43)))
+                          (list (list (cons "street" "Street") (cons "number" 42))))
+                    result))
+        (is (equal '("address") columns)))
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "SELECT user.address FROM users")
+        (is (equalp (list (list (list (cons "street" "Street") (cons "number" 43)))
+                          (list (list (cons "street" "Street") (cons "number" 42))))
+                    result))
+        (is (equal '("address") columns)))
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "SELECT users.user.address.street FROM users")
+        (is (equalp (list (list "Street") (list "Street")) result))
+        (is (equal '("street") columns)))
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "SELECT user.address.street FROM users")
+        (is (equalp (list (list "Street") (list "Street")) result))
+        (is (equal '("street") columns))))))
+
 (test directory-db
   (let* ((endb/sql/expr:*sqlite-mode* t)
          (target-dir (asdf:system-relative-pathname :endb-test "target/"))

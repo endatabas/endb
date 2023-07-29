@@ -312,9 +312,18 @@ where
         ))
         .boxed();
 
+        let access = atom.foldl(
+            choice((
+                just('.').ignore_then(id.clone()),
+                expr.clone().delimited_by(pad('['), pad(']')),
+            ))
+            .repeated(),
+            |lhs, rhs| List(vec![KW(Access), lhs, rhs]),
+        );
+
         let unary = choice((pad('+').to(Plus), pad('-').to(Minus)))
             .repeated()
-            .foldr(atom, unary_op);
+            .foldr(access, unary_op);
 
         let mul = unary.clone().foldl(
             choice((pad('*').to(Mul), pad('/').to(Div), pad('%').to(Mod)))

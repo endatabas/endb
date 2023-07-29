@@ -29,6 +29,10 @@
                  ((eq :* expr) select-star-projection)
                  (alias (list (symbol-name alias)))
                  ((symbolp expr) (list (%unqualified-column-name (symbol-name expr))))
+                 ((and (listp expr)
+                       (eq :access (first expr))
+                       (or (stringp (nth 2 expr))
+                           (symbolp (nth 2 expr)))) (list (format nil "~A" (nth 2 expr))))
                  (t (list (%anonymous-column-name idx))))))
 
 (defun %base-table-p (ctx table-name)
@@ -702,6 +706,13 @@
                        collect `(cons ,(symbol-name k) ,(ast->cl ctx v))))
         :empty-struct)))
 
+(defmethod sql->cl (ctx (type (eql :access)) &rest args)
+  (destructuring-bind (base path)
+      args
+    `(endb/sql/expr:sql-access ,(ast->cl ctx base) ,(if (symbolp path)
+                                                        (symbol-name path)
+                                                        (ast->cl ctx path)))))
+
 (defun %find-sql-expr-symbol (fn)
   (find-symbol (string-upcase (concatenate 'string "sql-" (symbol-name fn))) :endb/sql/expr))
 
@@ -778,11 +789,19 @@
           (not (keywordp ast)))
      (let* ((k (symbol-name ast))
             (v (fset:lookup ctx k)))
-       (unless v
-         (%annotated-error ast "Unknown column"))
-       (dolist (cb (fset:lookup ctx :on-var-access))
-         (funcall cb k v))
-       v))
+       (if v
+           (progn
+             (dolist (cb (fset:lookup ctx :on-var-access))
+               (funcall cb k v))
+             v)
+           (let* ((idx (position #\. k)))
+             (if idx
+                 (let ((table (subseq k 0 idx))
+                       (column (subseq k (1+ idx))))
+                   (if (fset:lookup ctx table)
+                       (ast->cl ctx (list :access (make-symbol table) column))
+                       (%annotated-error ast "Unknown column")))
+                 (%annotated-error ast "Unknown column"))))))
     (t ast)))
 
 (defun %ast->cl-with-free-vars (ctx ast)

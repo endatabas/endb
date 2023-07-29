@@ -10,7 +10,7 @@
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-unary+ #:sql-unary-
-           #:sql-between #:sql-in #:sql-exists #:sql-coalesce
+           #:sql-access #:sql-between #:sql-in #:sql-exists #:sql-coalesce
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-like #:sql-substring #:sql-strftime
            #:make-sql-agg #:sql-agg-accumulate #:sql-agg-finish
@@ -388,6 +388,21 @@
 
 (defmethod sql-% (x y)
   :null)
+
+(defmethod sql-access (x y)
+  :null)
+
+(defmethod sql-access ((x vector) (y number))
+  (if (and (>= y 0)
+           (< y (length x)))
+      (aref x y)
+      :null))
+
+(defmethod sql-access ((x list) (y string))
+  (let ((element (assoc y x :test 'equal)))
+    (if element
+        (cdr element)
+        :null)))
 
 (defun sql-in (item xs)
   (block in

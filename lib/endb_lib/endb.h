@@ -82,6 +82,7 @@ typedef enum Keyword {
   Timestamp,
   Array,
   Object,
+  Access,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;
