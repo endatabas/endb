@@ -12,7 +12,7 @@
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-unary+ #:sql-unary-
            #:sql-between #:sql-in #:sql-exists #:sql-coalesce
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery
-           #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-like #:sql-substring #:sql-strftime
+           #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-like #:sql-substring #:sql-strftime
            #:make-sql-agg #:sql-agg-accumulate #:sql-agg-finish
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
            #:make-db #:copy-db #:db-buffer-pool #:db-wal #:db-object-store #:db-meta-data
@@ -526,6 +526,18 @@
 
 (defmethod sql-date ((x string))
   (endb/arrow:parse-arrow-date-days x))
+
+(defmethod sql-time ((x (eql :null)))
+  :null)
+
+(defmethod sql-time ((x string))
+  (endb/arrow:parse-arrow-time-micros x))
+
+(defmethod sql-datetime ((x (eql :null)))
+  :null)
+
+(defmethod sql-datetime ((x string))
+  (endb/arrow:parse-arrow-timestamp-micros x))
 
 (defmethod sql-like ((x (eql :null)) (pattern (eql :null)))
   :null)
