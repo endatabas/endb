@@ -56,7 +56,7 @@
                       unless (zerop idx)
                         do (funcall writer ",")
                       do (funcall writer (com.inuoe.jzon:stringify row))
-                      finally (funcall writer "]" :close t))))
+                      finally (funcall writer (format nil "]~%") :close t))))
         ((equal "application/x-ndjson" content-type)
          (loop for row in rows
                do (funcall writer
