@@ -4,11 +4,6 @@ use chumsky::Parser as ChumskyParser;
 
 // cargo run --release --example micro_bench
 
-// (time (let ((acc))
-//         (dotimes (n 100000)
-//           (setq acc (endb/sql/parser::parse-sql "SELECT a, b, 123, myfunc(b) FROM table_1 WHERE a > b AND b < 100 ORDER BY a DESC, b")))
-//         acc))
-
 fn main() {
     let iterations = 100000;
 

@@ -18,6 +18,3 @@ serde = { version = "1.0", features = ["derive"] }
 
 [dev-dependencies]
 insta = { version = "1.29.0", features = ["yaml"] }
-
-[build-dependencies]
-cbindgen = "0.24.3"
