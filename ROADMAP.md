@@ -25,6 +25,7 @@
     * simple path access (SQL:2023)
     * refine error messages
 * System Time `AS OF`
+* Non-recursive `WITH`
 * web server frontend
     * HTTP client?
 * docker image
@@ -33,7 +34,7 @@
 ## 2023 Q4
 
 * DBaaS ramp-up
-* System Time `BETWEEN`
+* System Time `BETWEEN` and `FROM`
 * single-node hardening
     * API authentication
     * SQL parameters
