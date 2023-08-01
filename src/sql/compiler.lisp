@@ -37,7 +37,7 @@
 
 (defun %base-table-p (ctx table-name)
   (and (symbolp table-name)
-       (equal "BASE TABLE" (endb/sql/expr:base-table-type (fset:lookup ctx :db) (symbol-name table-name)))))
+       (equal "BASE TABLE" (endb/sql/expr:table-type (fset:lookup ctx :db) (symbol-name table-name)))))
 
 (defun %annotated-error (s message)
   (error 'endb/sql/expr:sql-runtime-error
@@ -45,11 +45,11 @@
 
 (defun %base-table-or-view->cl (ctx table-name)
   (let* ((db (fset:lookup ctx :db))
-         (table-type (endb/sql/expr:base-table-type db (symbol-name table-name))))
+         (table-type (endb/sql/expr:table-type db (symbol-name table-name))))
     (cond
       ((equal "BASE TABLE" table-type)
        (values (symbol-name table-name)
-               (endb/sql/expr:base-table-columns db (symbol-name table-name))
+               (endb/sql/expr:table-columns db (symbol-name table-name))
                ()
                (endb/sql/expr:base-table-size db (symbol-name table-name))))
       ((equal "VIEW" table-type)
@@ -357,7 +357,7 @@
                          (%base-table-or-view->cl ctx table-or-subquery)
                          (%ast->cl-with-free-vars ctx table-or-subquery))
                    (let* ((table-alias (or table-alias table-or-subquery))
-                          (table-alias (symbol-name table-alias))
+                          (table-alias (%unqualified-column-name (symbol-name table-alias)))
                           (qualified-projection (loop for column in projection
                                                       collect (%qualified-column-name table-alias column)))
                           (env-extension (%env-extension table-alias projection))
@@ -550,7 +550,10 @@
 (defmethod sql->cl (ctx (type (eql :create-view)) &rest args)
   (destructuring-bind (table-name query)
       args
-    `(endb/sql/expr:sql-create-view ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ',query)))
+    (multiple-value-bind (ast projection)
+        (ast->cl ctx query)
+      (declare (ignore ast))
+      `(endb/sql/expr:sql-create-view ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ',query ',projection))))
 
 (defmethod sql->cl (ctx (type (eql :drop-view)) &rest args)
   (destructuring-bind (view-name &key if-exists)
@@ -796,10 +799,10 @@
              v)
            (let* ((idx (position #\. k)))
              (if idx
-                 (let ((table (subseq k 0 idx))
-                       (column (subseq k (1+ idx))))
-                   (if (fset:lookup ctx table)
-                       (ast->cl ctx (list :access (make-symbol table) column))
+                 (let ((column (subseq k 0 idx))
+                       (path (subseq k (1+ idx))))
+                   (if (fset:lookup ctx column)
+                       (ast->cl ctx (list :access (make-symbol column) path))
                        (%annotated-error ast "Unknown column")))
                  (%annotated-error ast "Unknown column"))))))
     (t ast)))

@@ -19,7 +19,7 @@
       (is (null result))
       (is (eq t result-code))
       (is (equal '("a" "b" "c" "d" "e")
-                 (endb/sql/expr:base-table-columns db "t1")))
+                 (endb/sql/expr:table-columns db "t1")))
       (is (zerop (endb/sql/expr:base-table-size db "t1"))))
 
     (multiple-value-bind (result result-code)
@@ -160,6 +160,90 @@
           (execute-sql write-db "INSERT INTO t1(a, b) VALUES(103, 104); INSERT INTO t1(b, c) VALUES(105, FALSE); SELECT * FROM t1 ORDER BY b;")
         (is (equal '((103 104 :null) (:null 105 nil)) result))
         (is (equal '("a" "b" "c") columns))))))
+
+(test information-schema
+  (let* ((db (make-db))
+         (write-db (begin-write-tx db)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT * FROM information_schema.tables")
+      (is (null result))
+      (is (equal '("table_catalog" "table_schema" "table_name" "table_type")
+                 columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT * FROM information_schema.columns")
+      (is (null result))
+      (is (equal '("table_catalog" "table_schema" "table_name" "column_name" "ordinal_position")
+                 columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT * FROM information_schema.views")
+      (is (null result))
+      (is (equal '("table_catalog" "table_schema" "table_name" "view_definition")
+                 columns)))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "INSERT INTO t1(a, b) VALUES(103, 104); INSERT INTO t1(b, c) VALUES(105, FALSE);")
+      (is (null result))
+      (is (equal 1 result-code)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT * FROM information_schema.tables")
+      (is (equalp (list (list :null "main" "t1" "BASE TABLE")) result))
+      (is (equal '("table_catalog" "table_schema" "table_name" "table_type")
+                 columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT * FROM information_schema.columns ORDER BY column_name")
+      (is (equalp (list (list :null "main" "t1" "a" 0)
+                        (list :null "main" "t1" "b" 0)
+                        (list :null "main" "t1" "c" 0))
+                  result))
+      (is (equal '("table_catalog" "table_schema" "table_name" "column_name" "ordinal_position")
+                 columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT tables.table_name, table_type FROM information_schema.tables")
+      (is (equalp (list (list "t1" "BASE TABLE")) result))
+      (is (equal '("table_name" "table_type") columns)))
+
+
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "CREATE VIEW foo AS SELECT 1 foo, 2 bar")
+      (is (null result))
+      (is (eq t result-code)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT * FROM information_schema.tables WHERE table_type = 'VIEW'")
+      (is (equalp (list (list :null "main" "foo" "VIEW"))
+                  result))
+      (is (equal '("table_catalog" "table_schema" "table_name" "table_type")
+                 columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT * FROM information_schema.views")
+      (is (equalp (list (list :null "main" "foo" "(:select ((1 #:|foo|) (2 #:|bar|)))"))
+                  result))
+      (is (equal '("table_catalog" "table_schema" "table_name" "view_definition")
+                 columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT * FROM information_schema.columns WHERE table_name = 'foo' ORDER BY ordinal_position")
+      (is (equalp (list (list :null "main" "foo" "foo" 1)
+                        (list :null "main" "foo" "bar" 2))
+                  result))
+      (is (equal '("table_catalog" "table_schema" "table_name" "column_name" "ordinal_position")
+                 columns)))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "DROP VIEW foo")
+      (is (null result))
+      (is (eq t result-code)))
+
+    (is (null (execute-sql write-db "SELECT * FROM information_schema.tables WHERE table_type = 'VIEW'")))
+    (is (null (execute-sql write-db "SELECT * FROM information_schema.views")))
+    (is (null (execute-sql write-db "SELECT * FROM information_schema.columns WHERE table_name = 'foo' ORDER BY ordinal_position")))))
 
 (test temporal-scalars
   (let* ((db (make-db)))

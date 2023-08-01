@@ -16,7 +16,7 @@
            #:make-sql-agg #:sql-agg-accumulate #:sql-agg-finish
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
            #:make-db #:copy-db #:db-buffer-pool #:db-wal #:db-object-store #:db-meta-data
-           #:base-table #:base-table-rows #:base-table-deleted-row-ids #:base-table-type #:base-table-columns
+           #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size
            #:view-definition #:calculate-stats
            #:sql-runtime-error #:*sqlite-mode*))
@@ -867,11 +867,16 @@
                                                          (cons (list arrow-file batch-idx row-id) (mapcar #'cdr (endb/arrow:arrow-get batch row-id)))
                                                          (mapcar #'cdr (endb/arrow:arrow-get batch row-id))))))))))
 
-(defun base-table-type (db table-name)
-  (let* ((table-row (find-if (lambda (row)
-                               (equal table-name (nth 2 row)))
-                             (base-table-visible-rows db "information_schema.tables"))))
-    (nth 3 table-row)))
+(defun %information-schema-table-p (table-name)
+  (member table-name '("information_schema.columns" "information_schema.tables" "information_schema.views") :test 'equal))
+
+(defun table-type (db table-name)
+  (if (%information-schema-table-p table-name)
+      "BASE TABLE"
+      (let* ((table-row (find-if (lambda (row)
+                                   (equal table-name (nth 2 row)))
+                                 (base-table-visible-rows db "information_schema.tables"))))
+        (nth 3 table-row))))
 
 (defun view-definition (db view-name)
   (let* ((view-row (find-if (lambda (row)
@@ -881,7 +886,7 @@
          (*read-default-float-format* 'double-float))
     (read-from-string (nth 3 view-row))))
 
-(defun base-table-columns (db table-name)
+(defun table-columns (db table-name)
   (cond
     ((equal "information_schema.columns" table-name)
      '("table_catalog" "table_schema" "table_name" "column_name" "ordinal_position"))
@@ -896,7 +901,7 @@
                                        (list (list 1 :asc) (list 2 :asc)))))))
 
 (defun base-table-created-p (db table-name)
-  (or (member table-name '("information_schema.columns" "information_schema.tables" "information_schema.views") :test 'equal)
+  (or (%information-schema-table-p table-name)
       (loop with rows = (base-table-visible-rows db "information_schema.columns")
             for (nil nil table nil idx) in rows
             thereis (and (equal table-name table)
@@ -941,7 +946,7 @@
                                                              (and (equal table-name (nth 2 row)) (equal "BASE TABLE" (nth 3 row)))))))
       (when batch-file-row-id
         (sql-delete db "information_schema.tables" (list batch-file-row-id))
-        (sql-delete db "information_schema.columns" (loop for c in (base-table-columns db table-name)
+        (sql-delete db "information_schema.columns" (loop for c in (table-columns db table-name)
                                                           collect (%find-arrow-file-idx-row-id db
                                                                                                "information_schema.columns"
                                                                                                (lambda (row)
@@ -952,13 +957,16 @@
       (when (or batch-file-row-id if-exists)
         (values nil t)))))
 
-(defun sql-create-view (db view-name query)
+(defun sql-create-view (db view-name query columns)
   (unless (%find-arrow-file-idx-row-id db
                                        "information_schema.tables"
                                        (lambda (row)
                                          (equal view-name (nth 2 row))))
     (sql-insert db "information_schema.tables" (list (list :null *default-schema* view-name "VIEW")))
     (sql-insert db "information_schema.views" (list (list :null *default-schema* view-name (prin1-to-string query))))
+    (sql-insert db "information_schema.columns" (loop for c in columns
+                                                      for idx from 1
+                                                      collect  (list :null *default-schema* view-name c idx)))
     (values nil t)))
 
 (defun sql-drop-view (db view-name &key if-exists)
@@ -968,6 +976,11 @@
                                                            (and (equal view-name (nth 2 row)) (equal "VIEW" (nth 3 row)))))))
     (when batch-file-row-id
       (sql-delete db "information_schema.tables" (list batch-file-row-id))
+      (sql-delete db "information_schema.columns" (loop for c in (table-columns db view-name)
+                                                        collect (%find-arrow-file-idx-row-id db
+                                                                                             "information_schema.columns"
+                                                                                             (lambda (row)
+                                                                                               (and (equal view-name (nth 2 row)) (equal c (nth 3 row)))))))
       (let* ((batch-file-row-id (%find-arrow-file-idx-row-id db
                                                              "information_schema.views"
                                                              (lambda (row)
@@ -1034,7 +1047,7 @@
 (defun sql-insert (db table-name values &key column-names)
   (with-slots (buffer-pool meta-data) db
     (let* ((created-p (base-table-created-p db table-name))
-           (columns (base-table-columns db table-name))
+           (columns (table-columns db table-name))
            (column-names-set (fset:convert 'fset:set column-names))
            (columns-set (fset:convert 'fset:set columns))
            (new-columns (fset:convert 'list (fset:set-difference column-names-set columns-set)))
@@ -1083,7 +1096,7 @@
               (setf meta-data (fset:with meta-data table-name (fset:with table-md batch-file batch-md))))
 
             (values nil (length values)))
-          (unless (base-table-type db table-name)
+          (unless (table-type db table-name)
             (sql-insert db "information_schema.tables" (list (list :null *default-schema* table-name "BASE TABLE")))
             (sql-insert db table-name values :column-names column-names))))))
 

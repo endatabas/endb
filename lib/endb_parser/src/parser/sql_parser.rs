@@ -63,8 +63,18 @@ where
         let expr = expr_ast_parser(query.clone());
         let subquery = query.delimited_by(pad('('), pad(')'));
 
+        let information_schema_table_name = kw_no_pad("INFORMATION_SCHEMA")
+            .then(just('.'))
+            .then(text::ident())
+            .map_with_span(|_, span: SimpleSpan<_>| Id {
+                start: span.start() as i32,
+                end: span.end() as i32,
+            })
+            .padded();
+
         let table = choice((
             subquery,
+            information_schema_table_name,
             id.clone()
                 .then_ignore(kw("NOT").then_ignore(kw("INDEXED")).or_not()),
         ))
@@ -1372,6 +1382,44 @@ mod tests {
         ---
         Err:
           - "found end of input expected '.', '[', '*', '/', '%', '+', '-', '<', '>', '=', ',', or ';'"
+        "###);
+    }
+
+    #[test]
+    fn information_schema() {
+        assert_yaml_snapshot!(parse("SELECT * FROM information_schema.tables"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - KW: Mul
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 14
+                        end: 39
+        "###);
+
+        assert_yaml_snapshot!(parse("SELECT * FROM information_schema.columns AS c"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - KW: Mul
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 14
+                        end: 40
+                    - Id:
+                        start: 44
+                        end: 45
         "###);
     }
 
