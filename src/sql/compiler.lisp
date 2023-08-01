@@ -723,7 +723,8 @@
   (destructuring-bind (fn args)
       args
     (let ((fn-sym (%find-sql-expr-symbol fn)))
-      (assert fn-sym nil (format nil "Unknown built-in function: ~A" fn))
+      (unless fn-sym
+        (%annotated-error fn "Unknown built-in function"))
       `(,fn-sym ,@(loop for ast in args
                         collect (ast->cl ctx ast))))))
 
@@ -739,7 +740,8 @@
                                                   :distinct ,distinct))
            (src (ast->cl ctx (first args)))
            (agg (make-aggregate :src src :init-src init-src :var aggregate-sym)))
-      (assert fn-sym nil (format nil "Unknown aggregate function: ~A" fn))
+      (unless fn-sym
+        (%annotated-error fn "Unknown aggregate function"))
       (setf (gethash aggregate-sym aggregate-table) agg)
       `(endb/sql/expr:sql-agg-finish ,aggregate-sym))))
 

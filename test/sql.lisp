@@ -131,6 +131,9 @@
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql db "SELECT t1.d FROM t1"))
 
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "SELECT foo(1) FROM t1"))
+
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT * FROM t1 ORDER BY b")
       (is (equal '((101 104 :null) (:null 105 nil)) result))
