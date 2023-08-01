@@ -173,4 +173,5 @@ UNION
   (is (parse-sql "SELECT DISTINCT * FROM t1"))
   (is (parse-sql "SELECT ALL * FROM t1"))
   (is (parse-sql "SELECT 1; SELECT 1;"))
-  (is (parse-sql "SELECT 1;")))
+  (is (parse-sql "SELECT 1;"))
+  (is (parse-sql "WITH foo(c) AS (SELECT 1), bar(a, b) AS (SELECT 1, 2) SELECT * FROM foo, bar")))

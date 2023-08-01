@@ -164,6 +164,21 @@
         (is (equal '((103 104 :null) (:null 105 nil)) result))
         (is (equal '("a" "b" "c") columns))))))
 
+(test with
+  (let* ((db (make-db)))
+    (multiple-value-bind (result columns)
+        (execute-sql db "WITH foo(c) AS (SELECT 1), bar(a, b) AS (SELECT 2, 3) SELECT * FROM foo, bar")
+      (is (equal '((1 2 3)) result))
+      (is (equal '("c" "a" "b") columns)))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "WITH bar(a, b) AS (SELECT 2) SELECT * FROM bar"))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "WITH foo AS (SELECT 1) SELECT * FROM foo")
+      (is (equal '((1)) result))
+      (is (equal '("column1") columns)))))
+
 (test information-schema
   (let* ((db (make-db))
          (write-db (begin-write-tx db)))

@@ -86,7 +86,8 @@
   :array
   :object
   :access
-  :as-of)
+  :as-of
+  :with)
 
 (cffi:defcenum Ast_Tag
   :List

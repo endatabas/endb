@@ -84,6 +84,7 @@ typedef enum Keyword {
   Object,
   Access,
   AsOf,
+  With,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;
