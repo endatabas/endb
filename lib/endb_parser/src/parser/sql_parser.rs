@@ -371,9 +371,14 @@ where
         .ignore_then(choice((kw("TEMPORARY"), kw("TEMP"))).or_not())
         .ignore_then(kw("VIEW"))
         .ignore_then(id.clone())
+        .then(id_list_parens.clone().or_not())
         .then_ignore(kw("AS"))
         .then(select_stmt.clone())
-        .map(|(id, query)| List(vec![KW(CreateView), id, query]));
+        .map(|((id, id_list), query)| {
+            let mut acc = vec![KW(CreateView), id, query];
+            add_clause(&mut acc, ColumnNames, id_list);
+            List(acc)
+        });
 
     let col_def = choice((
         kw("PRIMARY")
@@ -1345,6 +1350,25 @@ mod tests {
                 - List:
                     - List:
                         - Integer: 1
+        "###);
+        assert_yaml_snapshot!(parse("CREATE TEMP VIEW foo(bar) AS SELECT 1"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: CreateView
+            - Id:
+                start: 17
+                end: 20
+            - List:
+                - KW: Select
+                - List:
+                    - List:
+                        - Integer: 1
+            - KW: ColumnNames
+            - List:
+                - Id:
+                    start: 21
+                    end: 24
         "###);
         assert_yaml_snapshot!(parse("DROP VIEW IF EXISTS foo"), @r###"
         ---

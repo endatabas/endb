@@ -213,9 +213,12 @@
 
 
     (multiple-value-bind (result result-code)
-        (execute-sql write-db "CREATE VIEW foo AS SELECT 1 foo, 2 bar")
+        (execute-sql write-db "CREATE VIEW foo(a, b) AS SELECT 1, 2")
       (is (null result))
       (is (eq t result-code)))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql write-db "CREATE VIEW bar(a, b) AS SELECT 1"))
 
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM information_schema.tables WHERE table_type = 'VIEW'")
@@ -226,18 +229,23 @@
 
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM information_schema.views")
-      (is (equalp (list (list :null "main" "foo" "(:select ((1 #:|foo|) (2 #:|bar|)))"))
+      (is (equalp (list (list :null "main" "foo" "(:select ((1) (2)))"))
                   result))
       (is (equal '("table_catalog" "table_schema" "table_name" "view_definition")
                  columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM information_schema.columns WHERE table_name = 'foo' ORDER BY ordinal_position")
-      (is (equalp (list (list :null "main" "foo" "foo" 1)
-                        (list :null "main" "foo" "bar" 2))
+      (is (equalp (list (list :null "main" "foo" "a" 1)
+                        (list :null "main" "foo" "b" 2))
                   result))
       (is (equal '("table_catalog" "table_schema" "table_name" "column_name" "ordinal_position")
                  columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT * FROM foo")
+      (is (equalp (list (list 1 2)) result))
+      (is (equal '("a" "b") columns)))
 
     (multiple-value-bind (result result-code)
         (execute-sql write-db "DROP VIEW foo")

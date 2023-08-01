@@ -53,7 +53,10 @@
                ()
                (endb/sql/expr:base-table-size db (symbol-name table-name))))
       ((equal "VIEW" table-type)
-       (%ast->cl-with-free-vars ctx (endb/sql/expr:view-definition db (symbol-name table-name))))
+       (multiple-value-bind (ast projection free-vars)
+           (%ast->cl-with-free-vars ctx (endb/sql/expr:view-definition db (symbol-name table-name)))
+         (declare (ignore projection))
+         (values ast (endb/sql/expr:table-columns db (symbol-name table-name)) free-vars)))
       (t (%annotated-error table-name "Unknown table")))))
 
 (defun %wrap-with-order-by-and-limit (src order-by limit offset)
@@ -548,12 +551,14 @@
                                                                                                       t))))
 
 (defmethod sql->cl (ctx (type (eql :create-view)) &rest args)
-  (destructuring-bind (table-name query)
+  (destructuring-bind (table-name query &key column-names)
       args
     (multiple-value-bind (ast projection)
         (ast->cl ctx query)
       (declare (ignore ast))
-      `(endb/sql/expr:sql-create-view ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ',query ',projection))))
+      (when (and column-names (not (= (length projection) (length column-names))))
+        (%annotated-error table-name "Number of column names does not match projection"))
+      `(endb/sql/expr:sql-create-view ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ',query ',(or (mapcar #'symbol-name column-names) projection)))))
 
 (defmethod sql->cl (ctx (type (eql :drop-view)) &rest args)
   (destructuring-bind (view-name &key if-exists)
