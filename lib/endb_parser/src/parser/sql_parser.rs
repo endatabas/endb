@@ -75,7 +75,7 @@ where
         let date_or_timestamp = date_or_timestamp_ast_parser_no_pad().padded();
 
         let table = choice((
-            subquery.map(|x| (x, None)),
+            subquery.clone().map(|x| (x, None)),
             choice((
                 information_schema_table_name,
                 id.clone()
@@ -299,7 +299,7 @@ where
             )
             .or_not();
 
-        compound_select_stmt.then(order_by).then(limit_clause).map(
+        let full_select = compound_select_stmt.then(order_by).then(limit_clause).map(
             |((query, order_by), limit_offset)| {
                 let mut acc = match query {
                     List(x) => x,
@@ -315,7 +315,32 @@ where
 
                 List(acc)
             },
-        )
+        );
+
+        let with_element = id
+            .clone()
+            .then(id_list_parens.clone().or_not())
+            .then_ignore(kw("AS"))
+            .then(subquery.clone())
+            .map(|((id, id_list), query)| match id_list {
+                Some(id_list) => List(vec![id, query, id_list]),
+                None => List(vec![id, query]),
+            });
+
+        kw("WITH")
+            .ignore_then(
+                with_element
+                    .separated_by(pad(','))
+                    .at_least(1)
+                    .collect()
+                    .map(List),
+            )
+            .or_not()
+            .then(full_select)
+            .map(|(with_list, full_select)| match with_list {
+                None => full_select,
+                Some(with_list) => List(vec![KW(With), with_list, full_select]),
+            })
     });
 
     let expr = expr_ast_parser(select_stmt.clone());
@@ -1434,6 +1459,90 @@ mod tests {
         ---
         Err:
           - "found end of input expected '.', '[', '*', '/', '%', '+', '-', '<', '>', '=', ',', or ';'"
+        "###);
+    }
+
+    #[test]
+    fn with() {
+        assert_yaml_snapshot!(parse("WITH foo(a) AS (SELECT 1) SELECT * FROM foo"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: With
+            - List:
+                - List:
+                    - Id:
+                        start: 5
+                        end: 8
+                    - List:
+                        - KW: Select
+                        - List:
+                            - List:
+                                - Integer: 1
+                    - List:
+                        - Id:
+                            start: 9
+                            end: 10
+            - List:
+                - KW: Select
+                - List:
+                    - List:
+                        - KW: Mul
+                - KW: From
+                - List:
+                    - List:
+                        - Id:
+                            start: 40
+                            end: 43
+        "###);
+        assert_yaml_snapshot!(parse("WITH foo AS (SELECT 1), bar(a, b) AS (SELECT 1, 2) SELECT * FROM foo, bar"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: With
+            - List:
+                - List:
+                    - Id:
+                        start: 5
+                        end: 8
+                    - List:
+                        - KW: Select
+                        - List:
+                            - List:
+                                - Integer: 1
+                - List:
+                    - Id:
+                        start: 24
+                        end: 27
+                    - List:
+                        - KW: Select
+                        - List:
+                            - List:
+                                - Integer: 1
+                            - List:
+                                - Integer: 2
+                    - List:
+                        - Id:
+                            start: 28
+                            end: 29
+                        - Id:
+                            start: 31
+                            end: 32
+            - List:
+                - KW: Select
+                - List:
+                    - List:
+                        - KW: Mul
+                - KW: From
+                - List:
+                    - List:
+                        - Id:
+                            start: 65
+                            end: 68
+                    - List:
+                        - Id:
+                            start: 70
+                            end: 73
         "###);
     }
 
