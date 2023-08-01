@@ -72,11 +72,36 @@ where
             })
             .padded();
 
+        let date_or_timestamp = date_or_timestamp_ast_parser_no_pad().padded();
+
         let table = choice((
-            subquery,
-            information_schema_table_name,
-            id.clone()
-                .then_ignore(kw("NOT").then_ignore(kw("INDEXED")).or_not()),
+            subquery.map(|x| (x, None)),
+            choice((
+                information_schema_table_name,
+                id.clone()
+                    .then_ignore(kw("NOT").then_ignore(kw("INDEXED")).or_not()),
+            ))
+            .then(
+                kw("FOR")
+                    .ignore_then(kw("SYSTEM_TIME"))
+                    .ignore_then(choice((
+                        kw("AS")
+                            .ignore_then(kw("OF"))
+                            .ignore_then(date_or_timestamp.clone())
+                            .map(|as_of| List(vec![KW(AsOf), as_of])),
+                        kw("FROM")
+                            .ignore_then(date_or_timestamp.clone())
+                            .then_ignore(kw("TO"))
+                            .then(date_or_timestamp.clone())
+                            .map(|(start, end)| List(vec![KW(From), start, end])),
+                        kw("BETWEEN")
+                            .ignore_then(date_or_timestamp.clone())
+                            .then_ignore(kw("AND"))
+                            .then(date_or_timestamp)
+                            .map(|(start, end)| List(vec![KW(Between), start, end])),
+                    )))
+                    .or_not(),
+            ),
         ))
         .then(
             choice((
@@ -101,10 +126,13 @@ where
             ))
             .or_not(),
         )
-        .map(|(id, alias)| match alias {
-            Some(alias) => List(vec![id, alias]),
-            None => List(vec![id]),
-        });
+        .map(|((id, temporal), alias)| match (temporal, alias) {
+            (Some(temporal), Some(alias)) => List(vec![id, alias, temporal]),
+            (Some(temporal), None) => List(vec![id.clone(), id, temporal]),
+            (None, Some(alias)) => List(vec![id, alias]),
+            (None, None) => List(vec![id]),
+        })
+        .boxed();
 
         let select_clause = kw("SELECT")
             .ignore_then(
@@ -1420,6 +1448,180 @@ mod tests {
                     - Id:
                         start: 44
                         end: 45
+        "###);
+    }
+
+    #[test]
+    fn system_time() {
+        assert_yaml_snapshot!(parse("SELECT * FROM Emp FOR SYSTEM_TIME AS OF TIMESTAMP '2011-01-02 00:00:00'"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - KW: Mul
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 14
+                        end: 17
+                    - Id:
+                        start: 14
+                        end: 17
+                    - List:
+                        - KW: AsOf
+                        - List:
+                            - KW: Timestamp
+                            - String:
+                                start: 51
+                                end: 70
+        "###);
+        assert_yaml_snapshot!(parse("SELECT * FROM Emp FOR SYSTEM_TIME AS OF 2011-01-02 AS e"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - KW: Mul
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 14
+                        end: 17
+                    - Id:
+                        start: 54
+                        end: 55
+                    - List:
+                        - KW: AsOf
+                        - List:
+                            - KW: Date
+                            - String:
+                                start: 40
+                                end: 50
+        "###);
+        assert_yaml_snapshot!(parse("SELECT * FROM Emp FOR SYSTEM_TIME FROM TIMESTAMP '2011-01-02 00:00:00' TO TIMESTAMP '2011-12-31 00:00:00'"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - KW: Mul
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 14
+                        end: 17
+                    - Id:
+                        start: 14
+                        end: 17
+                    - List:
+                        - KW: From
+                        - List:
+                            - KW: Timestamp
+                            - String:
+                                start: 50
+                                end: 69
+                        - List:
+                            - KW: Timestamp
+                            - String:
+                                start: 85
+                                end: 104
+        "###);
+        assert_yaml_snapshot!(parse("SELECT * FROM Emp FOR SYSTEM_TIME FROM 2011-01-02T00:00:00 TO 2011-12-31T00:00:00"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - KW: Mul
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 14
+                        end: 17
+                    - Id:
+                        start: 14
+                        end: 17
+                    - List:
+                        - KW: From
+                        - List:
+                            - KW: Timestamp
+                            - String:
+                                start: 39
+                                end: 58
+                        - List:
+                            - KW: Timestamp
+                            - String:
+                                start: 62
+                                end: 81
+        "###);
+        assert_yaml_snapshot!(parse("SELECT * FROM Emp FOR SYSTEM_TIME BETWEEN TIMESTAMP '2011-01-02 00:00:00' AND TIMESTAMP '2011-12-31 00:00:00'"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - KW: Mul
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 14
+                        end: 17
+                    - Id:
+                        start: 14
+                        end: 17
+                    - List:
+                        - KW: Between
+                        - List:
+                            - KW: Timestamp
+                            - String:
+                                start: 53
+                                end: 72
+                        - List:
+                            - KW: Timestamp
+                            - String:
+                                start: 89
+                                end: 108
+        "###);
+        assert_yaml_snapshot!(parse("SELECT * FROM Emp FOR SYSTEM_TIME BETWEEN 2011-01-02T00:00:00 AND 2011-12-31T00:00:00"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - KW: Mul
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 14
+                        end: 17
+                    - Id:
+                        start: 14
+                        end: 17
+                    - List:
+                        - KW: Between
+                        - List:
+                            - KW: Timestamp
+                            - String:
+                                start: 42
+                                end: 61
+                        - List:
+                            - KW: Timestamp
+                            - String:
+                                start: 66
+                                end: 85
         "###);
     }
 

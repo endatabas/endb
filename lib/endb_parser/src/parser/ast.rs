@@ -82,6 +82,7 @@ pub enum Keyword {
     Array,
     Object,
     Access,
+    AsOf,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

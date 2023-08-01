@@ -30,23 +30,12 @@ where
         })
 }
 
-fn kw_literal(kw: Keyword, span: &SimpleSpan<usize>) -> Ast {
-    use super::ast::Ast::*;
-
-    List(vec![
-        KW(kw),
-        String {
-            start: span.start as i32,
-            end: span.end as i32,
-        },
-    ])
-}
-
-pub fn atom_ast_parser<'input, E>() -> impl Parser<'input, &'input str, Ast, E> + Clone
+pub fn date_or_timestamp_ast_parser_no_pad<'input, E>(
+) -> impl Parser<'input, &'input str, Ast, E> + Clone
 where
     E: ParserExtra<'input, &'input str>,
 {
-    use super::ast::{Ast::*, Keyword::*};
+    use super::ast::Keyword::*;
 
     let iso_date = digits(4, 4)
         .then_ignore(just('-'))
@@ -73,18 +62,6 @@ where
         iso_date.clone().map_with_span(date_ctor),
     ));
 
-    let time_ctor = |_, span: SimpleSpan<_>| kw_literal(Time, &span);
-
-    let time = choice((
-        kw("TIME").ignore_then(
-            iso_time
-                .clone()
-                .map_with_span(time_ctor)
-                .padded_by(just('\'')),
-        ),
-        iso_time.clone().map_with_span(time_ctor),
-    ));
-
     let timestamp_ctor = |_, span: SimpleSpan<_>| kw_literal(Timestamp, &span);
 
     let timestamp = choice((
@@ -103,6 +80,46 @@ where
             .then(iso_time.clone())
             .then(just('Z').or_not())
             .map_with_span(timestamp_ctor),
+    ));
+
+    choice((timestamp, date))
+}
+
+fn kw_literal(kw: Keyword, span: &SimpleSpan<usize>) -> Ast {
+    use super::ast::Ast::*;
+
+    List(vec![
+        KW(kw),
+        String {
+            start: span.start as i32,
+            end: span.end as i32,
+        },
+    ])
+}
+
+pub fn atom_ast_parser<'input, E>() -> impl Parser<'input, &'input str, Ast, E> + Clone
+where
+    E: ParserExtra<'input, &'input str>,
+{
+    use super::ast::{Ast::*, Keyword::*};
+
+    let iso_time = digits(2, 2)
+        .then_ignore(just(':'))
+        .then(digits(2, 2))
+        .then_ignore(just(':'))
+        .then(digits(2, 2))
+        .then(just('.').ignore_then(digits(1, 6)).or_not());
+
+    let time_ctor = |_, span: SimpleSpan<_>| kw_literal(Time, &span);
+
+    let time = choice((
+        kw("TIME").ignore_then(
+            iso_time
+                .clone()
+                .map_with_span(time_ctor)
+                .padded_by(just('\'')),
+        ),
+        iso_time.clone().map_with_span(time_ctor),
     ));
 
     let number = text::int(10)
@@ -137,8 +154,7 @@ where
     .map(KW);
 
     choice((
-        timestamp,
-        date,
+        date_or_timestamp_ast_parser_no_pad(),
         time,
         number,
         binary,
