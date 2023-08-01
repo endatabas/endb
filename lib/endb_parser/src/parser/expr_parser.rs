@@ -91,7 +91,7 @@ where
         kw("TIMESTAMP").ignore_then(
             iso_date
                 .clone()
-                .then(choice((just(' '), just('T'))))
+                .then(one_of(" T"))
                 .then(iso_time.clone())
                 .then(just('Z').or_not())
                 .map_with_span(timestamp_ctor)
@@ -282,7 +282,7 @@ where
 
         let kw_pair = id
             .clone()
-            .then_ignore(pad(':'))
+            .then_ignore(one_of(":=").padded())
             .then(expr.clone())
             .map(|(k, v)| List(vec![k, v]));
 

@@ -1614,6 +1614,29 @@ mod tests {
                                     start: 22
                                     end: 25
         "###);
+        assert_yaml_snapshot!(parse("SELECT {foo = 2, bar = 'baz'}"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Object
+                        - List:
+                            - List:
+                                - Id:
+                                    start: 8
+                                    end: 11
+                                - Integer: 2
+                            - List:
+                                - Id:
+                                    start: 17
+                                    end: 20
+                                - String:
+                                    start: 24
+                                    end: 27
+        "###);
         assert_yaml_snapshot!(parse("SELECT OBJECT(foo: 2, bar: 'baz')"), @r###"
         ---
         Ok:
