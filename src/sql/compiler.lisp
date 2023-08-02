@@ -634,6 +634,17 @@
     `(endb/sql/expr:sql-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx values)
                                :column-names ',(mapcar #'symbol-name column-names))))
 
+(defmethod sql->cl (ctx (type (eql :insert-objects)) &rest args)
+  (destructuring-bind (table-name values)
+      args
+    (let ((object-sym (gensym)))
+      `(progn
+         (loop for ,object-sym in ,(ast->cl ctx values)
+               do (endb/sql/expr:sql-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name)
+                                            (list (mapcar #'cdr ,object-sym))
+                                            :column-names (mapcar #'car ,object-sym)))
+         (values nil ,(length values))))))
+
 (defmethod sql->cl (ctx (type (eql :delete)) &rest args)
   (destructuring-bind (table-name where)
       args

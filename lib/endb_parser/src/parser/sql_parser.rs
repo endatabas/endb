@@ -384,14 +384,26 @@ where
     let insert_stmt = kw("INSERT")
         .ignore_then(kw("OR").then_ignore(kw("REPLACE")).or_not())
         .ignore_then(kw("INTO"))
-        .ignore_then(id.clone())
-        .then(id_list_parens.clone().or_not())
-        .then(select_stmt.clone())
-        .map(|((id, id_list), query)| {
-            let mut acc = vec![KW(Insert), id, query];
-            add_clause(&mut acc, ColumnNames, id_list);
-            List(acc)
-        });
+        .ignore_then(choice((
+            id.clone()
+                .then(id_list_parens.clone().or_not())
+                .then(select_stmt.clone())
+                .map(|((id, id_list), query)| {
+                    let mut acc = vec![KW(Insert), id, query];
+                    add_clause(&mut acc, ColumnNames, id_list);
+                    List(acc)
+                }),
+            id.clone()
+                .then_ignore(kw("OBJECTS").or_not())
+                .then(
+                    object_ast_parser(expr.clone())
+                        .separated_by(pad(','))
+                        .at_least(1)
+                        .collect()
+                        .map(List),
+                )
+                .map(|(id, object_list)| List(vec![KW(InsertObjects), id, object_list])),
+        )));
 
     let delete_stmt = kw("DELETE")
         .ignore_then(kw("FROM"))
@@ -2144,6 +2156,59 @@ mod tests {
                                     - List:
                                         - Integer: 1
                                         - Integer: 2
+        "###);
+
+        assert_yaml_snapshot!(parse("INSERT INTO users {foo: 2, bar: 'baz'}, {foo: 3}"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: InsertObjects
+            - Id:
+                start: 12
+                end: 17
+            - List:
+                - List:
+                    - KW: Object
+                    - List:
+                        - List:
+                            - Id:
+                                start: 19
+                                end: 22
+                            - Integer: 2
+                        - List:
+                            - Id:
+                                start: 27
+                                end: 30
+                            - String:
+                                start: 33
+                                end: 36
+                - List:
+                    - KW: Object
+                    - List:
+                        - List:
+                            - Id:
+                                start: 41
+                                end: 44
+                            - Integer: 3
+        "###);
+
+        assert_yaml_snapshot!(parse("INSERT INTO users OBJECTS {foo: 3}"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: InsertObjects
+            - Id:
+                start: 12
+                end: 17
+            - List:
+                - List:
+                    - KW: Object
+                    - List:
+                        - List:
+                            - Id:
+                                start: 27
+                                end: 30
+                            - Integer: 3
         "###);
     }
 

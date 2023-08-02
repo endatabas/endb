@@ -160,7 +160,22 @@
       (is (equal '("b") columns)))
 
     (signals endb/sql/expr:sql-runtime-error
-      (execute-sql db "SELECT * FROM (VALUES (1, 2)) AS foo(a)"))))
+      (execute-sql db "SELECT * FROM (VALUES (1, 2)) AS foo(a)"))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "INSERT INTO t2 {a: 2, b: 3}, {a: 3, c: 4}")
+      (is (null result))
+      (is (= 2 result-code)))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "INSERT INTO t2 OBJECTS {a: 1, b: 2, c: 1 + 1}")
+      (is (null result))
+      (is (= 1 result-code)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT * FROM t2 ORDER BY a")
+      (is (equal '((1 2 2) (2 3 :null) (3 :null 4)) result))
+      (is (equal '("a" "b" "c") columns)))))
 
 (test multiple-statments
   (let* ((db (make-db)))

@@ -89,6 +89,7 @@ pub enum Keyword {
     ArrayQuery,
     Unnest,
     WithOrdinality,
+    InsertObjects,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

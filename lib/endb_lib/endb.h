@@ -90,6 +90,7 @@ typedef enum Keyword {
   ArrayQuery,
   Unnest,
   WithOrdinality,
+  InsertObjects,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;

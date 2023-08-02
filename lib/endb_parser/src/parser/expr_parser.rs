@@ -165,6 +165,34 @@ where
     .then_ignore(text::whitespace())
 }
 
+pub fn object_ast_parser<'input, E>(
+    expr: impl Parser<'input, &'input str, Ast, E> + Clone + 'input,
+) -> impl Parser<'input, &'input str, Ast, E> + Clone
+where
+    E: ParserExtra<'input, &'input str>,
+{
+    use super::ast::{Ast::*, Keyword::*};
+
+    let id = id_ast_parser_no_pad().then_ignore(text::whitespace());
+
+    let kw_pair = id
+        .clone()
+        .then_ignore(one_of(":=").padded())
+        .then(expr.clone())
+        .map(|(k, v)| List(vec![k, v]));
+
+    let kw_pairs = kw_pair
+        .separated_by(pad(','))
+        .collect()
+        .map(List)
+        .map(|kw_pairs| List(vec![KW(Object), kw_pairs]));
+
+    choice((
+        kw("OBJECT").ignore_then(kw_pairs.clone().delimited_by(pad('('), pad(')'))),
+        kw_pairs.delimited_by(pad('{'), pad('}')),
+    ))
+}
+
 pub fn expr_ast_parser<'input, E>(
     query: impl Parser<'input, &'input str, Ast, E> + Clone + 'input,
 ) -> impl Parser<'input, &'input str, Ast, E> + Clone
@@ -303,22 +331,7 @@ where
             ),
         ));
 
-        let kw_pair = id
-            .clone()
-            .then_ignore(one_of(":=").padded())
-            .then(expr.clone())
-            .map(|(k, v)| List(vec![k, v]));
-
-        let kw_pairs = kw_pair
-            .separated_by(pad(','))
-            .collect()
-            .map(List)
-            .map(|kw_pairs| List(vec![KW(Object), kw_pairs]));
-
-        let object = choice((
-            kw("OBJECT").ignore_then(kw_pairs.clone().delimited_by(pad('('), pad(')'))),
-            kw_pairs.delimited_by(pad('{'), pad('}')),
-        ));
+        let object = object_ast_parser(expr.clone());
 
         let atom = choice((
             count_star,
