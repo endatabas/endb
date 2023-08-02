@@ -74,11 +74,36 @@ where
 
         let date_or_timestamp = date_or_timestamp_ast_parser_no_pad().padded();
 
+        let table_alias = choice((
+            kw("AS").ignore_then(id.clone()),
+            id.clone().and_is(
+                choice((
+                    kw("CROSS"),
+                    kw("LEFT"),
+                    kw("JOIN"),
+                    kw("WHERE"),
+                    kw("GROUP"),
+                    kw("HAVING"),
+                    kw("ORDER"),
+                    kw("LIMIT"),
+                    kw("ON"),
+                    kw("UNION"),
+                    kw("EXCEPT"),
+                    kw("INTERSECT"),
+                ))
+                .not(),
+            ),
+        ));
+
         let table = choice((
-            subquery.clone().map(|x| (x, None)),
+            subquery
+                .clone()
+                .map(|x| (x, None))
+                .then(table_alias.clone().map(Some)),
             kw("UNNEST")
-                .ignore_then(expr.clone())
-                .map(|expr| (List(vec![KW(Unnest), expr]), None)),
+                .ignore_then(expr.clone().delimited_by(pad('('), pad(')')))
+                .map(|expr| (List(vec![KW(Unnest), expr]), None))
+                .then(table_alias.clone().map(Some)),
             choice((
                 information_schema_table_name,
                 id.clone()
@@ -104,36 +129,14 @@ where
                             .map(|(start, end)| List(vec![KW(Between), start, end])),
                     )))
                     .or_not(),
-            ),
+            )
+            .then(table_alias.or_not()),
         ))
-        .then(
-            choice((
-                kw("AS").ignore_then(id.clone()),
-                id.clone().and_is(
-                    choice((
-                        kw("CROSS"),
-                        kw("LEFT"),
-                        kw("JOIN"),
-                        kw("WHERE"),
-                        kw("GROUP"),
-                        kw("HAVING"),
-                        kw("ORDER"),
-                        kw("LIMIT"),
-                        kw("ON"),
-                        kw("UNION"),
-                        kw("EXCEPT"),
-                        kw("INTERSECT"),
-                    ))
-                    .not(),
-                ),
-            ))
-            .or_not(),
-        )
-        .map(|((id, temporal), alias)| match (temporal, alias) {
-            (Some(temporal), Some(alias)) => List(vec![id, alias, temporal]),
-            (Some(temporal), None) => List(vec![id.clone(), id, temporal]),
-            (None, Some(alias)) => List(vec![id, alias]),
-            (None, None) => List(vec![id]),
+        .map(|((table, temporal), alias)| match (temporal, alias) {
+            (Some(temporal), Some(alias)) => List(vec![table, alias, temporal]),
+            (Some(temporal), None) => List(vec![table.clone(), table, temporal]),
+            (None, Some(alias)) => List(vec![table, alias]),
+            (None, None) => List(vec![table]),
         })
         .boxed();
 
@@ -2155,7 +2158,12 @@ mod tests {
                             end: 21
         "###);
 
-        assert_yaml_snapshot!(parse("SELECT * FROM foo, UNNEST foo.bar"), @r###"
+        assert_yaml_snapshot!(parse("SELECT * FROM foo, UNNEST(foo.bar)"), @r###"
+        ---
+        Err:
+          - "found '(' expected ','"
+        "###);
+        assert_yaml_snapshot!(parse("SELECT * FROM foo, UNNEST(foo.bar) AS bar"), @r###"
         ---
         Ok:
           List:
@@ -2175,6 +2183,9 @@ mod tests {
                         - Id:
                             start: 26
                             end: 33
+                    - Id:
+                        start: 38
+                        end: 41
         "###);
     }
 }
