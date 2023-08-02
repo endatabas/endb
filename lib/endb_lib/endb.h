@@ -89,6 +89,7 @@ typedef enum Keyword {
   ObjectAgg,
   ArrayQuery,
   Unnest,
+  WithOrdinality,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;

@@ -102,8 +102,22 @@ where
                 .map(|x| (x, None))
                 .then(table_alias.clone().map(Some)),
             kw("UNNEST")
-                .ignore_then(expr.clone().delimited_by(pad('('), pad(')')))
-                .map(|expr| (List(vec![KW(Unnest), expr]), None))
+                .ignore_then(
+                    expr.clone()
+                        .then(
+                            kw("WITH")
+                                .ignore_then(kw("ORDINALITY"))
+                                .to(WithOrdinality)
+                                .map(KW)
+                                .or_not(),
+                        )
+                        .delimited_by(pad('('), pad(')')),
+                )
+                .map(|(expr, ordinality)| {
+                    let mut acc = vec![KW(Unnest), expr];
+                    add_clause(&mut acc, WithOrdinality, ordinality);
+                    (List(acc), None)
+                })
                 .then(table_alias.clone().map(Some)),
             choice((
                 information_schema_table_name,
@@ -2236,6 +2250,40 @@ mod tests {
                     - Id:
                         start: 38
                         end: 41
+        "###);
+
+        assert_yaml_snapshot!(parse("SELECT * FROM foo, UNNEST(foo.bar WITH ORDINALITY) AS bar(x, y)"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - KW: Mul
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 14
+                        end: 17
+                - List:
+                    - List:
+                        - KW: Unnest
+                        - Id:
+                            start: 26
+                            end: 33
+                        - KW: WithOrdinality
+                        - KW: WithOrdinality
+                    - Id:
+                        start: 54
+                        end: 57
+                    - List:
+                        - Id:
+                            start: 58
+                            end: 59
+                        - Id:
+                            start: 61
+                            end: 62
         "###);
     }
 }

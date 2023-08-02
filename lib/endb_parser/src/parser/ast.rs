@@ -88,6 +88,7 @@ pub enum Keyword {
     ObjectAgg,
     ArrayQuery,
     Unnest,
+    WithOrdinality,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

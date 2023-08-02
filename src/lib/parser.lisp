@@ -91,7 +91,8 @@
   :array_agg
   :object_agg
   :array-query
-  :unnest)
+  :unnest
+  :with-ordinality)
 
 (cffi:defcenum Ast_Tag
   :List

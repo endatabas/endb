@@ -498,15 +498,27 @@
                         ,src)))))))))
 
 (defmethod sql->cl (ctx (type (eql :unnest)) &rest args)
-  (destructuring-bind (expr)
+  (destructuring-bind (expr &key with-ordinality)
       args
-    (let ((expr-sym (gensym)))
-      (values `(let ((,expr-sym ,(ast->cl ctx expr)))
-                 (if (and (vectorp ,expr-sym)
-                          (plusp (length ,expr-sym)))
-                     (reverse (map 'list #'list ,expr-sym))
-                     '((:null))))
-              `(,(%anonymous-column-name 1))))))
+    (if with-ordinality
+        (let ((expr-sym (gensym))
+              (ordinality-sym (gensym)))
+          (values `(let ((,expr-sym ,(ast->cl ctx expr)))
+                     (if (and (vectorp ,expr-sym)
+                              (plusp (length ,expr-sym)))
+                         (reverse (loop for ,expr-sym across ,expr-sym
+                                        for ,ordinality-sym from 1
+                                        collect (list ,expr-sym ,ordinality-sym)))
+                         '((:null :null))))
+                  (%values-projection 2)))
+        (let ((expr-sym (gensym)))
+          (values `(let ((,expr-sym ,(ast->cl ctx expr)))
+                     (if (and (vectorp ,expr-sym)
+                              (plusp (length ,expr-sym)))
+                         (reverse (loop for ,expr-sym across ,expr-sym
+                                        collect (list ,expr-sym)))
+                         '((:null))))
+                  (%values-projection 1))))))
 
 (defmethod sql->cl (ctx (type (eql :union)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit offset)
