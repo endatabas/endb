@@ -67,7 +67,7 @@
                do (funcall writer (com.inuoe.jzon:stringify row))
                finally (funcall writer (format nil "]~%") :close t)))
         ((equal "application/ld+json" content-type)
-         (funcall writer "{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endatabas.com/\"},\"@graph\":[")
+         (funcall writer "{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[")
          (loop for row in rows
                for idx from 0
                unless (zerop idx)
