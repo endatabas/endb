@@ -214,6 +214,8 @@ where
             kw("MAX").to(Max),
             kw("TOTAL").to(Total),
             kw("GROUP_CONCAT").to(GroupConcat),
+            kw("ARRAY_AGG").to(ArrayAgg),
+            kw("OBJECT_AGG").to(ObjectAgg),
         ))
         .map(KW)
         .then(
@@ -289,12 +291,17 @@ where
             .clone()
             .map(|query| List(vec![KW(ScalarSubquery), query]));
 
-        let array = kw("ARRAY").or_not().ignore_then(
-            opt_expr_list
-                .clone()
-                .delimited_by(pad('['), pad(']'))
-                .map(|exprs| List(vec![KW(Array), exprs])),
-        );
+        let array = choice((
+            kw("ARRAY")
+                .ignore_then(subquery.clone())
+                .map(|subquery| List(vec![KW(ArrayQuery), subquery])),
+            kw("ARRAY").or_not().ignore_then(
+                opt_expr_list
+                    .clone()
+                    .delimited_by(pad('['), pad(']'))
+                    .map(|exprs| List(vec![KW(Array), exprs])),
+            ),
+        ));
 
         let kw_pair = id
             .clone()

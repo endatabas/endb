@@ -639,7 +639,7 @@
 
 (defstruct sql-distinct (acc ()) agg)
 
-(defmethod sql-agg-accumulate ((agg sql-distinct) x &rest y)
+(defmethod sql-agg-accumulate ((agg sql-distinct) x &rest args)
   (declare (ignore args))
   (with-slots (acc) agg
     (push x acc)
@@ -660,7 +660,7 @@
 (defmethod make-sql-agg ((type (eql :sum)) &key distinct)
   (%make-distinct-sql-agg (make-sql-sum) distinct))
 
-(defmethod sql-agg-accumulate ((agg sql-sum) x &rest y)
+(defmethod sql-agg-accumulate ((agg sql-sum) x &rest args)
   (declare (ignore args))
   (with-slots (sum has-value-p) agg
     (if has-value-p
@@ -668,7 +668,7 @@
         (setf sum x has-value-p t))
     agg))
 
-(defmethod sql-agg-accumulate ((agg sql-sum) (x (eql :null)) &rest y)
+(defmethod sql-agg-accumulate ((agg sql-sum) (x (eql :null)) &rest args)
   (declare (ignore args))
   agg)
 
@@ -815,6 +815,43 @@
 
 (defmethod sql-agg-finish ((agg sql-group_concat))
   (or (sql-group_concat-acc agg) :null))
+
+(defstruct sql-array_agg (acc (make-array 0 :fill-pointer 0)) distinct)
+
+(defmethod make-sql-agg ((type (eql :array_agg)) &key distinct)
+  (make-sql-array_agg :distinct distinct))
+
+(defmethod sql-agg-accumulate ((agg sql-array_agg) x &rest args)
+  (declare (ignore args))
+  (with-slots (acc) agg
+    (vector-push-extend x acc)
+    agg))
+
+(defmethod sql-agg-finish ((agg sql-array_agg))
+  (with-slots (acc distinct) agg
+    (if (eq :distinct distinct)
+        (remove-duplicates acc)
+        acc)))
+
+(defstruct sql-object_agg (acc ()))
+
+(defmethod make-sql-agg ((type (eql :object_agg)) &key distinct)
+  (declare (ignore distinct))
+  (make-sql-object_agg))
+
+(defmethod sql-agg-accumulate ((agg sql-object_agg) (x string) &rest args)
+  (unless (eq 1 (length args))
+    (error 'sql-runtime-error :message "OBJECT_AGG requires both key and value argument."))
+  (with-slots (acc) agg
+    (push (cons x (first args)) acc)
+    agg))
+
+(defmethod sql-agg-accumulate ((agg sql-object_agg) x &rest args)
+  (declare (ignore args))
+  (error 'sql-runtime-error :message (format nil "OBJECT_AGG requires string key argument: ~A" x)))
+
+(defmethod sql-agg-finish ((agg sql-object_agg))
+  (or (reverse (sql-object_agg-acc agg)) :empty-struct))
 
 ;; Internals
 

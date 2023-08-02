@@ -87,7 +87,10 @@
   :object
   :access
   :as-of
-  :with)
+  :with
+  :array_agg
+  :object_agg
+  :array-query)
 
 (cffi:defcenum Ast_Tag
   :List

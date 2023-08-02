@@ -715,6 +715,15 @@
     `(vector ,@(loop for ast in args
                      collect (ast->cl ctx ast)))))
 
+(defmethod sql->cl (ctx (type (eql :array-query)) &rest args)
+  (destructuring-bind (query)
+      args
+    (multiple-value-bind (src projection)
+        (ast->cl ctx query)
+      (unless (= 1 (length projection))
+        (error 'endb/sql/expr:sql-runtime-error :message "ARRAY query must return single column."))
+      `(map 'vector #'car ,src))))
+
 (defmethod sql->cl (ctx (type (eql :object)) &rest args)
   (destructuring-bind (args)
       args
@@ -773,8 +782,7 @@
                                      args)
                       collect (ast->cl ctx ast)))
            (agg (make-aggregate :src src :init-src init-src :var aggregate-sym)))
-      (unless fn-sym
-        (%annotated-error fn "Unknown aggregate function"))
+      (assert fn-sym nil (format nil "Unknown aggregate function: ~A" fn))
       (setf (gethash aggregate-sym aggregate-table) agg)
       `(endb/sql/expr:sql-agg-finish ,aggregate-sym))))
 

@@ -84,6 +84,9 @@ pub enum Keyword {
     Access,
     AsOf,
     With,
+    ArrayAgg,
+    ObjectAgg,
+    ArrayQuery,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

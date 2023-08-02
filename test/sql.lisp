@@ -326,6 +326,51 @@
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT ARRAY (VALUES (1), (2))")
+      (is (equalp '((#(1 2))) result))
+      (is (equal '("column1") columns)))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "SELECT ARRAY (VALUES (1, 2), (2, 3))"))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT ARRAY_AGG(x.column1) FROM (VALUES (1), (2)) AS x")
+      (is (equalp '((#(1 2))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT ARRAY_AGG(DISTINCT x.column1) FROM (VALUES (1), (1), (2)) AS x")
+      (is (equalp '((#(1 2))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT ARRAY_AGG(x.column1) FROM (VALUES (1)) AS x WHERE x.column1 = 2")
+      (is (equalp '((#())) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT OBJECT_AGG(x.column1, x.column2) FROM (VALUES ('foo', 1), ('bar', 2)) AS x")
+      (is (equal '(((("foo" . 1) ("bar" . 2)))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT OBJECT_AGG(x.column1, x.column2) FROM (VALUES ('foo', 1), ('baz', 1), ('bar', 2)) AS x GROUP BY x.column2")
+      (is (equal '(((("bar" . 2)))
+                   ((("foo" . 1) ("baz" . 1)))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT OBJECT_AGG(x.column1, x.column2) FROM (VALUES ('foo', 1)) AS x WHERE x.column1 = 'bar'")
+      (is (equal '((:empty-struct)) result))
+      (is (equal '("column1") columns)))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "SELECT OBJECT_AGG(x.column1) FROM (VALUES ('foo', 1), ('bar', 2)) AS x"))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "SELECT OBJECT_AGG(x.column1, x.column2) FROM (VALUES (1, 1), ('bar', 2)) AS x"))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT {}")
       (is (equal '((:empty-struct)) result))
       (is (equal '("column1") columns)))

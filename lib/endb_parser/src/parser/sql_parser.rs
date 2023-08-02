@@ -1904,6 +1904,22 @@ mod tests {
                             - Integer: 2
         "###);
 
+        assert_yaml_snapshot!(parse("SELECT ARRAY (SELECT 1)"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: ArrayQuery
+                        - List:
+                            - KW: Select
+                            - List:
+                                - List:
+                                    - Integer: 1
+        "###);
+
         assert_yaml_snapshot!(parse("SELECT {}"), @r###"
         ---
         Ok:
