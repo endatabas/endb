@@ -362,13 +362,20 @@
                                      order-by limit offset)
       args
     (labels ((select->cl (ctx from-ast from-tables-acc)
-               (destructuring-bind (table-or-subquery &optional table-alias)
+               (destructuring-bind (table-or-subquery &optional table-alias column-names)
                    (first from-ast)
                  (multiple-value-bind (table-src projection free-vars table-size)
                      (if (symbolp table-or-subquery)
                          (%base-table-or-view->cl ctx table-or-subquery)
                          (%ast->cl-with-free-vars ctx table-or-subquery))
+                   (when (and column-names (not (= (length projection) (length column-names))))
+                     (if (symbolp table-or-subquery)
+                         (%annotated-error table-or-subquery "Number of column names does not match projection")
+                         (error 'endb/sql/expr:sql-runtime-error :message (format nil "Number of column names: ~A does not match projection: ~A"
+                                                                                  (length column-names)
+                                                                                  (length projection)))))
                    (let* ((table-alias (or table-alias table-or-subquery))
+                          (projection (or (mapcar #'symbol-name column-names) projection))
                           (table-alias (%unqualified-column-name (symbol-name table-alias)))
                           (qualified-projection (loop for column in projection
                                                       collect (%qualified-column-name table-alias column)))

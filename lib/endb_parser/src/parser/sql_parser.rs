@@ -93,7 +93,8 @@ where
                 ))
                 .not(),
             ),
-        ));
+        ))
+        .then(id_list_parens.clone().or_not());
 
         let table = choice((
             subquery
@@ -133,9 +134,20 @@ where
             .then(table_alias.or_not()),
         ))
         .map(|((table, temporal), alias)| match (temporal, alias) {
-            (Some(temporal), Some(alias)) => List(vec![table, alias, temporal]),
-            (Some(temporal), None) => List(vec![table.clone(), table, temporal]),
-            (None, Some(alias)) => List(vec![table, alias]),
+            (Some(temporal), Some((alias, column_names))) => List(vec![
+                table,
+                alias,
+                column_names.unwrap_or_else(|| List(vec![])),
+                temporal,
+            ]),
+            (Some(temporal), None) => List(vec![table.clone(), table, List(vec![]), temporal]),
+            (None, Some((alias, column_names))) => {
+                let mut acc = vec![table, alias];
+                if let Some(column_names) = column_names {
+                    acc.push(column_names)
+                }
+                List(acc)
+            }
             (None, None) => List(vec![table]),
         })
         .boxed();
@@ -1180,6 +1192,38 @@ mod tests {
                     - Integer: 3
                     - Integer: 4
         "###);
+
+        assert_yaml_snapshot!(parse("SELECT * FROM (VALUES (1, 2), (3, 4)) AS foo(a, b)"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - KW: Mul
+            - KW: From
+            - List:
+                - List:
+                    - List:
+                        - KW: Values
+                        - List:
+                            - List:
+                                - Integer: 1
+                                - Integer: 2
+                            - List:
+                                - Integer: 3
+                                - Integer: 4
+                    - Id:
+                        start: 41
+                        end: 44
+                    - List:
+                        - Id:
+                            start: 45
+                            end: 46
+                        - Id:
+                            start: 48
+                            end: 49
+        "###);
     }
 
     #[test]
@@ -1609,6 +1653,7 @@ mod tests {
                     - Id:
                         start: 14
                         end: 17
+                    - List: []
                     - List:
                         - KW: AsOf
                         - List:
@@ -1634,6 +1679,7 @@ mod tests {
                     - Id:
                         start: 54
                         end: 55
+                    - List: []
                     - List:
                         - KW: AsOf
                         - List:
@@ -1659,6 +1705,7 @@ mod tests {
                     - Id:
                         start: 14
                         end: 17
+                    - List: []
                     - List:
                         - KW: From
                         - List:
@@ -1689,6 +1736,7 @@ mod tests {
                     - Id:
                         start: 14
                         end: 17
+                    - List: []
                     - List:
                         - KW: From
                         - List:
@@ -1719,6 +1767,7 @@ mod tests {
                     - Id:
                         start: 14
                         end: 17
+                    - List: []
                     - List:
                         - KW: Between
                         - List:
@@ -1749,6 +1798,7 @@ mod tests {
                     - Id:
                         start: 14
                         end: 17
+                    - List: []
                     - List:
                         - KW: Between
                         - List:

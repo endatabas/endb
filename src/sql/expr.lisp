@@ -625,7 +625,7 @@
 
 (defun sql-scalar-subquery (rows)
   (when (> 1 (length rows))
-    (error 'sql-runtime-error :message "Scalar subquery must return max one row."))
+    (error 'sql-runtime-error :message "Scalar subquery must return max one row"))
   (if (null rows)
       :null
       (caar rows)))
@@ -710,7 +710,7 @@
 
 (defmethod make-sql-agg ((type (eql :count-star)) &key distinct)
   (when distinct
-    (error 'sql-runtime-error :message "COUNT(*) does not support DISTINCT."))
+    (error 'sql-runtime-error :message "COUNT(*) does not support DISTINCT"))
   (make-sql-count-star))
 
 (defmethod sql-agg-accumulate ((agg sql-count-star) x &rest args)
@@ -798,7 +798,7 @@
 (defmethod sql-agg-accumulate ((agg sql-group_concat) x &rest args)
   (with-slots (acc seen distinct) agg
     (when (and (eq :distinct distinct) args)
-      (error 'sql-runtime-error :message "GROUP_CONCAT with argument doesn't support DISTINCT."))
+      (error 'sql-runtime-error :message "GROUP_CONCAT with argument doesn't support DISTINCT"))
     (if (member x seen :test 'equal)
         agg
         (let ((separator (or (first args) ",")))
@@ -841,7 +841,7 @@
 
 (defmethod sql-agg-accumulate ((agg sql-object_agg) (x string) &rest args)
   (unless (eq 1 (length args))
-    (error 'sql-runtime-error :message "OBJECT_AGG requires both key and value argument."))
+    (error 'sql-runtime-error :message "OBJECT_AGG requires both key and value argument"))
   (with-slots (acc) agg
     (push (cons x (first args)) acc)
     agg))

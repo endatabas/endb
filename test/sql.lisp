@@ -142,7 +142,25 @@
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT b, b FROM t1 ORDER BY b")
       (is (equal '((104 104) (105 105)) result))
-      (is (equal '("b" "b") columns)))))
+      (is (equal '("b" "b") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM (VALUES (1, 2)) AS foo(a, b)")
+      (is (equal '((1 2)) result))
+      (is (equal '("a" "b") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT a FROM (VALUES (1, 2)) AS foo(a, b)")
+      (is (equal '((1)) result))
+      (is (equal '("a") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT foo.b FROM (VALUES (1, 2)) AS foo(a, b)")
+      (is (equal '((2)) result))
+      (is (equal '("b") columns)))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "SELECT * FROM (VALUES (1, 2)) AS foo(a)"))))
 
 (test multiple-statments
   (let* ((db (make-db)))
