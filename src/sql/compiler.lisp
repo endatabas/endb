@@ -314,7 +314,7 @@
                                        (destructuring-bind ,group-by-exprs-projection
                                            ,group-sym
                                          ,@(loop for v being the hash-value of aggregate-table
-                                                 collect `(endb/sql/expr:sql-agg-accumulate ,(aggregate-var v) ,(aggregate-src v)))))))
+                                                 collect `(endb/sql/expr:sql-agg-accumulate ,(aggregate-var v) ,@(aggregate-src v)))))))
          (empty-group-key-form `(list ,@(loop repeat (length group-by-projection) collect :null)))
          (group-by-src `(let ((,group-acc-sym (make-hash-table :test 'equal)))
                           ,(%from->cl ctx from-tables where-clauses group-by-selected-src correlated-vars)
@@ -767,11 +767,11 @@
     (let* ((aggregate-table (fset:lookup ctx :aggregate-table))
            (fn-sym (%find-sql-expr-symbol fn))
            (aggregate-sym (gensym))
-           (init-src `(endb/sql/expr:make-sql-agg ,fn
-                                                  ,@(loop for ast in (rest args)
-                                                          collect (ast->cl ctx ast))
-                                                  :distinct ,distinct))
-           (src (ast->cl ctx (first args)))
+           (init-src `(endb/sql/expr:make-sql-agg ,fn :distinct ,distinct))
+           (src (loop for ast in (if (null args)
+                                     (list :null)
+                                     args)
+                      collect (ast->cl ctx ast)))
            (agg (make-aggregate :src src :init-src init-src :var aggregate-sym)))
       (unless fn-sym
         (%annotated-error fn "Unknown aggregate function"))

@@ -142,4 +142,15 @@
   (is (= 2 (%aggregate :min '(:null 2 3))))
   (is (eq :null (%aggregate :min '())))
   (is (= 3 (%aggregate :max '(:null 2 3))))
-  (is (eq :null (%aggregate :max '(:null)))))
+  (is (eq :null (%aggregate :max '(:null))))
+
+  (is (equal "1,0" (%aggregate :group_concat '(1 0 :null) :distinct t)))
+  (is (equal "1:0" (sql-agg-finish (reduce (lambda (acc x)
+                                             (sql-agg-accumulate acc x ":"))
+                                           '(1 0 :null)
+                                           :initial-value (make-sql-agg :group_concat)))))
+  (signals endb/sql/expr:sql-runtime-error
+    (sql-agg-finish (reduce (lambda (acc x)
+                              (sql-agg-accumulate acc x ":"))
+                            '(1 0 :null)
+                            :initial-value (make-sql-agg :group_concat :distinct :distinct)))))

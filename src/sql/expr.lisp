@@ -634,12 +634,13 @@
 
 (defgeneric make-sql-agg (type &rest args))
 
-(defgeneric sql-agg-accumulate (agg x))
+(defgeneric sql-agg-accumulate (agg x &rest args))
 (defgeneric sql-agg-finish (agg))
 
 (defstruct sql-distinct (acc ()) agg)
 
-(defmethod sql-agg-accumulate ((agg sql-distinct) x)
+(defmethod sql-agg-accumulate ((agg sql-distinct) x &rest y)
+  (declare (ignore args))
   (with-slots (acc) agg
     (push x acc)
     agg))
@@ -659,14 +660,16 @@
 (defmethod make-sql-agg ((type (eql :sum)) &key distinct)
   (%make-distinct-sql-agg (make-sql-sum) distinct))
 
-(defmethod sql-agg-accumulate ((agg sql-sum) x)
+(defmethod sql-agg-accumulate ((agg sql-sum) x &rest y)
+  (declare (ignore args))
   (with-slots (sum has-value-p) agg
     (if has-value-p
         (setf sum (sql-+ sum x))
         (setf sum x has-value-p t))
     agg))
 
-(defmethod sql-agg-accumulate ((agg sql-sum) (x (eql :null)))
+(defmethod sql-agg-accumulate ((agg sql-sum) (x (eql :null)) &rest y)
+  (declare (ignore args))
   agg)
 
 (defmethod sql-agg-finish ((agg sql-sum))
@@ -691,11 +694,13 @@
 (defmethod make-sql-agg ((type (eql :count)) &key distinct)
   (%make-distinct-sql-agg (make-sql-count) distinct))
 
-(defmethod sql-agg-accumulate ((agg sql-count) x)
+(defmethod sql-agg-accumulate ((agg sql-count) x &rest args)
+  (declare (ignore args))
   (incf (sql-count-count agg))
   agg)
 
-(defmethod sql-agg-accumulate ((agg sql-count) (x (eql :null)))
+(defmethod sql-agg-accumulate ((agg sql-count) (x (eql :null)) &rest args)
+  (declare (ignore args))
   agg)
 
 (defmethod sql-agg-finish ((agg sql-count))
@@ -708,7 +713,8 @@
     (error 'sql-runtime-error :message "COUNT(*) does not support DISTINCT."))
   (make-sql-count-star))
 
-(defmethod sql-agg-accumulate ((agg sql-count-star) x)
+(defmethod sql-agg-accumulate ((agg sql-count-star) x &rest args)
+  (declare (ignore args))
   (incf (sql-count-star-count agg))
   agg)
 
@@ -717,13 +723,15 @@
 (defmethod make-sql-agg ((type (eql :avg)) &key distinct)
   (%make-distinct-sql-agg (make-sql-avg) distinct))
 
-(defmethod sql-agg-accumulate ((agg sql-avg) x)
+(defmethod sql-agg-accumulate ((agg sql-avg) x &rest args)
+  (declare (ignore args))
   (with-slots (sum count) agg
     (setf sum (sql-+ sum x))
     (incf count)
     agg))
 
-(defmethod sql-agg-accumulate ((agg sql-avg) (x (eql :null)))
+(defmethod sql-agg-accumulate ((agg sql-avg) (x (eql :null)) &rest args)
+  (declare (ignore args))
   agg)
 
 (defmethod sql-agg-finish ((agg sql-avg))
@@ -737,7 +745,8 @@
 (defmethod make-sql-agg ((type (eql :min)) &key distinct)
   (%make-distinct-sql-agg (make-sql-min) distinct))
 
-(defmethod sql-agg-accumulate ((agg sql-min) x)
+(defmethod sql-agg-accumulate ((agg sql-min) x &rest args)
+  (declare (ignore args))
   (with-slots (min has-value-p) agg
     (if has-value-p
         (setf min (if (sql-< min x)
@@ -746,7 +755,8 @@
         (setf min x has-value-p t))
     agg))
 
-(defmethod sql-agg-accumulate ((agg sql-min) (x (eql :null)))
+(defmethod sql-agg-accumulate ((agg sql-min) (x (eql :null)) &rest args)
+  (declare (ignore args))
   agg)
 
 (defmethod sql-agg-finish ((agg sql-min))
@@ -760,7 +770,8 @@
 (defmethod make-sql-agg ((type (eql :max)) &key distinct)
   (%make-distinct-sql-agg (make-sql-max) distinct))
 
-(defmethod sql-agg-accumulate ((agg sql-max) x)
+(defmethod sql-agg-accumulate ((agg sql-max) x &rest args)
+  (declare (ignore args))
   (with-slots (max has-value-p) agg
     (if has-value-p
         (setf max (if (sql-> max x)
@@ -769,7 +780,8 @@
         (setf max x has-value-p t))
     agg))
 
-(defmethod sql-agg-accumulate ((agg sql-max) (x (eql :null)))
+(defmethod sql-agg-accumulate ((agg sql-max) (x (eql :null)) &rest args)
+  (declare (ignore args))
   agg)
 
 (defmethod sql-agg-finish ((agg sql-max))
@@ -778,31 +790,27 @@
         max
         :null)))
 
-(defstruct sql-group_concat (acc nil :type (or null string)) (separator ",") distinct)
+(defstruct sql-group_concat (acc nil :type (or null string)) seen distinct)
 
-(defmethod make-sql-agg ((type (eql :group_concat)) &rest args)
-  (multiple-value-bind (separator distinct)
-      (if (= 2 (length args))
-          (destructuring-bind (&key distinct)
-              args
-            (values "," distinct))
-          (destructuring-bind (separator &key distinct)
-              args
-            (when distinct
-              (error 'sql-runtime-error :message "GROUP_CONCAT with argument doesn't support DISTINCT."))
-            (values separator distinct)))
-    (%make-distinct-sql-agg (make-sql-group_concat :separator separator :distinct distinct) distinct)))
+(defmethod make-sql-agg ((type (eql :group_concat)) &key distinct)
+  (make-sql-group_concat :seen nil :distinct distinct))
 
-(defmethod sql-agg-accumulate ((agg sql-group_concat) x)
-  (with-slots (acc separator distinct) agg
-    (setf acc (cond
-                ((and acc (eq :distinct distinct))
-                 (concatenate 'string (sql-cast x :varchar) separator acc))
-                (acc (concatenate 'string acc separator (sql-cast x :varchar)))
-                (t (sql-cast x :varchar))))
-    agg))
+(defmethod sql-agg-accumulate ((agg sql-group_concat) x &rest args)
+  (with-slots (acc seen distinct) agg
+    (when (and (eq :distinct distinct) args)
+      (error 'sql-runtime-error :message "GROUP_CONCAT with argument doesn't support DISTINCT."))
+    (if (member x seen :test 'equal)
+        agg
+        (let ((separator (or (first args) ",")))
+          (when distinct
+            (push x seen))
+          (setf acc (if acc
+                        (concatenate 'string acc separator (sql-cast x :varchar))
+                        (sql-cast x :varchar)))
+          agg))))
 
-(defmethod sql-agg-accumulate ((agg sql-group_concat) (x (eql :null)))
+(defmethod sql-agg-accumulate ((agg sql-group_concat) (x (eql :null)) &rest args)
+  (declare (ignore args))
   agg)
 
 (defmethod sql-agg-finish ((agg sql-group_concat))
@@ -1000,7 +1008,8 @@
   (unless *sqlite-mode*
     (error 'sql-runtime-error :message "DROP INDEX not supported")))
 
-(defmethod sql-agg-accumulate ((agg cl-bloom::bloom-filter) x)
+(defmethod sql-agg-accumulate ((agg cl-bloom::bloom-filter) x &rest args)
+  (declare (ignore args))
   (cl-bloom:add agg x)
   agg)
 
