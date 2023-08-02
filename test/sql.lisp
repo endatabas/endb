@@ -208,22 +208,22 @@
 
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM information_schema.tables")
-      (is (equalp (list (list :null "main" "t1" "BASE TABLE")) result))
+      (is (equal '((:null "main" "t1" "BASE TABLE")) result))
       (is (equal '("table_catalog" "table_schema" "table_name" "table_type")
                  columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM information_schema.columns ORDER BY column_name")
-      (is (equalp (list (list :null "main" "t1" "a" 0)
-                        (list :null "main" "t1" "b" 0)
-                        (list :null "main" "t1" "c" 0))
-                  result))
+      (is (equal '((:null "main" "t1" "a" 0)
+                   (:null "main" "t1" "b" 0)
+                   (:null "main" "t1" "c" 0))
+                 result))
       (is (equal '("table_catalog" "table_schema" "table_name" "column_name" "ordinal_position")
                  columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT tables.table_name, table_type FROM information_schema.tables")
-      (is (equalp (list (list "t1" "BASE TABLE")) result))
+      (is (equal '(("t1" "BASE TABLE")) result))
       (is (equal '("table_name" "table_type") columns)))
 
 
@@ -237,29 +237,27 @@
 
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM information_schema.tables WHERE table_type = 'VIEW'")
-      (is (equalp (list (list :null "main" "foo" "VIEW"))
-                  result))
+      (is (equal '((:null "main" "foo" "VIEW")) result))
       (is (equal '("table_catalog" "table_schema" "table_name" "table_type")
                  columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM information_schema.views")
-      (is (equalp (list (list :null "main" "foo" "(:select ((1) (2)))"))
-                  result))
+      (is (equal '((:null "main" "foo" "(:select ((1) (2)))")) result))
       (is (equal '("table_catalog" "table_schema" "table_name" "view_definition")
                  columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM information_schema.columns WHERE table_name = 'foo' ORDER BY ordinal_position")
-      (is (equalp (list (list :null "main" "foo" "a" 1)
-                        (list :null "main" "foo" "b" 2))
-                  result))
+      (is (equal '((:null "main" "foo" "a" 1)
+                   (:null "main" "foo" "b" 2))
+                 result))
       (is (equal '("table_catalog" "table_schema" "table_name" "column_name" "ordinal_position")
                  columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM foo")
-      (is (equalp (list (list 1 2)) result))
+      (is (equal '((1 2)) result))
       (is (equal '("a" "b") columns)))
 
     (multiple-value-bind (result result-code)
@@ -309,48 +307,49 @@
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT []")
-      (is (equalp (list (list (vector))) result))
+      (is (equalp '((#())) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT ARRAY []")
-      (is (equalp (list (list (vector))) result))
+      (is (equalp '((#())) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [1, 2]")
-      (is (equalp (list (list (vector 1 2))) result))
+      (is (equalp '((#(1 2))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT ARRAY [1, 2]")
-      (is (equalp (list (list (vector 1 2))) result))
+      (is (equalp '((#(1 2))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT {}")
-      (is (equalp (list (list :empty-struct)) result))
+      (is (equal '((:empty-struct)) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT OBJECT()")
-      (is (equalp (list (list :empty-struct)) result))
+      (is (equal '((:empty-struct)) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT {foo: 2, bar: 'baz'}")
-      (is (equalp (list (list (list (cons "foo" 2) (cons "bar" "baz")))) result))
+      (is (equal '(((("foo" . 2) ("bar" . "baz")))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT OBJECT(foo: 2, bar: 'baz')")
-      (is (equalp (list (list (list (cons "foo" 2) (cons "bar" "baz")))) result))
+      (is (equal '(((("foo" . 2) ("bar" . "baz")))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT {address: {street: 'Street', number: 42}, friends: [1, 2]}")
-      (is (equalp (list (list (list (cons "address" (list (cons "street" "Street") (cons "number" 42)))
-                                    (cons "friends" (vector 1 2))))) result))
+      (is (equalp '(((("address" . (("street" . "Street") ("number" . 42)))
+                      ("friends" . #(1 2)))))
+                  result))
       (is (equal '("column1") columns)))
 
     (let ((write-db (begin-write-tx (make-db))))
@@ -361,10 +360,10 @@
 
       (multiple-value-bind (result columns)
           (execute-sql write-db "SELECT * FROM users")
-        (is (equalp (list (list (list (cons "address" (list (cons "street" "Street") (cons "number" 43)))
-                                      (cons "friends" (vector 3 1))))
-                          (list (list (cons "address" (list (cons "street" "Street") (cons "number" 42)))
-                                      (cons "friends" (vector 1 2)))))
+        (is (equalp '(((("address" . (("street" . "Street") ("number" . 43)))
+                        ("friends" . #(3 1))))
+                      ((("address" . (("street" . "Street") ("number" . 42)))
+                        ("friends" . #(1 2)))))
                     result))
         (is (equal '("user") columns))))))
 
@@ -373,32 +372,32 @@
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [][0]")
-      (is (equalp (list (list :null)) result))
+      (is (equal '((:null)) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [1, 2][0]")
-      (is (equalp (list (list 1)) result))
+      (is (equal '((1)) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [1, 2][2 - 1]")
-      (is (equalp (list (list 2)) result))
+      (is (equal '((2)) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT {}.bar")
-      (is (equalp (list (list :null)) result))
+      (is (equal '((:null)) result))
       (is (equal '("bar") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT {foo: 2, bar: ['baz']}.bar[0]")
-      (is (equalp (list (list "baz")) result))
+      (is (equal '(("baz")) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT {foo: 2, bar: ['baz']}['bar']")
-      (is (equalp (list (list (vector "baz"))) result))
+      (is (equalp '((#("baz"))) result))
       (is (equal '("bar") columns)))
 
 
@@ -410,26 +409,26 @@
 
       (multiple-value-bind (result columns)
           (execute-sql write-db "SELECT users.user.address FROM users")
-        (is (equalp (list (list (list (cons "street" "Street") (cons "number" 43)))
-                          (list (list (cons "street" "Street") (cons "number" 42))))
-                    result))
+        (is (equal '(((("street" . "Street") ("number" . 43)))
+                     ((("street" . "Street") ("number" . 42))))
+                   result))
         (is (equal '("address") columns)))
 
       (multiple-value-bind (result columns)
           (execute-sql write-db "SELECT user.address FROM users")
-        (is (equalp (list (list (list (cons "street" "Street") (cons "number" 43)))
-                          (list (list (cons "street" "Street") (cons "number" 42))))
-                    result))
+        (is (equal '(((("street" . "Street") ("number" . 43)))
+                     ((("street" . "Street") ("number" . 42))))
+                   result))
         (is (equal '("address") columns)))
 
       (multiple-value-bind (result columns)
           (execute-sql write-db "SELECT users.user.address.street FROM users")
-        (is (equalp (list (list "Street") (list "Street")) result))
+        (is (equal '(("Street") ("Street")) result))
         (is (equal '("street") columns)))
 
       (multiple-value-bind (result columns)
           (execute-sql write-db "SELECT user.address.street FROM users")
-        (is (equalp (list (list "Street") (list "Street")) result))
+        (is (equal '(("Street") ("Street")) result))
         (is (equal '("street") columns))))))
 
 (test directory-db
