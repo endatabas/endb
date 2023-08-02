@@ -368,13 +368,18 @@
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT OBJECT_AGG(x.column1, x.column2) FROM (VALUES ('foo', 1), ('bar', 2)) AS x")
-      (is (equal '(((("foo" . 1) ("bar" . 2)))) result))
+      (is (equal '(((("bar" . 2) ("foo" . 1)))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT OBJECT_AGG(x.column1, x.column2) FROM (VALUES ('foo', 1), ('baz', 1), ('bar', 2)) AS x GROUP BY x.column2")
       (is (equal '(((("bar" . 2)))
-                   ((("foo" . 1) ("baz" . 1)))) result))
+                   ((("baz" . 1) ("foo" . 1)))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT OBJECT_AGG(x.column1, x.column2) FROM (VALUES ('foo', 1), ('foo', 2)) AS x")
+      (is (equal '(((("foo" . 2)))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)

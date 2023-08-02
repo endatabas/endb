@@ -1,5 +1,6 @@
 (defpackage :endb/sql/expr
   (:use :cl)
+  (:import-from :alexandria)
   (:import-from :cl-ppcre)
   (:import-from :local-time)
   (:import-from :endb/lib/parser)
@@ -833,7 +834,7 @@
         (remove-duplicates acc)
         acc)))
 
-(defstruct sql-object_agg (acc ()))
+(defstruct sql-object_agg (acc (make-hash-table :test 'equal)))
 
 (defmethod make-sql-agg ((type (eql :object_agg)) &key distinct)
   (declare (ignore distinct))
@@ -843,7 +844,7 @@
   (unless (eq 1 (length args))
     (error 'sql-runtime-error :message "OBJECT_AGG requires both key and value argument"))
   (with-slots (acc) agg
-    (push (cons x (first args)) acc)
+    (setf (gethash x acc) (first args))
     agg))
 
 (defmethod sql-agg-accumulate ((agg sql-object_agg) x &rest args)
@@ -851,7 +852,10 @@
   (error 'sql-runtime-error :message (format nil "OBJECT_AGG requires string key argument: ~A" x)))
 
 (defmethod sql-agg-finish ((agg sql-object_agg))
-  (or (reverse (sql-object_agg-acc agg)) :empty-struct))
+  (with-slots (acc) agg
+    (if (zerop (hash-table-count acc))
+        :empty-struct
+        (alexandria:hash-table-alist acc))))
 
 ;; Internals
 
