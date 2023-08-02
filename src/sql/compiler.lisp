@@ -22,13 +22,21 @@
 (defun %qualified-column-name (table-alias column)
   (concatenate 'string table-alias "." column))
 
-(defun %select-projection (select-list select-star-projection)
+(defun %qualified-asterisk-p (x)
+  (and (listp x)
+       (= 2 (length x))
+       (eq :* (first x))
+       (symbolp (second x))))
+
+(defun %select-projection (select-list select-star-projection table-by-alias)
   (loop for idx from 1
         for (expr alias) in select-list
         append (cond
                  ((eq :* expr) select-star-projection)
                  (alias (list (symbol-name alias)))
                  ((symbolp expr) (list (%unqualified-column-name (symbol-name expr))))
+                 ((%qualified-asterisk-p expr)
+                  (mapcar #'%unqualified-column-name (gethash (symbol-name (second expr)) table-by-alias)))
                  ((and (listp expr)
                        (eq :access (first expr))
                        (or (stringp (nth 2 expr))
@@ -95,7 +103,7 @@
         (t (list expr)))
       (list expr)))
 
-(defstruct from-table src vars free-vars size projection base-table-p)
+(defstruct from-table src vars free-vars size projection alias base-table-p)
 
 (defstruct where-clause src free-vars ast)
 
@@ -387,6 +395,7 @@
                                                        :free-vars free-vars
                                                        :size (or table-size most-positive-fixnum)
                                                        :projection qualified-projection
+                                                       :alias table-alias
                                                        :base-table-p (%base-table-p ctx table-or-subquery)))
                           (from-tables-acc (append from-tables-acc (list from-table))))
                      (if (rest from-ast)
@@ -395,11 +404,22 @@
                                 (ctx (fset:with ctx :aggregate-table aggregate-table))
                                 (full-projection (loop for from-table in from-tables-acc
                                                        append (from-table-projection from-table)))
+                                (table-by-alias (reduce
+                                                 (lambda (acc from-table)
+                                                   (setf (gethash (from-table-alias from-table) acc)
+                                                         (from-table-projection from-table))
+                                                   acc)
+                                                 from-tables-acc
+                                                 :initial-value (make-hash-table :test 'equal)))
                                 (selected-src (loop for (expr) in select-list
-                                                    append (if (eq :* expr)
-                                                               (loop for p in full-projection
-                                                                     collect (ast->cl ctx (make-symbol p)))
-                                                               (list (ast->cl ctx expr)))))
+                                                    append (cond
+                                                             ((eq :* expr)
+                                                              (loop for p in full-projection
+                                                                    collect (ast->cl ctx (make-symbol p))))
+                                                             ((%qualified-asterisk-p expr)
+                                                              (loop for p in (gethash (symbol-name (second expr)) table-by-alias)
+                                                                    collect (ast->cl ctx (make-symbol p))))
+                                                             (t (list (ast->cl ctx expr))))))
                                 (where-clauses (loop for clause in (append (%from-where-clauses from)
                                                                            (%and-clauses where))
                                                      collect (multiple-value-bind (src projection free-vars)
@@ -428,7 +448,8 @@
                             (if group-by-needed-p
                                 (%group-by->cl ctx from-tables where-clauses selected-src limit offset group-by having-src correlated-vars)
                                 (%from->cl ctx from-tables where-clauses (%selection-with-limit-offset->cl ctx selected-src limit offset) correlated-vars))
-                            full-projection))))))))
+                            full-projection
+                            table-by-alias))))))))
       (let* ((block-sym (gensym))
              (acc-sym (gensym))
              (rows-sym (gensym))
@@ -436,7 +457,7 @@
                                                 (:acc-sym acc-sym)
                                                 (:block-sym block-sym))))
              (from (%flatten-from from)))
-        (multiple-value-bind (src full-projection)
+        (multiple-value-bind (src full-projection table-by-alias)
             (select->cl ctx from ())
           (let* ((src `(block ,block-sym
                          (let (,@(when (and limit (not order-by))
@@ -448,7 +469,7 @@
                           `(endb/sql/expr::%sql-distinct ,src)
                           src))
                  (select-star-projection (mapcar #'%unqualified-column-name full-projection))
-                 (select-projection (%select-projection select-list select-star-projection))
+                 (select-projection (%select-projection select-list select-star-projection table-by-alias))
                  (src (%wrap-with-order-by-and-limit src (%resolve-order-by order-by select-projection) limit offset)))
             (values src select-projection)))))))
 

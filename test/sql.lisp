@@ -400,7 +400,7 @@
       (is (equal '("foo" "bar") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT y.foo, y.bar FROM (VALUES (['a', 'b', 'c'])) AS x(foo), UNNEST(x.foo WITH ORDINALITY) AS y(foo, bar)")
+        (execute-sql db "SELECT y.* FROM (VALUES (['a', 'b', 'c'])) AS x(foo), UNNEST(x.foo WITH ORDINALITY) AS y(foo, bar)")
       (is (equal '(("a" 1) ("b" 2) ("c" 3))
                  result))
       (is (equal '("foo" "bar") columns)))

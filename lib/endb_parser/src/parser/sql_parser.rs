@@ -175,6 +175,10 @@ where
             .then(
                 choice((
                     pad('*').map(|_| List(vec![KW(Mul)])),
+                    id_ast_parser_no_pad()
+                        .then_ignore(just(".*"))
+                        .then_ignore(text::whitespace())
+                        .map(|id| List(vec![List(vec![KW(Mul), id])])),
                     expr.clone()
                         .then(
                             choice((
@@ -990,6 +994,26 @@ mod tests {
             - List:
                 - List:
                     - KW: Mul
+        "###);
+
+        assert_yaml_snapshot!(parse("SELECT x.* FROM x"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Mul
+                        - Id:
+                            start: 7
+                            end: 8
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 16
+                        end: 17
         "###);
     }
 
