@@ -371,6 +371,12 @@
       (execute-sql db "SELECT OBJECT_AGG(x.column1, x.column2) FROM (VALUES (1, 1), ('bar', 2)) AS x"))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT x.column1 AS foo, y.column1 AS bar FROM (VALUES ('foo', [1, 2, 3]), ('bar', [5, 6]), ('baz', 2), ('boz', [])) AS x, UNNEST x.column2 AS y ORDER BY foo")
+      (is (equal '(("bar" 5) ("bar" 6) ("baz" :null) ("boz" :null) ("foo" 1) ("foo" 2) ("foo" 3))
+                 result))
+      (is (equal '("foo" "bar") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT {}")
       (is (equal '((:empty-struct)) result))
       (is (equal '("column1") columns)))

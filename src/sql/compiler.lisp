@@ -490,6 +490,17 @@
                   (setf (gethash ,index-key-sym ,index-sym)
                         ,src)))))))))
 
+(defmethod sql->cl (ctx (type (eql :unnest)) &rest args)
+  (destructuring-bind (expr)
+      args
+    (let ((expr-sym (gensym)))
+      (values `(let ((,expr-sym ,(ast->cl ctx expr)))
+                 (if (and (vectorp ,expr-sym)
+                          (plusp (length ,expr-sym)))
+                     (reverse (map 'list #'list ,expr-sym))
+                     '((:null))))
+              `(,(%anonymous-column-name 1))))))
+
 (defmethod sql->cl (ctx (type (eql :union)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit offset)
       args

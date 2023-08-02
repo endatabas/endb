@@ -90,7 +90,8 @@
   :with
   :array_agg
   :object_agg
-  :array-query)
+  :array-query
+  :unnest)
 
 (cffi:defcenum Ast_Tag
   :List

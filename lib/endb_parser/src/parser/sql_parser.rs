@@ -76,6 +76,9 @@ where
 
         let table = choice((
             subquery.clone().map(|x| (x, None)),
+            kw("UNNEST")
+                .ignore_then(expr.clone())
+                .map(|expr| (List(vec![KW(Unnest), expr]), None)),
             choice((
                 information_schema_table_name,
                 id.clone()
@@ -2150,6 +2153,28 @@ mod tests {
                         - Id:
                             start: 18
                             end: 21
+        "###);
+
+        assert_yaml_snapshot!(parse("SELECT * FROM foo, UNNEST foo.bar"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - KW: Mul
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 14
+                        end: 17
+                - List:
+                    - List:
+                        - KW: Unnest
+                        - Id:
+                            start: 26
+                            end: 33
         "###);
     }
 }
