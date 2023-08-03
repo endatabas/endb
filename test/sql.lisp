@@ -475,7 +475,39 @@
                       ((("address" . (("street" . "Street") ("number" . 42)))
                         ("friends" . #(1 2)))))
                     result))
-        (is (equal '("user") columns))))))
+        (is (equal '("user") columns))))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT { foo: 2, bar, [2 + 2]: 5, ...baz } FROM (VALUES (1, [6, 7]), (2, {boz: 7, foo: 1})) AS foo(bar, baz)")
+      (is (equal '(((("bar" . 2) ("4" . 5) ("boz" . 7) ("foo" . 1)))
+                   ((("foo" . 2) ("bar" . 1) ("4" . 5) ("0" . 6) ("1" . 7))))
+                 result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [1, 2, ...[3, 4], 5]")
+      (is (equalp '((#(1 2 3 4 5))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {a: 2, b: 3}[*]")
+      (is (equalp '((#(2 3))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [{a: 2}, {a: 3}, {b: 4}].a")
+      (is (equalp '((#(2 3))) result))
+      (is (equal '("a") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [1, 2][*]")
+      (is (equalp '((#(1 2))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {}[*]")
+      (is (equalp '((#())) result))
+      (is (equal '("column1") columns)))))
 
 (test semi-structured-access
   (let* ((db (make-db)))
@@ -1140,4 +1172,9 @@
   (is-valid (expr "'foo' LIKE 'fo%'"))
   (is-valid (expr "'foo' LIKE 'bar'"))
   (is-valid (expr "NULL LIKE 'bar'"))
-  (is-valid (expr "'foo' LIKE NULL")))
+  (is-valid (expr "'foo' LIKE NULL"))
+
+  (is-valid (expr "'foo' || 'bar'"))
+  (is-valid (expr "1 || 2"))
+  (is-valid (expr "1 || NULL"))
+  (is-valid (expr "NULL || 'bar'")))

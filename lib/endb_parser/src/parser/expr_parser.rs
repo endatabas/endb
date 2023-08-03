@@ -193,6 +193,7 @@ where
     use super::ast::{Ast::*, Keyword::*};
 
     let id = id_ast_parser_no_pad().then_ignore(text::whitespace());
+    let col_ref = col_ref_ast_parser_no_pad().then_ignore(text::whitespace());
 
     let kw_pair = id
         .clone()
@@ -200,16 +201,37 @@ where
         .then(expr.clone())
         .map(|(k, v)| List(vec![k, v]));
 
-    let kw_pairs = kw_pair
-        .separated_by(pad(','))
-        .collect()
-        .map(List)
-        .map(|kw_pairs| List(vec![KW(Object), kw_pairs]));
+    let shorthand_property = col_ref
+        .clone()
+        .map(|col_ref| List(vec![KW(ShorthandProperty), col_ref]));
+
+    let spread_property = pad("...")
+        .ignore_then(expr.clone())
+        .map(|expr| List(vec![KW(SpreadProperty), expr]));
+
+    let computed_property = expr
+        .clone()
+        .delimited_by(pad('['), pad(']'))
+        .then_ignore(one_of(":=").padded())
+        .then(expr.clone())
+        .map(|(expr, v)| List(vec![KW(ComputedProperty), expr, v]));
+
+    let kws = choice((
+        spread_property,
+        computed_property,
+        kw_pair,
+        shorthand_property,
+    ))
+    .separated_by(pad(','))
+    .collect()
+    .map(List)
+    .map(|kws| List(vec![KW(Object), kws]));
 
     choice((
-        kw("OBJECT").ignore_then(kw_pairs.clone().delimited_by(pad('('), pad(')'))),
-        kw_pairs.delimited_by(pad('{'), pad('}')),
+        kw("OBJECT").ignore_then(kws.clone().delimited_by(pad('('), pad(')'))),
+        kws.delimited_by(pad('{'), pad('}')),
     ))
+    .boxed()
 }
 
 pub fn expr_ast_parser<'input, E>(
@@ -343,12 +365,21 @@ where
                 .ignore_then(subquery.clone())
                 .map(|subquery| List(vec![KW(ArrayQuery), subquery])),
             kw("ARRAY").or_not().ignore_then(
-                opt_expr_list
-                    .clone()
+                pad("...")
+                    .or_not()
+                    .then(expr.clone())
+                    .map(|(spread, expr)| match spread {
+                        Some(_) => List(vec![KW(SpreadProperty), expr]),
+                        None => expr,
+                    })
+                    .separated_by(pad(','))
+                    .collect()
+                    .map(List)
                     .delimited_by(pad('['), pad(']'))
                     .map(|exprs| List(vec![KW(Array), exprs])),
             ),
-        ));
+        ))
+        .boxed();
 
         let parameter = pad('?').to(Parameter).map(KW);
 
@@ -368,14 +399,17 @@ where
         ))
         .boxed();
 
-        let access = atom.foldl(
-            choice((
-                just('.').ignore_then(id.clone()),
-                expr.clone().delimited_by(pad('['), pad(']')),
-            ))
-            .repeated(),
-            |lhs, rhs| List(vec![KW(Access), lhs, rhs]),
-        );
+        let access = atom
+            .foldl(
+                choice((
+                    pad('.').ignore_then(id.clone()),
+                    choice((pad('*').to(Mul).map(KW), expr.clone()))
+                        .delimited_by(pad('['), pad(']')),
+                ))
+                .repeated(),
+                |lhs, rhs| List(vec![KW(Access), lhs, rhs]),
+            )
+            .boxed();
 
         let unary = choice((pad('+').to(Plus), pad('-').to(Minus)))
             .repeated()

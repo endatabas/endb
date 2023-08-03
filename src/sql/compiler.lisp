@@ -39,6 +39,7 @@
                   (mapcar #'%unqualified-column-name (gethash (symbol-name (second expr)) table-by-alias)))
                  ((and (listp expr)
                        (eq :access (first expr))
+                       (not (eq :* (nth 2 expr)))
                        (or (stringp (nth 2 expr))
                            (symbolp (nth 2 expr)))) (list (format nil "~A" (nth 2 expr))))
                  (t (list (%anonymous-column-name idx))))))
@@ -723,7 +724,7 @@
             (ast->cl ctx (list :select (list (list :*)) :from (list (list query))))
             (%ast->cl-with-free-vars ctx query))
       (unless (= 1 (length projection))
-        (error 'endb/sql/expr:sql-runtime-error :message "IN query must return single column."))
+        (error 'endb/sql/expr:sql-runtime-error :message "IN query must return single column"))
       (let* ((in-var-sym (gensym))
              (expr-sym (gensym))
              (index-table-sym (gensym))
@@ -774,8 +775,18 @@
 (defmethod sql->cl (ctx (type (eql :array)) &rest args)
   (destructuring-bind (args)
       args
-    `(vector ,@(loop for ast in args
-                     collect (ast->cl ctx ast)))))
+    (let ((acc-sym (gensym)))
+      `(let ((,acc-sym (make-array 0 :fill-pointer 0)))
+         ,@(loop for ast in args
+                 collect (if (and (listp ast)
+                                  (eq :spread-property (first ast)))
+                             (let ((spread-sym (gensym)))
+                               `(let ((,spread-sym ,(ast->cl ctx (second ast))))
+                                  (when (vectorp ,spread-sym)
+                                    (loop for ,spread-sym across ,spread-sym
+                                          do (vector-push-extend ,spread-sym ,acc-sym)))))
+                             `(vector-push-extend ,(ast->cl ctx ast) ,acc-sym)))
+         ,acc-sym))))
 
 (defmethod sql->cl (ctx (type (eql :array-query)) &rest args)
   (destructuring-bind (query)
@@ -783,23 +794,44 @@
     (multiple-value-bind (src projection)
         (ast->cl ctx query)
       (unless (= 1 (length projection))
-        (error 'endb/sql/expr:sql-runtime-error :message "ARRAY query must return single column."))
+        (error 'endb/sql/expr:sql-runtime-error :message "ARRAY query must return single column"))
       `(map 'vector #'car ,src))))
 
 (defmethod sql->cl (ctx (type (eql :object)) &rest args)
   (destructuring-bind (args)
       args
     (if args
-        `(list ,@(loop for (k v) in args
-                       collect `(cons ,(symbol-name k) ,(ast->cl ctx v))))
+        `(delete-duplicates
+          (append ,@(loop for kv in args
+                          collect (case (first kv)
+                                    (:shorthand-property
+                                     `(list (cons ,(%unqualified-column-name (symbol-name (second kv)))
+                                                  ,(ast->cl ctx (second kv)))))
+                                    (:computed-property
+                                     `(list (cons (endb/sql/expr:sql-cast ,(ast->cl ctx (second kv)) :varchar)
+                                                  ,(ast->cl ctx (nth 2 kv)))))
+                                    (:spread-property
+                                     (let ((spread-sym (gensym))
+                                           (idx-sym (gensym)))
+                                       `(let ((,spread-sym ,(ast->cl ctx (second kv))))
+                                          (cond
+                                            ((endb/arrow::%alistp ,spread-sym)
+                                             ,spread-sym)
+                                            ((vectorp ,spread-sym)
+                                             (loop for ,spread-sym across ,spread-sym
+                                                   for ,idx-sym from 0
+                                                   collect (cons (format nil "~A" ,idx-sym) ,spread-sym)))))))
+                                    (t `(list (cons ,(symbol-name (first kv)) ,(ast->cl ctx (second kv))))))))
+          :test 'equal :key #'car)
         :empty-struct)))
 
 (defmethod sql->cl (ctx (type (eql :access)) &rest args)
   (destructuring-bind (base path)
       args
-    `(endb/sql/expr:sql-access ,(ast->cl ctx base) ,(if (symbolp path)
-                                                        (symbol-name path)
-                                                        (ast->cl ctx path)))))
+    `(endb/sql/expr:sql-access ,(ast->cl ctx base) ,(cond
+                                                      ((eq :* path) path)
+                                                      ((symbolp path) (symbol-name path))
+                                                      (t (ast->cl ctx path))))))
 
 (defmethod sql->cl (ctx (type (eql :with)) &rest args)
   (destructuring-bind (ctes query)
@@ -828,7 +860,7 @@
       args
     (let ((fn-sym (%find-sql-expr-symbol fn)))
       (unless fn-sym
-        (%annotated-error fn "Unknown built-in function"))
+        (error 'endb/sql/expr:sql-runtime-error :message (format nil "Unknown build-in function: ~A" fn)))
       `(,fn-sym ,@(loop for ast in args
                         collect (ast->cl ctx ast))))))
 

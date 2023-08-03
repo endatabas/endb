@@ -94,7 +94,11 @@
   :unnest
   :with-ordinality
   :insert-objects
-  :parameter)
+  :parameter
+  :concat
+  :shorthand-property
+  :spread-property
+  :computed-property)
 
 (cffi:defcenum Ast_Tag
   :List

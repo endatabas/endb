@@ -175,9 +175,9 @@ where
             .then(
                 choice((
                     pad('*').map(|_| List(vec![KW(Mul)])),
-                    id_ast_parser_no_pad()
-                        .then_ignore(just(".*"))
-                        .padded()
+                    id.clone()
+                        .then_ignore(pad('.'))
+                        .then_ignore(pad('*'))
                         .map(|id| List(vec![List(vec![KW(Mul), id])])),
                     expr.clone()
                         .then(
@@ -2222,6 +2222,58 @@ mod tests {
                                         - Integer: 2
         "###);
 
+        assert_yaml_snapshot!(parse("SELECT { foo, ...bar, ['baz' || 'boz']: 42 }"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Object
+                        - List:
+                            - List:
+                                - KW: ShorthandProperty
+                                - Id:
+                                    start: 9
+                                    end: 12
+                            - List:
+                                - KW: SpreadProperty
+                                - Id:
+                                    start: 17
+                                    end: 20
+                            - List:
+                                - KW: ComputedProperty
+                                - List:
+                                    - KW: Concat
+                                    - String:
+                                        start: 24
+                                        end: 27
+                                    - String:
+                                        start: 33
+                                        end: 36
+                                - Integer: 42
+        "###);
+        assert_yaml_snapshot!(parse("SELECT [ 1, 2, ... bar, 4 ]"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Array
+                        - List:
+                            - Integer: 1
+                            - Integer: 2
+                            - List:
+                                - KW: SpreadProperty
+                                - Id:
+                                    start: 19
+                                    end: 22
+                            - Integer: 4
+        "###);
+
         assert_yaml_snapshot!(parse("INSERT INTO users {foo: 2, bar: 'baz'}, {foo: 3}"), @r###"
         ---
         Ok:
@@ -2373,6 +2425,31 @@ mod tests {
                         - Id:
                             start: 18
                             end: 21
+        "###);
+
+        assert_yaml_snapshot!(parse("SELECT {}.bar[*].baz"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Access
+                        - List:
+                            - KW: Access
+                            - List:
+                                - KW: Access
+                                - List:
+                                    - KW: Object
+                                    - List: []
+                                - Id:
+                                    start: 10
+                                    end: 13
+                            - KW: Mul
+                        - Id:
+                            start: 17
+                            end: 20
         "###);
 
         assert_yaml_snapshot!(parse("SELECT * FROM foo, UNNEST(foo.bar)"), @r###"

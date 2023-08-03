@@ -93,6 +93,9 @@ typedef enum Keyword {
   InsertObjects,
   Parameter,
   Concat,
+  ShorthandProperty,
+  SpreadProperty,
+  ComputedProperty,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;

@@ -92,6 +92,9 @@ pub enum Keyword {
     InsertObjects,
     Parameter,
     Concat,
+    ShorthandProperty,
+    SpreadProperty,
+    ComputedProperty,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

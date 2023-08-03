@@ -390,6 +390,18 @@
 (defmethod sql-% (x y)
   :null)
 
+(defmethod sql-concat ((x string) (y string))
+  (concatenate 'string x y))
+
+(defmethod sql-concat ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-concat (x (y (eql :null)))
+  :null)
+
+(defmethod sql-concat (x y)
+  (sql-concat (sql-cast x :varchar) (sql-cast y :varchar)))
+
 (defmethod sql-access (x y)
   :null)
 
@@ -399,11 +411,30 @@
       (aref x y)
       :null))
 
+(defmethod sql-access ((x vector) (y string))
+  (loop with acc = (make-array 0 :fill-pointer 0)
+        for x across x
+        for kv = (when (listp x)
+                   (assoc y x :test 'equal))
+        when kv
+          do (vector-push-extend (cdr kv) acc)
+        finally
+           (return acc)))
+
+(defmethod sql-access ((x vector) (y (eql :*)))
+  x)
+
 (defmethod sql-access ((x list) (y string))
   (let ((element (assoc y x :test 'equal)))
     (if element
         (cdr element)
         :null)))
+
+(defmethod sql-access ((x list) (y (eql :*)))
+  (map 'vector #'cdr x))
+
+(defmethod sql-access ((x (eql :empty-struct)) (y (eql :*)))
+  #())
 
 (defun sql-in (item xs)
   (block in
