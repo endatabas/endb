@@ -91,6 +91,8 @@ typedef enum Keyword {
   Unnest,
   WithOrdinality,
   InsertObjects,
+  Parameter,
+  Concat,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;

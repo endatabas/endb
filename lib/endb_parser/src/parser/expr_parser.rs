@@ -137,6 +137,24 @@ where
         })
         .padded_by(just('\''));
 
+    let escape = just('\\').ignore_then(choice((
+        just('\\'),
+        just('"'),
+        just('b').to('\x08'),
+        just('f').to('\x0C'),
+        just('n').to('\n'),
+        just('r').to('\r'),
+        just('t').to('\t'),
+    )));
+
+    let double_quoted_string = choice((none_of("\\\""), escape))
+        .repeated()
+        .map_with_span(|_, span: SimpleSpan<_>| String {
+            start: span.start() as i32,
+            end: span.end() as i32,
+        })
+        .padded_by(just('"'));
+
     let binary = one_of("Xx").ignore_then(
         text::int(16)
             .map_with_span(|_, span: SimpleSpan<_>| Binary {
@@ -159,6 +177,7 @@ where
         number,
         binary,
         string,
+        double_quoted_string,
         boolean,
         col_ref_ast_parser_no_pad(),
     ))
@@ -362,9 +381,13 @@ where
             .repeated()
             .foldr(access, unary_op);
 
-        let mul = unary.clone().foldl(
+        let concat = unary
+            .clone()
+            .foldl(pad("||").to(Concat).then(unary).repeated(), bin_op);
+
+        let mul = concat.clone().foldl(
             choice((pad('*').to(Mul), pad('/').to(Div), pad('%').to(Mod)))
-                .then(unary)
+                .then(concat)
                 .repeated(),
             bin_op,
         );
