@@ -422,7 +422,15 @@
            (return acc)))
 
 (defmethod sql-access ((x vector) (y (eql :*)))
-  x)
+  (loop with acc = (make-array 0 :fill-pointer 0)
+        for x across x
+        if (vectorp x)
+          do (loop for x across x
+                   do (vector-push-extend x acc))
+        else
+          do (vector-push-extend x acc)
+        finally
+           (return acc)))
 
 (defmethod sql-access ((x list) (y string))
   (let ((element (assoc y x :test 'equal)))

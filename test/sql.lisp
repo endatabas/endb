@@ -505,6 +505,11 @@
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [1, 2, [3, 4]][*]")
+      (is (equalp '((#(1 2 3 4))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT {}[*]")
       (is (equalp '((#())) result))
       (is (equal '("column1") columns)))))
