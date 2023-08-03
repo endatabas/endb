@@ -885,6 +885,34 @@
       (is (equal '((1 :null)) result))
       (is (equal '("a" "b") columns)))))
 
+(test interpret-sql-literal
+  (is (equal "foo" (interpret-sql-literal "'foo'")))
+  (is (= 2.0 (interpret-sql-literal "2.0")))
+
+  (is (eq t (interpret-sql-literal "TRUE")))
+  (is (null (interpret-sql-literal "FALSE")))
+  (is (eq :null (interpret-sql-literal "NULL")))
+
+  (is (equalp #(171 205) (interpret-sql-literal "X'ABCD'")))
+
+  (is (equalp (endb/arrow:parse-arrow-date-days "2001-01-01") (interpret-sql-literal "2001-01-01")))
+  (is (equalp (endb/arrow:parse-arrow-time-micros "12:01:20") (interpret-sql-literal "12:01:20")))
+  (is (equalp (endb/arrow:parse-arrow-timestamp-micros "2023-05-16T14:43:39.970062Z") (interpret-sql-literal "2023-05-16T14:43:39.970062Z")))
+
+  (is (equalp '(("address" . (("street" . "Street") ("number" . 42)))
+                ("friends" . #(1 2)))
+              (interpret-sql-literal "{address: {street: 'Street', number: 42}, friends: [1, 2]}")))
+  (is (eq :empty-struct (interpret-sql-literal "{}")))
+
+  (signals endb/sql/expr:sql-runtime-error
+    (interpret-sql-literal "2001-01-01ASFOO"))
+
+  (signals endb/sql/expr:sql-runtime-error
+    (interpret-sql-literal "2001-01"))
+
+  (signals endb/sql/expr:sql-runtime-error
+    (interpret-sql-literal "1 + 2")))
+
 (defun endb->sqlite (x)
   (cond
     ((null x) 0)

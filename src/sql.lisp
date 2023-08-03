@@ -1,6 +1,6 @@
 (defpackage :endb/sql
   (:use :cl)
-  (:export #:*query-timing* #:make-db #:make-directory-db #:close-db #:begin-write-tx #:commit-write-tx #:execute-sql)
+  (:export #:*query-timing* #:make-db #:make-directory-db #:close-db #:begin-write-tx #:commit-write-tx #:execute-sql #:interpret-sql-literal)
   (:import-from :alexandria)
   (:import-from :endb/sql/expr)
   (:import-from :endb/sql/compiler)
@@ -116,3 +116,41 @@
   (if *query-timing*
       (time (%execute-sql db sql parameters))
       (%execute-sql db sql parameters)))
+
+(defun %interpret-sql-literal (ast)
+  (cond
+    ((or (stringp ast)
+         (numberp ast)
+         (vectorp ast))
+     ast)
+    ((eq :true ast) t)
+    ((eq :false ast) nil)
+    ((eq :null ast) :null)
+    ((and (listp ast)
+          (= 2 (length ast)))
+     (case (first ast)
+       (:date (endb/sql/expr:sql-date (second ast)))
+       (:time (endb/sql/expr:sql-time (second ast)))
+       (:timestamp (endb/sql/expr:sql-datetime (second ast)))
+       (:array (map 'vector #'%interpret-sql-literal (second ast)))
+       (:object (if (second ast)
+                    (loop for (k v) in (second ast)
+                          collect (cons (symbol-name k) (%interpret-sql-literal v)))
+                    :empty-struct))
+       (t :error)))
+    (t :error)))
+
+(defun interpret-sql-literal (src)
+  (let* ((select-list (handler-case
+                          (cadr (endb/lib/parser:parse-sql (format nil "SELECT ~A" src)))
+                        (endb/lib/parser:sql-parse-error (e)
+                          (declare (ignore e)))))
+         (ast (car select-list))
+         (literal (if (or (not (= 1 (length select-list)))
+                          (not (= 1 (length ast))))
+                      :error
+                      (%interpret-sql-literal (car ast)))))
+    (if (eq :error literal)
+        (error 'endb/sql/expr:sql-runtime-error
+               :message (format nil "Invalid literal: ~A" src))
+        literal)))
