@@ -212,6 +212,21 @@
       (is (equal '((1)) result))
       (is (equal '("column1") columns)))))
 
+(test parameters
+  (let* ((db (make-db)))
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT ? + ?" 1 3)
+      (is (equal '((4)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [?, ?]" 1 3)
+      (is (equalp '((#(1 3))) result))
+      (is (equal '("column1") columns)))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "SELECT ?"))))
+
 (test information-schema
   (let* ((db (make-db))
          (write-db (begin-write-tx db)))

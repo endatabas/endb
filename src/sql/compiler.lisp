@@ -863,6 +863,11 @@
                                          (ast->cl ctx then)))
                      (list (list t :null))))))))
 
+(defmethod sql->cl (ctx (type (eql :parameter)) &rest args)
+  (destructuring-bind (idx)
+      args
+    `(nth ,idx ,(fset:lookup ctx :param-sym))))
+
 (defmethod sql->cl (ctx fn &rest args)
   (sql->cl ctx :function fn args))
 
@@ -935,28 +940,47 @@
       (:select (> (length (cdr (getf ast :from)))
                   *interpreter-from-limit*)))))
 
+(defun %resolve-parameters (ast)
+  (let ((idx 0))
+    (labels ((walk (x)
+               (cond
+                 ((eq :parameter x) (let ((src `(:parameter ,idx)))
+                                      (incf idx)
+                                      src))
+                 ((listp x) (mapcar #'walk x))
+                 (t x))))
+      (values (walk ast) idx))))
+
 (defun compile-sql (ctx ast)
   (let ((*print-length* 16)
         (*print-level* 8))
     (log:debug ast)
     (let* ((db-sym (gensym))
            (index-sym (gensym))
-           (ctx (fset:with ctx :db-sym db-sym))
-           (ctx (fset:with ctx :index-sym index-sym)))
-      (multiple-value-bind (src projection)
-          (ast->cl ctx ast)
-        (log:debug src)
-        (let* ((src (if projection
-                        `(values ,src ,(list 'quote projection))
-                        src))
-               (src `(lambda (,db-sym)
-                       (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
-                       (declare (ignorable ,db-sym))
-                       (let ((,index-sym (make-hash-table :test 'equal)))
-                         (declare (ignorable ,index-sym))
-                         ,src))))
-          #+sbcl (let ((sb-ext:*evaluator-mode* (if (%interpretp ast)
-                                                    :interpret
-                                                    sb-ext:*evaluator-mode*)))
-                   (eval src))
-          #-sbcl (eval src))))))
+           (param-sym (gensym))
+           (ctx (fset:map-union ctx (fset:map (:db-sym db-sym)
+                                              (:index-sym index-sym)
+                                              (:param-sym param-sym)))))
+      (multiple-value-bind (ast number-of-parameters)
+          (%resolve-parameters ast)
+        (multiple-value-bind (src projection)
+            (ast->cl ctx ast)
+          (log:debug src)
+          (let* ((src (if projection
+                          `(values ,src ,(list 'quote projection))
+                          src))
+                 (src `(lambda (,db-sym &rest ,param-sym)
+                         (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
+                         (declare (ignorable ,db-sym ,param-sym))
+                         (unless (= ,number-of-parameters (length ,param-sym))
+                           (error 'endb/sql/expr:sql-runtime-error :message (format nil "Number of required parameters: ~A does not match given: ~A"
+                                                                                    ,number-of-parameters
+                                                                                    (length ,param-sym))))
+                         (let ((,index-sym (make-hash-table :test 'equal)))
+                           (declare (ignorable ,index-sym))
+                           ,src))))
+            #+sbcl (let ((sb-ext:*evaluator-mode* (if (%interpretp ast)
+                                                      :interpret
+                                                      sb-ext:*evaluator-mode*)))
+                     (eval src))
+            #-sbcl (eval src)))))))

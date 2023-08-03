@@ -177,7 +177,7 @@ where
                     pad('*').map(|_| List(vec![KW(Mul)])),
                     id_ast_parser_no_pad()
                         .then_ignore(just(".*"))
-                        .then_ignore(text::whitespace())
+                        .padded()
                         .map(|id| List(vec![List(vec![KW(Mul), id])])),
                     expr.clone()
                         .then(
@@ -606,6 +606,19 @@ mod tests {
                     - Id:
                         start: 7
                         end: 10
+        "###)
+    }
+
+    #[test]
+    fn parameter_expr() {
+        assert_yaml_snapshot!(parse("SELECT ?"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - KW: Parameter
         "###)
     }
 

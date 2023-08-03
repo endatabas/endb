@@ -95,7 +95,7 @@
             (setf (endb/sql/expr:db-meta-data new-db) new-md)
             new-db)))))
 
-(defun %execute-sql (db sql)
+(defun %execute-sql (db sql parameters)
   (let* ((ast (endb/lib/parser:parse-sql sql))
          (ctx (fset:map (:db db)))
          (*print-length* 16)
@@ -110,9 +110,9 @@
                              else
                                do (funcall sql-fn db)))
                      (endb/sql/compiler:compile-sql ctx ast))))
-    (funcall sql-fn db)))
+    (apply sql-fn db parameters)))
 
-(defun execute-sql (db sql)
+(defun execute-sql (db sql &rest parameters)
   (if *query-timing*
-      (time (%execute-sql db sql))
-      (%execute-sql db sql)))
+      (time (%execute-sql db sql parameters))
+      (%execute-sql db sql parameters)))

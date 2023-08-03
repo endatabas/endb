@@ -331,7 +331,7 @@ where
             ),
         ));
 
-        let object = object_ast_parser(expr.clone());
+        let parameter = pad('?').to(Parameter).map(KW);
 
         let atom = choice((
             count_star,
@@ -340,10 +340,11 @@ where
             case,
             exists,
             array,
-            object,
+            object_ast_parser(expr.clone()),
             function,
             scalar_subquery,
             atom_ast_parser(),
+            parameter,
             expr.clone().delimited_by(pad('('), pad(')')),
         ))
         .boxed();

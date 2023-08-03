@@ -90,6 +90,7 @@ pub enum Keyword {
     Unnest,
     WithOrdinality,
     InsertObjects,
+    Parameter,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
