@@ -528,7 +528,7 @@
                      (if (and (vectorp ,expr-sym)
                               (plusp (length ,expr-sym)))
                          (reverse (loop for ,expr-sym across ,expr-sym
-                                        for ,ordinality-sym from 1
+                                        for ,ordinality-sym from 0
                                         collect (list ,expr-sym ,ordinality-sym)))
                          '((:null :null))))
                   (%values-projection 2)))

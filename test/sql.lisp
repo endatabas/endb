@@ -431,7 +431,7 @@
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT y.* FROM (VALUES (['a', 'b', 'c'])) AS x(foo), UNNEST(x.foo WITH ORDINALITY) AS y(foo, bar)")
-      (is (equal '(("a" 1) ("b" 2) ("c" 3))
+      (is (equal '(("a" 0) ("b" 1) ("c" 2))
                  result))
       (is (equal '("foo" "bar") columns)))
 
