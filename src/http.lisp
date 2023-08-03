@@ -105,13 +105,16 @@
                                (sql (if (and (eq :post (lack.request:request-method req))
                                              (equal "application/sql" (lack.request:request-content-type req)))
                                         (trivial-utf-8:utf-8-bytes-to-string (lack.request:request-content req))
-                                        (cdr (assoc "q" (lack.request:request-parameters req) :test 'equal)))))
+                                        (cdr (assoc "q" (lack.request:request-parameters req) :test 'equal))))
+                               (parameters (loop for (k . v) in (lack.request:request-parameters req)
+                                                 when (equal "parameter" k)
+                                                   collect (endb/sql:interpret-sql-literal v))))
                           (if sql
                               (if (some (lambda (media-type)
                                           (lack.request:request-accepts-p req media-type))
                                         *response-media-types*)
                                   (multiple-value-bind (result result-code)
-                                      (endb/sql:execute-sql write-db sql)
+                                      (apply #'endb/sql:execute-sql write-db sql parameters)
                                     (cond
                                       ((or result (and (listp result-code)
                                                        (not (null result-code))))
