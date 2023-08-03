@@ -919,6 +919,7 @@
 
 (test interpret-sql-literal
   (is (equal "foo" (interpret-sql-literal "'foo'")))
+  (is (equal "foo" (interpret-sql-literal "\"foo\"")))
   (is (= 2.0 (interpret-sql-literal "2.0")))
 
   (is (eq t (interpret-sql-literal "TRUE")))
