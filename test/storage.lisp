@@ -278,6 +278,12 @@
     (is (equal json (meta-data->json time)))
     (is (fset:equal? time (json->meta-data json))))
 
+  (let* ((time (endb/arrow:parse-arrow-interval-month-day-nanos "PT12H30M5S"))
+         (json "{\"@value\":\"PT12H30M5S\",\"@type\":\"xsd:duration\"}"))
+    (is (equalp time (json->meta-data json)))
+    (is (equal json (meta-data->json time)))
+    (is (fset:equal? time (json->meta-data json))))
+
   (let* ((binary (trivial-utf-8:string-to-utf-8-bytes "hello world"))
          (json "{\"@value\":\"aGVsbG8gd29ybGQ=\",\"@type\":\"xsd:base64Binary\"}"))
     (is (equalp binary (json->meta-data json)))
@@ -301,6 +307,10 @@
     (let* ((binary (trivial-utf-8:string-to-utf-8-bytes "hello world"))
            (json "\"aGVsbG8gd29ybGQ=\""))
       (is (equal json (meta-data->json binary))))
+
+    (let* ((time (endb/arrow:parse-arrow-interval-month-day-nanos "PT12H30M5S"))
+           (json "\"PT12H30M5S\""))
+      (is (equal json (meta-data->json time))))
 
     (let* ((sql-null :null)
            (json "null"))

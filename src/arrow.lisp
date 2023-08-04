@@ -2,7 +2,7 @@
   (:use :cl)
   (:export #:arrow-date-days #:arrow-time-micros #:arrow-timestamp-micros #:arrow-interval-month-day-nanos #:arrow-binary #:arrow-struct
            #:parse-arrow-date-days #:parse-arrow-timestamp-micros #:parse-arrow-time-micros #:parse-arrow-interval-month-day-nanos
-           #:arrow-date-days-day #:arrow-time-micros-us #:arrow-timestamp-micros-us
+           #:arrow-date-days-day #:arrow-time-micros-us #:arrow-timestamp-micros-us #:arrow-interval-month-day-nanos-uint128
            #:to-arrow #:make-arrow-array-for #:arrow-class-for-format
            #:arrow-push #:arrow-valid-p #:arrow-get #:arrow-value
            #:arrow-length #:arrow-null-count #:arrow-data-type #:arrow-lisp-type
@@ -113,6 +113,14 @@
        (local-time:format-rfc3339-timestring stream time :omit-date-part t :omit-timezone-part t :timezone local-time:+utc-zone+)))))
 
 (defstruct arrow-interval-month-day-nanos (day 0 :type int32) (month 0 :type int32) (ns 0 :type int64))
+
+(defun arrow-interval-month-day-nanos-uint128 (x)
+  (dpb (arrow-interval-month-day-nanos-ns x) (byte 64 0)
+       (dpb (arrow-interval-month-day-nanos-day x) (byte 32 64)
+            (dpb (arrow-interval-month-day-nanos-month x) (byte 32 96) 0))))
+
+(defmethod murmurhash:murmurhash ((x endb/arrow:arrow-interval-month-day-nanos) &key (seed murmurhash:*default-seed*) mix-only)
+  (murmurhash:murmurhash (arrow-interval-month-day-nanos-uint128 x) :seed seed :mix-only mix-only))
 
 (defun %iso-duration-to-interval-month-day-nanos (duration)
   (let ((month (+ (* (periods::duration-years duration) 12)
@@ -566,10 +574,7 @@
 (defmethod arrow-push ((array interval-month-day-nanos-array) (x arrow-interval-month-day-nanos))
   (with-slots (values) array
     (%push-valid array)
-    (vector-push-extend (dpb (arrow-interval-month-day-nanos-ns x) (byte 64 0)
-                             (dpb (arrow-interval-month-day-nanos-day x) (byte 32 64)
-                                  (dpb (arrow-interval-month-day-nanos-month x) (byte 32 96) 0)))
-                        values)
+    (vector-push-extend (arrow-interval-month-day-nanos-uint128 x) values)
     array))
 
 (defmethod arrow-value ((array interval-month-day-nanos-array) (n fixnum))

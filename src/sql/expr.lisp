@@ -54,6 +54,9 @@
 (defmethod sql-= ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
   (= (endb/arrow:arrow-timestamp-micros-us x) (endb/arrow:arrow-timestamp-micros-us y)))
 
+(defmethod sql-= ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
+  (= (endb/arrow:arrow-interval-month-day-nanos-uint128 x) (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
+
 (defmethod sql-= ((x number) (y number))
   (= x y))
 
@@ -102,6 +105,9 @@
 (defmethod sql-< ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
   (< (endb/arrow:arrow-timestamp-micros-us x) (endb/arrow:arrow-timestamp-micros-us y)))
 
+(defmethod sql-< ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
+  (< (endb/arrow:arrow-interval-month-day-nanos-uint128 x) (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
+
 (defmethod sql-< ((x number) (y number))
   (< x y))
 
@@ -134,6 +140,9 @@
 
 (defmethod sql-<= ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
   (<= (endb/arrow:arrow-timestamp-micros-us x) (endb/arrow:arrow-timestamp-micros-us y)))
+
+(defmethod sql-<= ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
+  (<= (endb/arrow:arrow-interval-month-day-nanos-uint128 x) (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
 
 (defmethod sql-<= ((x number) (y number))
   (<= x y))
@@ -168,6 +177,9 @@
 (defmethod sql-> ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
   (> (endb/arrow:arrow-timestamp-micros-us x) (endb/arrow:arrow-timestamp-micros-us y)))
 
+(defmethod sql-> ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
+  (> (endb/arrow:arrow-interval-month-day-nanos-uint128 x) (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
+
 (defmethod sql-> ((x number) (y number))
   (> x y))
 
@@ -200,6 +212,9 @@
 
 (defmethod sql->= ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
   (>= (endb/arrow:arrow-timestamp-micros-us x) (endb/arrow:arrow-timestamp-micros-us y)))
+
+(defmethod sql->= ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
+  (>= (endb/arrow:arrow-interval-month-day-nanos-uint128 x) (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
 
 (defmethod sql->= ((x number) (y number))
   (>= x y))
@@ -478,7 +493,7 @@
   :null)
 
 (defmethod sql-cast (x (type (eql :varchar)))
-  (prin1-to-string x))
+  (princ-to-string x))
 
 (defmethod sql-cast ((x (eql t)) (type (eql :varchar)))
   "1")
@@ -487,22 +502,13 @@
   "0")
 
 (defmethod sql-cast ((x integer) (type (eql :varchar)))
-  (prin1-to-string x))
+  (princ-to-string x))
 
 (defmethod sql-cast ((x string) (type (eql :varchar)))
   x)
 
 (defmethod sql-cast ((x real) (type (eql :varchar)))
   (format nil "~F" x))
-
-(defmethod sql-cast ((x endb/arrow:arrow-date-days) (type (eql :varchar)))
-  (format nil "~A" x))
-
-(defmethod sql-cast ((x endb/arrow:arrow-time-micros) (type (eql :varchar)))
-  (format nil "~A" x))
-
-(defmethod sql-cast ((x endb/arrow:arrow-timestamp-micros) (type (eql :varchar)))
-  (format nil "~A" x))
 
 (defmethod sql-cast ((x (eql t)) (type (eql :integer)))
   1)

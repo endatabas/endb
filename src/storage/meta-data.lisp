@@ -33,6 +33,8 @@
               (endb/arrow:parse-arrow-timestamp-micros v))
              ((equal "xsd:time" k)
               (endb/arrow:parse-arrow-time-micros v))
+             ((equal "xsd:duration" k)
+              (endb/arrow:parse-arrow-interval-month-day-nanos v))
              ((equal "xsd:base64Binary" k)
               (qbase64:decode-string v))))
          (loop with acc = (fset:empty-map)
@@ -94,6 +96,16 @@
             (com.inuoe.jzon:write-value writer "xsd:time")))
       (com.inuoe.jzon:write-value writer (format nil "~A" value))))
 
+(defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value endb/arrow:arrow-interval-month-day-nanos))
+  (if *json-ld-scalars*
+      (if *json-ld-scalars*
+          (com.inuoe.jzon:with-object writer
+            (com.inuoe.jzon:write-key writer "@value")
+            (com.inuoe.jzon:write-value writer (format nil "~A" value))
+            (com.inuoe.jzon:write-key writer "@type")
+            (com.inuoe.jzon:write-value writer "xsd:duration")))
+      (com.inuoe.jzon:write-value writer (format nil "~A" value))))
+
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value vector))
   (if (typep value 'endb/arrow:arrow-binary)
       (if *json-ld-scalars*
@@ -134,9 +146,14 @@
   (fset:compare (endb/arrow:arrow-time-micros-us x)
                 (endb/arrow:arrow-time-micros-us y)))
 
+(defmethod fset:compare ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
+  (fset:compare (endb/arrow:arrow-interval-month-day-nanos-uint128 x)
+                (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
+
 (fset:define-cross-type-compare-methods endb/arrow:arrow-date-days)
 (fset:define-cross-type-compare-methods endb/arrow:arrow-timestamp-micros)
 (fset:define-cross-type-compare-methods endb/arrow:arrow-time-micros)
+(fset:define-cross-type-compare-methods endb/arrow:arrow-interval-month-day-nanos)
 
 ;; https://datatracker.ietf.org/doc/html/rfc7386
 
