@@ -190,9 +190,10 @@
                                        (format nil "~AM" (periods::duration-minutes duration)))
                                      (unless (zerop ns)
                                        (let ((seconds (/ ns 1000000000)))
-                                         (format nil "~fS" (if (integerp seconds)
-                                                               seconds
-                                                               (coerce seconds 'double-float))))))))
+                                         (format nil (if (integerp seconds)
+                                                         "~AS"
+                                                         "~fS")
+                                                 seconds))))))
     (when *print-escape*
       (write-char #\@ stream))
     (format stream (concatenate 'string
