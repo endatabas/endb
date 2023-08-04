@@ -358,6 +358,41 @@
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT PT12H30M5S")
       (is (equalp (list (list (endb/arrow:parse-arrow-interval-month-day-nanos "PT12H30M5S"))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 2001-01-01T00:00:00 + P1Y1DT1H")
+      (is (equalp (list (list (endb/arrow:parse-arrow-timestamp-micros "2002-01-02T01:00:00"))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 2001-01-01 - P1D")
+      (is (equalp (list (list (endb/arrow:parse-arrow-date-days "2000-12-31"))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT PT1H + 10:00:00")
+      (is (equalp (list (list (endb/arrow:parse-arrow-time-micros "11:00:00"))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT P1D + P1D")
+      (is (equalp (list (list (endb/arrow:parse-arrow-interval-month-day-nanos "P2D"))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT P2M1D - P1M")
+      (is (equalp (list (list (endb/arrow:parse-arrow-interval-month-day-nanos "P1M1D"))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 2001-01-02 - 2001-01-01")
+      (is (equalp (list (list (endb/arrow:parse-arrow-interval-month-day-nanos "PT24H"))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 09:00:00 - 10:30:00")
+      (is (equalp (list (list (endb/arrow:parse-arrow-interval-month-day-nanos "PT1H30M"))) result))
       (is (equal '("column1") columns)))))
 
 (test semi-structured

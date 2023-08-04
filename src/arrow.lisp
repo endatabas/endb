@@ -68,6 +68,9 @@
 (defun %epoch-day-to-timestamp (day)
   (local-time:make-timestamp :day (- day +offset-from-epoch-day+)))
 
+(defun %timestamp-to-epoch-day (date)
+  (+ (local-time:day-of date) +offset-from-epoch-day+))
+
 (defmethod print-object ((object arrow-date-days) stream)
   (cond
     (local-time::*debug-timestamp*
@@ -80,7 +83,7 @@
 
 (defun parse-arrow-date-days (s)
   (let ((date (local-time:parse-timestring s :allow-missing-time-part t)))
-    (make-arrow-date-days :day (+ (local-time:day-of date) +offset-from-epoch-day+))))
+    (make-arrow-date-days :day (%timestamp-to-epoch-day date))))
 
 (defstruct arrow-time-micros (us 0 :type int64))
 
@@ -122,7 +125,7 @@
 (defmethod murmurhash:murmurhash ((x endb/arrow:arrow-interval-month-day-nanos) &key (seed murmurhash:*default-seed*) mix-only)
   (murmurhash:murmurhash (arrow-interval-month-day-nanos-uint128 x) :seed seed :mix-only mix-only))
 
-(defun %iso-duration-to-interval-month-day-nanos (duration)
+(defun %duration-to-interval-month-day-nanos (duration)
   (let ((month (+ (* (periods::duration-years duration) 12)
                   (periods::duration-months duration)))
         (day (periods::duration-days duration))
@@ -189,19 +192,17 @@
 	        (* (periods::duration-milliseconds duration) 1000000)
 	        (* (periods::duration-microseconds duration) 1000)
 	        (periods::duration-nanoseconds duration)))
-         (day-time-part (concatenate 'string
-                                     (unless (zerop (periods::duration-days duration))
-                                       (format nil "~AD" (periods::duration-days duration)))
-                                     (unless (zerop (periods::duration-hours duration))
-                                       (format nil "~AH" (periods::duration-hours duration)))
-                                     (unless (zerop (periods::duration-minutes duration))
-                                       (format nil "~AM" (periods::duration-minutes duration)))
-                                     (unless (zerop ns)
-                                       (let ((seconds (/ ns 1000000000)))
-                                         (format nil (if (integerp seconds)
-                                                         "~AS"
-                                                         "~fS")
-                                                 seconds))))))
+         (time-part (concatenate 'string
+                                 (unless (zerop (periods::duration-hours duration))
+                                   (format nil "~AH" (periods::duration-hours duration)))
+                                 (unless (zerop (periods::duration-minutes duration))
+                                   (format nil "~AM" (periods::duration-minutes duration)))
+                                 (unless (zerop ns)
+                                   (let ((seconds (/ ns 1000000000)))
+                                     (format nil (if (integerp seconds)
+                                                     "~AS"
+                                                     "~fS")
+                                             seconds))))))
     (when *print-escape*
       (write-char #\@ stream))
     (format stream (concatenate 'string
@@ -210,8 +211,10 @@
                                   (format nil "~AY" (periods::duration-years duration)))
                                 (unless (zerop (periods::duration-months duration))
                                   (format nil "~AM" (periods::duration-months duration)))
-                                (unless (equal "" day-time-part)
-                                  (format nil "T~A" day-time-part))))))
+                                (unless (zerop (periods::duration-days duration))
+                                  (format nil "~AD" (periods::duration-days duration)))
+                                (unless (equal "" time-part)
+                                  (format nil "T~A" time-part))))))
 
 (deftype arrow-binary ()
   '(vector uint8))
