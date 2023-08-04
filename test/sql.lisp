@@ -425,7 +425,7 @@
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT x.column1 AS foo, y.column1 AS bar FROM (VALUES ('foo', [1, 2, 3]), ('bar', [5, 6]), ('baz', 2), ('boz', [])) AS x, UNNEST(x.column2) AS y ORDER BY foo")
-      (is (equal '(("bar" 5) ("bar" 6) ("baz" :null) ("boz" :null) ("foo" 1) ("foo" 2) ("foo" 3))
+      (is (equal '(("bar" 5) ("bar" 6) ("foo" 1) ("foo" 2) ("foo" 3))
                  result))
       (is (equal '("foo" "bar") columns)))
 
@@ -500,13 +500,18 @@
       (is (equal '("a") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT [1, 2][*]")
-      (is (equalp '((#(1 2))) result))
+        (execute-sql db "SELECT [{a: 2}, {a: 3}, {b: 4}, 5][*]")
+      (is (equalp '((#(2 3 4))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT [1, 2, [3, 4]][*]")
-      (is (equalp '((#(1 2 3 4))) result))
+        (execute-sql db "SELECT [1, 2, 3, 4][*]")
+      (is (equalp '((#())) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 1[*]")
+      (is (equal '((1)) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)

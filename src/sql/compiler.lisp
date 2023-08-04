@@ -526,20 +526,18 @@
         (let ((expr-sym (gensym))
               (ordinality-sym (gensym)))
           (values `(let ((,expr-sym ,(ast->cl ctx expr)))
-                     (if (and (vectorp ,expr-sym)
-                              (plusp (length ,expr-sym)))
-                         (reverse (loop for ,expr-sym across ,expr-sym
-                                        for ,ordinality-sym from 0
-                                        collect (list ,expr-sym ,ordinality-sym)))
-                         '((:null :null))))
+                     (when (and (vectorp ,expr-sym)
+                                (plusp (length ,expr-sym)))
+                       (reverse (loop for ,expr-sym across ,expr-sym
+                                      for ,ordinality-sym from 0
+                                      collect (list ,expr-sym ,ordinality-sym)))))
                   (%values-projection 2)))
         (let ((expr-sym (gensym)))
           (values `(let ((,expr-sym ,(ast->cl ctx expr)))
-                     (if (and (vectorp ,expr-sym)
-                              (plusp (length ,expr-sym)))
-                         (reverse (loop for ,expr-sym across ,expr-sym
-                                        collect (list ,expr-sym)))
-                         '((:null))))
+                     (when (and (vectorp ,expr-sym)
+                                (plusp (length ,expr-sym)))
+                       (reverse (loop for ,expr-sym across ,expr-sym
+                                      collect (list ,expr-sym)))))
                   (%values-projection 1))))))
 
 (defmethod sql->cl (ctx (type (eql :union)) &rest args)

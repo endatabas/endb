@@ -405,6 +405,9 @@
 (defmethod sql-access (x y)
   :null)
 
+(defmethod sql-access (x (y (eql :*)))
+  x)
+
 (defmethod sql-access ((x vector) (y number))
   (if (and (>= y 0)
            (< y (length x)))
@@ -424,11 +427,9 @@
 (defmethod sql-access ((x vector) (y (eql :*)))
   (loop with acc = (make-array 0 :fill-pointer 0)
         for x across x
-        if (vectorp x)
-          do (loop for x across x
-                   do (vector-push-extend x acc))
-        else
-          do (vector-push-extend x acc)
+        when (listp x)
+          do (loop for (nil . v) in x
+                   do (vector-push-extend v acc))
         finally
            (return acc)))
 
