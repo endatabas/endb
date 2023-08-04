@@ -108,7 +108,7 @@
 
 (defstruct where-clause src free-vars ast)
 
-(defstruct aggregate src init-src var)
+(defstruct aggregate src init-src var where-src)
 
 (defstruct cte src projection)
 
@@ -323,7 +323,8 @@
                                        (destructuring-bind ,group-by-exprs-projection
                                            ,group-sym
                                          ,@(loop for v being the hash-value of aggregate-table
-                                                 collect `(endb/sql/expr:sql-agg-accumulate ,(aggregate-var v) ,@(aggregate-src v)))))))
+                                                 collect `(when (eq t ,(aggregate-where-src v))
+                                                            (endb/sql/expr:sql-agg-accumulate ,(aggregate-var v) ,@(aggregate-src v))))))))
          (empty-group-key-form `(list ,@(loop repeat (length group-by-projection) collect :null)))
          (group-by-src `(let ((,group-acc-sym (make-hash-table :test 'equal)))
                           ,(%from->cl ctx from-tables where-clauses group-by-selected-src correlated-vars)
@@ -850,7 +851,7 @@
                         collect (ast->cl ctx ast))))))
 
 (defmethod sql->cl (ctx (type (eql :aggregate-function)) &rest args)
-  (destructuring-bind (fn args &key distinct)
+  (destructuring-bind (fn args &key distinct (where ':true))
       args
     (let* ((aggregate-table (fset:lookup ctx :aggregate-table))
            (fn-sym (%find-sql-expr-symbol fn))
@@ -860,7 +861,8 @@
                                      (list :null)
                                      args)
                       collect (ast->cl ctx ast)))
-           (agg (make-aggregate :src src :init-src init-src :var aggregate-sym)))
+           (where-src (ast->cl ctx where))
+           (agg (make-aggregate :src src :init-src init-src :var aggregate-sym :where-src where-src)))
       (assert fn-sym nil (format nil "Unknown aggregate function: ~A" fn))
       (setf (gethash aggregate-sym aggregate-table) agg)
       `(endb/sql/expr:sql-agg-finish ,aggregate-sym))))

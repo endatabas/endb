@@ -1027,6 +1027,27 @@ mod tests {
                         - KW: CountStar
                         - List: []
         "###);
+
+        assert_yaml_snapshot!(parse("SELECT count(*) FILTER (WHERE x > 2)"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: AggregateFunction
+                        - KW: CountStar
+                        - List: []
+                        - KW: Where
+                        - List:
+                            - KW: Gt
+                            - Id:
+                                start: 30
+                                end: 31
+                            - Integer: 2
+        "###);
+
         assert_yaml_snapshot!(parse("SELECT CAST ( - 69 AS INTEGER )"), @r###"
         ---
         Ok:

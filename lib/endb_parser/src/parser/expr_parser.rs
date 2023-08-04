@@ -262,6 +262,14 @@ where
             .map(KW)
             .or_not();
 
+        let aggregate_filter = kw("FILTER")
+            .ignore_then(
+                kw("WHERE")
+                    .ignore_then(expr.clone())
+                    .delimited_by(pad('('), pad(')')),
+            )
+            .or_not();
+
         let count_star = kw("COUNT")
             .ignore_then(
                 all_distinct
@@ -269,9 +277,11 @@ where
                     .then_ignore(pad('*'))
                     .delimited_by(pad('('), pad(')')),
             )
-            .map(|distinct| {
+            .then(aggregate_filter.clone())
+            .map(|(distinct, filter)| {
                 let mut acc = vec![KW(AggregateFunction), KW(CountStar), List(vec![])];
                 add_clause(&mut acc, Distinct, distinct);
+                add_clause(&mut acc, Where, filter);
                 List(acc)
             });
 
@@ -290,11 +300,13 @@ where
         .then(
             all_distinct
                 .then(expr_list.clone())
-                .delimited_by(pad('('), pad(')')),
+                .delimited_by(pad('('), pad(')'))
+                .then(aggregate_filter),
         )
-        .map(|(f, (distinct, expr_list))| {
+        .map(|(f, ((distinct, expr_list), filter))| {
             let mut acc = vec![KW(AggregateFunction), f, expr_list];
             add_clause(&mut acc, Distinct, distinct);
+            add_clause(&mut acc, Where, filter);
             List(acc)
         });
 
