@@ -98,7 +98,8 @@
   :concat
   :shorthand-property
   :spread-property
-  :computed-property)
+  :computed-property
+  :duration)
 
 (cffi:defcenum Ast_Tag
   :List

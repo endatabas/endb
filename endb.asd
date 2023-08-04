@@ -27,6 +27,7 @@
                "local-time"
                "log4cl"
                "mmap"
+               "periods"
                "qbase64"
                "trivial-gray-streams"
                "trivial-utf-8")

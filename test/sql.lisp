@@ -348,6 +348,16 @@
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT TIMESTAMP '2023-05-16 14:43:39.970062'")
       (is (equalp (list (list (endb/arrow:parse-arrow-timestamp-micros "2023-05-16T14:43:39.970062Z"))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT P3Y6M")
+      (is (equalp (list (list (endb/arrow:parse-arrow-interval-month-day-nanos "P3Y6M"))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT PT12H30M5S")
+      (is (equalp (list (list (endb/arrow:parse-arrow-interval-month-day-nanos "PT12H30M5S"))) result))
       (is (equal '("column1") columns)))))
 
 (test semi-structured

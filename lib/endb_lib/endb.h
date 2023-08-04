@@ -96,6 +96,7 @@ typedef enum Keyword {
   ShorthandProperty,
   SpreadProperty,
   ComputedProperty,
+  Duration,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;

@@ -122,6 +122,23 @@ where
         iso_time.clone().map_with_span(time_ctor),
     ));
 
+    let iso_quantity = text::int(10).then(one_of(",.").then(text::digits(10)).or_not());
+
+    let iso_duration = just('P')
+        .then_ignore(iso_quantity.ignore_then(just('Y')).or_not())
+        .then_ignore(iso_quantity.ignore_then(just('M')).or_not())
+        .then_ignore(iso_quantity.ignore_then(just('D')).or_not())
+        .then(
+            just('T')
+                .then_ignore(iso_quantity.ignore_then(just('H')).or_not())
+                .then_ignore(iso_quantity.ignore_then(just('M')).or_not())
+                .then_ignore(iso_quantity.ignore_then(just('S')).or_not())
+                .or_not(),
+        )
+        .map_with_span(|_, span: SimpleSpan<_>| kw_literal(Duration, &span));
+
+    let interval = iso_duration;
+
     let number = text::int(10)
         .then(just('.').then(text::digits(10)).or_not())
         .map_slice(|s: &str| match s.find('.') {
@@ -174,6 +191,7 @@ where
     choice((
         date_or_timestamp_ast_parser_no_pad(),
         time,
+        interval,
         number,
         binary,
         string,

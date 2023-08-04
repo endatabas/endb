@@ -247,3 +247,12 @@
     (setf (elt array 2) :null)
     (is (equal '(1 4 :null) (coerce array 'list)))
     (is (equal '(4 :null) (coerce (remove 1 array) 'list)))))
+
+(test temporal-arrays
+  (let* ((expected (list (endb/arrow:parse-arrow-date-days "2001-01-01")
+                         (endb/arrow:parse-arrow-time-micros "12:01:20")
+                         (endb/arrow:parse-arrow-timestamp-micros "2023-05-16T14:43:39.970062Z")
+                         (endb/arrow:parse-arrow-interval-month-day-nanos "P3Y6M")
+                         (endb/arrow:parse-arrow-interval-month-day-nanos "PT12H30M5S")))
+         (array (to-arrow expected)))
+    (is (equalp expected (coerce array 'list)))))

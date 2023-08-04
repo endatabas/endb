@@ -95,6 +95,7 @@ pub enum Keyword {
     ShorthandProperty,
     SpreadProperty,
     ComputedProperty,
+    Duration,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

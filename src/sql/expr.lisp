@@ -3,6 +3,7 @@
   (:import-from :alexandria)
   (:import-from :cl-ppcre)
   (:import-from :local-time)
+  (:import-from :periods)
   (:import-from :endb/lib/parser)
   (:import-from :endb/arrow)
   (:import-from :endb/storage/buffer-pool)
@@ -13,7 +14,7 @@
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-unary+ #:sql-unary-
            #:sql-access #:sql-between #:sql-in #:sql-exists #:sql-coalesce
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery #:sql-unnest
-           #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-like #:sql-substring #:sql-strftime
+           #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-duration #:sql-like #:sql-substring #:sql-strftime
            #:make-sql-agg #:sql-agg-accumulate #:sql-agg-finish
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
            #:make-db #:copy-db #:db-buffer-pool #:db-wal #:db-object-store #:db-meta-data
@@ -606,6 +607,13 @@
 
 (defmethod sql-datetime ((x string))
   (endb/arrow:parse-arrow-timestamp-micros x))
+
+(defmethod sql-duration ((x string))
+  (let ((duration (endb/arrow:parse-arrow-interval-month-day-nanos x)))
+    (if duration
+        duration
+        (error 'sql-runtime-error
+               :message (format nil "Invalid duration: ~A" x)))))
 
 (defmethod sql-like ((x (eql :null)) (pattern (eql :null)))
   :null)

@@ -1,7 +1,7 @@
 (defpackage :endb/arrow
   (:use :cl)
-  (:export #:arrow-date-days #:arrow-time-micros #:arrow-timestamp-micros #:arrow-binary #:arrow-struct
-           #:parse-arrow-date-days #:parse-arrow-timestamp-micros #:parse-arrow-time-micros
+  (:export #:arrow-date-days #:arrow-time-micros #:arrow-timestamp-micros #:arrow-interval-month-day-nanos #:arrow-binary #:arrow-struct
+           #:parse-arrow-date-days #:parse-arrow-timestamp-micros #:parse-arrow-time-micros #:parse-arrow-interval-month-day-nanos
            #:arrow-date-days-day #:arrow-time-micros-us #:arrow-timestamp-micros-us
            #:to-arrow #:make-arrow-array-for #:arrow-class-for-format
            #:arrow-push #:arrow-valid-p #:arrow-get #:arrow-value
@@ -13,10 +13,12 @@
   (:import-from :cl-ppcre)
   (:import-from :cl-murmurhash)
   (:import-from :local-time)
+  (:import-from :periods)
   (:import-from :trivial-utf-8))
 (in-package :endb/arrow)
 
 (deftype uint8 () '(unsigned-byte 8))
+(deftype uint128 () '(unsigned-byte 128))
 (deftype int8 () '(signed-byte 8))
 (deftype int32 () '(signed-byte 32))
 (deftype int64 () '(signed-byte 64))
@@ -110,6 +112,98 @@
      (let ((time (%micros-to-time (arrow-time-micros-us object))))
        (local-time:format-rfc3339-timestring stream time :omit-date-part t :omit-timezone-part t :timezone local-time:+utc-zone+)))))
 
+(defstruct arrow-interval-month-day-nanos (day 0 :type int32) (month 0 :type int32) (ns 0 :type int64))
+
+(defun %iso-duration-to-interval-month-day-nanos (duration)
+  (let ((month (+ (* (periods::duration-years duration) 12)
+                  (periods::duration-months duration)))
+        (day (periods::duration-days duration))
+        (ns (+ (* (periods::duration-hours duration) 60 60 1000000000)
+               (* (periods::duration-minutes duration) 60 1000000000)
+               (* (periods:duration-seconds duration) 1000000000)
+	       (* (periods::duration-milliseconds duration) 1000000)
+	       (* (periods::duration-microseconds duration) 1000)
+	       (periods::duration-nanoseconds duration))))
+    (make-arrow-interval-month-day-nanos :month month :day day :ns ns)))
+
+(defparameter +iso-duration-scanner+ (cl-ppcre:create-scanner "^P(\\d+Y)?(\\d+M)?(\\d+D)?(?:T(\\d+H)?(\\d+M)?(\\d+(?:\\.\\d+)?S)?)?$"))
+
+(defun parse-arrow-interval-month-day-nanos (s)
+  (let ((*read-eval* nil)
+        (*read-default-float-format* 'double-float))
+    (labels ((parse-number (x)
+               (if x
+                   (read-from-string (subseq x 0 (1- (length x))))
+                   0)))
+      (multiple-value-bind (matchp parts) (cl-ppcre:scan-to-strings +iso-duration-scanner+ s)
+        (when matchp
+          (destructuring-bind (years months days hours minutes seconds)
+              (coerce parts 'list)
+            (let ((years (parse-number years))
+                  (months (parse-number months))
+                  (days (parse-number days))
+                  (hours (parse-number hours))
+                  (minutes (parse-number minutes))
+                  (seconds (parse-number seconds)))
+              (make-arrow-interval-month-day-nanos :month (+ (* years 12) months)
+                                                   :day days
+                                                   :ns (round (+ (* hours 60 60 1000000000)
+                                                                 (* minutes 60 1000000000)
+                                                                 (* seconds 1000000000)))))))))))
+
+(defun %month-day-nanos-to-duration (x)
+  (with-slots (month day ns) x
+    (multiple-value-bind (years months)
+        (floor month 12)
+      (multiple-value-bind (microseconds nanoseconds)
+          (floor ns 1000)
+        (multiple-value-bind (milliseconds microseconds)
+            (floor microseconds 1000)
+          (multiple-value-bind (seconds milliseconds)
+              (floor milliseconds 1000)
+            (multiple-value-bind (minutes seconds)
+                (floor seconds 60)
+              (multiple-value-bind (hours minutes)
+                  (floor minutes 60)
+                (periods:duration :years years
+                                  :months months
+                                  :days day
+                                  :hours hours
+                                  :minutes minutes
+                                  :seconds seconds
+                                  :milliseconds milliseconds
+                                  :microseconds microseconds
+                                  :nanoseconds nanoseconds)))))))))
+
+(defmethod print-object ((object arrow-interval-month-day-nanos) stream)
+  (let* ((duration (%month-day-nanos-to-duration object))
+         (ns (+ (* (periods:duration-seconds duration) 1000000000)
+	        (* (periods::duration-milliseconds duration) 1000000)
+	        (* (periods::duration-microseconds duration) 1000)
+	        (periods::duration-nanoseconds duration)))
+         (day-time-part (concatenate 'string
+                                     (unless (zerop (periods::duration-days duration))
+                                       (format nil "~AD" (periods::duration-days duration)))
+                                     (unless (zerop (periods::duration-hours duration))
+                                       (format nil "~AH" (periods::duration-hours duration)))
+                                     (unless (zerop (periods::duration-minutes duration))
+                                       (format nil "~AM" (periods::duration-minutes duration)))
+                                     (unless (zerop ns)
+                                       (let ((seconds (/ ns 1000000000)))
+                                         (format nil "~fS" (if (integerp seconds)
+                                                               seconds
+                                                               (coerce seconds 'double-float))))))))
+    (when *print-escape*
+      (write-char #\@ stream))
+    (format stream (concatenate 'string
+                                "P"
+                                (unless (zerop (periods::duration-years duration))
+                                  (format nil "~AY" (periods::duration-years duration)))
+                                (unless (zerop (periods::duration-months duration))
+                                  (format nil "~AM" (periods::duration-months duration)))
+                                (unless (equal "" day-time-part)
+                                  (format nil "T~A" day-time-part))))))
+
 (deftype arrow-binary ()
   '(vector uint8))
 
@@ -202,6 +296,7 @@
     (arrow-date-days 'date-days-array)
     (arrow-time-micros 'time-micros-array)
     (arrow-timestamp-micros 'timestamp-micros-array)
+    (arrow-interval-month-day-nanos 'interval-month-day-nanos-array)
     (arrow-struct 'struct-array)
     (arrow-binary 'binary-array)
     (string 'utf8-array)
@@ -225,6 +320,7 @@
     ((equal "tsu:" format) 'timestamp-micros-array)
     ((equal "tdD" format) 'date-days-array)
     ((equal "ttu" format) 'time-micros-array)
+    ((equal "tin" format) 'interval-month-day-nanos-array)
     ((equal "z" format) 'binary-array)
     ((equal "u" format) 'utf8-array)
     ((equal "+s" format) 'struct-array)
@@ -461,6 +557,28 @@
 
 (defmethod arrow-data-type ((array time-micros-array))
   "ttu")
+
+(defclass interval-month-day-nanos-array (primitive-array)
+  ((values :type (vector uint128))
+   (element-type :initform 'uint128)))
+
+(defmethod arrow-push ((array interval-month-day-nanos-array) (x arrow-interval-month-day-nanos))
+  (with-slots (values) array
+    (%push-valid array)
+    (vector-push-extend (dpb (arrow-interval-month-day-nanos-ns x) (byte 64 0)
+                             (dpb (arrow-interval-month-day-nanos-day x) (byte 32 64)
+                                  (dpb (arrow-interval-month-day-nanos-month x) (byte 32 96) 0)))
+                        values)
+    array))
+
+(defmethod arrow-value ((array interval-month-day-nanos-array) (n fixnum))
+  (let ((x (aref (slot-value array 'values) n)))
+    (make-arrow-interval-month-day-nanos :month (ldb (byte 32 96) x)
+                                         :day (ldb (byte 32 64) x)
+                                         :ns (ldb (byte 64 0) x))))
+
+(defmethod arrow-data-type ((array interval-month-day-nanos-array))
+  "tin")
 
 (defmethod arrow-lisp-type ((array time-micros-array))
   'arrow-time-micros)

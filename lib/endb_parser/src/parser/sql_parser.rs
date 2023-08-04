@@ -2067,6 +2067,45 @@ mod tests {
                             start: 18
                             end: 37
         "###);
+        assert_yaml_snapshot!(parse("SELECT P3Y6M4DT12H30M5S"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Duration
+                        - String:
+                            start: 7
+                            end: 23
+        "###);
+        assert_yaml_snapshot!(parse("SELECT P3Y6M"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Duration
+                        - String:
+                            start: 7
+                            end: 12
+        "###);
+        assert_yaml_snapshot!(parse("SELECT PT12H30M5S"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Duration
+                        - String:
+                            start: 7
+                            end: 17
+        "###);
     }
 
     #[test]
