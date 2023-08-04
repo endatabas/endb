@@ -72,7 +72,10 @@ where
             })
             .padded();
 
-        let date_or_timestamp = date_or_timestamp_ast_parser_no_pad().padded();
+        let date_or_timestamp = choice((
+            date_or_timestamp_ast_parser_no_pad().padded(),
+            pad('?').to(Parameter).map(KW),
+        ));
 
         let table_alias = choice((
             kw("AS").ignore_then(id.clone()),
@@ -1750,6 +1753,29 @@ mod tests {
 
     #[test]
     fn system_time() {
+        assert_yaml_snapshot!(parse("SELECT * FROM Emp FOR SYSTEM_TIME AS OF ?"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - KW: Mul
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 14
+                        end: 17
+                    - Id:
+                        start: 14
+                        end: 17
+                    - List: []
+                    - List:
+                        - KW: AsOf
+                        - KW: Parameter
+        "###);
+
         assert_yaml_snapshot!(parse("SELECT * FROM Emp FOR SYSTEM_TIME AS OF TIMESTAMP '2011-01-02 00:00:00'"), @r###"
         ---
         Ok:
