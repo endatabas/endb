@@ -522,23 +522,10 @@
 (defmethod sql->cl (ctx (type (eql :unnest)) &rest args)
   (destructuring-bind (expr &key with-ordinality)
       args
-    (if with-ordinality
-        (let ((expr-sym (gensym))
-              (ordinality-sym (gensym)))
-          (values `(let ((,expr-sym ,(ast->cl ctx expr)))
-                     (when (and (vectorp ,expr-sym)
-                                (plusp (length ,expr-sym)))
-                       (reverse (loop for ,expr-sym across ,expr-sym
-                                      for ,ordinality-sym from 0
-                                      collect (list ,expr-sym ,ordinality-sym)))))
-                  (%values-projection 2)))
-        (let ((expr-sym (gensym)))
-          (values `(let ((,expr-sym ,(ast->cl ctx expr)))
-                     (when (and (vectorp ,expr-sym)
-                                (plusp (length ,expr-sym)))
-                       (reverse (loop for ,expr-sym across ,expr-sym
-                                      collect (list ,expr-sym)))))
-                  (%values-projection 1))))))
+    (values `(endb/sql/expr:sql-unnest ,(ast->cl ctx expr) :with-ordinality ,with-ordinality)
+            (%values-projection (if with-ordinality
+                                    2
+                                    1)))))
 
 (defmethod sql->cl (ctx (type (eql :union)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit offset)

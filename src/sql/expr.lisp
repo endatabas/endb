@@ -12,7 +12,7 @@
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-unary+ #:sql-unary-
            #:sql-access #:sql-between #:sql-in #:sql-exists #:sql-coalesce
-           #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery
+           #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery #:sql-unnest
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-like #:sql-substring #:sql-strftime
            #:make-sql-agg #:sql-agg-accumulate #:sql-agg-finish
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
@@ -670,6 +670,15 @@
   (if (null rows)
       :null
       (caar rows)))
+
+(defun sql-unnest (array &key with-ordinality)
+  (when (vectorp array)
+    (reverse (if (eq :with-ordinality with-ordinality)
+                 (loop for x across array
+                       for idx from 0
+                       collect (list x idx))
+                 (loop for x across array
+                       collect (list x))))))
 
 ;; Aggregates
 
