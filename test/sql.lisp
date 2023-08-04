@@ -961,6 +961,7 @@
   (is (equalp (endb/arrow:parse-arrow-date-days "2001-01-01") (interpret-sql-literal "2001-01-01")))
   (is (equalp (endb/arrow:parse-arrow-time-micros "12:01:20") (interpret-sql-literal "12:01:20")))
   (is (equalp (endb/arrow:parse-arrow-timestamp-micros "2023-05-16T14:43:39.970062Z") (interpret-sql-literal "2023-05-16T14:43:39.970062Z")))
+  (is (equalp (endb/arrow:parse-arrow-interval-month-day-nanos "P3Y2MT12H30M5S") (interpret-sql-literal "P3Y2MT12H30M5S")))
 
   (is (equalp '(("address" . (("street" . "Street") ("number" . 42)))
                 ("friends" . #(1 2)))

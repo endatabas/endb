@@ -132,6 +132,7 @@
        (:date (endb/sql/expr:sql-date (second ast)))
        (:time (endb/sql/expr:sql-time (second ast)))
        (:timestamp (endb/sql/expr:sql-datetime (second ast)))
+       (:duration (endb/sql/expr:sql-duration (second ast)))
        (:array (map 'vector #'%interpret-sql-literal (second ast)))
        (:object (if (second ast)
                     (loop for (k v) in (second ast)

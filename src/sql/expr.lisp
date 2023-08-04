@@ -644,13 +644,16 @@
   :null)
 
 (defmethod sql-strftime ((format string) (x endb/arrow:arrow-date-days))
-  (local-time:format-timestring nil
-                                (endb/arrow::%epoch-day-to-timestamp (endb/arrow:arrow-date-days-day x))
-                                :format (if (equal "%Y" format)
-                                            '((:year 4))
-                                            (error 'sql-runtime-error
-                                                   :message (format nil "Unknown time format: ~A" format)))
-                                :timezone local-time:+utc-zone+))
+  (let ((local-time:*default-timezone* local-time:+utc-zone+))
+    (periods:strftime (endb/arrow::%epoch-day-to-timestamp (endb/arrow:arrow-date-days-day x)) :format format)))
+
+(defmethod sql-strftime ((format string) (x endb/arrow:arrow-time-micros))
+  (let ((local-time:*default-timezone* local-time:+utc-zone+))
+    (periods:strftime (endb/arrow::%micros-to-time (endb/arrow:arrow-time-micros-us x)) :format format)))
+
+(defmethod sql-strftime ((format string) (x endb/arrow:arrow-timestamp-micros))
+  (let ((local-time:*default-timezone* local-time:+utc-zone+))
+    (periods:strftime (endb/arrow::%micros-to-timestamp (endb/arrow:arrow-timestamp-micros-us x)) :format format)))
 
 (defmethod sql-substring ((x (eql :null)) (y (eql :null)) &optional z)
   (declare (ignore z))
