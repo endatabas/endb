@@ -1293,7 +1293,7 @@
          stats)))))
 
 (defun sql-insert (db table-name values &key column-names)
-  (with-slots (buffer-pool meta-data) db
+  (with-slots (buffer-pool meta-data current-timestamp) db
     (let* ((created-p (base-table-created-p db table-name))
            (columns (table-columns db table-name))
            (column-names-set (fset:convert 'fset:set column-names))
@@ -1323,11 +1323,10 @@
                  (table-md (or (fset:lookup meta-data table-name)
                                (fset:empty-map)))
                  (batch-md (fset:lookup table-md batch-file))
-                 (system-time (db-current-timestamp db))
                  (batch (if batch-md
                             (car (endb/storage/buffer-pool:buffer-pool-get buffer-pool batch-key))
                             (endb/arrow:make-arrow-array-for (list (cons table-name :null)
-                                                                   (cons "system_time_start" system-time))))))
+                                                                   (cons "system_time_start" current-timestamp))))))
             (loop for row in values
                   do (endb/arrow:arrow-push batch (list (cons table-name
                                                               (loop for v in row
@@ -1335,7 +1334,7 @@
                                                                                   columns
                                                                                   column-names)
                                                                     collect (cons cn v)))
-                                                        (cons "system_time_start" system-time))))
+                                                        (cons "system_time_start" current-timestamp))))
 
             (endb/storage/buffer-pool:buffer-pool-put buffer-pool batch-key (list batch))
 
@@ -1352,9 +1351,8 @@
             (sql-insert db table-name values :column-names column-names))))))
 
 (defun sql-delete (db table-name new-batch-file-idx-deleted-row-ids)
-  (with-slots (meta-data) db
-    (let* ((system-time (db-current-timestamp db))
-           (table-md (reduce
+  (with-slots (meta-data current-timestamp) db
+    (let* ((table-md (reduce
                       (lambda (acc batch-file-idx-row-id)
                         (destructuring-bind (batch-file batch-idx row-id)
                             batch-file-idx-row-id
@@ -1362,7 +1360,7 @@
                                  (deletes-md (or (fset:lookup batch-md "deletes") (fset:empty-map)))
                                  (batch-idx-key (prin1-to-string batch-idx))
                                  (batch-deletes (or (fset:lookup deletes-md batch-idx-key) (fset:empty-seq)))
-                                 (delete-entry (fset:map ("row_id" row-id) ("system_time_end "system-time))))
+                                 (delete-entry (fset:map ("row_id" row-id) ("system_time_end" current-timestamp))))
                             (fset:with acc batch-file (fset:with batch-md "deletes" (fset:with deletes-md batch-idx-key (fset:with-last batch-deletes delete-entry)))))))
                       new-batch-file-idx-deleted-row-ids
                       :initial-value (fset:lookup meta-data table-name))))

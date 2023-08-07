@@ -175,23 +175,48 @@
                (arrow-file-md-sym (gensym))
                (deletes-md-sym (gensym))
                (batch-sym (gensym))
+               (system-time-start-sym (gensym))
+               (system-time-end-sym (gensym))
+               (temporal-sym (gensym))
                (scan-row-id-sym (or (fset:lookup ctx :scan-row-id-sym) (gensym)))
                (scan-batch-idx-sym (or (fset:lookup ctx :scan-batch-idx-sym) (gensym)))
                (scan-arrow-file-sym (or (fset:lookup ctx :scan-arrow-file-sym) (gensym)))
-               (deleted-row-ids-sym (gensym)))
-          `(let ((,table-md-sym (endb/sql/expr:base-table-meta ,(fset:lookup ctx :db-sym) ,table-name)))
-             (fset:do-map (,scan-arrow-file-sym ,arrow-file-md-sym ,table-md-sym)
-               (loop with ,deletes-md-sym = (or (fset:lookup ,arrow-file-md-sym "deletes") (fset:empty-map))
-                     for ((nil . ,batch-sym)) in (endb/sql/expr:base-table-arrow-batches ,(fset:lookup ctx :db-sym) ,table-name ,scan-arrow-file-sym)
-                     for ,scan-batch-idx-sym from 0
-                     for ,deleted-row-ids-sym = (or (fset:lookup ,deletes-md-sym (prin1-to-string ,scan-batch-idx-sym)) (fset:empty-seq))
-                     do (loop for ,scan-row-id-sym of-type fixnum below (endb/arrow:arrow-length ,batch-sym)
-                              for ,vars = (endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',projection)
-                              unless (fset:find ,scan-row-id-sym ,deleted-row-ids-sym
-                                                :key (lambda (,deleted-row-ids-sym)
-                                                       (fset:lookup ,deleted-row-ids-sym "row_id")))
-                                ,@where-src
-                              ,@nested-src)))))
+               (deleted-row-ids-sym (gensym))
+               (lambda-sym (gensym)))
+          (destructuring-bind (&optional (temporal-type :as-of temporal-type-p) (temporal-start :current_timestamp) (temporal-end temporal-start))
+              (base-table-temporal from-src)
+            `(let ((,table-md-sym (endb/sql/expr:base-table-meta ,(fset:lookup ctx :db-sym) ,table-name))
+                   ,@(when temporal-type-p
+                       `((,system-time-start-sym ,(ast->cl ctx temporal-start))
+                         (,system-time-end-sym ,(ast->cl ctx temporal-end)))))
+               (fset:do-map (,scan-arrow-file-sym ,arrow-file-md-sym ,table-md-sym)
+                 (loop with ,deletes-md-sym = (or (fset:lookup ,arrow-file-md-sym "deletes") (fset:empty-map))
+                       for ((nil . ,batch-sym) (nil . ,temporal-sym)) in (endb/sql/expr:base-table-arrow-batches ,(fset:lookup ctx :db-sym) ,table-name ,scan-arrow-file-sym)
+                       for ,scan-batch-idx-sym from 0
+                       for ,deleted-row-ids-sym = ,(if temporal-type-p
+                                                       `(fset:filter
+                                                         (lambda (,lambda-sym)
+                                                           (eq t (endb/sql/expr:sql-<= (fset:lookup ,lambda-sym "system_time_end") ,system-time-start-sym)))
+                                                         (or (fset:lookup ,deletes-md-sym (prin1-to-string ,scan-batch-idx-sym))
+                                                             (fset:empty-seq)))
+                                                       `(or (fset:lookup ,deletes-md-sym (prin1-to-string ,scan-batch-idx-sym))
+                                                            (fset:empty-seq)))
+                       do (loop for ,scan-row-id-sym of-type fixnum below (endb/arrow:arrow-length ,batch-sym)
+                                for ,vars = (endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',projection)
+                                when (and ,(if temporal-type-p
+                                               `(eq t (,(case temporal-type
+                                                          (:as-of 'endb/sql/expr:sql-<=)
+                                                          (:from 'endb/sql/expr:sql-<)
+                                                          (:between 'endb/sql/expr:sql-<=))
+                                                       (endb/arrow:arrow-get ,temporal-sym ,scan-row-id-sym)
+                                                       ,system-time-end-sym))
+                                               t)
+                                          (not (fset:find ,scan-row-id-sym
+                                                          ,deleted-row-ids-sym
+                                                          :key (lambda (,lambda-sym)
+                                                                 (fset:lookup ,lambda-sym "row_id")))))
+                                  ,@where-src
+                                ,@nested-src))))))
         `(loop for ,(%unique-vars vars)
                  in ,from-src
                ,@where-src

@@ -426,6 +426,55 @@
       (is (equalp (list (list (endb/arrow:parse-arrow-date-days "2023-05-16"))) result))
       (is (equal '("CURRENT_DATE") columns)))))
 
+(test system-time
+  (let* ((db (make-db))
+         (system-time-as-of-empty (endb/sql/expr:sql-current-timestamp db)))
+
+    (sleep 0.01)
+
+    (let* ((write-db (begin-write-tx db))
+           (system-time-as-of-insert (endb/sql/expr:sql-current-timestamp write-db)))
+
+      (is (not (equalp system-time-as-of-empty system-time-as-of-insert)))
+
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "INSERT INTO t1(a, b) VALUES(103, 104)")
+        (is (null result))
+        (is (= 1 result-code)))
+
+      (setf db (commit-write-tx db write-db))
+
+      (is (equal '((103 104)) (execute-sql db "SELECT * FROM t1")))
+
+      (is (null (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME AS OF ?" system-time-as-of-empty)))
+
+      (sleep 0.01)
+
+      (let* ((write-db (begin-write-tx db))
+             (system-time-as-of-update (endb/sql/expr:sql-current-timestamp write-db)))
+        (is (not (equalp system-time-as-of-insert system-time-as-of-update)))
+
+        (multiple-value-bind (result result-code)
+            (execute-sql write-db "UPDATE t1 SET a = 101 WHERE a = 103")
+          (is (null result))
+          (is (= 1 result-code)))
+
+        (is (equal '((101 104)) (execute-sql write-db "SELECT * FROM t1")))
+
+        (setf db (commit-write-tx db write-db))
+
+        (is (equal '((101 104)) (execute-sql db "SELECT * FROM t1")))
+        (is (equal '((101 104)) (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME AS OF ?" system-time-as-of-update)))
+        (is (equal '((103 104)) (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME AS OF ?" system-time-as-of-insert)))
+        (is (null (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME AS OF ?" system-time-as-of-empty)))
+
+        (is (equal '((101 104) (103 104)) (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME BETWEEN ? AND ?" system-time-as-of-insert system-time-as-of-update)))
+        (is (equal '((103 104)) (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME BETWEEN ? AND ?" system-time-as-of-empty system-time-as-of-insert)))
+        (is (null (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME BETWEEN ? AND ?" system-time-as-of-empty system-time-as-of-empty)))
+
+        (is (equal '((103 104)) (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME FROM ? TO ?" system-time-as-of-insert system-time-as-of-update)))
+        (is (null (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME FROM ? TO ?" system-time-as-of-empty system-time-as-of-insert)))))))
+
 (test semi-structured
   (let* ((db (make-db)))
 
