@@ -17,7 +17,7 @@
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-duration #:sql-like #:sql-substring #:sql-strftime
            #:sql-current-date #:sql-current-time #:sql-current-timestamp
            #:make-sql-agg #:sql-agg-accumulate #:sql-agg-finish
-           #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
+           #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-insert-objects #:sql-delete
            #:make-db #:copy-db #:db-buffer-pool #:db-wal #:db-object-store #:db-meta-data #:db-current-timestamp
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
@@ -1356,6 +1356,13 @@
           (unless (table-type db table-name)
             (sql-insert db "information_schema.tables" (list (list :null *default-schema* table-name "BASE TABLE")))
             (sql-insert db table-name values :column-names column-names))))))
+
+(defun sql-insert-objects (db table-name objects)
+  (loop for object in objects
+        do (sql-insert db table-name
+                       (list (mapcar #'cdr object))
+                       :column-names (mapcar #'car object)))
+  (values nil (length objects)))
 
 (defun sql-delete (db table-name new-batch-file-idx-deleted-row-ids)
   (with-slots (meta-data current-timestamp) db

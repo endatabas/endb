@@ -175,7 +175,27 @@
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM t2 ORDER BY a")
       (is (equal '((1 2 2) (2 3 :null) (3 :null 4)) result))
-      (is (equal '("a" "b" "c") columns)))))
+      (is (equal '("a" "b" "c") columns)))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "UPDATE t2 SET d = 4 WHERE c = 2")
+      (is (null result))
+      (is (= 1 result-code)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT * FROM t2 ORDER BY a")
+      (is (equal '((1 2 2 4) (2 3 :null :null) (3 :null 4 :null)) result))
+      (is (equal '("a" "b" "c" "d") columns)))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "UPDATE t2 SET c = 5 UNSET a WHERE b = 3")
+      (is (null result))
+      (is (= 1 result-code)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT * FROM t2 ORDER BY c")
+      (is (equal '((1 2 2 4) (3 :null 4 :null) (:null 3 5 :null)) result))
+      (is (equal '("a" "b" "c" "d") columns)))))
 
 (test multiple-statments
   (let* ((db (make-db)))

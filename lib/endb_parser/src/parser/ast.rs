@@ -99,6 +99,7 @@ pub enum Keyword {
     CurrentDate,
     CurrentTime,
     CurrentTimestamp,
+    Unset,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

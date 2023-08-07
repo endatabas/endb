@@ -102,7 +102,8 @@
   :duration
   :current_date
   :current_time
-  :current_timestamp)
+  :current_timestamp
+  :unset)
 
 (cffi:defcenum Ast_Tag
   :List

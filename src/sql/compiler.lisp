@@ -174,7 +174,7 @@
                (table-md-sym (gensym))
                (arrow-file-md-sym (gensym))
                (deletes-md-sym (gensym))
-               (batch-sym (gensym))
+               (batch-sym (or (fset:lookup ctx :batch-sym) (gensym)))
                (system-time-start-sym (gensym))
                (system-time-end-sym (gensym))
                (temporal-sym (gensym))
@@ -205,9 +205,9 @@
                        do (loop for ,scan-row-id-sym of-type fixnum below (endb/arrow:arrow-length ,batch-sym)
                                 for ,vars = ,(if  endb/sql/expr:*sqlite-mode*
                                                   `(endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',projection)
-                                                  `(concatenate 'list (endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',(remove "system_time" projection :test 'equal))
-                                                                (list (list (cons "start" (endb/arrow:arrow-get ,temporal-sym ,scan-row-id-sym))
-                                                                            (cons "end" (endb/sql/expr:batch-row-system-time-end ,raw-deleted-row-ids-sym ,scan-row-id-sym))))))
+                                                  `(append (endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',(remove "system_time" projection :test 'equal))
+                                                           (list (list (cons "start" (endb/arrow:arrow-get ,temporal-sym ,scan-row-id-sym))
+                                                                       (cons "end" (endb/sql/expr:batch-row-system-time-end ,raw-deleted-row-ids-sym ,scan-row-id-sym))))))
                                 when (and ,(if temporal-type-p
                                                `(eq t (,(case temporal-type
                                                           (:as-of 'endb/sql/expr:sql-<=)
@@ -417,9 +417,8 @@
                           (table-alias (%unqualified-column-name (symbol-name table-alias)))
                           (qualified-projection (loop for column in projection
                                                       collect (%qualified-column-name table-alias column)))
-                          (projection (concatenate 'list projection
-                                                   (unless endb/sql/expr:*sqlite-mode*
-                                                     (list "system_time"))))
+                          (projection (append projection (unless endb/sql/expr:*sqlite-mode*
+                                                           (list "system_time"))))
                           (env-extension (%env-extension table-alias projection))
                           (ctx (fset:map-union ctx env-extension))
                           (from-table (make-from-table :src table-src
@@ -654,13 +653,7 @@
 (defmethod sql->cl (ctx (type (eql :insert-objects)) &rest args)
   (destructuring-bind (table-name values)
       args
-    (let ((object-sym (gensym)))
-      `(progn
-         (loop for ,object-sym in ,(ast->cl ctx values)
-               do (endb/sql/expr:sql-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name)
-                                            (list (mapcar #'cdr ,object-sym))
-                                            :column-names (mapcar #'car ,object-sym)))
-         (values nil ,(length values))))))
+    `(endb/sql/expr:sql-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx values))))
 
 (defmethod sql->cl (ctx (type (eql :delete)) &rest args)
   (destructuring-bind (table-name where)
@@ -688,7 +681,7 @@
              (endb/sql/expr:sql-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)))))))
 
 (defmethod sql->cl (ctx (type (eql :update)) &rest args)
-  (destructuring-bind (table-name update-cols &key (where :true))
+  (destructuring-bind (table-name update-cols &key (where :true) unset)
       args
     (multiple-value-bind (from-src projection)
         (%base-table-or-view->cl ctx table-name)
@@ -696,39 +689,39 @@
         (let* ((scan-row-id-sym (gensym))
                (scan-batch-idx-sym (gensym))
                (scan-arrow-file-sym (gensym))
+               (batch-sym (gensym))
                (env-extension (%env-extension (symbol-name table-name) projection))
                (ctx (fset:map-union (fset:map-union ctx env-extension)
                                     (fset:map (:scan-row-id-sym scan-row-id-sym)
                                               (:scan-arrow-file-sym scan-arrow-file-sym)
-                                              (:scan-batch-idx-sym scan-batch-idx-sym))))
+                                              (:scan-batch-idx-sym scan-batch-idx-sym)
+                                              (:batch-sym batch-sym))))
                (vars (loop for p in projection
                            collect (fset:lookup env-extension p)))
                (where-clauses (loop for clause in (%and-clauses where)
                                     collect (make-where-clause :src (ast->cl ctx clause)
                                                                :ast clause)))
-               (update-cols (reverse update-cols))
-               (update-col-names (mapcar (lambda (x)
-                                           (symbol-name (first x)))
-                                         update-cols))
-               (update-select-list (loop for column in projection
-                                         for (update-col expr) = (find column update-cols
-                                                                       :key (lambda (x)
-                                                                              (symbol-name (first x)))
-                                                                       :test 'equal)
-                                         if update-col
-                                           collect (ast->cl ctx expr)
-                                         else
-                                           collect (ast->cl ctx (make-symbol column))))
+               (update-select-list (loop for (update-col expr) in update-cols
+                                         collect `(cons ,(symbol-name update-col) ,(ast->cl ctx expr))))
+               (unset-columns (loop for c in unset
+                                    collect (list (symbol-name c))))
                (updated-rows-sym (gensym))
                (deleted-row-ids-sym (gensym)))
-          (when (subsetp update-col-names projection :test 'equal)
-            `(let ((,updated-rows-sym)
-                   (,deleted-row-ids-sym))
-               ,(%table-scan->cl ctx vars projection from-src where-clauses
-                                 `(do (push (list ,@update-select-list) ,updated-rows-sym)
-                                      (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym)))
-               (endb/sql/expr:sql-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)
-               (endb/sql/expr:sql-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,updated-rows-sym :column-names ',projection))))))))
+          `(let ((,updated-rows-sym)
+                 (,deleted-row-ids-sym))
+             ,(%table-scan->cl ctx vars projection from-src where-clauses
+                               `(do
+                                 (push (set-difference (delete-duplicates (append (endb/arrow:arrow-get ,batch-sym ,scan-row-id-sym)
+                                                                                  (list ,@update-select-list))
+                                                                          :test 'equal
+                                                                          :key #'car)
+                                                       ',unset-columns
+                                                       :test 'equal
+                                                       :key #'car)
+                                       ,updated-rows-sym)
+                                    (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym)))
+             (endb/sql/expr:sql-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)
+             (endb/sql/expr:sql-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,updated-rows-sym)))))))
 
 (defmethod sql->cl (ctx (type (eql :in-query)) &rest args)
   (destructuring-bind (expr query)
