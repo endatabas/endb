@@ -97,6 +97,10 @@ typedef enum Keyword {
   SpreadProperty,
   ComputedProperty,
   Duration,
+  CurrentDate,
+  CurrentTime,
+  CurrentTimestamp,
+  Unset,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;
