@@ -20,7 +20,7 @@
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
            #:make-db #:copy-db #:db-buffer-pool #:db-wal #:db-object-store #:db-meta-data #:db-current-timestamp
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns
-           #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size
+           #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
            #:view-definition #:calculate-stats
            #:sql-runtime-error #:*sqlite-mode* #:+end-of-time+))
 (in-package :endb/sql/expr)
@@ -347,33 +347,33 @@
   0)
 
 (defmethod sql-+ ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-interval-month-day-nanos))
-  (endb/arrow::make-arrow-timestamp-micros :us (endb/arrow::%timestamp-to-micros
-                                                (periods:add-time (endb/arrow::%micros-to-timestamp (endb/arrow:arrow-timestamp-micros-us x))
-                                                                  (endb/arrow::%month-day-nanos-to-duration y)))))
+  (endb/arrow:local-time-to-arrow-timestamp-micros
+   (periods:add-time (endb/arrow:arrow-timestamp-micros-to-local-time x)
+                     (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y))))
 
 (defmethod sql-+ ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-timestamp-micros))
   (sql-+ y x))
 
 (defmethod sql-+ ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-interval-month-day-nanos))
-  (endb/arrow::make-arrow-date-days :day (endb/arrow::%timestamp-to-epoch-day
-                                          (periods:add-time (endb/arrow::%epoch-day-to-timestamp (endb/arrow:arrow-date-days-day x))
-                                                            (endb/arrow::%month-day-nanos-to-duration y)))))
+  (endb/arrow:local-time-to-arrow-date-days
+   (periods:add-time (endb/arrow:arrow-date-days-to-local-time x)
+                     (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y))))
 
 (defmethod sql-+ ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-date-days))
   (sql-+ y x))
 
 (defmethod sql-+ ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-interval-month-day-nanos))
-  (endb/arrow::make-arrow-time-micros :us (endb/arrow::%time-to-micros
-                                           (periods:add-time (endb/arrow::%micros-to-time (endb/arrow:arrow-time-micros-us x))
-                                                             (endb/arrow::%month-day-nanos-to-duration y)))))
+  (endb/arrow:local-time-to-arrow-time-micros
+   (periods:add-time (endb/arrow:arrow-time-micros-to-local-time x)
+                     (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y))))
 
 (defmethod sql-+ ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-time-micros))
   (sql-+ y x))
 
 (defmethod sql-+ ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
-  (endb/arrow::%duration-to-interval-month-day-nanos
-   (periods:add-duration (endb/arrow::%month-day-nanos-to-duration x)
-                         (endb/arrow::%month-day-nanos-to-duration y))))
+  (endb/arrow:periods-duration-to-arrow-interval-month-day-nanos
+   (periods:add-duration (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration x)
+                         (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y))))
 
 (defmethod sql-unary- ((x (eql :null)))
   :null)
@@ -406,42 +406,42 @@
   0)
 
 (defmethod sql-- ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-interval-month-day-nanos))
-  (endb/arrow::make-arrow-timestamp-micros :us (endb/arrow::%timestamp-to-micros
-                                                (periods:subtract-time (endb/arrow::%micros-to-timestamp (endb/arrow:arrow-timestamp-micros-us x))
-                                                                       (endb/arrow::%month-day-nanos-to-duration y)))))
+  (endb/arrow:local-time-to-arrow-timestamp-micros
+   (periods:subtract-time (endb/arrow:arrow-timestamp-micros-to-local-time x)
+                          (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y))))
 
 (defmethod sql-- ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
-  (endb/arrow::%duration-to-interval-month-day-nanos
-   (periods:time-difference (endb/arrow::%micros-to-timestamp (endb/arrow:arrow-timestamp-micros-us x))
-                            (endb/arrow::%micros-to-timestamp (endb/arrow:arrow-timestamp-micros-us y)))))
+  (endb/arrow:periods-duration-to-arrow-interval-month-day-nanos
+   (periods:time-difference (endb/arrow:arrow-timestamp-micros-to-local-time x)
+                            (endb/arrow:arrow-timestamp-micros-to-local-time y))))
 
 (defmethod sql-- ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-interval-month-day-nanos))
-  (endb/arrow::make-arrow-date-days :day (endb/arrow::%timestamp-to-epoch-day
-                                          (periods:subtract-time (endb/arrow::%epoch-day-to-timestamp (endb/arrow:arrow-date-days-day x))
-                                                                 (endb/arrow::%month-day-nanos-to-duration y)))))
+  (endb/arrow:local-time-to-arrow-date-days
+   (periods:subtract-time (endb/arrow:arrow-date-days-to-local-time x)
+                          (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y))))
 
 (defmethod sql-- ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-date-days))
-  (endb/arrow::%duration-to-interval-month-day-nanos
-   (periods:time-difference (endb/arrow::%epoch-day-to-timestamp (endb/arrow:arrow-date-days-day x))
-                            (endb/arrow::%epoch-day-to-timestamp (endb/arrow:arrow-date-days-day y)))))
+  (endb/arrow:periods-duration-to-arrow-interval-month-day-nanos
+   (periods:time-difference (endb/arrow:arrow-date-days-to-local-time x)
+                            (endb/arrow:arrow-date-days-to-local-time y))))
 
 (defmethod sql-- ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-interval-month-day-nanos))
-  (endb/arrow::make-arrow-time-micros :us (endb/arrow::%time-to-micros
-                                           (periods:subtract-time (endb/arrow::%micros-to-time (endb/arrow:arrow-time-micros-us x))
-                                                                  (endb/arrow::%month-day-nanos-to-duration y)))))
+  (endb/arrow:local-time-to-arrow-time-micros
+   (periods:subtract-time (endb/arrow:arrow-time-micros-to-local-time x)
+                          (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y))))
 
 (defmethod sql-- ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-time-micros))
-  (endb/arrow::%duration-to-interval-month-day-nanos
-   (periods:time-difference (endb/arrow::%micros-to-time (endb/arrow:arrow-time-micros-us x))
-                            (endb/arrow::%micros-to-time (endb/arrow:arrow-time-micros-us y)))))
+  (endb/arrow:periods-duration-to-arrow-interval-month-day-nanos
+   (periods:time-difference (endb/arrow:arrow-time-micros-to-local-time x)
+                            (endb/arrow:arrow-time-micros-to-local-time y))))
 
 (defmethod sql-- ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
-  (endb/arrow::%duration-to-interval-month-day-nanos
+  (endb/arrow:periods-duration-to-arrow-interval-month-day-nanos
    (if (> (endb/arrow:arrow-interval-month-day-nanos-uint128 x) (endb/arrow:arrow-interval-month-day-nanos-uint128 y))
-       (periods:subtract-duration (endb/arrow::%month-day-nanos-to-duration x)
-                                  (endb/arrow::%month-day-nanos-to-duration y))
-       (periods:subtract-duration (endb/arrow::%month-day-nanos-to-duration y)
-                                  (endb/arrow::%month-day-nanos-to-duration x)))))
+       (periods:subtract-duration (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration x)
+                                  (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y))
+       (periods:subtract-duration (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y)
+                                  (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration x)))))
 
 (defmethod sql-* ((x (eql :null)) (y (eql :null)))
   :null)
@@ -635,20 +635,16 @@
   (round x))
 
 (defmethod sql-cast ((x endb/arrow:arrow-date-days) (type (eql :integer)))
-  (local-time:timestamp-year (endb/arrow::%epoch-day-to-timestamp (endb/arrow:arrow-date-days-day x))))
+  (local-time:timestamp-year (endb/arrow:arrow-date-days-to-local-time x)))
 
 (defmethod sql-cast ((x endb/arrow:arrow-date-days) (type (eql :timestamp)))
-  (let ((us (endb/arrow::%timestamp-to-micros (endb/arrow::%epoch-day-to-timestamp (endb/arrow:arrow-date-days-day x)))))
-    (endb/arrow::make-arrow-timestamp-micros :us us)))
+  (endb/arrow:local-time-to-arrow-timestamp-micros (endb/arrow:arrow-date-days-to-local-time x)))
 
 (defmethod sql-cast ((x endb/arrow:arrow-timestamp-micros) (type (eql :date)))
-  (let* ((us (endb/arrow:arrow-timestamp-micros-us x))
-         (day (endb/arrow::%timestamp-to-epoch-day (endb/arrow::%micros-to-timestamp us))))
-    (endb/arrow::make-arrow-date-days :day day)))
+  (endb/arrow:local-time-to-arrow-date-days (endb/arrow:arrow-timestamp-micros-to-local-time x)))
 
 (defmethod sql-cast ((x endb/arrow:arrow-timestamp-micros) (type (eql :time)))
-  (let ((us (endb/arrow:arrow-timestamp-micros-us x)))
-    (endb/arrow::make-arrow-time-micros :us (endb/arrow::%time-to-micros (endb/arrow::%micros-to-timestamp us)))))
+  (endb/arrow:local-time-to-arrow-time-micros (endb/arrow:arrow-timestamp-micros-to-local-time x)))
 
 (defmethod sql-cast ((x number) (type (eql :signed)))
   (coerce x 'integer))
@@ -767,15 +763,15 @@
 
 (defmethod sql-strftime ((format string) (x endb/arrow:arrow-date-days))
   (let ((local-time:*default-timezone* local-time:+utc-zone+))
-    (periods:strftime (endb/arrow::%epoch-day-to-timestamp (endb/arrow:arrow-date-days-day x)) :format format)))
+    (periods:strftime (endb/arrow:arrow-date-days-to-local-time x) :format format)))
 
 (defmethod sql-strftime ((format string) (x endb/arrow:arrow-time-micros))
   (let ((local-time:*default-timezone* local-time:+utc-zone+))
-    (periods:strftime (endb/arrow::%micros-to-time (endb/arrow:arrow-time-micros-us x)) :format format)))
+    (periods:strftime (endb/arrow:arrow-time-micros-to-local-time x) :format format)))
 
 (defmethod sql-strftime ((format string) (x endb/arrow:arrow-timestamp-micros))
   (let ((local-time:*default-timezone* local-time:+utc-zone+))
-    (periods:strftime (endb/arrow::%micros-to-timestamp (endb/arrow:arrow-timestamp-micros-us x)) :format format)))
+    (periods:strftime (endb/arrow:arrow-timestamp-micros-to-local-time x) :format format)))
 
 (defmethod sql-substring ((x (eql :null)) (y (eql :null)) &optional z)
   (declare (ignore z))
@@ -827,7 +823,7 @@
 
 (defun sql-current-timestamp (db)
   (or (db-current-timestamp db)
-      (endb/arrow::make-arrow-timestamp-micros :us (endb/arrow::%timestamp-to-micros (local-time:now)))))
+      (endb/arrow:local-time-to-arrow-timestamp-micros (local-time:now))))
 
 ;; Aggregates
 
@@ -1115,6 +1111,13 @@
                                              collect (if arrow-file-idx-row-id-p
                                                          (cons (list arrow-file batch-idx row-id) (mapcar #'cdr (endb/arrow:arrow-get batch row-id)))
                                                          (mapcar #'cdr (endb/arrow:arrow-get batch row-id))))))))))
+
+(defun batch-row-system-time-end (batch-deletes row-id)
+  (fset:lookup (or (fset:find-if (lambda (x)
+                                   (= row-id (fset:lookup x "row_id")))
+                                 batch-deletes)
+                   (fset:map ("system_time_end" +end-of-time+)))
+               "system_time_end"))
 
 (defun %information-schema-table-p (table-name)
   (member table-name '("information_schema.columns" "information_schema.tables" "information_schema.views") :test 'equal))

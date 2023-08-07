@@ -207,11 +207,7 @@
                                                   `(endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',projection)
                                                   `(concatenate 'list (endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',(remove "system_time" projection :test 'equal))
                                                                 (list (list (cons "start" (endb/arrow:arrow-get ,temporal-sym ,scan-row-id-sym))
-                                                                            (cons "end" (fset:lookup (or (fset:find-if (lambda (,lambda-sym)
-                                                                                                                         (= ,scan-row-id-sym (fset:lookup ,lambda-sym "row_id")))
-                                                                                                                       ,raw-deleted-row-ids-sym)
-                                                                                                         (fset:map ("system_time_end" endb/sql/expr:+end-of-time+)))
-                                                                                                     "system_time_end"))))))
+                                                                            (cons "end" (endb/sql/expr:batch-row-system-time-end ,raw-deleted-row-ids-sym ,scan-row-id-sym))))))
                                 when (and ,(if temporal-type-p
                                                `(eq t (,(case temporal-type
                                                           (:as-of 'endb/sql/expr:sql-<=)
@@ -883,7 +879,7 @@
                         collect (ast->cl ctx ast))))))
 
 (defmethod sql->cl (ctx (type (eql :aggregate-function)) &rest args)
-  (destructuring-bind (fn args &key distinct (where ':true))
+  (destructuring-bind (fn args &key distinct (where :true))
       args
     (let* ((aggregate-table (fset:lookup ctx :aggregate-table))
            (fn-sym (%find-sql-expr-symbol fn))

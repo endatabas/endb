@@ -3,6 +3,8 @@
   (:export #:arrow-date-days #:arrow-time-micros #:arrow-timestamp-micros #:arrow-interval-month-day-nanos #:arrow-binary #:arrow-struct
            #:parse-arrow-date-days #:parse-arrow-timestamp-micros #:parse-arrow-time-micros #:parse-arrow-interval-month-day-nanos
            #:arrow-date-days-day #:arrow-time-micros-us #:arrow-timestamp-micros-us #:arrow-interval-month-day-nanos-uint128
+           #:arrow-timestamp-micros-to-local-time #:arrow-time-micros-to-local-time #:arrow-date-days-to-local-time #:arrow-interval-month-day-nanos-to-periods-duration
+           #:local-time-to-arrow-timestamp-micros #:local-time-to-arrow-date-days #:local-time-to-arrow-time-micros #:periods-duration-to-arrow-interval-month-day-nanos
            #:to-arrow #:make-arrow-array-for #:arrow-class-for-format
            #:arrow-push #:arrow-valid-p #:arrow-get #:arrow-value
            #:arrow-length #:arrow-null-count #:arrow-data-type #:arrow-lisp-type
@@ -41,13 +43,19 @@
                  (setf (char s 10) #\T)
                  s)
                s)))
-    (make-arrow-timestamp-micros :us (%timestamp-to-micros (local-time:parse-timestring s)))))
+    (local-time-to-arrow-timestamp-micros (local-time:parse-timestring s))))
 
 (defun %micros-to-timestamp (us)
   (let* ((ns (* 1000 us)))
     (multiple-value-bind (sec ns)
         (floor ns 1000000000)
       (local-time:unix-to-timestamp sec :nsec ns))))
+
+(defun arrow-timestamp-micros-to-local-time (x)
+  (%micros-to-timestamp (arrow-timestamp-micros-us x)))
+
+(defun local-time-to-arrow-timestamp-micros (x)
+  (make-arrow-timestamp-micros :us (%timestamp-to-micros x)))
 
 (defmethod print-object ((object arrow-timestamp-micros) stream)
   (cond
@@ -56,7 +64,8 @@
     (t
      (when *print-escape*
        (write-char #\@ stream))
-     (local-time:format-rfc3339-timestring stream (%micros-to-timestamp (slot-value object 'us)) :timezone local-time:+utc-zone+))))
+     (let ((timestamp (arrow-timestamp-micros-to-local-time object)))
+       (local-time:format-rfc3339-timestring stream timestamp :timezone local-time:+utc-zone+)))))
 
 (defconstant +offset-from-epoch-day+ 11017)
 
@@ -71,6 +80,12 @@
 (defun %timestamp-to-epoch-day (date)
   (+ (local-time:day-of date) +offset-from-epoch-day+))
 
+(defun arrow-date-days-to-local-time (x)
+  (%epoch-day-to-timestamp (arrow-date-days-day x)))
+
+(defun local-time-to-arrow-date-days (x)
+  (make-arrow-date-days :day (%timestamp-to-epoch-day x)))
+
 (defmethod print-object ((object arrow-date-days) stream)
   (cond
     (local-time::*debug-timestamp*
@@ -78,12 +93,11 @@
     (t
      (when *print-escape*
        (write-char #\@ stream))
-     (let ((date (%epoch-day-to-timestamp (arrow-date-days-day object))))
+     (let ((date (arrow-date-days-to-local-time object)))
        (local-time:format-rfc3339-timestring stream date :omit-time-part t :omit-timezone-part t :timezone local-time:+utc-zone+)))))
 
 (defun parse-arrow-date-days (s)
-  (let ((date (local-time:parse-timestring s :allow-missing-time-part t)))
-    (make-arrow-date-days :day (%timestamp-to-epoch-day date))))
+  (local-time-to-arrow-date-days (local-time:parse-timestring s :allow-missing-time-part t)))
 
 (defstruct arrow-time-micros (us 0 :type int64))
 
@@ -96,14 +110,19 @@
     (+ (* 1000000 sec) (/ nsec 1000))))
 
 (defun parse-arrow-time-micros (s)
-  (let ((time (local-time:parse-timestring s :allow-missing-date-part t)))
-    (make-arrow-time-micros :us (%time-to-micros time))))
+  (local-time-to-arrow-time-micros (local-time:parse-timestring s :allow-missing-date-part t)))
 
 (defun %micros-to-time (us)
   (let* ((ns (* 1000 us)))
     (multiple-value-bind (sec ns)
         (floor ns 1000000000)
       (local-time:make-timestamp :sec sec :nsec ns))))
+
+(defun arrow-time-micros-to-local-time (x)
+  (%micros-to-time (arrow-time-micros-us x)))
+
+(defun local-time-to-arrow-time-micros (x)
+  (make-arrow-time-micros :us (%time-to-micros x)))
 
 (defmethod print-object ((object arrow-time-micros) stream)
   (cond
@@ -112,7 +131,7 @@
     (t
      (when *print-escape*
        (write-char #\@ stream))
-     (let ((time (%micros-to-time (arrow-time-micros-us object))))
+     (let ((time (arrow-time-micros-to-local-time object)))
        (local-time:format-rfc3339-timestring stream time :omit-date-part t :omit-timezone-part t :timezone local-time:+utc-zone+)))))
 
 (defstruct arrow-interval-month-day-nanos (day 0 :type int32) (month 0 :type int32) (ns 0 :type int64))
@@ -125,7 +144,7 @@
 (defmethod murmurhash:murmurhash ((x endb/arrow:arrow-interval-month-day-nanos) &key (seed murmurhash:*default-seed*) mix-only)
   (murmurhash:murmurhash (arrow-interval-month-day-nanos-uint128 x) :seed seed :mix-only mix-only))
 
-(defun %duration-to-interval-month-day-nanos (duration)
+(defun periods-duration-to-arrow-interval-month-day-nanos (duration)
   (let ((month (+ (* (periods::duration-years duration) 12)
                   (periods::duration-months duration)))
         (day (periods::duration-days duration))
@@ -162,7 +181,7 @@
                                                                  (* minutes 60 1000000000)
                                                                  (* seconds 1000000000)))))))))))
 
-(defun %month-day-nanos-to-duration (x)
+(defun arrow-interval-month-day-nanos-to-periods-duration (x)
   (with-slots (month day ns) x
     (multiple-value-bind (years months)
         (floor month 12)
@@ -187,7 +206,7 @@
                                   :nanoseconds nanoseconds)))))))))
 
 (defmethod print-object ((object arrow-interval-month-day-nanos) stream)
-  (let* ((duration (%month-day-nanos-to-duration object))
+  (let* ((duration (arrow-interval-month-day-nanos-to-periods-duration object))
          (ns (+ (* (periods:duration-seconds duration) 1000000000)
 	        (* (periods::duration-milliseconds duration) 1000000)
 	        (* (periods::duration-microseconds duration) 1000)
