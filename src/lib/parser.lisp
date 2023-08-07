@@ -99,7 +99,10 @@
   :shorthand-property
   :spread-property
   :computed-property
-  :duration)
+  :duration
+  :current_date
+  :current_time
+  :current_timestamp)
 
 (cffi:defcenum Ast_Tag
   :List

@@ -2106,6 +2106,16 @@ mod tests {
                             start: 7
                             end: 17
         "###);
+
+        assert_yaml_snapshot!(parse("SELECT CURRENT_DATE"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - KW: CurrentDate
+        "###);
     }
 
     #[test]

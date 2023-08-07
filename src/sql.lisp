@@ -2,6 +2,7 @@
   (:use :cl)
   (:export #:*query-timing* #:make-db #:make-directory-db #:close-db #:begin-write-tx #:commit-write-tx #:execute-sql #:interpret-sql-literal)
   (:import-from :alexandria)
+  (:import-from :endb/arrow)
   (:import-from :endb/sql/expr)
   (:import-from :endb/sql/compiler)
   (:import-from :endb/lib/arrow)
@@ -60,6 +61,8 @@
   (let* ((bp (endb/storage/buffer-pool:make-writeable-buffer-pool :parent-pool (endb/sql/expr:db-buffer-pool db)))
          (write-db (endb/sql/expr:copy-db db)))
     (setf (endb/sql/expr:db-buffer-pool write-db) bp)
+    (setf (endb/sql/expr:db-current-timestamp write-db)
+          (endb/arrow::make-arrow-timestamp-micros :us (endb/arrow::%timestamp-to-micros (local-time:now))))
     write-db))
 
 (defun %log-filename (tx-id)

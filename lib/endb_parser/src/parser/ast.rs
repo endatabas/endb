@@ -96,6 +96,9 @@ pub enum Keyword {
     SpreadProperty,
     ComputedProperty,
     Duration,
+    CurrentDate,
+    CurrentTime,
+    CurrentTimestamp,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

@@ -15,9 +15,10 @@
            #:sql-access #:sql-between #:sql-in #:sql-exists #:sql-coalesce
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery #:sql-unnest
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-duration #:sql-like #:sql-substring #:sql-strftime
+           #:sql-current-date #:sql-current-time #:sql-current-timestamp
            #:make-sql-agg #:sql-agg-accumulate #:sql-agg-finish
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-delete
-           #:make-db #:copy-db #:db-buffer-pool #:db-wal #:db-object-store #:db-meta-data
+           #:make-db #:copy-db #:db-buffer-pool #:db-wal #:db-object-store #:db-meta-data #:db-current-timestamp
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size
            #:view-definition #:calculate-stats
@@ -595,6 +596,15 @@
 (defmethod sql-cast ((x endb/arrow:arrow-date-days) (type (eql :integer)))
   (local-time:timestamp-year (endb/arrow::%epoch-day-to-timestamp (endb/arrow:arrow-date-days-day x))))
 
+(defmethod sql-cast ((x endb/arrow:arrow-timestamp-micros) (type (eql :date)))
+  (let* ((us (endb/arrow:arrow-timestamp-micros-us x))
+         (day (endb/arrow::%timestamp-to-epoch-day (endb/arrow::%micros-to-timestamp us))))
+    (endb/arrow::make-arrow-date-days :day day)))
+
+(defmethod sql-cast ((x endb/arrow:arrow-timestamp-micros) (type (eql :time)))
+  (let ((us (endb/arrow:arrow-timestamp-micros-us x)))
+    (endb/arrow::make-arrow-time-micros :us (endb/arrow::%time-to-micros (endb/arrow::%micros-to-timestamp us)))))
+
 (defmethod sql-cast ((x number) (type (eql :signed)))
   (coerce x 'integer))
 
@@ -763,6 +773,16 @@
                        collect (list x idx))
                  (loop for x across array
                        collect (list x))))))
+
+(defun sql-current-date (db)
+  (sql-cast (sql-current-timestamp db) :date))
+
+(defun sql-current-time (db)
+  (sql-cast (sql-current-timestamp db) :time))
+
+(defun sql-current-timestamp (db)
+  (or (db-current-timestamp db)
+      (endb/arrow::make-arrow-timestamp-micros :us (endb/arrow::%timestamp-to-micros (local-time:now)))))
 
 ;; Aggregates
 
@@ -1023,7 +1043,7 @@
 
 (defvar *default-schema* "main")
 
-(defstruct db wal object-store buffer-pool (meta-data (fset:map ("_last_tx" 0))))
+(defstruct db wal object-store buffer-pool (meta-data (fset:map ("_last_tx" 0))) current-timestamp)
 
 (defun base-table-meta (db table-name)
   (with-slots (meta-data) db

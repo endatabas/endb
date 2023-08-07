@@ -188,6 +188,13 @@ where
     ))
     .map(KW);
 
+    let current_literals = choice((
+        kw_no_pad("CURRENT_DATE").to(CurrentDate),
+        kw_no_pad("CURRENT_TIME").to(CurrentTime),
+        kw_no_pad("CURRENT_TIMESTAMP").to(CurrentTimestamp),
+    ))
+    .map(KW);
+
     choice((
         date_or_timestamp_ast_parser_no_pad(),
         time,
@@ -197,6 +204,7 @@ where
         string,
         double_quoted_string,
         boolean,
+        current_literals,
         col_ref_ast_parser_no_pad(),
     ))
     .then_ignore(text::whitespace())

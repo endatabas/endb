@@ -395,6 +395,27 @@
       (is (equalp (list (list (endb/arrow:parse-arrow-interval-month-day-nanos "PT1H30M"))) result))
       (is (equal '("column1") columns)))))
 
+(test temporal-current-literals
+  (let* ((db (make-db))
+         (now (endb/arrow:parse-arrow-timestamp-micros "2023-05-16T14:43:39.970062Z")))
+
+    (setf (endb/sql/expr:db-current-timestamp db) now)
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT CURRENT_TIMESTAMP")
+      (is (equalp (list (list now)) result))
+      (is (equal '("CURRENT_TIMESTAMP") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT CURRENT_TIME")
+      (is (equalp (list (list (endb/arrow:parse-arrow-time-micros "14:43:39.970062"))) result))
+      (is (equal '("CURRENT_TIME") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT CURRENT_DATE")
+      (is (equalp (list (list (endb/arrow:parse-arrow-date-days "2023-05-16"))) result))
+      (is (equal '("CURRENT_DATE") columns)))))
+
 (test semi-structured
   (let* ((db (make-db)))
 
