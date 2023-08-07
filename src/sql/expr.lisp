@@ -12,7 +12,7 @@
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-unary+ #:sql-unary-
-           #:sql-access #:sql-between #:sql-in #:sql-exists #:sql-coalesce
+           #:sql-access #:sql-access-finish #:sql-between #:sql-in #:sql-exists #:sql-coalesce
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery #:sql-unnest
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-duration #:sql-like #:sql-substring #:sql-strftime
            #:sql-current-date #:sql-current-time #:sql-current-timestamp
@@ -527,36 +527,31 @@
 (defmethod sql-concat (x y)
   (sql-concat (sql-cast x :varchar) (sql-cast y :varchar)))
 
+(defstruct path-seq acc)
+
+(defun sql-access-finish (x y)
+  (let ((x (sql-access x y)))
+    (if (typep x 'path-seq)
+        (coerce (path-seq-acc x) 'vector)
+        x)))
+
 (defmethod sql-access (x y)
   :null)
 
-(defmethod sql-access (x (y (eql :*)))
+(defmethod sql-access (x (y (eql 0)))
   x)
 
 (defmethod sql-access ((x vector) (y number))
-  (if (and (>= y 0)
-           (< y (length x)))
-      (aref x y)
-      :null))
+  (let ((y (if (minusp y)
+               (+ (length x) y)
+               y)))
+    (if (and (>= y 0)
+             (< y (length x)))
+        (aref x y)
+        :null)))
 
-(defmethod sql-access ((x vector) (y string))
-  (loop with acc = (make-array 0 :fill-pointer 0)
-        for x across x
-        for kv = (when (listp x)
-                   (assoc y x :test 'equal))
-        when kv
-          do (vector-push-extend (cdr kv) acc)
-        finally
-           (return acc)))
-
-(defmethod sql-access ((x vector) (y (eql :*)))
-  (loop with acc = (make-array 0 :fill-pointer 0)
-        for x across x
-        when (listp x)
-          do (loop for (nil . v) in x
-                   do (vector-push-extend v acc))
-        finally
-           (return acc)))
+(defmethod sql-access ((x vector) y)
+  (sql-access (make-path-seq :acc (coerce x 'list)) y))
 
 (defmethod sql-access ((x list) (y string))
   (let ((element (assoc y x :test 'equal)))
@@ -565,10 +560,19 @@
         :null)))
 
 (defmethod sql-access ((x list) (y (eql :*)))
-  (map 'vector #'cdr x))
+  (make-path-seq :acc (mapcar #'cdr x)))
 
 (defmethod sql-access ((x (eql :empty-struct)) (y (eql :*)))
-  #())
+  (make-path-seq))
+
+(defmethod sql-access ((x path-seq) y)
+  (make-path-seq :acc (loop for x in (path-seq-acc x)
+                            for z = (sql-access x y)
+                            append (cond
+                                     ((typep z 'path-seq)
+                                      (path-seq-acc z))
+                                     ((eq :null z) ())
+                                     (t (list z))))))
 
 (defun sql-in (item xs)
   (block in

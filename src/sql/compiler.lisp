@@ -835,10 +835,14 @@
 (defmethod sql->cl (ctx (type (eql :access)) &rest args)
   (destructuring-bind (base path)
       args
-    `(endb/sql/expr:sql-access ,(ast->cl ctx base) ,(cond
-                                                      ((eq :* path) path)
-                                                      ((symbolp path) (symbol-name path))
-                                                      (t (ast->cl ctx path))))))
+    `(,(if (eq :seq (fset:lookup ctx :access))
+           'endb/sql/expr:sql-access
+           'endb/sql/expr:sql-access-finish)
+      ,(ast->cl (fset:with ctx :access :seq) base)
+      ,(cond
+         ((eq :* path) path)
+         ((symbolp path) (symbol-name path))
+         (t (ast->cl ctx path))))))
 
 (defmethod sql->cl (ctx (type (eql :with)) &rest args)
   (destructuring-bind (ctes query)
