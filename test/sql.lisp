@@ -351,6 +351,16 @@
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 2001-01-01 = 2001-01-01T00:00:00")
+      (is (equalp (list (list t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 2002-01-01 > 2001-01-01T00:00:00")
+      (is (equalp (list (list t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT P3Y6M")
       (is (equalp (list (list (endb/arrow:parse-arrow-interval-month-day-nanos "P3Y6M"))) result))
       (is (equal '("column1") columns)))

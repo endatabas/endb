@@ -58,6 +58,12 @@
 (defmethod sql-= ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
   (= (endb/arrow:arrow-interval-month-day-nanos-uint128 x) (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
 
+(defmethod sql-= ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-timestamp-micros))
+  (sql-= (sql-cast x :timestamp) y))
+
+(defmethod sql-= ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-days))
+  (sql-= x (sql-cast y :timestamp)))
+
 (defmethod sql-= ((x number) (y number))
   (= x y))
 
@@ -68,13 +74,22 @@
   (sql-not (sql-= x y)))
 
 (defmethod sql-is ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-date-days))
-  (= (endb/arrow:arrow-date-days-day x) (endb/arrow:arrow-date-days-day y)))
+  (sql-= x y))
 
 (defmethod sql-is ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-time-micros))
-  (= (endb/arrow:arrow-time-micros-us x) (endb/arrow:arrow-time-micros-us y)))
+  (sql-= x y))
 
 (defmethod sql-is ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
-  (= (endb/arrow:arrow-timestamp-micros-us x) (endb/arrow:arrow-timestamp-micros-us y)))
+  (sql-= x y))
+
+(defmethod sql-= ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
+  (sql-= x y))
+
+(defmethod sql-is ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-timestamp-micros))
+  (sql-= x y))
+
+(defmethod sql-is ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-days))
+  (sql-= x y))
 
 (defmethod sql-is ((x number) (y number))
   (= x y))
@@ -108,6 +123,12 @@
 
 (defmethod sql-< ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
   (< (endb/arrow:arrow-interval-month-day-nanos-uint128 x) (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
+
+(defmethod sql-< ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-timestamp-micros))
+  (sql-< (sql-cast x :timestamp) y))
+
+(defmethod sql-< ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-days))
+  (sql-< x (sql-cast y :timestamp)))
 
 (defmethod sql-< ((x number) (y number))
   (< x y))
@@ -145,6 +166,12 @@
 (defmethod sql-<= ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
   (<= (endb/arrow:arrow-interval-month-day-nanos-uint128 x) (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
 
+(defmethod sql-<= ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-timestamp-micros))
+  (sql-<= (sql-cast x :timestamp) y))
+
+(defmethod sql-<= ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-days))
+  (sql-<= x (sql-cast y :timestamp)))
+
 (defmethod sql-<= ((x number) (y number))
   (<= x y))
 
@@ -181,6 +208,12 @@
 (defmethod sql-> ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
   (> (endb/arrow:arrow-interval-month-day-nanos-uint128 x) (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
 
+(defmethod sql-> ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-timestamp-micros))
+  (sql-> (sql-cast x :timestamp) y))
+
+(defmethod sql-> ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-days))
+  (sql-> x (sql-cast y :timestamp)))
+
 (defmethod sql-> ((x number) (y number))
   (> x y))
 
@@ -216,6 +249,12 @@
 
 (defmethod sql->= ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
   (>= (endb/arrow:arrow-interval-month-day-nanos-uint128 x) (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
+
+(defmethod sql->= ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-timestamp-micros))
+  (sql->= (sql-cast x :timestamp) y))
+
+(defmethod sql->= ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-days))
+  (sql->= x (sql-cast y :timestamp)))
 
 (defmethod sql->= ((x number) (y number))
   (>= x y))
@@ -595,6 +634,10 @@
 
 (defmethod sql-cast ((x endb/arrow:arrow-date-days) (type (eql :integer)))
   (local-time:timestamp-year (endb/arrow::%epoch-day-to-timestamp (endb/arrow:arrow-date-days-day x))))
+
+(defmethod sql-cast ((x endb/arrow:arrow-date-days) (type (eql :timestamp)))
+  (let ((us (endb/arrow::%timestamp-to-micros (endb/arrow::%epoch-day-to-timestamp (endb/arrow:arrow-date-days-day x)))))
+    (endb/arrow::make-arrow-timestamp-micros :us us)))
 
 (defmethod sql-cast ((x endb/arrow:arrow-timestamp-micros) (type (eql :date)))
   (let* ((us (endb/arrow:arrow-timestamp-micros-us x))
