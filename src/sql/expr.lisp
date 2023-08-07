@@ -1053,18 +1053,20 @@
   (with-slots (buffer-pool) db
     (let ((arrow-file-key (format nil "~A/~A" table-name arrow-file)))
       (loop for batch in (endb/storage/buffer-pool:buffer-pool-get buffer-pool arrow-file-key)
-            collect (cdar (endb/arrow:arrow-children batch))))))
+            collect (endb/arrow:arrow-children batch)))))
 
 (defun base-table-visible-rows (db table-name &key arrow-file-idx-row-id-p)
   (let ((table-md (base-table-meta db table-name))
         (acc))
     (fset:do-map (arrow-file arrow-file-md table-md acc)
       (loop with deletes-md = (or (fset:lookup arrow-file-md "deletes") (fset:empty-map))
-            for batch in (base-table-arrow-batches db table-name arrow-file)
+            for ((nil . batch)) in (base-table-arrow-batches db table-name arrow-file)
             for batch-idx from 0
             for batch-deletes = (or (fset:lookup deletes-md (prin1-to-string batch-idx)) (fset:empty-seq))
             do (setf acc (append acc (loop for row-id below (endb/arrow:arrow-length batch)
-                                           unless (fset:find row-id batch-deletes)
+                                           unless (fset:find row-id batch-deletes
+                                                             :key (lambda (x)
+                                                                    (fset:lookup x "row_id")))
                                              collect (if arrow-file-idx-row-id-p
                                                          (cons (list arrow-file batch-idx row-id) (mapcar #'cdr (endb/arrow:arrow-get batch row-id)))
                                                          (mapcar #'cdr (endb/arrow:arrow-get batch row-id))))))))))
@@ -1278,16 +1280,19 @@
                  (table-md (or (fset:lookup meta-data table-name)
                                (fset:empty-map)))
                  (batch-md (fset:lookup table-md batch-file))
+                 (system-time (db-current-timestamp db))
                  (batch (if batch-md
                             (car (endb/storage/buffer-pool:buffer-pool-get buffer-pool batch-key))
-                            (endb/arrow:make-arrow-array-for (list (cons table-name :null))))))
+                            (endb/arrow:make-arrow-array-for (list (cons table-name :null)
+                                                                   (cons "system_time_start" system-time))))))
             (loop for row in values
                   do (endb/arrow:arrow-push batch (list (cons table-name
                                                               (loop for v in row
                                                                     for cn in (if created-p
                                                                                   columns
                                                                                   column-names)
-                                                                    collect (cons cn v))))))
+                                                                    collect (cons cn v)))
+                                                        (cons "system_time_start" system-time))))
 
             (endb/storage/buffer-pool:buffer-pool-put buffer-pool batch-key (list batch))
 
@@ -1305,15 +1310,17 @@
 
 (defun sql-delete (db table-name new-batch-file-idx-deleted-row-ids)
   (with-slots (meta-data) db
-    (let* ((table-md (reduce
+    (let* ((system-time (db-current-timestamp db))
+           (table-md (reduce
                       (lambda (acc batch-file-idx-row-id)
                         (destructuring-bind (batch-file batch-idx row-id)
                             batch-file-idx-row-id
                           (let* ((batch-md (fset:lookup acc batch-file))
                                  (deletes-md (or (fset:lookup batch-md "deletes") (fset:empty-map)))
                                  (batch-idx-key (prin1-to-string batch-idx))
-                                 (batch-deletes (or (fset:lookup deletes-md batch-idx-key) (fset:empty-seq))))
-                            (fset:with acc batch-file (fset:with batch-md "deletes" (fset:with deletes-md batch-idx-key (fset:with-last batch-deletes row-id)))))))
+                                 (batch-deletes (or (fset:lookup deletes-md batch-idx-key) (fset:empty-seq)))
+                                 (delete-entry (fset:map ("row_id" row-id) ("system_time_end "system-time))))
+                            (fset:with acc batch-file (fset:with batch-md "deletes" (fset:with deletes-md batch-idx-key (fset:with-last batch-deletes delete-entry)))))))
                       new-batch-file-idx-deleted-row-ids
                       :initial-value (fset:lookup meta-data table-name))))
       (setf meta-data (fset:with meta-data table-name table-md))

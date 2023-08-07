@@ -184,12 +184,14 @@
           `(let ((,table-md-sym (endb/sql/expr:base-table-meta ,(fset:lookup ctx :db-sym) ,table-name)))
              (fset:do-map (,scan-arrow-file-sym ,arrow-file-md-sym ,table-md-sym)
                (loop with ,deletes-md-sym = (or (fset:lookup ,arrow-file-md-sym "deletes") (fset:empty-map))
-                     for ,batch-sym in (endb/sql/expr:base-table-arrow-batches ,(fset:lookup ctx :db-sym) ,table-name ,scan-arrow-file-sym)
+                     for ((nil . ,batch-sym)) in (endb/sql/expr:base-table-arrow-batches ,(fset:lookup ctx :db-sym) ,table-name ,scan-arrow-file-sym)
                      for ,scan-batch-idx-sym from 0
                      for ,deleted-row-ids-sym = (or (fset:lookup ,deletes-md-sym (prin1-to-string ,scan-batch-idx-sym)) (fset:empty-seq))
                      do (loop for ,scan-row-id-sym of-type fixnum below (endb/arrow:arrow-length ,batch-sym)
                               for ,vars = (endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',projection)
-                              unless (fset:find ,scan-row-id-sym ,deleted-row-ids-sym)
+                              unless (fset:find ,scan-row-id-sym ,deleted-row-ids-sym
+                                                :key (lambda (,deleted-row-ids-sym)
+                                                       (fset:lookup ,deleted-row-ids-sym "row_id")))
                                 ,@where-src
                               ,@nested-src)))))
         `(loop for ,(%unique-vars vars)
