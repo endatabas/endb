@@ -42,6 +42,10 @@
                        (not (eq :* (nth 2 expr)))
                        (or (stringp (nth 2 expr))
                            (symbolp (nth 2 expr)))) (list (format nil "~A" (nth 2 expr))))
+                 ((and (listp expr)
+                       (eq :access (first expr))
+                       (and (listp (nth 2 expr))
+                            (eq :recursive (first (nth 2 expr))))) (list (format nil "~A" (second (nth 2 expr)))))
                  (t (list (%anonymous-column-name idx))))))
 
 (defun %annotated-error (s message)
@@ -841,8 +845,13 @@
       ,(ast->cl (fset:with ctx :access :seq) base)
       ,(cond
          ((eq :* path) path)
+         ((and (listp path)
+               (eq :recursive (first path)))
+          (symbol-name (second path)))
          ((symbolp path) (symbol-name path))
-         (t (ast->cl ctx path))))))
+         (t (ast->cl ctx path)))
+      ,(and (listp path)
+            (eq :recursive (first path))))))
 
 (defmethod sql->cl (ctx (type (eql :with)) &rest args)
   (destructuring-bind (ctes query)

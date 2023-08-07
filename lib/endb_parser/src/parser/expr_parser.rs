@@ -440,6 +440,9 @@ where
         let access = atom
             .foldl(
                 choice((
+                    pad("..")
+                        .ignore_then(id.clone())
+                        .map(|id| List(vec![KW(Recursive), id])),
                     pad('.').ignore_then(id.clone()),
                     choice((pad('*').to(Mul).map(KW), expr.clone()))
                         .delimited_by(pad('['), pad(']')),

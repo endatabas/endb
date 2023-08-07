@@ -753,6 +753,16 @@
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {a: 2, b: {a: 3}, c: [{a: 1}, 2]}..a")
+      (is (equalp '((#(2 3 1))) result))
+      (is (equal '("a") columns)))
+
+        (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {a: {b: 2}, b: {a: 3}, c: [{a: {b: 1}}, {b: 2}]}..a.b")
+      (is (equalp '((#(2 1))) result))
+      (is (equal '("b") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT [{a: 2}, {a: 3}, {b: 4}].a")
       (is (equalp '((#(2 3))) result))
       (is (equal '("a") columns)))

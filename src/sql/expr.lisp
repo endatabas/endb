@@ -529,19 +529,19 @@
 
 (defstruct path-seq acc)
 
-(defun sql-access-finish (x y)
-  (let ((x (sql-access x y)))
+(defun sql-access-finish (x y recursivep)
+  (let ((x (sql-access x y recursivep)))
     (if (typep x 'path-seq)
         (coerce (path-seq-acc x) 'vector)
         x)))
 
-(defmethod sql-access (x y)
+(defmethod sql-access (x y recursivep)
   :null)
 
-(defmethod sql-access (x (y (eql 0)))
+(defmethod sql-access (x (y (eql 0)) recursivep)
   x)
 
-(defmethod sql-access ((x vector) (y number))
+(defmethod sql-access ((x vector) (y number) recursivep)
   (let ((y (if (minusp y)
                (+ (length x) y)
                y)))
@@ -550,24 +550,28 @@
         (aref x y)
         :null)))
 
-(defmethod sql-access ((x vector) y)
-  (sql-access (make-path-seq :acc (coerce x 'list)) y))
+(defmethod sql-access ((x vector) y recursivep)
+  (sql-access (make-path-seq :acc (coerce x 'list)) y recursivep))
 
-(defmethod sql-access ((x list) (y string))
+(defmethod sql-access ((x list) (y string) (recursivep (eql nil)))
   (let ((element (assoc y x :test 'equal)))
     (if element
         (cdr element)
         :null)))
 
-(defmethod sql-access ((x list) (y (eql :*)))
+(defmethod sql-access ((x list) (y (eql :*)) recursivep)
   (make-path-seq :acc (mapcar #'cdr x)))
 
-(defmethod sql-access ((x (eql :empty-struct)) (y (eql :*)))
+(defmethod sql-access ((x list) y (recursivep (eql t)))
+  (make-path-seq :acc (append (list (sql-access x y nil))
+                              (path-seq-acc (sql-access (sql-access x :* recursivep) y recursivep)))))
+
+(defmethod sql-access ((x (eql :empty-struct)) (y (eql :*)) recursivep)
   (make-path-seq))
 
-(defmethod sql-access ((x path-seq) y)
+(defmethod sql-access ((x path-seq) y recursivep)
   (make-path-seq :acc (loop for x in (path-seq-acc x)
-                            for z = (sql-access x y)
+                            for z = (sql-access x y recursivep)
                             append (cond
                                      ((typep z 'path-seq)
                                       (path-seq-acc z))

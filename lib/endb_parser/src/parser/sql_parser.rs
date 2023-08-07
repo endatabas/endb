@@ -2581,6 +2581,30 @@ mod tests {
                             end: 20
         "###);
 
+        assert_yaml_snapshot!(parse("SELECT {}.bar..baz"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Access
+                        - List:
+                            - KW: Access
+                            - List:
+                                - KW: Object
+                                - List: []
+                            - Id:
+                                start: 10
+                                end: 13
+                        - List:
+                            - KW: Recursive
+                            - Id:
+                                start: 15
+                                end: 18
+        "###);
+
         assert_yaml_snapshot!(parse("SELECT * FROM foo, UNNEST(foo.bar)"), @r###"
         ---
         Err:

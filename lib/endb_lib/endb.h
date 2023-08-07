@@ -101,6 +101,7 @@ typedef enum Keyword {
   CurrentTime,
   CurrentTimestamp,
   Unset,
+  Recursive,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;
