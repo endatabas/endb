@@ -44,15 +44,11 @@
                            (symbolp (nth 2 expr)))) (list (format nil "~A" (nth 2 expr))))
                  (t (list (%anonymous-column-name idx))))))
 
-(defun %base-table-p (ctx table-name)
-  (and (symbolp table-name)
-       (equal "BASE TABLE" (endb/sql/expr:table-type (fset:lookup ctx :db) (symbol-name table-name)))))
-
 (defun %annotated-error (s message)
   (error 'endb/sql/expr:sql-runtime-error
          :message (endb/lib/parser:annotate-input-with-error (get s :input) message (get s :start) (get s :end))))
 
-(defun %base-table-or-view->cl (ctx table-name)
+(defun %base-table-or-view->cl (ctx table-name &optional temporal)
   (let* ((db (fset:lookup ctx :db))
          (ctes (or (fset:lookup ctx :ctes) (fset:empty-map)))
          (cte (fset:lookup ctes (symbol-name table-name)))
@@ -64,7 +60,7 @@
          (declare (ignore projection))
          (values ast (cte-projection cte) free-vars)))
       ((equal "BASE TABLE" table-type)
-       (values (symbol-name table-name)
+       (values (make-base-table :name (symbol-name table-name) :temporal temporal)
                (endb/sql/expr:table-columns db (symbol-name table-name))
                ()
                (endb/sql/expr:base-table-size db (symbol-name table-name))))
@@ -104,7 +100,9 @@
         (t (list expr)))
       (list expr)))
 
-(defstruct from-table src vars free-vars size projection alias base-table-p)
+(defstruct base-table name temporal)
+
+(defstruct from-table src vars free-vars size projection alias)
 
 (defstruct where-clause src free-vars ast)
 
@@ -168,11 +166,11 @@
                      (%replace-all smap (cdr x))))
     (t x)))
 
-(defun %table-scan->cl (ctx vars projection from-src where-clauses nested-src &optional base-table-p)
+(defun %table-scan->cl (ctx vars projection from-src where-clauses nested-src)
   (let ((where-src (loop for clause in where-clauses
                          append `(when (eq t ,(where-clause-src clause))))))
-    (if base-table-p
-        (let* ((table-name from-src)
+    (if (base-table-p from-src)
+        (let* ((table-name (base-table-name from-src))
                (table-md-sym (gensym))
                (arrow-file-md-sym (gensym))
                (deletes-md-sym (gensym))
@@ -230,8 +228,7 @@
                                             src
                                             scan-where-clauses
                                             `(do (push (list ,@vars)
-                                                       (gethash (list ,@out-vars) ,index-table-sym)))
-                                            (from-table-base-table-p from-table))
+                                                       (gethash (list ,@out-vars) ,index-table-sym))))
                           ,index-table-sym))))))))
 
 (defun %selection-with-limit-offset->cl (ctx selected-src &optional limit offset)
@@ -302,8 +299,7 @@
                              projection
                              (from-table-src from-table)
                              (append scan-clauses pushdown-clauses)
-                             nested-src
-                             (from-table-base-table-p from-table)))))))
+                             nested-src))))))
 
 (defun %group-by->cl (ctx from-tables where-clauses selected-src limit offset group-by having-src correlated-vars)
   (let* ((aggregate-table (fset:lookup ctx :aggregate-table))
@@ -374,11 +370,11 @@
                                      order-by limit offset)
       args
     (labels ((select->cl (ctx from-ast from-tables-acc)
-               (destructuring-bind (table-or-subquery &optional table-alias column-names)
+               (destructuring-bind (table-or-subquery &optional table-alias column-names temporal)
                    (first from-ast)
                  (multiple-value-bind (table-src projection free-vars table-size)
                      (if (symbolp table-or-subquery)
-                         (%base-table-or-view->cl ctx table-or-subquery)
+                         (%base-table-or-view->cl ctx table-or-subquery temporal)
                          (%ast->cl-with-free-vars ctx table-or-subquery))
                    (when (and column-names (not (= (length projection) (length column-names))))
                      (if (symbolp table-or-subquery)
@@ -399,8 +395,7 @@
                                                        :free-vars free-vars
                                                        :size (or table-size most-positive-fixnum)
                                                        :projection qualified-projection
-                                                       :alias table-alias
-                                                       :base-table-p (%base-table-p ctx table-or-subquery)))
+                                                       :alias table-alias))
                           (from-tables-acc (append from-tables-acc (list from-table))))
                      (if (rest from-ast)
                          (select->cl ctx (rest from-ast) from-tables-acc)
@@ -639,7 +634,7 @@
       args
     (multiple-value-bind (from-src projection)
         (%base-table-or-view->cl ctx table-name)
-      (when (%base-table-p ctx table-name)
+      (when (base-table-p from-src)
         (let* ((scan-row-id-sym (gensym))
                (scan-batch-idx-sym (gensym))
                (scan-arrow-file-sym (gensym))
@@ -656,8 +651,7 @@
                (deleted-row-ids-sym (gensym)))
           `(let ((,deleted-row-ids-sym))
              ,(%table-scan->cl ctx vars projection from-src where-clauses
-                               `(do (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym))
-                               t)
+                               `(do (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym)))
              (endb/sql/expr:sql-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)))))))
 
 (defmethod sql->cl (ctx (type (eql :update)) &rest args)
@@ -665,7 +659,7 @@
       args
     (multiple-value-bind (from-src projection)
         (%base-table-or-view->cl ctx table-name)
-      (when (%base-table-p ctx table-name)
+      (when (base-table-p from-src)
         (let* ((scan-row-id-sym (gensym))
                (scan-batch-idx-sym (gensym))
                (scan-arrow-file-sym (gensym))
@@ -699,8 +693,7 @@
                    (,deleted-row-ids-sym))
                ,(%table-scan->cl ctx vars projection from-src where-clauses
                                  `(do (push (list ,@update-select-list) ,updated-rows-sym)
-                                      (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym))
-                                 t)
+                                      (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym)))
                (endb/sql/expr:sql-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)
                (endb/sql/expr:sql-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,updated-rows-sym :column-names ',projection))))))))
 
