@@ -22,10 +22,12 @@
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size
            #:view-definition #:calculate-stats
-           #:sql-runtime-error #:*sqlite-mode*))
+           #:sql-runtime-error #:*sqlite-mode* #:+end-of-time+))
 (in-package :endb/sql/expr)
 
 (defvar *sqlite-mode* nil)
+
+(defparameter +end-of-time+ (endb/arrow:parse-arrow-timestamp-micros "9999-01-01"))
 
 (define-condition sql-runtime-error (error)
   ((message :initarg :message :reader sql-runtime-error-message))
@@ -1300,6 +1302,8 @@
            (columns-set (fset:convert 'fset:set columns))
            (new-columns (fset:convert 'list (fset:set-difference column-names-set columns-set)))
            (number-of-columns (length (or column-names columns))))
+      (when (member "system_time" column-names :test 'equalp)
+        (error 'sql-runtime-error :message "Cannot insert value into SYSTEM_TIME column"))
       (when (and created-p column-names (not (fset:equal? column-names-set columns-set)))
         (error 'sql-runtime-error
                :message (format nil "Cannot insert into table: ~A named columns: ~A doesn't match stored: ~A" table-name column-names columns)))

@@ -473,7 +473,17 @@
         (is (null (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME BETWEEN ? AND ?" system-time-as-of-empty system-time-as-of-empty)))
 
         (is (equal '((103 104)) (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME FROM ? TO ?" system-time-as-of-insert system-time-as-of-update)))
-        (is (null (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME FROM ? TO ?" system-time-as-of-empty system-time-as-of-insert)))))))
+        (is (null (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME FROM ? TO ?" system-time-as-of-empty system-time-as-of-insert)))
+
+        (multiple-value-bind (result columns)
+            (execute-sql db "SELECT t1.*, t1.system_time FROM t1 FOR SYSTEM_TIME BETWEEN ? AND ?" system-time-as-of-insert system-time-as-of-update)
+          (is (equalp (list (list 101 104 (list (cons "start" system-time-as-of-update) (cons "end" endb/sql/expr:+end-of-time+)))
+                            (list 103 104 (list (cons "start" system-time-as-of-insert) (cons "end" system-time-as-of-update))))
+                      result))
+          (is (equal '("a" "b" "system_time") columns)))
+
+        (signals endb/sql/expr:sql-runtime-error
+          (execute-sql write-db "INSERT INTO t1(a, b, system_time) VALUES(103, 104, {start: 2001-01-01, end: 2002-01-01})"))))))
 
 (test semi-structured
   (let* ((db (make-db)))

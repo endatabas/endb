@@ -181,6 +181,7 @@
                (scan-row-id-sym (or (fset:lookup ctx :scan-row-id-sym) (gensym)))
                (scan-batch-idx-sym (or (fset:lookup ctx :scan-batch-idx-sym) (gensym)))
                (scan-arrow-file-sym (or (fset:lookup ctx :scan-arrow-file-sym) (gensym)))
+               (raw-deleted-row-ids-sym (gensym))
                (deleted-row-ids-sym (gensym))
                (lambda-sym (gensym)))
           (destructuring-bind (&optional (temporal-type :as-of temporal-type-p) (temporal-start :current_timestamp) (temporal-end temporal-start))
@@ -193,16 +194,24 @@
                  (loop with ,deletes-md-sym = (or (fset:lookup ,arrow-file-md-sym "deletes") (fset:empty-map))
                        for ((nil . ,batch-sym) (nil . ,temporal-sym)) in (endb/sql/expr:base-table-arrow-batches ,(fset:lookup ctx :db-sym) ,table-name ,scan-arrow-file-sym)
                        for ,scan-batch-idx-sym from 0
+                       for ,raw-deleted-row-ids-sym = (or (fset:lookup ,deletes-md-sym (prin1-to-string ,scan-batch-idx-sym))
+                                                          (fset:empty-seq))
                        for ,deleted-row-ids-sym = ,(if temporal-type-p
                                                        `(fset:filter
                                                          (lambda (,lambda-sym)
                                                            (eq t (endb/sql/expr:sql-<= (fset:lookup ,lambda-sym "system_time_end") ,system-time-start-sym)))
-                                                         (or (fset:lookup ,deletes-md-sym (prin1-to-string ,scan-batch-idx-sym))
-                                                             (fset:empty-seq)))
-                                                       `(or (fset:lookup ,deletes-md-sym (prin1-to-string ,scan-batch-idx-sym))
-                                                            (fset:empty-seq)))
+                                                         ,raw-deleted-row-ids-sym)
+                                                       raw-deleted-row-ids-sym)
                        do (loop for ,scan-row-id-sym of-type fixnum below (endb/arrow:arrow-length ,batch-sym)
-                                for ,vars = (endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',projection)
+                                for ,vars = ,(if  endb/sql/expr:*sqlite-mode*
+                                                  `(endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',projection)
+                                                  `(concatenate 'list (endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',(remove "system_time" projection :test 'equal))
+                                                                (list (list (cons "start" (endb/arrow:arrow-get ,temporal-sym ,scan-row-id-sym))
+                                                                            (cons "end" (fset:lookup (or (fset:find-if (lambda (,lambda-sym)
+                                                                                                                         (= ,scan-row-id-sym (fset:lookup ,lambda-sym "row_id")))
+                                                                                                                       ,raw-deleted-row-ids-sym)
+                                                                                                         (fset:map ("system_time_end" endb/sql/expr:+end-of-time+)))
+                                                                                                     "system_time_end"))))))
                                 when (and ,(if temporal-type-p
                                                `(eq t (,(case temporal-type
                                                           (:as-of 'endb/sql/expr:sql-<=)
@@ -412,6 +421,9 @@
                           (table-alias (%unqualified-column-name (symbol-name table-alias)))
                           (qualified-projection (loop for column in projection
                                                       collect (%qualified-column-name table-alias column)))
+                          (projection (concatenate 'list projection
+                                                   (unless endb/sql/expr:*sqlite-mode*
+                                                     (list "system_time"))))
                           (env-extension (%env-extension table-alias projection))
                           (ctx (fset:map-union ctx env-extension))
                           (from-table (make-from-table :src table-src
