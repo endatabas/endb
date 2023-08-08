@@ -2598,11 +2598,11 @@ mod tests {
                             - Id:
                                 start: 10
                                 end: 13
-                        - List:
-                            - KW: Recursive
-                            - Id:
-                                start: 15
-                                end: 18
+                        - Id:
+                            start: 15
+                            end: 18
+                        - KW: Recursive
+                        - KW: Recursive
         "###);
 
         assert_yaml_snapshot!(parse("SELECT * FROM foo, UNNEST(foo.bar)"), @r###"

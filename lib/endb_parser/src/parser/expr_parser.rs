@@ -437,18 +437,26 @@ where
         ))
         .boxed();
 
+        let bracketed_path =
+            choice((pad('*').to(Mul).map(KW), expr.clone())).delimited_by(pad('['), pad(']'));
+
         let access = atom
             .foldl(
                 choice((
                     pad("..")
-                        .ignore_then(id.clone())
-                        .map(|id| List(vec![KW(Recursive), id])),
-                    pad('.').ignore_then(id.clone()),
-                    choice((pad('*').to(Mul).map(KW), expr.clone()))
-                        .delimited_by(pad('['), pad(']')),
+                        .to(Recursive)
+                        .map(KW)
+                        .then(choice((id.clone(), bracketed_path.clone())))
+                        .map(|(recursive, path)| (Some(recursive), path)),
+                    choice((pad('.').ignore_then(id.clone()), bracketed_path))
+                        .map(|path| (None, path)),
                 ))
                 .repeated(),
-                |lhs, rhs| List(vec![KW(Access), lhs, rhs]),
+                |lhs, (recursive, rhs)| {
+                    let mut acc = vec![KW(Access), lhs, rhs];
+                    add_clause(&mut acc, Recursive, recursive);
+                    List(acc)
+                },
             )
             .boxed();
 
