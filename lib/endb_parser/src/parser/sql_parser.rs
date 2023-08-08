@@ -443,12 +443,9 @@ where
                 _ => unreachable!(),
             };
 
-            match conflict {
-                Some((ids, update)) => {
-                    add_clause(&mut acc, OnConflict, Some(ids));
-                    add_clause(&mut acc, Update, update);
-                }
-                None => (),
+            if let Some((ids, update)) = conflict {
+                add_clause(&mut acc, OnConflict, Some(ids));
+                add_clause(&mut acc, Update, update);
             }
 
             List(acc)
