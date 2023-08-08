@@ -835,7 +835,7 @@
       ,(cond
          ((eq :* path) path)
          ((symbolp path) (symbol-name path))
-         (t (ast->cl ctx path)))
+         (t (ast->cl (fset:less ctx :access) path)))
       ,(eq :recursive recursive))))
 
 (defmethod sql->cl (ctx (type (eql :with)) &rest args)
