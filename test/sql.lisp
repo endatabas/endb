@@ -646,6 +646,11 @@
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {\"foo\": 2, 'bar': 'baz'}")
+      (is (equal '(((("foo" . 2) ("bar" . "baz")))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT OBJECT(foo: 2, bar: 'baz')")
       (is (equal '(((("foo" . 2) ("bar" . "baz")))) result))
       (is (equal '("column1") columns)))

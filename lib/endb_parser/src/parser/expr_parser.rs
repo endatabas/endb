@@ -30,6 +30,41 @@ where
         })
 }
 
+pub fn string_ast_parser_no_pad<'input, E>() -> impl Parser<'input, &'input str, Ast, E> + Clone
+where
+    E: ParserExtra<'input, &'input str>,
+{
+    use super::ast::Ast::*;
+
+    let string = none_of('\'')
+        .repeated()
+        .map_with_span(|_, span: SimpleSpan<_>| String {
+            start: span.start() as i32,
+            end: span.end() as i32,
+        })
+        .padded_by(just('\''));
+
+    let escape = just('\\').ignore_then(choice((
+        just('\\'),
+        just('"'),
+        just('b').to('\x08'),
+        just('f').to('\x0C'),
+        just('n').to('\n'),
+        just('r').to('\r'),
+        just('t').to('\t'),
+    )));
+
+    let double_quoted_string = choice((none_of("\\\""), escape))
+        .repeated()
+        .map_with_span(|_, span: SimpleSpan<_>| String {
+            start: span.start() as i32,
+            end: span.end() as i32,
+        })
+        .padded_by(just('"'));
+
+    choice((string, double_quoted_string))
+}
+
 pub fn date_or_timestamp_ast_parser_no_pad<'input, E>(
 ) -> impl Parser<'input, &'input str, Ast, E> + Clone
 where
@@ -144,23 +179,7 @@ where
             None => Integer(s.parse().unwrap()),
         });
 
-    let string = none_of('\'')
-        .repeated()
-        .map_with_span(|_, span: SimpleSpan<_>| String {
-            start: span.start() as i32,
-            end: span.end() as i32,
-        })
-        .padded_by(just('\''));
-
-    let escape = just('\\').ignore_then(choice((
-        just('\\'),
-        just('"'),
-        just('b').to('\x08'),
-        just('f').to('\x0C'),
-        just('n').to('\n'),
-        just('r').to('\r'),
-        just('t').to('\t'),
-    )));
+    let string = string_ast_parser_no_pad();
 
     let interval_field = choice((
         kw("YEAR").to(Year),
@@ -173,7 +192,7 @@ where
     .map(KW);
 
     let interval = kw("INTERVAL")
-        .ignore_then(string.padded())
+        .ignore_then(string.clone().padded())
         .then(interval_field.clone())
         .then(kw("TO").ignore_then(interval_field).or_not())
         .map(|((interval, start), end)| {
@@ -185,14 +204,6 @@ where
         });
 
     let interval = choice((iso_duration, interval));
-
-    let double_quoted_string = choice((none_of("\\\""), escape))
-        .repeated()
-        .map_with_span(|_, span: SimpleSpan<_>| String {
-            start: span.start() as i32,
-            end: span.end() as i32,
-        })
-        .padded_by(just('"'));
 
     let binary = one_of("Xx").ignore_then(
         text::int(16)
@@ -224,7 +235,6 @@ where
         number,
         binary,
         string,
-        double_quoted_string,
         boolean,
         current_literals,
         col_ref_ast_parser_no_pad(),
@@ -240,10 +250,11 @@ where
 {
     use super::ast::{Ast::*, Keyword::*};
 
-    let id = id_ast_parser_no_pad().then_ignore(text::whitespace());
-    let col_ref = col_ref_ast_parser_no_pad().then_ignore(text::whitespace());
+    let id = id_ast_parser_no_pad().padded();
+    let string = string_ast_parser_no_pad().padded();
+    let col_ref = col_ref_ast_parser_no_pad().padded();
 
-    let kw_pair = id
+    let kw_pair = choice((id, string))
         .clone()
         .then_ignore(one_of(":=").padded())
         .then(expr.clone())
@@ -271,6 +282,7 @@ where
         shorthand_property,
     ))
     .separated_by(pad(','))
+    .allow_trailing()
     .collect()
     .map(List)
     .map(|kws| List(vec![KW(Object), kws]));
@@ -299,6 +311,7 @@ where
         let id = id_ast_parser_no_pad().then_ignore(text::whitespace());
 
         let opt_expr_list = expr.clone().separated_by(pad(',')).collect().map(List);
+
         let expr_list = expr
             .clone()
             .separated_by(pad(','))
@@ -433,6 +446,7 @@ where
                         None => expr,
                     })
                     .separated_by(pad(','))
+                    .allow_trailing()
                     .collect()
                     .map(List)
                     .delimited_by(pad('['), pad(']'))

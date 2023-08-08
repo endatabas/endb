@@ -2251,7 +2251,7 @@ mod tests {
                             - Integer: 2
         "###);
 
-        assert_yaml_snapshot!(parse("SELECT ARRAY [1, 2]"), @r###"
+        assert_yaml_snapshot!(parse("SELECT ARRAY [1, 2,]"), @r###"
         ---
         Ok:
           List:
@@ -2325,6 +2325,29 @@ mod tests {
                                 - String:
                                     start: 22
                                     end: 25
+        "###);
+        assert_yaml_snapshot!(parse("SELECT {\"foo\": 2, 'bar': 'baz',}"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Object
+                        - List:
+                            - List:
+                                - String:
+                                    start: 9
+                                    end: 12
+                                - Integer: 2
+                            - List:
+                                - String:
+                                    start: 19
+                                    end: 22
+                                - String:
+                                    start: 26
+                                    end: 29
         "###);
         assert_yaml_snapshot!(parse("SELECT {foo = 2, bar = 'baz'}"), @r###"
         ---

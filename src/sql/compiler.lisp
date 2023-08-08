@@ -818,7 +818,10 @@
                                              (loop for ,spread-sym across ,spread-sym
                                                    for ,idx-sym from 0
                                                    collect (cons (format nil "~A" ,idx-sym) ,spread-sym)))))))
-                                    (t `(list (cons ,(symbol-name (first kv)) ,(ast->cl ctx (second kv))))))))
+                                    (t `(list (cons ,(if (symbolp (first kv))
+                                                         (symbol-name (first kv))
+                                                         (first kv))
+                                                    ,(ast->cl ctx (second kv))))))))
           :test 'equal :key #'car)
         :empty-struct)))
 
