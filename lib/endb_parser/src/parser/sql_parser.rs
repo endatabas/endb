@@ -2166,6 +2166,51 @@ mod tests {
                 - List:
                     - KW: CurrentDate
         "###);
+
+        assert_yaml_snapshot!(parse("SELECT INTERVAL '1' HOUR"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Interval
+                        - String:
+                            start: 17
+                            end: 18
+                        - KW: Hour
+        "###);
+        assert_yaml_snapshot!(parse("SELECT INTERVAL '01:40' MINUTE TO SECOND"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Interval
+                        - String:
+                            start: 17
+                            end: 22
+                        - KW: Minute
+                        - KW: Second
+        "###);
+        assert_yaml_snapshot!(parse("SELECT INTERVAL '2-3' YEAR TO MONTH"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Interval
+                        - String:
+                            start: 17
+                            end: 20
+                        - KW: Year
+                        - KW: Month
+        "###);
     }
 
     #[test]

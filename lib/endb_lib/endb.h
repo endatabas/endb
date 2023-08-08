@@ -108,6 +108,13 @@ typedef enum Keyword {
   Succedes,
   ImmediatelyPrecedes,
   ImmediatelySuccedes,
+  Year,
+  Month,
+  Day,
+  Hour,
+  Minute,
+  Second,
+  Interval,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;

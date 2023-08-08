@@ -110,7 +110,14 @@
   :precedes
   :succedes
   :immediately-precedes
-  :immediately-succedes)
+  :immediately-succedes
+  :year
+  :month
+  :day
+  :hour
+  :minute
+  :second
+  :interval)
 
 (cffi:defcenum Ast_Tag
   :List

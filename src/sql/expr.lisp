@@ -14,7 +14,7 @@
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-unary+ #:sql-unary-
            #:sql-access #:sql-access-finish #:sql-between #:sql-in #:sql-exists #:sql-coalesce
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery #:sql-unnest
-           #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-duration #:sql-like #:sql-substring #:sql-strftime
+           #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-timestamp #:sql-duration #:sql-interval #:sql-like #:sql-substring #:sql-strftime
            #:sql-current-date #:sql-current-time #:sql-current-timestamp #:sql-contains #:sql-overlaps #:sql-precedes #:sql-succedes #:sql-immediately-precedes #:sql-immediately-succedes
            #:make-sql-agg #:sql-agg-accumulate #:sql-agg-finish
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-insert-objects #:sql-delete
@@ -749,12 +749,38 @@
 (defmethod sql-datetime ((x string))
   (endb/arrow:parse-arrow-timestamp-micros x))
 
+(defun sql-timestamp (x)
+  (sql-datetime x))
+
 (defmethod sql-duration ((x string))
   (let ((duration (endb/arrow:parse-arrow-interval-month-day-nanos x)))
     (if duration
         duration
         (error 'sql-runtime-error
                :message (format nil "Invalid duration: ~A" x)))))
+
+(defparameter +interval-time-parts+ '(:hour :minute :second))
+(defparameter +interval-parts+ (append '(:year :month :day) +interval-time-parts+))
+
+(defparameter +interval-scanner+ (ppcre:create-scanner "[ :-]"))
+
+(defmethod sql-interval ((x string) from &optional to)
+  (let* ((parts (coerce (ppcre:split +interval-scanner+ x) 'list))
+         (units (subseq +interval-parts+
+                        (position from +interval-parts+)
+                        (1+ (position (or to from) +interval-parts+))))
+         (strs (loop with time-part-seen-p = nil
+                     for unit in units
+                     for part in parts
+                     for s = (format nil "~d~A" part (char-upcase (char (symbol-name unit) 0)))
+                     if (and (null time-part-seen-p)
+                             (member unit +interval-time-parts+))
+                       collect (progn
+                                 (setf time-part-seen-p t)
+                                 (concatenate 'string "T" s))
+                     else
+                       collect s)))
+    (sql-duration (apply #'concatenate 'string "P" strs))))
 
 (defmethod sql-like ((x (eql :null)) (pattern (eql :null)))
   :null)

@@ -401,6 +401,11 @@
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT INTERVAL '14:43:39.970062' HOUR TO SECOND")
+      (is (equalp (list (list (endb/arrow:parse-arrow-interval-month-day-nanos "PT14H43M39.970062S"))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT 2001-01-01T00:00:00 + P1Y1DT1H")
       (is (equalp (list (list (endb/arrow:parse-arrow-timestamp-micros "2002-01-02T01:00:00"))) result))
       (is (equal '("column1") columns)))
@@ -1186,6 +1191,8 @@
   (is (equalp (endb/arrow:parse-arrow-time-micros "12:01:20") (interpret-sql-literal "12:01:20")))
   (is (equalp (endb/arrow:parse-arrow-timestamp-micros "2023-05-16T14:43:39.970062Z") (interpret-sql-literal "2023-05-16T14:43:39.970062Z")))
   (is (equalp (endb/arrow:parse-arrow-interval-month-day-nanos "P3Y2MT12H30M5S") (interpret-sql-literal "P3Y2MT12H30M5S")))
+
+  (is (equalp (endb/arrow:parse-arrow-interval-month-day-nanos "P1Y2M") (interpret-sql-literal "INTERVAL '1-2' YEAR TO MONTH")))
 
   (is (equalp '(("address" . (("street" . "Street") ("number" . 42)))
                 ("friends" . #(1 2)))

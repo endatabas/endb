@@ -764,20 +764,10 @@
       args
     `(endb/sql/expr:sql-cast ,(ast->cl ctx x) ,(intern (symbol-name sql-type) :keyword))))
 
-(defmethod sql->cl (ctx (type (eql :date)) &rest args)
-  (destructuring-bind (s)
+(defmethod sql->cl (ctx (type (eql :interval)) &rest args)
+  (destructuring-bind (x from &optional to)
       args
-    `(endb/sql/expr:sql-date ,s)))
-
-(defmethod sql->cl (ctx (type (eql :time)) &rest args)
-  (destructuring-bind (s)
-      args
-    `(endb/sql/expr:sql-time ,s)))
-
-(defmethod sql->cl (ctx (type (eql :timestamp)) &rest args)
-  (destructuring-bind (s)
-      args
-    `(endb/sql/expr:sql-datetime ,s)))
+    `(endb/sql/expr:sql-interval ,(ast->cl ctx x) ,from ,to)))
 
 (defmethod sql->cl (ctx (type (eql :array)) &rest args)
   (destructuring-bind (args)

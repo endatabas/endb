@@ -107,6 +107,13 @@ pub enum Keyword {
     Succedes,
     ImmediatelyPrecedes,
     ImmediatelySuccedes,
+    Year,
+    Month,
+    Day,
+    Hour,
+    Minute,
+    Second,
+    Interval,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

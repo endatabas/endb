@@ -141,6 +141,10 @@
                           collect (cons (symbol-name k) (%interpret-sql-literal v)))
                     :empty-struct))
        (t :error)))
+    ((and (listp ast)
+          (eq :interval (first ast))
+          (<= 2 (length (rest ast)) 3))
+     (apply #'endb/sql/expr:sql-interval (rest ast)))
     (t :error)))
 
 (defun interpret-sql-literal (src)

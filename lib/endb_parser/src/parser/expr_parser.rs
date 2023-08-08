@@ -137,8 +137,6 @@ where
         )
         .map_with_span(|_, span: SimpleSpan<_>| kw_literal(Duration, &span));
 
-    let interval = iso_duration;
-
     let number = text::int(10)
         .then(just('.').then(text::digits(10)).or_not())
         .map_slice(|s: &str| match s.find('.') {
@@ -163,6 +161,30 @@ where
         just('r').to('\r'),
         just('t').to('\t'),
     )));
+
+    let interval_field = choice((
+        kw("YEAR").to(Year),
+        kw("MONTH").to(Month),
+        kw("DAY").to(Day),
+        kw("HOUR").to(Hour),
+        kw("MINUTE").to(Minute),
+        kw("SECOND").to(Second),
+    ))
+    .map(KW);
+
+    let interval = kw("INTERVAL")
+        .ignore_then(string.padded())
+        .then(interval_field.clone())
+        .then(kw("TO").ignore_then(interval_field).or_not())
+        .map(|((interval, start), end)| {
+            let mut acc = vec![KW(Interval), interval, start];
+            if let Some(end) = end {
+                acc.push(end);
+            }
+            List(acc)
+        });
+
+    let interval = choice((iso_duration, interval));
 
     let double_quoted_string = choice((none_of("\\\""), escape))
         .repeated()
