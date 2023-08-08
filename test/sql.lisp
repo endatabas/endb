@@ -195,7 +195,10 @@
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM t2 ORDER BY c")
       (is (equal '((1 2 2 4) (3 :null 4 :null) (:null 3 5 :null)) result))
-      (is (equal '("a" "b" "c" "d") columns)))))
+      (is (equal '("a" "b" "c" "d") columns)))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql write-db "INSERT INTO users {}"))))
 
 (test multiple-statments
   (let* ((db (make-db)))

@@ -1457,9 +1457,12 @@
 
 (defun sql-insert-objects (db table-name objects)
   (loop for object in objects
-        do (sql-insert db table-name
-                       (list (mapcar #'cdr object))
-                       :column-names (mapcar #'car object)))
+        if (eq :empty-struct object)
+          do (error 'sql-runtime-error :message "Cannot insert empty object")
+        else
+          do (sql-insert db table-name
+                         (list (mapcar #'cdr object))
+                         :column-names (mapcar #'car object)))
   (values nil (length objects)))
 
 (defun sql-delete (db table-name new-batch-file-idx-deleted-row-ids)
