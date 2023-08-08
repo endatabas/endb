@@ -114,6 +114,7 @@ pub enum Keyword {
     Minute,
     Second,
     Interval,
+    OnConflict,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

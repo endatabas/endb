@@ -115,6 +115,7 @@ typedef enum Keyword {
   Minute,
   Second,
   Interval,
+  OnConflict,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;

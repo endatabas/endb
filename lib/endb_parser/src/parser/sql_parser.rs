@@ -384,6 +384,25 @@ where
 
     let expr = expr_ast_parser(select_stmt.clone());
 
+    let update_body = kw("SET")
+        .ignore_then(
+            id.clone()
+                .then_ignore(pad('='))
+                .then(expr.clone())
+                .map(|(id, expr)| List(vec![id, expr]))
+                .separated_by(pad(','))
+                .collect()
+                .map(List),
+        )
+        .then(kw("UNSET").ignore_then(id_list.clone()).or_not())
+        .then(kw("WHERE").ignore_then(expr.clone()).or_not())
+        .map(|((updates, unsets), expr)| {
+            let mut acc = vec![updates];
+            add_clause(&mut acc, Unset, unsets);
+            add_clause(&mut acc, Where, expr);
+            List(acc)
+        });
+
     let insert_stmt = kw("INSERT")
         .ignore_then(kw("OR").then_ignore(kw("REPLACE")).or_not())
         .ignore_then(kw("INTO"))
@@ -406,7 +425,34 @@ where
                         .map(List),
                 )
                 .map(|(id, object_list)| List(vec![KW(InsertObjects), id, object_list])),
-        )));
+        )))
+        .then(
+            kw("ON")
+                .ignore_then(kw("CONFLICT"))
+                .ignore_then(id_list_parens.clone())
+                .then_ignore(kw("DO"))
+                .then(choice((
+                    kw("NOTHING").to(None),
+                    kw("UPDATE").ignore_then(update_body.clone().map(Some)),
+                )))
+                .or_not(),
+        )
+        .map(|(insert, conflict)| {
+            let mut acc = match insert {
+                List(x) => x,
+                _ => unreachable!(),
+            };
+
+            match conflict {
+                Some((ids, update)) => {
+                    add_clause(&mut acc, OnConflict, Some(ids));
+                    add_clause(&mut acc, Update, update);
+                }
+                None => (),
+            }
+
+            List(acc)
+        });
 
     let delete_stmt = kw("DELETE")
         .ignore_then(kw("FROM"))
@@ -417,22 +463,13 @@ where
 
     let update_stmt = kw("UPDATE")
         .ignore_then(id.clone())
-        .then_ignore(kw("SET"))
-        .then(
-            id.clone()
-                .then_ignore(pad('='))
-                .then(expr.clone())
-                .map(|(id, expr)| List(vec![id, expr]))
-                .separated_by(pad(','))
-                .collect()
-                .map(List),
-        )
-        .then(kw("UNSET").ignore_then(id_list.clone()).or_not())
-        .then(kw("WHERE").ignore_then(expr.clone()).or_not())
-        .map(|(((id, updates), unsets), expr)| {
-            let mut acc = vec![KW(Update), id, updates];
-            add_clause(&mut acc, Unset, unsets);
-            add_clause(&mut acc, Where, expr);
+        .then(update_body)
+        .map(|(id, update)| {
+            let mut acc = vec![KW(Update), id];
+            match update {
+                List(mut x) => acc.append(&mut x),
+                _ => unreachable!(),
+            };
             List(acc)
         });
 
@@ -1512,6 +1549,68 @@ mod tests {
                     start: 17
                     end: 18
         "###);
+
+        assert_yaml_snapshot!(parse("INSERT INTO foo (x) VALUES (1), (2) ON CONFLICT (x) DO NOTHING"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Insert
+            - Id:
+                start: 12
+                end: 15
+            - List:
+                - KW: Values
+                - List:
+                    - List:
+                        - Integer: 1
+                    - List:
+                        - Integer: 2
+            - KW: ColumnNames
+            - List:
+                - Id:
+                    start: 17
+                    end: 18
+            - KW: OnConflict
+            - List:
+                - Id:
+                    start: 49
+                    end: 50
+        "###);
+        assert_yaml_snapshot!(parse("INSERT INTO foo (x) VALUES (1), (2) ON CONFLICT (x) DO UPDATE SET x = 2"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Insert
+            - Id:
+                start: 12
+                end: 15
+            - List:
+                - KW: Values
+                - List:
+                    - List:
+                        - Integer: 1
+                    - List:
+                        - Integer: 2
+            - KW: ColumnNames
+            - List:
+                - Id:
+                    start: 17
+                    end: 18
+            - KW: OnConflict
+            - List:
+                - Id:
+                    start: 49
+                    end: 50
+            - KW: Update
+            - List:
+                - List:
+                    - List:
+                        - Id:
+                            start: 66
+                            end: 67
+                        - Integer: 2
+        "###);
+
         assert_yaml_snapshot!(parse("DELETE FROM foo WHERE FALSE"), @r###"
         ---
         Ok:

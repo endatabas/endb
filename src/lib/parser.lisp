@@ -117,7 +117,8 @@
   :hour
   :minute
   :second
-  :interval)
+  :interval
+  :on-conflict)
 
 (cffi:defcenum Ast_Tag
   :List
