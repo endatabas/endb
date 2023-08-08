@@ -835,6 +835,23 @@ mod tests {
                             start: 13
                             end: 16
         "###);
+
+        assert_yaml_snapshot!(parse("SELECT x IMMEDIATELY PRECEDES y"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: ImmediatelyPrecedes
+                        - Id:
+                            start: 7
+                            end: 8
+                        - Id:
+                            start: 30
+                            end: 31
+        "###);
     }
 
     #[test]

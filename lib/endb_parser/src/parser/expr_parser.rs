@@ -505,9 +505,21 @@ where
             .clone()
             .foldl(
                 choice((
-                    choice((pad('=').to(Some(Eq)), pad("<>").to(Some(Ne))))
-                        .then(comp.clone())
-                        .map(|x| (None, x)),
+                    choice((
+                        pad('=').to(Some(Eq)),
+                        pad("<>").to(Some(Ne)),
+                        kw("OVERLAPS").to(Some(Overlaps)),
+                        kw("EQUALS").to(Some(Eq)),
+                        kw("CONTAINS").to(Some(Contains)),
+                        kw("PRECEDES").to(Some(Precedes)),
+                        kw("SUCCEDES").to(Some(Succedes)),
+                        kw("IMMEDIATELY").ignore_then(choice((
+                            kw("PRECEDES").to(Some(ImmediatelyPrecedes)),
+                            kw("SUCCEDES").to(Some(ImmediatelySuccedes)),
+                        ))),
+                    ))
+                    .then(comp.clone())
+                    .map(|x| (None, x)),
                     kw("IS")
                         .to(Some(Is))
                         .then(kw("NOT").to(Not).or_not().then(comp.clone())),

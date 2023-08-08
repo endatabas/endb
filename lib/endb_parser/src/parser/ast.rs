@@ -101,6 +101,12 @@ pub enum Keyword {
     CurrentTimestamp,
     Unset,
     Recursive,
+    Overlaps,
+    Contains,
+    Precedes,
+    Succedes,
+    ImmediatelyPrecedes,
+    ImmediatelySuccedes,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

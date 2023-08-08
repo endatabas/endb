@@ -104,7 +104,13 @@
   :current_time
   :current_timestamp
   :unset
-  :recursive)
+  :recursive
+  :overlaps
+  :contains
+  :precedes
+  :succedes
+  :immediately-precedes
+  :immediately-succedes)
 
 (cffi:defcenum Ast_Tag
   :List

@@ -433,6 +433,26 @@
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT 09:00:00 - 10:30:00")
       (is (equalp (list (list (endb/arrow:parse-arrow-interval-month-day-nanos "PT1H30M"))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {start: 2001-01-01, end: 2001-03-01} OVERLAPS {start: 2001-02-01, end: 2001-04-01}")
+      (is (equalp (list (list t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {start: 2001-01-01, end: 2001-03-01} CONTAINS {start: 2001-02-01, end: 2001-04-01}")
+      (is (equalp (list (list nil)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {start: 2001-01-01, end: 2001-04-01} CONTAINS {start: 2001-02-01, end: 2001-04-01}")
+      (is (equalp (list (list t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 2001-04-01 IMMEDIATELY PRECEDES [2001-04-01T00:00:00Z, 2001-05-01]")
+      (is (equalp (list (list t)) result))
       (is (equal '("column1") columns)))))
 
 (test temporal-current-literals

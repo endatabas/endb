@@ -15,7 +15,7 @@
            #:sql-access #:sql-access-finish #:sql-between #:sql-in #:sql-exists #:sql-coalesce
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery #:sql-unnest
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-duration #:sql-like #:sql-substring #:sql-strftime
-           #:sql-current-date #:sql-current-time #:sql-current-timestamp
+           #:sql-current-date #:sql-current-time #:sql-current-timestamp #:sql-contains #:sql-overlaps #:sql-precedes #:sql-succedes #:sql-immediately-precedes #:sql-immediately-succedes
            #:make-sql-agg #:sql-agg-accumulate #:sql-agg-finish
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-insert-objects #:sql-delete
            #:make-db #:copy-db #:db-buffer-pool #:db-wal #:db-object-store #:db-meta-data #:db-current-timestamp
@@ -841,6 +841,61 @@
 (defun sql-current-timestamp (db)
   (or (db-current-timestamp db)
       (endb/arrow:local-time-to-arrow-timestamp-micros (local-time:now))))
+
+;; Period predicates
+
+(defmethod %period-field ((x list) field)
+  (let ((f (assoc field x :test 'equal)))
+    (if f
+        (cdr f)
+        :null)))
+
+(defmethod %period-field ((x vector) (field (eql "start")))
+  (if (= 2 (length x))
+      (aref x 0)
+      :null))
+
+(defmethod %period-field ((x vector) (field (eql "end")))
+  (if (= 2 (length x))
+      (aref x 1)
+      :null))
+
+(defmethod %period-field ((x endb/arrow:arrow-date-days) field)
+  x)
+
+(defmethod %period-field ((x endb/arrow:arrow-timestamp-micros) field)
+  x)
+
+(defmethod %period-field (x field)
+  :null)
+
+(defun sql-contains (x y)
+  (sql-and (sql-<= (%period-field x "start")
+                   (%period-field y "start"))
+           (sql->= (%period-field x "end")
+                   (%period-field y "end"))))
+
+(defun sql-overlaps (x y)
+  (sql-and (sql-< (%period-field x "start")
+                  (%period-field y "end"))
+           (sql-> (%period-field x "end")
+                  (%period-field y "start"))))
+
+(defun sql-precedes (x y)
+  (sql-<= (%period-field x "end")
+          (%period-field y "start")))
+
+(defun sql-succedes (x y)
+  (sql->= (%period-field x "start")
+          (%period-field y "end")))
+
+(defun sql-immediately-precedes (x y)
+  (sql-= (%period-field x "end")
+         (%period-field y "start")))
+
+(defun sql-immediately-succedes (x y)
+  (sql-= (%period-field x "start")
+         (%period-field y "end")))
 
 ;; Aggregates
 
