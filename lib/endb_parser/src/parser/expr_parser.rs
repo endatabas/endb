@@ -73,17 +73,17 @@ where
     use super::ast::Keyword::*;
 
     let iso_date = digits(4, 4)
-        .then_ignore(just('-'))
+        .then(just('-'))
         .then(digits(2, 2))
-        .then_ignore(just('-'))
+        .then(just('-'))
         .then(digits(2, 2));
 
     let iso_time = digits(2, 2)
-        .then_ignore(just(':'))
+        .then(just(':'))
         .then(digits(2, 2))
-        .then_ignore(just(':'))
+        .then(just(':'))
         .then(digits(2, 2))
-        .then(just('.').ignore_then(digits(1, 6)).or_not());
+        .then(just('.').then(digits(1, 6)).or_not());
 
     let date_ctor = |_, span: SimpleSpan<_>| kw_literal(Date, &span);
 
@@ -139,11 +139,11 @@ where
     use super::ast::{Ast::*, Keyword::*};
 
     let iso_time = digits(2, 2)
-        .then_ignore(just(':'))
+        .then(just(':'))
         .then(digits(2, 2))
-        .then_ignore(just(':'))
+        .then(just(':'))
         .then(digits(2, 2))
-        .then(just('.').ignore_then(digits(1, 6)).or_not());
+        .then(just('.').then(digits(1, 6)).or_not());
 
     let time_ctor = |_, span: SimpleSpan<_>| kw_literal(Time, &span);
 
@@ -160,14 +160,14 @@ where
     let iso_quantity = text::int(10).then(one_of(",.").then(text::digits(10)).or_not());
 
     let iso_duration = just('P')
-        .then_ignore(iso_quantity.ignore_then(just('Y')).or_not())
-        .then_ignore(iso_quantity.ignore_then(just('M')).or_not())
-        .then_ignore(iso_quantity.ignore_then(just('D')).or_not())
+        .then(iso_quantity.then(just('Y')).or_not())
+        .then(iso_quantity.then(just('M')).or_not())
+        .then(iso_quantity.then(just('D')).or_not())
         .then(
             just('T')
-                .then_ignore(iso_quantity.ignore_then(just('H')).or_not())
-                .then_ignore(iso_quantity.ignore_then(just('M')).or_not())
-                .then_ignore(iso_quantity.ignore_then(just('S')).or_not())
+                .then(iso_quantity.then(just('H')).or_not())
+                .then(iso_quantity.then(just('M')).or_not())
+                .then(iso_quantity.then(just('S')).or_not())
                 .or_not(),
         )
         .map_with_span(|_, span: SimpleSpan<_>| kw_literal(Duration, &span));
