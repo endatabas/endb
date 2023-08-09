@@ -191,12 +191,36 @@ where
     ))
     .map(KW);
 
+    let interval_year_month_or_single = text::int(10)
+        .then(just('-').then(text::int(10)).or_not())
+        .map_with_span(|_, span: SimpleSpan<_>| kw_literal(Interval, &span));
+    let interval_time = digits(2, 2)
+        .separated_by(just(':'))
+        .at_least(1)
+        .at_most(3)
+        .then(just('.').then(text::digits(10)).or_not());
+    let interval_day_time = text::int(10)
+        .then(just(' '))
+        .then(interval_time.clone())
+        .map_with_span(|_, span: SimpleSpan<_>| kw_literal(Interval, &span));
+
+    let interval_string = choice((
+        interval_time.map_with_span(|_, span: SimpleSpan<_>| kw_literal(Interval, &span)),
+        interval_day_time,
+        interval_year_month_or_single,
+    ))
+    .padded_by(just('\''));
+
     let interval = kw("INTERVAL")
-        .ignore_then(string.clone().padded())
+        .ignore_then(interval_string.padded())
         .then(interval_field.clone())
         .then(kw("TO").ignore_then(interval_field).or_not())
         .map(|((interval, start), end)| {
-            let mut acc = vec![KW(Interval), interval, start];
+            let mut acc = match interval {
+                List(x) => x,
+                _ => unreachable!(),
+            };
+            acc.push(start);
             if let Some(end) = end {
                 acc.push(end);
             }

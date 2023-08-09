@@ -1214,7 +1214,13 @@
     (interpret-sql-literal "2001-01"))
 
   (signals endb/sql/expr:sql-runtime-error
-    (interpret-sql-literal "1 + 2")))
+    (interpret-sql-literal "1 + 2"))
+
+  (signals endb/sql/expr:sql-runtime-error
+    (interpret-sql-literal "INTERVAL '1-2' MONTH TO YEAR"))
+
+  (signals endb/sql/expr:sql-runtime-error
+    (interpret-sql-literal "INTERVAL '1-2' YEAR")))
 
 (defun endb->sqlite (x)
   (cond

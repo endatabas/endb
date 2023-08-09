@@ -764,23 +764,26 @@
 
 (defparameter +interval-scanner+ (ppcre:create-scanner "[ :-]"))
 
-(defmethod sql-interval ((x string) from &optional to)
+(defmethod sql-interval ((x string) from &optional (to from))
   (let* ((parts (coerce (ppcre:split +interval-scanner+ x) 'list))
          (units (subseq +interval-parts+
                         (position from +interval-parts+)
-                        (1+ (position (or to from) +interval-parts+))))
-         (strs (loop with time-part-seen-p = nil
-                     for unit in units
-                     for part in parts
-                     for s = (format nil "~d~A" part (char-upcase (char (symbol-name unit) 0)))
-                     if (and (null time-part-seen-p)
-                             (member unit +interval-time-parts+))
-                       collect (progn
-                                 (setf time-part-seen-p t)
-                                 (concatenate 'string "T" s))
-                     else
-                       collect s)))
-    (sql-duration (apply #'concatenate 'string "P" strs))))
+                        (1+ (position to +interval-parts+)))))
+    (unless (= (length parts) (length units))
+      (error 'sql-runtime-error
+             :message (format nil "Invalid interval: ~A from: ~A to: ~A" x from to)))
+    (let ((strs (loop with time-part-seen-p = nil
+                      for unit in units
+                      for part in parts
+                      for s = (format nil "~d~A" part (char-upcase (char (symbol-name unit) 0)))
+                      if (and (null time-part-seen-p)
+                              (member unit +interval-time-parts+))
+                        collect (progn
+                                  (setf time-part-seen-p t)
+                                  (concatenate 'string "T" s))
+                      else
+                        collect s)))
+      (sql-duration (apply #'concatenate 'string "P" strs)))))
 
 (defmethod sql-like ((x (eql :null)) (pattern (eql :null)))
   :null)
