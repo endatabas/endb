@@ -24,20 +24,22 @@
     * ISO literals
     * simple path access (SQL:2023)
     * refine error messages
-* System Time `AS OF`
+* System Time `AS OF`, `BETWEEN` and `FROM`
 * Non-recursive `WITH`
+* Upsert using `INSERT ON CONFLICT`
 * web server frontend
     * HTTP client?
+    * SQL parameters
 * docker image
 * `endb-book`
 
 ## 2023 Q4
 
 * DBaaS ramp-up
-* System Time `BETWEEN` and `FROM`
 * single-node hardening
     * API authentication
-    * SQL parameters
+    * Performance
+    * Monitoring
 
 ## 2024 Q1
 
