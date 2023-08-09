@@ -870,14 +870,17 @@
       args
     (let ((fn-sym (%find-sql-expr-symbol fn)))
       (unless fn-sym
-        (error 'endb/sql/expr:sql-runtime-error :message (format nil "Unknown build-in function: ~A" fn)))
+        (error 'endb/sql/expr:sql-runtime-error :message (format nil "Unknown built-in function: ~A" fn)))
       `(,fn-sym ,@(loop for ast in args
                         collect (ast->cl ctx ast))))))
 
 (defmethod sql->cl (ctx (type (eql :aggregate-function)) &rest args)
   (destructuring-bind (fn args &key distinct (where :true))
       args
+    (when (fset:lookup ctx :aggregate)
+      (error 'endb/sql/expr:sql-runtime-error :message (format nil "Cannot nest aggregate functions: ~A" fn)))
     (let* ((aggregate-table (fset:lookup ctx :aggregate-table))
+           (ctx (fset:with ctx :aggregate t))
            (fn-sym (%find-sql-expr-symbol fn))
            (aggregate-sym (gensym))
            (init-src `(endb/sql/expr:make-sql-agg ,fn :distinct ,distinct))

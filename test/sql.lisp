@@ -1134,6 +1134,9 @@
       (is (equal '((1 0 :null 104.0d0 :null 102 :null) (2 2 207 103.5d0 102 102 102)) result))
       (is (equal '("column1" "column2" "column3" "column4" "column5" "column6" "b") columns)))
 
+    (signals endb/sql/expr:sql-runtime-error
+      (is (equal 1 (execute-sql db "SELECT COUNT(SUM(e)) FROM t1 WHERE FALSE"))))
+
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT COUNT(*) FROM t1 WHERE FALSE")
       (is (equal '((0)) result))
