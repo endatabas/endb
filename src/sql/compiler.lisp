@@ -781,7 +781,10 @@
                                `(let ((,spread-sym ,(ast->cl ctx (second ast))))
                                   (when (vectorp ,spread-sym)
                                     (loop for ,spread-sym across ,spread-sym
-                                          do (vector-push-extend ,spread-sym ,acc-sym)))))
+                                          do (vector-push-extend (if (characterp ,spread-sym)
+                                                                     (princ-to-string ,spread-sym)
+                                                                     ,spread-sym)
+                                                                 ,acc-sym)))))
                              `(vector-push-extend ,(ast->cl ctx ast) ,acc-sym)))
          ,acc-sym))))
 
@@ -817,7 +820,9 @@
                                             ((vectorp ,spread-sym)
                                              (loop for ,spread-sym across ,spread-sym
                                                    for ,idx-sym from 0
-                                                   collect (cons (format nil "~A" ,idx-sym) ,spread-sym)))))))
+                                                   collect (cons (format nil "~A" ,idx-sym) (if (characterp ,spread-sym)
+                                                                                                (princ-to-string ,spread-sym)
+                                                                                                ,spread-sym))))))))
                                     (t `(list (cons ,(if (symbolp (first kv))
                                                          (symbol-name (first kv))
                                                          (first kv))
