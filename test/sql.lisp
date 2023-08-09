@@ -1205,7 +1205,50 @@
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT * FROM (SELECT 1 AS a) x LEFT JOIN (SELECT 2 AS b) y ON x.a = y.b")
       (is (equal '((1 :null)) result))
-      (is (equal '("a" "b") columns)))))
+      (is (equal '("a" "b") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT CARDINALITY([1, 2])")
+      (is (equal '((2)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT LENGTH([1, 2])")
+      (is (equal '((2)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT LENGTH({a: 1})")
+      (is (equal '((1)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT LENGTH({})")
+      (is (equal '((0)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT CHARACTER_LENGTH('josé')")
+      (is (equal '((4)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT OCTET_LENGTH('josé')")
+      (is (equal '((5)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT \"josé\"")
+      (is (equal '(("josé")) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [1, 2] || [3, 4]")
+      (is (equalp '((#(1 2 3 4))) result))
+      (is (equal '("column1") columns)))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "SELECT SQRT(-1)"))))
 
 (test interpret-sql-literal
   (is (equal "foo" (interpret-sql-literal "'foo'")))
@@ -1477,4 +1520,28 @@
   (is-valid (expr "'foo' || 'bar'"))
   (is-valid (expr "1 || 2"))
   (is-valid (expr "1 || NULL"))
-  (is-valid (expr "NULL || 'bar'")))
+  (is-valid (expr "NULL || 'bar'"))
+
+  (is-valid (expr "LENGTH('bar')"))
+  (is-valid (expr "TRIM(' bar  ')"))
+  (is-valid (expr "LTRIM(' bar  ')"))
+  (is-valid (expr "RTRIM(' bar  ')"))
+
+  (is-valid (expr "LOWER('FooBar')"))
+  (is-valid (expr "UPPER('FooBar')"))
+
+  (is-valid (expr "ROUND(2.4)"))
+  (is-valid (expr "FLOOR(2.4)"))
+  (is-valid (expr "CEIL(-2.4)"))
+  (is-valid (expr "CEILING(4)"))
+
+  (is-valid (expr "SIN(2.4)"))
+  (is-valid (expr "ATAN(2)"))
+  (is-valid (expr "COS(NULL)"))
+  (is-valid (expr "SQRT(2)"))
+  (is-valid (expr "POWER(2, 2)"))
+  (is-valid (expr "POWER(2, NULL)"))
+  (is-valid (expr "LN(4.2)"))
+  (is-valid (expr "LOG10(2)"))
+  (is-valid (expr "LOG(2, 64)"))
+  (is-valid (expr "SIGN(-2.4)")))

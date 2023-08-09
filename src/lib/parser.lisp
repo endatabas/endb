@@ -3,7 +3,8 @@
   (:export  #:sql-parse-error #:parse-sql #:annotate-input-with-error)
   (:import-from :endb/lib)
   (:import-from :cffi)
-  (:import-from :cl-ppcre))
+  (:import-from :cl-ppcre)
+  (:import-from :trivial-utf-8))
 (in-package :endb/lib/parser)
 
 (cffi:defcenum Keyword
@@ -216,7 +217,8 @@
         finally (return acc)))
 
 (defun visit-ast (input builder ast)
-  (loop with queue = (list ast)
+  (loop with input-bytes = (trivial-utf-8:string-to-utf-8-bytes input)
+        with queue = (list ast)
         with acc = (ast-builder-acc builder)
         with stride = (cffi:foreign-type-size '(:struct Ast))
         while queue
@@ -241,13 +243,13 @@
                   (3 (cffi:with-foreign-slots ((n) value (:struct Float_Union))
                        (push n (first acc))))
                   (4 (cffi:with-foreign-slots ((start end) value (:struct Id_Union))
-                       (let ((s (make-symbol (subseq input start end))))
+                       (let ((s (make-symbol (trivial-utf-8:utf-8-bytes-to-string input-bytes :start start :end end))))
                          (setf (get s :start) start (get s :end) end (get s :input) input)
                          (push s (first acc)))))
                   (5 (cffi:with-foreign-slots ((start end) value (:struct String_Union))
-                       (push (subseq input start end) (first acc))))
+                       (push (trivial-utf-8:utf-8-bytes-to-string input-bytes :start start :end end) (first acc))))
                   (6 (cffi:with-foreign-slots ((start end) value (:struct Binary_Union))
-                       (push (hex-to-binary (subseq input start end)) (first acc))))))))))
+                       (push (hex-to-binary (trivial-utf-8:utf-8-bytes-to-string input-bytes :start start :end end)) (first acc))))))))))
 
 (defun strip-ansi-escape-codes (s)
   (ppcre:regex-replace-all "\\[3\\d(?:;\\d+;\\d+)?m(.+?)\\[0m" s "\\1"))

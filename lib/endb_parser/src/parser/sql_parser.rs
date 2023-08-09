@@ -963,6 +963,17 @@ mod tests {
                         start: 8
                         end: 11
         "###);
+        assert_yaml_snapshot!(parse("SELECT \"josé\""), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - String:
+                        start: 8
+                        end: 13
+        "###);
         assert_yaml_snapshot!(parse("SELECT \"f\\noo\""), @r###"
         ---
         Ok:

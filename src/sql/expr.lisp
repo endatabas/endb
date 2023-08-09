@@ -518,6 +518,9 @@
 (defmethod sql-concat ((x string) (y string))
   (concatenate 'string x y))
 
+(defmethod sql-concat ((x vector) (y vector))
+  (concatenate 'vector x y))
+
 (defmethod sql-concat ((x (eql :null)) y)
   :null)
 
@@ -526,6 +529,50 @@
 
 (defmethod sql-concat (x y)
   (sql-concat (sql-cast x :varchar) (sql-cast y :varchar)))
+
+(defmethod sql-cardinality ((x vector))
+  (length x))
+
+(defmethod sql-cardinality ((x list))
+  (length x))
+
+(defmethod sql-cardinality ((x (eql :empty-struct)))
+  0)
+
+(defmethod sql-char_length ((x string))
+  (length x))
+
+(defmethod sql-character_length ((x string))
+  (length x))
+
+(defmethod sql-octet_length ((x vector))
+  (if (typep x 'endb/arrow:arrow-binary)
+      (length x)
+      :null))
+
+(defmethod sql-octet_length ((x string))
+  (trivial-utf-8:utf-8-byte-length x))
+
+(defmethod sql-length ((x sequence))
+  (length x))
+
+(defmethod sql-length ((x (eql :empty-struct)))
+  0)
+
+(defmethod sql-trim ((x string) &optional (y " "))
+  (string-trim y x))
+
+(defmethod sql-ltrim ((x string) &optional (y " "))
+  (string-left-trim y x))
+
+(defmethod sql-rtrim ((x string) &optional (y " "))
+  (string-right-trim y x))
+
+(defmethod sql-lower ((x string))
+  (string-downcase x))
+
+(defmethod sql-upper ((x string))
+  (string-upcase x))
 
 (defstruct path-seq acc)
 
@@ -730,6 +777,144 @@
 
 (defmethod sql-abs ((x number))
   (abs x))
+
+(defmethod sql-round ((x (eql :null)))
+  :null)
+
+(defmethod sql-round ((x number))
+  (coerce (round x) 'double-float))
+
+(defmethod sql-sin ((x (eql :null)))
+  :null)
+
+(defmethod sql-sin ((x number))
+  (sin (coerce x 'double-float)))
+
+(defmethod sql-cos ((x (eql :null)))
+  :null)
+
+(defmethod sql-cos ((x number))
+  (cos (coerce x 'double-float)))
+
+(defmethod sql-tan ((x (eql :null)))
+  :null)
+
+(defmethod sql-tan ((x number))
+  (tan (coerce x 'double-float)))
+
+(defmethod sql-sinh ((x (eql :null)))
+  :null)
+
+(defmethod sql-sinh ((x number))
+  (sinh (coerce x 'double-float)))
+
+(defmethod sql-cosh ((x (eql :null)))
+  :null)
+
+(defmethod sql-cosh ((x number))
+  (cosh (coerce x 'double-float)))
+
+(defmethod sql-tanh ((x (eql :null)))
+  :null)
+
+(defmethod sql-tanh ((x number))
+  (tanh (coerce x 'double-float)))
+
+(defmethod sql-asin ((x (eql :null)))
+  :null)
+
+(defmethod sql-asin ((x number))
+  (asin (coerce x 'double-float)))
+
+(defmethod sql-acos ((x (eql :null)))
+  :null)
+
+(defmethod sql-acos ((x number))
+  (acos (coerce x 'double-float)))
+
+(defmethod sql-atan ((x (eql :null)))
+  :null)
+
+(defmethod sql-atan ((x number))
+  (atan (coerce x 'double-float)))
+
+(defmethod sql-floor ((x (eql :null)))
+  :null)
+
+(defmethod sql-floor ((x number))
+  (floor x))
+
+(defmethod sql-floor ((x double-float))
+  (coerce (floor x) 'double-float))
+
+(defmethod sql-ceiling ((x (eql :null)))
+  :null)
+
+(defmethod sql-ceiling ((x number))
+  (ceiling x))
+
+(defmethod sql-ceiling ((x double-float))
+  (coerce (ceiling x) 'double-float))
+
+(defun sql-ceil (x)
+  (sql-ceiling x))
+
+(defmethod sql-sign ((x (eql :null)))
+  :null)
+
+(defmethod sql-sign ((x number))
+  (round (signum x)))
+
+(defmethod sql-sqrt ((x (eql :null)))
+  :null)
+
+(defmethod sql-sqrt ((x number))
+  (if (minusp x)
+      (error 'sql-runtime-error
+             :message (format nil "Cannot sqrt negative value: ~A" x))
+      (sqrt (coerce x 'double-float))))
+
+(defmethod sql-exp ((x (eql :null)))
+  :null)
+
+(defmethod sql-exp ((x number))
+  (exp x))
+
+(defmethod sql-power ((x (eql :null)) (y (eql :null)))
+  :null)
+
+(defmethod sql-power ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-power (x (y (eql :null)))
+  :null)
+
+(defmethod sql-power ((x number) (y number))
+  (expt (coerce x 'double-float) y))
+
+(defmethod sql-log ((x (eql :null)) (y (eql :null)))
+  :null)
+
+(defmethod sql-log ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-log (x (y (eql :null)))
+  :null)
+
+(defmethod sql-log ((x number) (y number))
+  (log y (coerce x 'double-float)))
+
+(defmethod sql-log10 ((x (eql :null)))
+  :null)
+
+(defmethod sql-log10 ((x number))
+  (log (coerce x 'double-float) 10))
+
+(defmethod sql-ln ((x (eql :null)))
+  :null)
+
+(defmethod sql-ln ((x number))
+  (log (coerce x 'double-float)))
 
 (defmethod sql-date ((x (eql :null)))
   :null)
