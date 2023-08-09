@@ -1135,7 +1135,7 @@
       (is (equal '("column1" "column2" "column3" "column4" "column5" "column6" "b") columns)))
 
     (signals endb/sql/expr:sql-runtime-error
-      (is (equal 1 (execute-sql db "SELECT COUNT(SUM(e)) FROM t1 WHERE FALSE"))))
+      (execute-sql db "SELECT COUNT(SUM(e)) FROM t1 WHERE FALSE"))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT COUNT(*) FROM t1 WHERE FALSE")
