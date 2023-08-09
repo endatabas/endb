@@ -250,7 +250,7 @@
                        (push (hex-to-binary (subseq input start end)) (first acc))))))))))
 
 (defun strip-ansi-escape-codes (s)
-  (cl-ppcre:regex-replace-all "\\[3\\d(?:;\\d+;\\d+)?m(.+?)\\[0m" s "\\1"))
+  (ppcre:regex-replace-all "\\[3\\d(?:;\\d+;\\d+)?m(.+?)\\[0m" s "\\1"))
 
 (define-condition sql-parse-error (error)
   ((message :initarg :message :reader sql-parse-error-message))

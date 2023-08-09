@@ -1234,7 +1234,7 @@
        (subseq s 0 (- (length s) 7))))
     ((typep x 'endb/arrow:arrow-timestamp-micros)
      (let ((s (format nil "~A" x)))
-       (cl-ppcre:regex-replace "T" (subseq s 0 (- (length s) 8)) " ")))
+       (ppcre:regex-replace "T" (subseq s 0 (- (length s) 8)) " ")))
     (t x)))
 
 (defun expr (expr)

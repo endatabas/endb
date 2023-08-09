@@ -156,7 +156,7 @@
 	       (periods::duration-nanoseconds duration))))
     (make-arrow-interval-month-day-nanos :month month :day day :ns ns)))
 
-(defparameter +iso-duration-scanner+ (cl-ppcre:create-scanner "^P(\\d+Y)?(\\d+M)?(\\d+D)?(?:T(\\d+H)?(\\d+M)?(\\d+(?:\\.\\d+)?S)?)?$"))
+(defparameter +iso-duration-scanner+ (ppcre:create-scanner "^P(\\d+Y)?(\\d+M)?(\\d+D)?(?:T(\\d+H)?(\\d+M)?(\\d+(?:\\.\\d+)?S)?)?$"))
 
 (defun parse-arrow-interval-month-day-nanos (s)
   (let ((*read-eval* nil)
@@ -165,7 +165,7 @@
                (if x
                    (read-from-string (subseq x 0 (1- (length x))))
                    0)))
-      (multiple-value-bind (matchp parts) (cl-ppcre:scan-to-strings +iso-duration-scanner+ s)
+      (multiple-value-bind (matchp parts) (ppcre:scan-to-strings +iso-duration-scanner+ s)
         (when matchp
           (destructuring-bind (years months days hours minutes seconds)
               (coerce parts 'list)
@@ -356,7 +356,7 @@
     ((equal "u" format) 'utf8-array)
     ((equal "+s" format) 'struct-array)
     ((equal "+l" format) 'list-array)
-    (t (if (cl-ppcre:scan "^\\+ud:" format)
+    (t (if (ppcre:scan "^\\+ud:" format)
            'dense-union-array
            (error "unknown format: ~s" format)))))
 

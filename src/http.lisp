@@ -32,7 +32,7 @@
 (defparameter *response-media-types* '("application/json" "application/x-ndjson" "application/ld+json" "text/csv"))
 
 (defun %format-csv (x)
-  (cl-ppcre:regex-replace-all "\\\\\"" (com.inuoe.jzon:stringify x) "\"\""))
+  (ppcre:regex-replace-all "\\\\\"" (com.inuoe.jzon:stringify x) "\"\""))
 
 (defun %row-to-json (column-names row)
   (with-output-to-string (out)
