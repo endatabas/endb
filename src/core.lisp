@@ -90,7 +90,9 @@
   (let* ((db (endb/sql:make-directory-db :directory (clingon:getopt cmd :data-directory) :object-store-path nil))
          (http-port (clingon:getopt cmd :http-port))
          (http-server (unless (clingon:getopt cmd :interactive)
-                        (clack:clackup (endb/http:make-api-handler db (clingon:getopt cmd :username) (clingon:getopt cmd :password))
+                        (clack:clackup (endb/http:make-api-handler db
+                                                                   :username (clingon:getopt cmd :username)
+                                                                   :password (clingon:getopt cmd :password))
                                        :port http-port
                                        :address "0.0.0.0"
                                        :silent t))))

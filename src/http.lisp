@@ -94,7 +94,7 @@
     (let ((basic-auth-bytes (trivial-utf-8:string-to-utf-8-bytes (format nil "~A:~A" (or username "") (or password "")))))
       (format nil "Basic ~A" (qbase64:encode-bytes basic-auth-bytes)))))
 
-(defun make-api-handler (db username password)
+(defun make-api-handler (db &key username password (realm "restricted area"))
   (let* ((write-lock (bt:make-lock))
          (basic-auth-header (%encode-basic-auth-header username password)))
     (lambda (env)
@@ -103,7 +103,7 @@
                  (headers (lack.request:request-headers req)))
             (log:debug req)
             (if (and basic-auth-header (not (equal basic-auth-header (gethash "authorization" headers))))
-                (%empty-response +http-unauthorized+)
+                (%empty-response +http-unauthorized+ (list :www-authenticate (format nil "Basic realm=\"~A\"" realm)))
                 (if (equal "/sql" (lack.request:request-path-info req))
                     (if (member (lack.request:request-method req) '(:get :post))
                         (if (and (eq :post (lack.request:request-method req))
