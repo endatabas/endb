@@ -693,6 +693,8 @@
                                          collect `(cons ,(symbol-name update-col) ,(ast->cl ctx expr))))
                (unset-columns (loop for c in unset
                                     collect (list (symbol-name c))))
+               (updated-columns (loop for update-col in (append (mapcar #'car update-cols) unset)
+                                      collect (symbol-name update-col)))
                (updated-rows-sym (gensym))
                (deleted-row-ids-sym (gensym))
                (value-sym (gensym))
@@ -710,6 +712,8 @@
                                                      :key #'car)
                                      ,updated-rows-sym)
                                (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym)))))
+          (when (and upsertp (intersection on-conflict updated-columns :test 'equal))
+            (%annotated-error table-name "Cannot update the on conflict columns"))
           `(let ((,updated-rows-sym)
                  (,deleted-row-ids-sym))
              ,(if upsertp
