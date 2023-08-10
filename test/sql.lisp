@@ -270,6 +270,15 @@
                  result))
       (is (equal '("a" "b" "c" "d" "e") columns)))
 
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "INSERT INTO t3 SELECT a, b, c FROM t2 WHERE c > 4 ON CONFLICT (b) DO NOTHING")
+      (is (null result))
+      (is (= 2 result-code)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT * FROM t3 ORDER BY c")
+      (is (equal '((:null 3 5) (4 5 7)) result))
+      (is (equal '("a" "b" "c") columns)))
 
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql write-db "INSERT INTO users {}"))))

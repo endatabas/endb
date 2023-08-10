@@ -657,10 +657,9 @@
                (on-conflict (mapcar #'symbol-name on-conflict))
                (excluded-projection (when upsertp
                                       (if column-names
-                                          (let ((keys (mapcar #'symbol-name column-names)))
-                                            (unless (subsetp on-conflict keys :test 'equal)
+                                          (if (subsetp on-conflict column-names :test 'equal)
+                                              column-names
                                               (%annotated-error table-name "Column names needs to contain the on conflict columns"))
-                                            keys)
                                           (sort (delete-duplicates (loop for object in values
                                                                          for keys = (loop for (k nil) in (second object)
                                                                                           when (symbolp k)
@@ -753,17 +752,22 @@
       args
     (when (and endb/sql/expr:*sqlite-mode* on-conflict)
       (%annotated-error table-name "Insert on conflict not supported in SQLite mode"))
-    (when (and (not endb/sql/expr:*sqlite-mode*) (null column-names))
-      (%annotated-error table-name "Column names are required"))
-    (if on-conflict
-        (%insert-on-conflict ctx table-name on-conflict update :values values :column-names column-names)
-        `(endb/sql/expr:sql-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx values)
-                                   :column-names ',(mapcar #'symbol-name column-names)))))
+    (when (and (not endb/sql/expr:*sqlite-mode*) (null column-names) (eq :values (first values)))
+      (%annotated-error table-name "Column names are required for values"))
+    (multiple-value-bind (src projection)
+        (ast->cl ctx values)
+      (let ((column-names (if (or column-names endb/sql/expr:*sqlite-mode*)
+                              (mapcar #'symbol-name column-names)
+                              projection)))
+        (if (and on-conflict (endb/sql/expr:table-type (fset:lookup ctx :db) (symbol-name table-name)))
+            (%insert-on-conflict ctx table-name on-conflict update :values values :column-names column-names)
+            `(endb/sql/expr:sql-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,src
+                                       :column-names ',column-names))))))
 
 (defmethod sql->cl (ctx (type (eql :insert-objects)) &rest args)
   (destructuring-bind (table-name values &key on-conflict update)
       args
-    (if on-conflict
+    (if (and on-conflict (endb/sql/expr:table-type (fset:lookup ctx :db) (symbol-name table-name)))
         (%insert-on-conflict ctx table-name on-conflict update :values values)
         `(endb/sql/expr:sql-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx values)))))
 
@@ -1058,7 +1062,7 @@
 (defun %interpretp (ast)
   (when (listp ast)
     (case (first ast)
-      ((:create-table :create-index :drop-table :drop-view) t)
+      ((:create-table :create-index :drop-table :drop-view :insert-objects) t)
       (:insert (eq :values (first (third ast))))
       (:select (> (length (cdr (getf ast :from)))
                   *interpreter-from-limit*)))))
