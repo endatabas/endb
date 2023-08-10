@@ -712,6 +712,8 @@
                                                      :key #'car)
                                      ,updated-rows-sym)
                                (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym)))))
+          (when (and update (null updated-columns))
+            (%annotated-error table-name "Update requires at least one set or unset column"))
           (when (and upsertp (intersection on-conflict updated-columns :test 'equal))
             (%annotated-error table-name "Cannot update the on conflict columns"))
           `(let ((,updated-rows-sym)

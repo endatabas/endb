@@ -394,10 +394,11 @@ where
                 .collect()
                 .map(List),
         )
+        .or_not()
         .then(kw("UNSET").ignore_then(id_list.clone()).or_not())
         .then(kw("WHERE").ignore_then(expr.clone()).or_not())
         .map(|((updates, unsets), expr)| {
-            let mut acc = vec![updates];
+            let mut acc = vec![updates.unwrap_or_else(|| List(vec![]))];
             add_clause(&mut acc, Unset, unsets);
             add_clause(&mut acc, Where, expr);
             List(acc)
@@ -1652,6 +1653,26 @@ mod tests {
             - KW: "Null"
         "###);
 
+        assert_yaml_snapshot!(parse("UPDATE foo UNSET z, w WHERE FALSE"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Update
+            - Id:
+                start: 7
+                end: 10
+            - List: []
+            - KW: Unset
+            - List:
+                - Id:
+                    start: 17
+                    end: 18
+                - Id:
+                    start: 20
+                    end: 21
+            - KW: Where
+            - KW: "False"
+        "###);
         assert_yaml_snapshot!(parse("UPDATE foo SET x = 1, y = 2 UNSET z, w WHERE FALSE"), @r###"
         ---
         Ok:

@@ -182,6 +182,9 @@
       (is (null result))
       (is (= 1 result-code)))
 
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql write-db "UPDATE t2"))
+
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM t2 ORDER BY a")
       (is (equal '((1 2 2 4) (2 3 :null :null) (3 :null 4 :null)) result))
@@ -251,6 +254,9 @@
 
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql write-db "INSERT INTO t2 {c: 4, e: 5} ON CONFLICT (c, e) DO UPDATE SET c = 1"))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql write-db "INSERT INTO t2 {c: 4, e: 5} ON CONFLICT (c, e) DO UPDATE UNSET c"))
 
     (multiple-value-bind (result result-code)
         (execute-sql write-db "INSERT INTO t2 {c: 4, e: 5} ON CONFLICT (c, e) DO UPDATE SET f = 1")
