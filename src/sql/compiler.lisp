@@ -665,7 +665,7 @@
                                                 #'string<))))
                (env-extension (%env-extension (symbol-name table-name) projection))
                (excluded-env-extension (%env-extension "excluded" excluded-projection))
-               (ctx (fset:map-union (fset:map-union ctx (fset:map-union env-extension excluded-env-extension))
+               (ctx (fset:map-union (fset:map-union ctx (fset:map-union excluded-env-extension env-extension))
                                     (fset:map (:scan-row-id-sym scan-row-id-sym)
                                               (:scan-arrow-file-sym scan-arrow-file-sym)
                                               (:scan-batch-idx-sym scan-batch-idx-sym)
@@ -678,7 +678,9 @@
                                          collect (list :is
                                                        (make-symbol (format nil "~A.~A" table-name v))
                                                        (make-symbol (format nil "excluded.~A" v))))))
-               (where-clauses (loop for clause in (append (%and-clauses where) conflict-clauses)
+               (where-clauses (loop for clause in (if upsertp
+                                                      conflict-clauses
+                                                      (%and-clauses where))
                                     collect (make-where-clause :src (ast->cl ctx clause)
                                                                :ast clause)))
                (update-select-list (loop for (update-col expr) in update-cols
@@ -701,8 +703,7 @@
                                                      :test 'equal
                                                      :key #'car)
                                      ,updated-rows-sym)
-                               (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym))))
-               )
+                               (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym)))))
           `(let ((,updated-rows-sym)
                  (,deleted-row-ids-sym))
              ,(if upsertp
@@ -729,9 +730,12 @@
                          for ,insertp-sym = t
                          do
                          ,(%table-scan->cl ctx vars projection from-src where-clauses
-                                           `(do
-                                             (setf ,insertp-sym nil)
-                                             ,@update-src))
+                                           `(if (and ,@(loop for clause in (%and-clauses where)
+                                                             collect `(eq t ,(ast->cl ctx clause))))
+                                                do (setf ,insertp-sym nil)
+                                                ,@update-src
+                                                else
+                                                do (setf ,insertp-sym nil)))
                           (when ,insertp-sym
                             (push ,object-sym ,updated-rows-sym)))
                   (%table-scan->cl ctx vars projection from-src where-clauses

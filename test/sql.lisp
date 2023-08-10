@@ -192,6 +192,11 @@
       (is (null result))
       (is (= 1 result-code)))
 
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "INSERT INTO t2(a, b, c, d) VALUES(1, 2, 5, 6), (4, 5, 7, 8) ON CONFLICT (a, b) DO NOTHING")
+      (is (null result))
+      (is (zerop result-code)))
+
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM t2 ORDER BY a")
       (is (equal '((1 2 2 4) (2 3 :null :null) (3 :null 4 :null) (4 5 7 8)) result))
@@ -202,13 +207,18 @@
       (is (null result))
       (is (= 1 result-code)))
 
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "INSERT INTO t2 {a: 1, b: 2, c: 4, d: 6} ON CONFLICT (a, b) DO UPDATE SET c = excluded.c WHERE t2.d = 6")
+      (is (null result))
+      (is (zerop result-code)))
+
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM t2 ORDER BY a")
       (is (equal '((1 2 4 4) (2 3 :null :null) (3 :null 4 :null) (4 5 7 8)) result))
       (is (equal '("a" "b" "c" "d") columns)))
 
     (multiple-value-bind (result result-code)
-        (execute-sql write-db "INSERT INTO t2 {c: 4, d: 5}, {c: 4, d: 6} ON CONFLICT (c) DO UPDATE SET d = excluded.d WHERE t2.b IS NULL")
+        (execute-sql write-db "INSERT INTO t2 {c: 4, d: 5}, {c: 4, d: 6} ON CONFLICT (c) DO UPDATE SET d = excluded.d WHERE b IS NULL")
       (is (null result))
       (is (= 1 result-code)))
 
