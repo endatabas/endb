@@ -60,10 +60,10 @@
          (declare (ignore projection))
          (values ast (cte-projection cte) free-vars)))
       ((equal "BASE TABLE" table-type)
-       (values (make-base-table :name (symbol-name table-name) :temporal temporal)
-               (endb/sql/expr:table-columns db (symbol-name table-name))
-               ()
-               (endb/sql/expr:base-table-size db (symbol-name table-name))))
+       (values (make-base-table :name (symbol-name table-name)
+                                :temporal temporal
+                                :size (endb/sql/expr:base-table-size db (symbol-name table-name)))
+               (endb/sql/expr:table-columns db (symbol-name table-name))))
       ((equal "VIEW" table-type)
        (multiple-value-bind (ast projection free-vars)
            (%ast->cl-with-free-vars ctx (endb/sql/expr:view-definition db (symbol-name table-name)))
@@ -100,7 +100,7 @@
         (t (list expr)))
       (list expr)))
 
-(defstruct base-table name temporal)
+(defstruct base-table name temporal size)
 
 (defstruct from-table src vars free-vars size projection alias)
 
@@ -402,7 +402,7 @@
     (labels ((select->cl (ctx from-ast from-tables-acc)
                (destructuring-bind (table-or-subquery &optional table-alias column-names temporal)
                    (first from-ast)
-                 (multiple-value-bind (table-src projection free-vars table-size)
+                 (multiple-value-bind (table-src projection free-vars)
                      (if (symbolp table-or-subquery)
                          (%base-table-or-view->cl ctx table-or-subquery temporal)
                          (%ast->cl-with-free-vars ctx table-or-subquery))
@@ -425,7 +425,9 @@
                                                        :vars (loop for p in projection
                                                                    collect (fset:lookup env-extension p))
                                                        :free-vars free-vars
-                                                       :size (or table-size most-positive-fixnum)
+                                                       :size (if (base-table-p table-src)
+                                                                 (base-table-size table-src)
+                                                                 most-positive-fixnum)
                                                        :projection qualified-projection
                                                        :alias table-alias))
                           (from-tables-acc (append from-tables-acc (list from-table))))
