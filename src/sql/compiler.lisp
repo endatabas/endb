@@ -713,17 +713,22 @@
           `(let ((,updated-rows-sym)
                  (,deleted-row-ids-sym))
              ,(if upsertp
-                  `(loop for ,object-sym in (delete-duplicates ,(if column-names
+                  `(loop for ,object-sym in (let ((,object-sym ,(if column-names
                                                                     `(loop for ,value-sym in ,(ast->cl ctx values)
                                                                            collect (reverse (pairlis ',excluded-projection ,value-sym)))
-                                                                    (ast->cl ctx values))
-                                                               :test 'equal
-                                                               :key (lambda (,object-sym)
-                                                                      (loop for ,key-sym in ',on-conflict
-                                                                            for ,kv-sym = (assoc ,key-sym ,object-sym :test 'equal)
-                                                                            collect (if ,kv-sym
-                                                                                        (cdr ,kv-sym)
-                                                                                        :null))))
+                                                                    (ast->cl ctx values))))
+                                              (unless (= (length ,object-sym)
+                                                         (length (delete-duplicates
+                                                                  ,object-sym
+                                                                  :test 'equal
+                                                                  :key (lambda (,object-sym)
+                                                                         (loop for ,key-sym in ',on-conflict
+                                                                               for ,kv-sym = (assoc ,key-sym ,object-sym :test 'equal)
+                                                                               collect (if ,kv-sym
+                                                                                           (cdr ,kv-sym)
+                                                                                           :null))))))
+                                                (%annotated-error ',table-name "Inserted values cannot contain duplicated on conflict columns"))
+                                              ,object-sym)
                          for ,(loop for v in excluded-projection
                                     collect (fset:lookup excluded-env-extension v))
                            = (loop for ,key-sym in ',excluded-projection

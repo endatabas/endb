@@ -218,7 +218,7 @@
       (is (equal '("a" "b" "c" "d") columns)))
 
     (multiple-value-bind (result result-code)
-        (execute-sql write-db "INSERT INTO t2 {c: 4, d: 5}, {c: 4, d: 6} ON CONFLICT (c) DO UPDATE SET d = excluded.d WHERE b IS NULL")
+        (execute-sql write-db "INSERT INTO t2 {c: 4, d: 6} ON CONFLICT (c) DO UPDATE SET d = excluded.d WHERE b IS NULL")
       (is (null result))
       (is (= 1 result-code)))
 
@@ -246,8 +246,11 @@
       (is (equal '((3 :null 4 6) (1 2 4 4) (:null 3 5 :null) (4 5 7 8)) result))
       (is (equal '("a" "b" "c" "d") columns)))
 
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql write-db "INSERT INTO t2 {c: 4, e: 5}, {c: 4, e: 5} ON CONFLICT (c, e) DO UPDATE SET f = 1"))
+
     (multiple-value-bind (result result-code)
-        (execute-sql write-db "INSERT INTO t2 {c: 4, e: 5}, {c: 4, e: 5} ON CONFLICT (c, e) DO UPDATE SET f = 1")
+        (execute-sql write-db "INSERT INTO t2 {c: 4, e: 5} ON CONFLICT (c, e) DO UPDATE SET f = 1")
       (is (null result))
       (is (= 1 result-code)))
 
