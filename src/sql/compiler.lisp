@@ -654,15 +654,20 @@
                (scan-batch-idx-sym (gensym))
                (scan-arrow-file-sym (gensym))
                (batch-sym (gensym))
+               (on-conflict (mapcar #'symbol-name on-conflict))
                (excluded-projection (when upsertp
                                       (if column-names
                                           (mapcar #'symbol-name column-names)
                                           (sort (delete-duplicates (loop for object in values
-                                                                         append (loop for (k nil) in (second object)
-                                                                                      when (symbolp k)
-                                                                                        collect (symbol-name k)))
+                                                                         for keys = (loop for (k nil) in (second object)
+                                                                                          when (symbolp k)
+                                                                                            collect (symbol-name k))
+                                                                         unless (subsetp on-conflict keys :test 'equal)
+                                                                           do (%annotated-error table-name "All inserted values needs to provide the on conflict columns")
+                                                                         append keys)
                                                                    :test 'equal)
                                                 #'string<))))
+               (projection (delete-duplicates (append projection excluded-projection) :test 'equal))
                (env-extension (%env-extension (symbol-name table-name) projection))
                (excluded-env-extension (%env-extension "excluded" excluded-projection))
                (ctx (fset:map-union (fset:map-union ctx (fset:map-union excluded-env-extension env-extension))
@@ -672,9 +677,8 @@
                                               (:batch-sym batch-sym))))
                (vars (loop for p in projection
                            collect (fset:lookup env-extension p)))
-               (on-conflict (mapcar #'symbol-name on-conflict))
                (conflict-clauses (when upsertp
-                                   (loop for v in (intersection (intersection projection excluded-projection :test 'equal) on-conflict :test 'equal)
+                                   (loop for v in on-conflict
                                          collect (list :is
                                                        (make-symbol (format nil "~A.~A" table-name v))
                                                        (make-symbol (format nil "excluded.~A" v))))))
@@ -713,8 +717,6 @@
                                                                     (ast->cl ctx values))
                                                                :test 'equal
                                                                :key (lambda (,object-sym)
-                                                                      (when (eq :empty-struct ,object-sym)
-                                                                        (error 'endb/sql/expr:sql-runtime-error :message "Cannot insert empty object"))
                                                                       (loop for ,key-sym in ',on-conflict
                                                                             for ,kv-sym = (assoc ,key-sym ,object-sym :test 'equal)
                                                                             collect (if ,kv-sym
