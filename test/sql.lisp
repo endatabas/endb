@@ -188,13 +188,43 @@
       (is (equal '("a" "b" "c" "d") columns)))
 
     (multiple-value-bind (result result-code)
+        (execute-sql write-db "INSERT INTO t2(a, b, c, d) VALUES(1, 2, 5, 6), (4, 5, 7, 8) ON CONFLICT (a, b) DO NOTHING")
+      (is (null result))
+      (is (= 1 result-code)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT * FROM t2 ORDER BY a")
+      (is (equal '((1 2 2 4) (2 3 :null :null) (3 :null 4 :null) (4 5 7 8)) result))
+      (is (equal '("a" "b" "c" "d") columns)))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "INSERT INTO t2 {a: 1, b: 2, c: 4, d: 6} ON CONFLICT (a, b) DO UPDATE SET c = excluded.c, d = t2.d")
+      (is (null result))
+      (is (= 1 result-code)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT * FROM t2 ORDER BY a")
+      (is (equal '((1 2 4 4) (2 3 :null :null) (3 :null 4 :null) (4 5 7 8)) result))
+      (is (equal '("a" "b" "c" "d") columns)))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "INSERT INTO t2 {c: 4, d: 5}, {c: 4, d: 6} ON CONFLICT (c) DO UPDATE SET d = excluded.d WHERE t2.b IS NULL")
+      (is (null result))
+      (is (= 1 result-code)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT * FROM t2 ORDER BY a")
+      (is (equal '((1 2 4 4) (2 3 :null :null) (3 :null 4 6) (4 5 7 8)) result))
+      (is (equal '("a" "b" "c" "d") columns)))
+
+    (multiple-value-bind (result result-code)
         (execute-sql write-db "UPDATE t2 SET c = 5 UNSET a WHERE b = 3")
       (is (null result))
       (is (= 1 result-code)))
 
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM t2 ORDER BY c")
-      (is (equal '((1 2 2 4) (3 :null 4 :null) (:null 3 5 :null)) result))
+      (is (equal '((3 :null 4 6) (1 2 4 4) (:null 3 5 :null) (4 5 7 8)) result))
       (is (equal '("a" "b" "c" "d") columns)))
 
     (signals endb/sql/expr:sql-runtime-error

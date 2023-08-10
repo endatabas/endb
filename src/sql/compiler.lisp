@@ -644,18 +644,112 @@
     `(endb/sql/expr:sql-drop-view ,(fset:lookup ctx :db-sym) ,(symbol-name view-name)  :if-exists ,(when if-exists
                                                                                                      t))))
 
+(defun %insert-on-conflict (ctx table-name values on-conflict update &key column-names)
+  (destructuring-bind (update-cols &key (where :true) unset)
+      (or update '(nil))
+    (multiple-value-bind (from-src projection)
+        (%base-table-or-view->cl ctx table-name)
+      (when (base-table-p from-src)
+        (let* ((scan-row-id-sym (gensym))
+               (scan-batch-idx-sym (gensym))
+               (scan-arrow-file-sym (gensym))
+               (batch-sym (gensym))
+               (excluded-projection (if column-names
+                                        (mapcar #'symbol-name column-names)
+                                        (sort (delete-duplicates (loop for object in values
+                                                                       append (loop for (k nil) in (second object)
+                                                                                    when (symbolp k)
+                                                                                      collect (symbol-name k)))
+                                                                 :test 'equal)
+                                              #'string<)))
+               (env-extension (%env-extension (symbol-name table-name) projection))
+               (excluded-env-extension (%env-extension "excluded" excluded-projection))
+               (ctx (fset:map-union (fset:map-union ctx (fset:map-union env-extension excluded-env-extension))
+                                    (fset:map (:scan-row-id-sym scan-row-id-sym)
+                                              (:scan-arrow-file-sym scan-arrow-file-sym)
+                                              (:scan-batch-idx-sym scan-batch-idx-sym)
+                                              (:batch-sym batch-sym))))
+               (vars (loop for p in projection
+                           collect (fset:lookup env-extension p)))
+               (on-conflict (mapcar #'symbol-name on-conflict))
+               (conflict-clauses (loop for v in (intersection (intersection projection excluded-projection :test 'equal) on-conflict :test 'equal)
+                                       collect (list :is
+                                                     (make-symbol (format nil "~A.~A" table-name v))
+                                                     (make-symbol (format nil "excluded.~A" v)))))
+               (where-clauses (loop for clause in (append (%and-clauses where) conflict-clauses)
+                                    collect (make-where-clause :src (ast->cl ctx clause)
+                                                               :ast clause)))
+               (update-select-list (loop for (update-col expr) in update-cols
+                                         collect `(cons ,(symbol-name update-col) ,(ast->cl ctx expr))))
+               (unset-columns (loop for c in unset
+                                    collect (list (symbol-name c))))
+               (updated-rows-sym (gensym))
+               (deleted-row-ids-sym (gensym))
+               (value-sym (gensym))
+               (object-sym (gensym))
+               (key-sym (gensym))
+               (kv-sym (gensym))
+               (insertp-sym (gensym)))
+          `(let ((,updated-rows-sym)
+                 (,deleted-row-ids-sym))
+             (loop for ,object-sym in (delete-duplicates ,(if column-names
+                                                              `(loop for ,value-sym in ,(ast->cl ctx values)
+                                                                     collect (reverse (pairlis ',excluded-projection ,value-sym)))
+                                                              (ast->cl ctx values))
+                                                         :test 'equal
+                                                         :key (lambda (,object-sym)
+                                                                (when (eq :empty-struct ,object-sym)
+                                                                  (error 'endb/sql/expr:sql-runtime-error :message "Cannot insert empty object"))
+                                                                (loop for ,key-sym in ',on-conflict
+                                                                      for ,kv-sym = (assoc ,key-sym ,object-sym :test 'equal)
+                                                                      collect (if ,kv-sym
+                                                                                  (cdr ,kv-sym)
+                                                                                  :null))))
+                   for ,(loop for v in excluded-projection
+                              collect (fset:lookup excluded-env-extension v))
+                     = (loop for ,key-sym in ',excluded-projection
+                             for ,kv-sym = (assoc ,key-sym ,object-sym :test 'equal)
+                             collect (if ,kv-sym
+                                         (cdr ,kv-sym)
+                                         :null))
+                   for ,insertp-sym = t
+                   do
+                   ,(%table-scan->cl ctx vars projection from-src where-clauses
+                                     `(do
+                                       (setf ,insertp-sym nil)
+                                       ,@(when update
+                                           `((push (set-difference (delete-duplicates (append (endb/arrow:arrow-get ,batch-sym ,scan-row-id-sym)
+                                                                                              (list ,@update-select-list))
+                                                                                      :test 'equal
+                                                                                      :key #'car)
+                                                                   ',unset-columns
+                                                                   :test 'equal
+                                                                   :key #'car)
+                                                   ,updated-rows-sym)
+                                             (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym)))))
+                    (when ,insertp-sym
+                      (push ,object-sym ,updated-rows-sym)))
+             (endb/sql/expr:sql-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)
+             (endb/sql/expr:sql-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,updated-rows-sym)))))))
+
 (defmethod sql->cl (ctx (type (eql :insert)) &rest args)
-  (destructuring-bind (table-name values &key column-names)
+  (destructuring-bind (table-name values &key column-names on-conflict update)
       args
+    (when (and endb/sql/expr:*sqlite-mode* on-conflict)
+      (%annotated-error table-name "Insert on conflict not supported in SQLite mode"))
     (when (and (not endb/sql/expr:*sqlite-mode*) (null column-names))
       (%annotated-error table-name "Column names are required"))
-    `(endb/sql/expr:sql-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx values)
-                               :column-names ',(mapcar #'symbol-name column-names))))
+    (if on-conflict
+        (%insert-on-conflict ctx table-name values on-conflict update :column-names column-names)
+        `(endb/sql/expr:sql-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx values)
+                                   :column-names ',(mapcar #'symbol-name column-names)))))
 
 (defmethod sql->cl (ctx (type (eql :insert-objects)) &rest args)
-  (destructuring-bind (table-name values)
+  (destructuring-bind (table-name values &key on-conflict update)
       args
-    `(endb/sql/expr:sql-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx values))))
+    (if on-conflict
+        (%insert-on-conflict ctx table-name values on-conflict update)
+        `(endb/sql/expr:sql-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx values)))))
 
 (defmethod sql->cl (ctx (type (eql :delete)) &rest args)
   (destructuring-bind (table-name where)
