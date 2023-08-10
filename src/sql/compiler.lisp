@@ -654,7 +654,7 @@
                (scan-batch-idx-sym (gensym))
                (scan-arrow-file-sym (gensym))
                (batch-sym (gensym))
-               (on-conflict (mapcar #'symbol-name on-conflict))
+               (on-conflict (delete-duplicates (mapcar #'symbol-name on-conflict) :test 'equal))
                (excluded-projection (when upsertp
                                       (if column-names
                                           (if (subsetp on-conflict column-names :test 'equal)
