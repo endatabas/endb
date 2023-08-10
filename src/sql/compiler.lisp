@@ -691,11 +691,22 @@
                (object-sym (gensym))
                (key-sym (gensym))
                (kv-sym (gensym))
-               (insertp-sym (gensym)))
+               (insertp-sym (gensym))
+               (update-src (when update
+                             `((push (set-difference (delete-duplicates (append (endb/arrow:arrow-get ,batch-sym ,scan-row-id-sym)
+                                                                                (list ,@update-select-list))
+                                                                        :test 'equal
+                                                                        :key #'car)
+                                                     ',unset-columns
+                                                     :test 'equal
+                                                     :key #'car)
+                                     ,updated-rows-sym)
+                               (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym))))
+               )
           `(let ((,updated-rows-sym)
                  (,deleted-row-ids-sym))
-             (loop for ,object-sym in ,(if upsertp
-                                           `(delete-duplicates ,(if column-names
+             ,(if upsertp
+                  `(loop for ,object-sym in (delete-duplicates ,(if column-names
                                                                     `(loop for ,value-sym in ,(ast->cl ctx values)
                                                                            collect (reverse (pairlis ',excluded-projection ,value-sym)))
                                                                     (ast->cl ctx values))
@@ -708,34 +719,23 @@
                                                                             collect (if ,kv-sym
                                                                                         (cdr ,kv-sym)
                                                                                         :null))))
-                                           `(list nil))
-                   ,@(when upsertp
-                       `(for ,(loop for v in excluded-projection
+                         for ,(loop for v in excluded-projection
                                     collect (fset:lookup excluded-env-extension v))
-                             = (loop for ,key-sym in ',excluded-projection
-                                     for ,kv-sym = (assoc ,key-sym ,object-sym :test 'equal)
-                                     collect (if ,kv-sym
-                                                 (cdr ,kv-sym)
-                                                 :null))
-                             for ,insertp-sym = t))
-                   do
-                   ,(%table-scan->cl ctx vars projection from-src where-clauses
-                                     `(do
-                                       ,@(when upsertp
-                                           `((setf ,insertp-sym nil)))
-                                       ,@(when update
-                                           `((push (set-difference (delete-duplicates (append (endb/arrow:arrow-get ,batch-sym ,scan-row-id-sym)
-                                                                                              (list ,@update-select-list))
-                                                                                      :test 'equal
-                                                                                      :key #'car)
-                                                                   ',unset-columns
-                                                                   :test 'equal
-                                                                   :key #'car)
-                                                   ,updated-rows-sym)
-                                             (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym)))))
-                   ,@(when upsertp
-                       `((when ,insertp-sym
-                           (push ,object-sym ,updated-rows-sym)))))
+                           = (loop for ,key-sym in ',excluded-projection
+                                   for ,kv-sym = (assoc ,key-sym ,object-sym :test 'equal)
+                                   collect (if ,kv-sym
+                                               (cdr ,kv-sym)
+                                               :null))
+                         for ,insertp-sym = t
+                         do
+                         ,(%table-scan->cl ctx vars projection from-src where-clauses
+                                           `(do
+                                             (setf ,insertp-sym nil)
+                                             ,@update-src))
+                          (when ,insertp-sym
+                            (push ,object-sym ,updated-rows-sym)))
+                  (%table-scan->cl ctx vars projection from-src where-clauses
+                                   `(do ,@update-src)))
              (endb/sql/expr:sql-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)
              (endb/sql/expr:sql-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,updated-rows-sym)))))))
 
