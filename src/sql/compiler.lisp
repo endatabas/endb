@@ -48,7 +48,7 @@
   (error 'endb/sql/expr:sql-runtime-error
          :message (endb/lib/parser:annotate-input-with-error (get s :input) message (get s :start) (get s :end))))
 
-(defun %base-table-or-view->cl (ctx table-name &optional temporal)
+(defun %base-table-or-view->cl (ctx table-name &key temporal (errorp t))
   (let* ((db (fset:lookup ctx :db))
          (ctes (or (fset:lookup ctx :ctes) (fset:empty-map)))
          (cte (fset:lookup ctes (symbol-name table-name)))
@@ -69,7 +69,7 @@
            (%ast->cl-with-free-vars ctx (endb/sql/expr:view-definition db (symbol-name table-name)))
          (declare (ignore projection))
          (values ast (endb/sql/expr:table-columns db (symbol-name table-name)) free-vars)))
-      (t (%annotated-error table-name "Unknown table")))))
+      (errorp (%annotated-error table-name "Unknown table")))))
 
 (defun %wrap-with-order-by-and-limit (src order-by limit offset)
   (let* ((src (if order-by
@@ -404,7 +404,7 @@
                    (first from-ast)
                  (multiple-value-bind (table-src projection free-vars)
                      (if (symbolp table-or-subquery)
-                         (%base-table-or-view->cl ctx table-or-subquery temporal)
+                         (%base-table-or-view->cl ctx table-or-subquery :temporal temporal)
                          (%ast->cl-with-free-vars ctx table-or-subquery))
                    (when (and column-names (not (= (length projection) (length column-names))))
                      (if (symbolp table-or-subquery)
@@ -648,8 +648,8 @@
   (destructuring-bind (update-cols &key (where :true) unset)
       (or update '(nil))
     (multiple-value-bind (from-src projection)
-        (%base-table-or-view->cl ctx table-name)
-      (when (base-table-p from-src)
+        (%base-table-or-view->cl ctx table-name :errorp (not upsertp))
+      (when (or (base-table-p from-src) (null from-src))
         (let* ((scan-row-id-sym (gensym))
                (scan-batch-idx-sym (gensym))
                (scan-arrow-file-sym (gensym))
@@ -733,17 +733,17 @@
                                                :null))
                          for ,insertp-sym = t
                          do
-                         ,(%table-scan->cl ctx vars projection from-src where-clauses
-                                           `(if (and ,@(loop for clause in (%and-clauses where)
-                                                             collect `(eq t ,(ast->cl ctx clause))))
-                                                do (setf ,insertp-sym nil)
-                                                ,@update-src
-                                                else
-                                                do (setf ,insertp-sym nil)))
-                          (when ,insertp-sym
-                            (push ,object-sym ,updated-rows-sym)))
-                  (%table-scan->cl ctx vars projection from-src where-clauses
-                                   `(do ,@update-src)))
+                         ,@(when from-src
+                             (list (%table-scan->cl ctx vars projection from-src where-clauses
+                                                    `(if (and ,@(loop for clause in (%and-clauses where)
+                                                                      collect `(eq t ,(ast->cl ctx clause))))
+                                                         do (setf ,insertp-sym nil)
+                                                         ,@update-src
+                                                         else
+                                                         do (setf ,insertp-sym nil)))))
+                           (when ,insertp-sym
+                             (push ,object-sym ,updated-rows-sym)))
+                  (%table-scan->cl ctx vars projection from-src where-clauses `(do ,@update-src)))
              (endb/sql/expr:sql-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)
              (endb/sql/expr:sql-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,updated-rows-sym)))))))
 
@@ -759,7 +759,7 @@
       (let ((column-names (if (or column-names endb/sql/expr:*sqlite-mode*)
                               (mapcar #'symbol-name column-names)
                               projection)))
-        (if (and on-conflict (endb/sql/expr:table-type (fset:lookup ctx :db) (symbol-name table-name)))
+        (if on-conflict
             (%insert-on-conflict ctx table-name on-conflict update :values values :column-names column-names)
             `(endb/sql/expr:sql-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,src
                                        :column-names ',column-names))))))
@@ -767,7 +767,7 @@
 (defmethod sql->cl (ctx (type (eql :insert-objects)) &rest args)
   (destructuring-bind (table-name values &key on-conflict update)
       args
-    (if (and on-conflict (endb/sql/expr:table-type (fset:lookup ctx :db) (symbol-name table-name)))
+    (if on-conflict
         (%insert-on-conflict ctx table-name on-conflict update :values values)
         `(endb/sql/expr:sql-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx values)))))
 
