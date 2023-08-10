@@ -233,6 +233,9 @@
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql write-db "INSERT INTO t2 {} ON CONFLICT (a) DO NOTHING"))
 
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql write-db "INSERT INTO t2(a) VALUES (1) ON CONFLICT (b) DO NOTHING"))
+
     (multiple-value-bind (result result-code)
         (execute-sql write-db "UPDATE t2 SET c = 5 UNSET a WHERE b = 3")
       (is (null result))

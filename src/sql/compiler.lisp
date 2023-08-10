@@ -657,7 +657,10 @@
                (on-conflict (mapcar #'symbol-name on-conflict))
                (excluded-projection (when upsertp
                                       (if column-names
-                                          (mapcar #'symbol-name column-names)
+                                          (let ((keys (mapcar #'symbol-name column-names)))
+                                            (unless (subsetp on-conflict keys :test 'equal)
+                                              (%annotated-error table-name "Column names needs to contain the on conflict columns"))
+                                            keys)
                                           (sort (delete-duplicates (loop for object in values
                                                                          for keys = (loop for (k nil) in (second object)
                                                                                           when (symbolp k)
