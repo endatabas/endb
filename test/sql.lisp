@@ -846,12 +846,22 @@
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT NULL[1]")
+      (is (equal '((:null)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT 5[1]")
       (is (equal '((:null)) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT 5.foo")
+      (is (equal '((:null)) result))
+      (is (equal '("foo") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT NULL.foo")
       (is (equal '((:null)) result))
       (is (equal '("foo") columns)))
 
