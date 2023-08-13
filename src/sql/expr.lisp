@@ -580,27 +580,32 @@
 (defstruct path-seq acc)
 
 (defun %flatten-path-acc (x)
-  (cond
-    ((typep x 'path-seq)
-     (path-seq-acc x))
-    ((eq :null x) ())
-    (t (list x))))
+  (if (typep x 'path-seq)
+      (path-seq-acc x)
+      (vector x)))
 
 (defun %recursive-path-access (x y)
-  (make-path-seq :acc (append (%flatten-path-acc (sql-access x y nil))
-                              (path-seq-acc (sql-access (sql-access x :* nil) y t)))))
+  (make-path-seq :acc (concatenate 'vector
+                                   (%flatten-path-acc (sql-access x y nil))
+                                   (path-seq-acc (sql-access (sql-access x :* nil) y t)))))
 
 (defun sql-access-finish (x y recursivep)
   (let ((x (sql-access x y recursivep)))
     (if (typep x 'path-seq)
-        (coerce (path-seq-acc x) 'vector)
+        (or (path-seq-acc x) :null)
         x)))
 
 (defmethod sql-access (x y recursivep)
-  :null)
+  (make-path-seq))
+
+(defmethod sql-access (x y (recursivep (eql t)))
+  (make-path-seq :acc #()))
 
 (defmethod sql-access (x (y (eql 0)) recursivep)
   x)
+
+(defmethod sql-access (x (y (eql :*)) recursivep)
+  (make-path-seq :acc #()))
 
 (defmethod sql-access ((x vector) (y number) (recursivep (eql nil)))
   (let ((y (if (minusp y)
@@ -609,33 +614,35 @@
     (if (and (>= y 0)
              (< y (length x)))
         (aref x y)
-        :null)))
+        (make-path-seq))))
 
-(defmethod sql-access ((x vector) y (recursivep (eql nil)))
-  (sql-access (make-path-seq :acc (coerce x 'list)) y recursivep))
+(defmethod sql-access ((x vector) (y string) recursivep)
+  (sql-access (make-path-seq :acc x) y recursivep))
 
 (defmethod sql-access ((x vector) y (recursivep (eql t)))
-  (%recursive-path-access x y) )
+  (%recursive-path-access x y))
+
+(defmethod sql-access ((x vector) (y (eql :*)) (recursivep (eql nil)))
+  (make-path-seq :acc x))
 
 (defmethod sql-access ((x list) (y string) (recursivep (eql nil)))
   (let ((element (assoc y x :test 'equal)))
     (if element
         (cdr element)
-        :null)))
+        (make-path-seq))))
 
-(defmethod sql-access ((x list) (y (eql :*)) recursivep)
-  (make-path-seq :acc (mapcar #'cdr x)))
+(defmethod sql-access ((x list) (y (eql :*)) (recursivep (eql nil)))
+  (make-path-seq :acc (map 'vector #'cdr x)))
 
 (defmethod sql-access ((x list) y (recursivep (eql t)))
-  (%recursive-path-access x y) )
-
-(defmethod sql-access ((x (eql :empty-struct)) (y (eql :*)) recursivep)
-  (make-path-seq))
+  (%recursive-path-access x y))
 
 (defmethod sql-access ((x path-seq) y recursivep)
-  (make-path-seq :acc (loop for x in (path-seq-acc x)
-                            for z = (sql-access x y recursivep)
-                            append (%flatten-path-acc z))))
+  (make-path-seq :acc (apply #'concatenate
+                             'vector
+                             (loop for x across (path-seq-acc x)
+                                   for z = (sql-access x y recursivep)
+                                   collect (%flatten-path-acc z)))))
 
 (defun sql-in (item xs)
   (block in

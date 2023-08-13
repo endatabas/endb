@@ -831,6 +831,11 @@
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [NULL, 2][0]")
+      (is (equal '((:null)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT [1, 2][-3]")
       (is (equal '((:null)) result))
       (is (equal '("column1") columns)))
@@ -846,7 +851,22 @@
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 5.foo")
+      (is (equal '((:null)) result))
+      (is (equal '("foo") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {foo: 5}[1]")
+      (is (equal '((:null)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT {}.bar")
+      (is (equal '((:null)) result))
+      (is (equal '("bar") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {bar: NULL}.bar")
       (is (equal '((:null)) result))
       (is (equal '("bar") columns)))
 
@@ -901,28 +921,34 @@
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT {a: 2, b: {a: 3}, c: [{a: 1}, 2]}..a")
-      (is (equalp '((#(2 3 1))) result))
+        (execute-sql db "SELECT {a: 2, b: 3}..c")
+      (is (equalp '((#())) result))
+      (is (equal '("c") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {a: 2, b: {a: NULL}, c: [{a: 3}, 2]}..a")
+      (is (equalp '((#(2 :null 3))) result))
       (is (equal '("a") columns)))
 
-        (multiple-value-bind (result columns)
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT {a: {b: 2}, b: {a: 3}, c: [{a: {b: 1}}, {b: 2}]}..a.b")
       (is (equalp '((#(2 1))) result))
       (is (equal '("b") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT [{a: 2}, {a: 3}, {b: 4}].a")
-      (is (equalp '((#(2 3))) result))
+        (execute-sql db "SELECT [{a: NULL}, {a: 3}, {b: 4}].a")
+      (is (equalp '((#(:null 3))) result))
       (is (equal '("a") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [{a: 2}, {a: 3}, {b: 4}, 5][*]")
-      (is (equalp '((#(2 3 4))) result))
+      (is (equalp '((#((("a" . 2)) (("a" . 3)) (("b" . 4)) 5))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [{a: 2, b: {c: [1, 2]}}, {b: 4}, 5]..[*]")
-      (is (equalp '((#(2 (("c" . #(1 2))) 4 #(1 2)))) result))
+      (is (equalp '((#((("a" . 2) ("b" ("c" . #(1 2)))) (("b" . 4)) 5 2 (("c" . #(1 2))) #(1 2) 1 2 4)))
+                  result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
@@ -937,18 +963,23 @@
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [1, 2, 3, 4][*]")
-      (is (equalp '((#())) result))
+      (is (equalp '((#(1 2 3 4))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT 1[*]")
-      (is (equal '((:null)) result))
+      (is (equal '((#())) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT {}[*]")
       (is (equalp '((#())) result))
-      (is (equal '("column1") columns)))))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 1..a")
+      (is (equalp '((#())) result))
+      (is (equal '("a") columns)))))
 
 (test directory-db
   (let* ((endb/sql/expr:*sqlite-mode* t)
