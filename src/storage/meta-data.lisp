@@ -155,6 +155,13 @@
   (fset:compare (endb/arrow:arrow-interval-month-day-nanos-uint128 x)
                 (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
 
+(defmethod fset:compare ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-timestamp-micros))
+  (fset:compare (endb/arrow:local-time-to-arrow-timestamp-micros (endb/arrow:arrow-date-days-to-local-time x)) y))
+
+
+(defmethod fset:compare ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-days))
+  (fset:compare x (endb/arrow:local-time-to-arrow-timestamp-micros (endb/arrow:arrow-date-days-to-local-time y))))
+
 ;; https://datatracker.ietf.org/doc/html/rfc7386
 
 (defun meta-data-merge-patch (target patch)

@@ -48,12 +48,6 @@
 (defmethod sql-= (x (y (eql :null)))
   :null)
 
-(defmethod sql-= ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-timestamp-micros))
-  (sql-= (sql-cast x :timestamp) y))
-
-(defmethod sql-= ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-days))
-  (sql-= x (sql-cast y :timestamp)))
-
 (defmethod sql-= ((x number) (y number))
   (= x y))
 
@@ -77,12 +71,6 @@
 (defmethod sql-< (x (y (eql :null)))
   :null)
 
-(defmethod sql-< ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-timestamp-micros))
-  (sql-< (sql-cast x :timestamp) y))
-
-(defmethod sql-< ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-days))
-  (sql-< x (sql-cast y :timestamp)))
-
 (defmethod sql-< ((x number) (y number))
   (< x y))
 
@@ -99,12 +87,6 @@
 
 (defmethod sql-<= (x (y (eql :null)))
   :null)
-
-(defmethod sql-<= ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-timestamp-micros))
-  (sql-<= (sql-cast x :timestamp) y))
-
-(defmethod sql-<= ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-days))
-  (sql-<= x (sql-cast y :timestamp)))
 
 (defmethod sql-<= ((x number) (y number))
   (<= x y))
@@ -123,12 +105,6 @@
 (defmethod sql-> (x (y (eql :null)))
   :null)
 
-(defmethod sql-> ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-timestamp-micros))
-  (sql-> (sql-cast x :timestamp) y))
-
-(defmethod sql-> ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-days))
-  (sql-> x (sql-cast y :timestamp)))
-
 (defmethod sql-> ((x number) (y number))
   (> x y))
 
@@ -145,12 +121,6 @@
 
 (defmethod sql->= (x (y (eql :null)))
   :null)
-
-(defmethod sql->= ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-timestamp-micros))
-  (sql->= (sql-cast x :timestamp) y))
-
-(defmethod sql->= ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-days))
-  (sql->= x (sql-cast y :timestamp)))
 
 (defmethod sql->= ((x number) (y number))
   (>= x y))
