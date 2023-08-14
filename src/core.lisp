@@ -12,7 +12,7 @@
   (:import-from :endb/http)
   (:import-from :endb/lib)
   (:import-from :endb/sql)
-  (:import-from :endb/storage/meta-data))
+  (:import-from :endb/json))
 (in-package :endb/core)
 
 (defvar *table-column-pad* 2)
@@ -32,7 +32,7 @@
                                 (%format-column col)))))
 
 (defun %print-table (columns rows &optional stream)
-  (let* ((endb/storage/meta-data:*json-ld-scalars* nil)
+  (let* ((endb/json:*json-ld-scalars* nil)
          (widths (loop for idx below (length columns)
                        collect (loop for row in (cons columns rows)
                                      maximize (+ *table-column-pad* (length (%format-column (nth idx row))))))))

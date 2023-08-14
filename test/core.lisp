@@ -3,6 +3,7 @@
   (:import-from :endb-test/sql/expr)
   (:import-from :endb-test/sql)
   (:import-from :endb-test/arrow)
+  (:import-from :endb-test/json)
   (:import-from :endb-test/storage)
   (:import-from :endb-test/lib/arrow)
   (:import-from :endb-test/lib/parser)

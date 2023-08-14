@@ -1,6 +1,6 @@
-(defpackage :endb/storage/meta-data
+(defpackage :endb/json
   (:use :cl)
-  (:export #:json->meta-data #:*json-ld-scalars* #:meta-data->json #:meta-data-merge-patch #:meta-data-diff
+  (:export #:json-parse #:*json-ld-scalars* #:json-stringify #:json-merge-patch #:json-diff
            #:binary-to-bloom #:binary-bloom-member-p #:calculate-stats
            #:random-uuid #:random-uuid-p)
   (:import-from :alexandria)
@@ -12,12 +12,12 @@
   (:import-from :fset)
   (:import-from :qbase64)
   (:import-from :cl-bloom))
-(in-package :endb/storage/meta-data)
+(in-package :endb/json)
 
 ;; https://www.w3.org/2001/sw/rdb2rdf/wiki/Mapping_SQL_datatypes_to_XML_Schema_datatypes
 ;; https://www.w3.org/TR/xmlschema11-2/
 
-(defun %jzon->meta-data (x)
+(defun %json-parse (x)
   (cond
     ((hash-table-p x)
      (if (and (= 2 (hash-table-count x))
@@ -41,10 +41,10 @@
                for k being the hash-key
                  using (hash-value v)
                    of x
-               do (setf acc (fset:with acc k (%jzon->meta-data v)))
+               do (setf acc (fset:with acc k (%json-parse v)))
                finally (return acc))))
     ((and (vectorp x) (not (stringp x)))
-     (fset:convert 'fset:seq (map 'vector #'%jzon->meta-data x)))
+     (fset:convert 'fset:seq (map 'vector #'%json-parse x)))
     (t x)))
 
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value fset:map))
@@ -128,29 +128,29 @@
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value (eql :empty-struct)))
   (com.inuoe.jzon:write-value writer (make-hash-table)))
 
-(defun json->meta-data (in)
-  (%jzon->meta-data (com.inuoe.jzon:parse in)))
+(defun json-parse (in)
+  (%json-parse (com.inuoe.jzon:parse in)))
 
-(defun meta-data->json (x &key stream pretty)
+(defun json-stringify (x &key stream pretty)
   (com.inuoe.jzon:stringify x :stream stream :pretty pretty))
 
 ;; https://datatracker.ietf.org/doc/html/rfc7386
 
-(defun meta-data-merge-patch (target patch)
+(defun json-merge-patch (target patch)
   (if (fset:map? patch)
       (fset:reduce
        (lambda (target k v)
          (if (eq 'null v)
              (fset:less target k)
              (let ((target-v (fset:lookup target k)))
-               (fset:with target k (meta-data-merge-patch target-v v)))))
+               (fset:with target k (json-merge-patch target-v v)))))
        patch
        :initial-value (if (fset:map? target)
                           target
                           (fset:empty-map)))
       patch))
 
-(defun meta-data-diff (version-a version-b)
+(defun json-diff (version-a version-b)
   (if (and (fset:map? version-a)
            (fset:map? version-b))
       (fset:reduce
@@ -158,7 +158,7 @@
          (let ((a-v (fset:lookup version-a k)))
            (if (fset:equal? a-v b-v)
                diff
-               (fset:with diff k (meta-data-diff a-v b-v)))))
+               (fset:with diff k (json-diff a-v b-v)))))
        version-b
        :initial-value
        (fset:reduce

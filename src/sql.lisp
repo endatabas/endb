@@ -3,12 +3,12 @@
   (:export #:*query-timing* #:make-db #:make-directory-db #:close-db #:begin-write-tx #:commit-write-tx #:execute-sql #:interpret-sql-literal)
   (:import-from :alexandria)
   (:import-from :endb/arrow)
+  (:import-from :endb/json)
   (:import-from :endb/sql/expr)
   (:import-from :endb/sql/compiler)
   (:import-from :endb/lib/arrow)
   (:import-from :endb/lib/parser)
   (:import-from :endb/storage/buffer-pool)
-  (:import-from :endb/storage/meta-data)
   (:import-from :endb/storage/object-store)
   (:import-from :endb/storage/wal)
   (:import-from :trivial-utf-8)
@@ -24,7 +24,7 @@
                                                                                             (not (alexandria:starts-with-subseq "_log/" x))))
                                 (cons buffer name))
         when buffer
-          do (setf md (endb/storage/meta-data:meta-data-merge-patch md (endb/storage/meta-data:json->meta-data buffer)))
+          do (setf md (endb/json:json-merge-patch md (endb/json:json-parse buffer)))
         while name
         finally (return md)))
 
@@ -85,15 +85,15 @@
         current-db
         (let* ((tx-id (1+ (or (fset:lookup tx-md "_last_tx") 0)))
                (tx-md (fset:with tx-md "_last_tx" tx-id))
-               (md-diff (endb/storage/meta-data:meta-data-diff current-md tx-md))
-               (md-diff-bytes (trivial-utf-8:string-to-utf-8-bytes (endb/storage/meta-data:meta-data->json md-diff)))
+               (md-diff (endb/json:json-diff current-md tx-md))
+               (md-diff-bytes (trivial-utf-8:string-to-utf-8-bytes (endb/json:json-stringify md-diff)))
                (wal (endb/sql/expr:db-wal write-db)))
           (%write-new-buffers write-db)
           (endb/storage/wal:wal-append-entry wal (%log-filename tx-id) md-diff-bytes)
           (when fsyncp
             (endb/storage/wal:wal-fsync wal))
           (let ((new-db (endb/sql/expr:copy-db current-db))
-                (new-md (endb/storage/meta-data:meta-data-merge-patch current-md md-diff)))
+                (new-md (endb/json:json-merge-patch current-md md-diff)))
             (setf (endb/sql/expr:db-meta-data new-db) new-md)
             new-db)))))
 

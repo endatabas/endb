@@ -13,7 +13,7 @@
   (:import-from :endb/lib/parser)
   (:import-from :endb/sql)
   (:import-from :endb/sql/expr)
-  (:import-from :endb/storage/meta-data))
+  (:import-from :endb/json))
 (in-package :endb/http)
 
 (defconstant +http-ok+ 200)
@@ -57,7 +57,7 @@
                             "application/x-ndjson")
                            ((lack.request:request-accepts-p req "text/csv")
                             "text/csv")))
-           (endb/storage/meta-data:*json-ld-scalars* (equal "application/ld+json" content-type))
+           (endb/json:*json-ld-scalars* (equal "application/ld+json" content-type))
            (writer (funcall responder (list status (list :content-type content-type)))))
       (cond
         ((equal "application/json" content-type)
