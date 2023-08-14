@@ -57,7 +57,7 @@
 (defun sql-<> (x y)
   (sql-not (sql-= x y)))
 
-(defmethod sql-is (x y)
+(defun sql-is (x y)
   (fset:equal? x y))
 
 (defmethod sql-< (x y)
