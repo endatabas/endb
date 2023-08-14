@@ -134,34 +134,6 @@
 (defun meta-data->json (x &key stream pretty)
   (com.inuoe.jzon:stringify x :stream stream :pretty pretty))
 
-(fset:define-cross-type-compare-methods endb/arrow:arrow-date-days)
-(fset:define-cross-type-compare-methods endb/arrow:arrow-timestamp-micros)
-(fset:define-cross-type-compare-methods endb/arrow:arrow-time-micros)
-(fset:define-cross-type-compare-methods endb/arrow:arrow-interval-month-day-nanos)
-
-(defmethod fset:compare ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-date-days))
-  (fset:compare (endb/arrow:arrow-date-days-day x)
-                (endb/arrow:arrow-date-days-day y)))
-
-(defmethod fset:compare ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
-  (fset:compare (endb/arrow:arrow-timestamp-micros-us x)
-                (endb/arrow:arrow-timestamp-micros-us y)))
-
-(defmethod fset:compare ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-time-micros))
-  (fset:compare (endb/arrow:arrow-time-micros-us x)
-                (endb/arrow:arrow-time-micros-us y)))
-
-(defmethod fset:compare ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
-  (fset:compare (endb/arrow:arrow-interval-month-day-nanos-uint128 x)
-                (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
-
-(defmethod fset:compare ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-timestamp-micros))
-  (fset:compare (endb/arrow:local-time-to-arrow-timestamp-micros (endb/arrow:arrow-date-days-to-local-time x)) y))
-
-
-(defmethod fset:compare ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-days))
-  (fset:compare x (endb/arrow:local-time-to-arrow-timestamp-micros (endb/arrow:arrow-date-days-to-local-time y))))
-
 ;; https://datatracker.ietf.org/doc/html/rfc7386
 
 (defun meta-data-merge-patch (target patch)

@@ -14,6 +14,7 @@
            #:date-days-array #:timestamp-micros-array #:time-micros-array #:binary-array #:utf8-array #:list-array #:struct-array #:dense-union-array)
   (:import-from :cl-ppcre)
   (:import-from :cl-murmurhash)
+  (:import-from :fset)
   (:import-from :local-time)
   (:import-from :periods)
   (:import-from :trivial-utf-8))
@@ -27,9 +28,6 @@
 (deftype float64 () 'double-float)
 
 (defstruct arrow-timestamp-micros (us 0 :type int64))
-
-(defmethod murmurhash:murmurhash ((x endb/arrow:arrow-timestamp-micros) &key (seed murmurhash:*default-seed*) mix-only)
-  (murmurhash:murmurhash (endb/arrow:arrow-timestamp-micros-us x) :seed seed :mix-only mix-only))
 
 (defun %timestamp-to-micros (x)
   (let* ((sec (local-time:timestamp-to-unix x))
@@ -71,9 +69,6 @@
 
 (defstruct arrow-date-days (day 0 :type int32))
 
-(defmethod murmurhash:murmurhash ((x endb/arrow:arrow-date-days) &key (seed murmurhash:*default-seed*) mix-only)
-  (murmurhash:murmurhash (endb/arrow:arrow-date-days-day x) :seed seed :mix-only mix-only))
-
 (defun %epoch-day-to-timestamp (day)
   (local-time:make-timestamp :day (- day +offset-from-epoch-day+)))
 
@@ -100,9 +95,6 @@
   (local-time-to-arrow-date-days (local-time:parse-timestring s :allow-missing-time-part t)))
 
 (defstruct arrow-time-micros (us 0 :type int64))
-
-(defmethod murmurhash:murmurhash ((x endb/arrow:arrow-time-micros) &key (seed murmurhash:*default-seed*) mix-only)
-  (murmurhash:murmurhash (endb/arrow:arrow-time-micros-us x) :seed seed :mix-only mix-only))
 
 (defun %time-to-micros (x)
   (let* ((sec (local-time:sec-of x))
@@ -140,9 +132,6 @@
   (dpb (arrow-interval-month-day-nanos-ns x) (byte 64 0)
        (dpb (arrow-interval-month-day-nanos-day x) (byte 32 64)
             (dpb (arrow-interval-month-day-nanos-month x) (byte 32 96) 0))))
-
-(defmethod murmurhash:murmurhash ((x endb/arrow:arrow-interval-month-day-nanos) &key (seed murmurhash:*default-seed*) mix-only)
-  (murmurhash:murmurhash (arrow-interval-month-day-nanos-uint128 x) :seed seed :mix-only mix-only))
 
 (defun periods-duration-to-arrow-interval-month-day-nanos (duration)
   (let ((month (+ (* (periods::duration-years duration) 12)
@@ -234,6 +223,46 @@
                                   (format nil "~AD" (periods::duration-days duration)))
                                 (unless (equal "" time-part)
                                   (format nil "T~A" time-part))))))
+
+(defmethod murmurhash:murmurhash ((x endb/arrow:arrow-timestamp-micros) &key (seed murmurhash:*default-seed*) mix-only)
+  (murmurhash:murmurhash (endb/arrow:arrow-timestamp-micros-us x) :seed seed :mix-only mix-only))
+
+(defmethod murmurhash:murmurhash ((x endb/arrow:arrow-date-days) &key (seed murmurhash:*default-seed*) mix-only)
+  (murmurhash:murmurhash (endb/arrow:arrow-date-days-day x) :seed seed :mix-only mix-only))
+
+(defmethod murmurhash:murmurhash ((x endb/arrow:arrow-time-micros) &key (seed murmurhash:*default-seed*) mix-only)
+  (murmurhash:murmurhash (endb/arrow:arrow-time-micros-us x) :seed seed :mix-only mix-only))
+
+(defmethod murmurhash:murmurhash ((x endb/arrow:arrow-interval-month-day-nanos) &key (seed murmurhash:*default-seed*) mix-only)
+  (murmurhash:murmurhash (arrow-interval-month-day-nanos-uint128 x) :seed seed :mix-only mix-only))
+
+(fset:define-cross-type-compare-methods endb/arrow:arrow-date-days)
+(fset:define-cross-type-compare-methods endb/arrow:arrow-timestamp-micros)
+(fset:define-cross-type-compare-methods endb/arrow:arrow-time-micros)
+(fset:define-cross-type-compare-methods endb/arrow:arrow-interval-month-day-nanos)
+
+(defmethod fset:compare ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-date-days))
+  (fset:compare (endb/arrow:arrow-date-days-day x)
+                (endb/arrow:arrow-date-days-day y)))
+
+(defmethod fset:compare ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
+  (fset:compare (endb/arrow:arrow-timestamp-micros-us x)
+                (endb/arrow:arrow-timestamp-micros-us y)))
+
+(defmethod fset:compare ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-time-micros))
+  (fset:compare (endb/arrow:arrow-time-micros-us x)
+                (endb/arrow:arrow-time-micros-us y)))
+
+(defmethod fset:compare ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
+  (fset:compare (endb/arrow:arrow-interval-month-day-nanos-uint128 x)
+                (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
+
+(defmethod fset:compare ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-timestamp-micros))
+  (fset:compare (endb/arrow:local-time-to-arrow-timestamp-micros (endb/arrow:arrow-date-days-to-local-time x)) y))
+
+
+(defmethod fset:compare ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-days))
+  (fset:compare x (endb/arrow:local-time-to-arrow-timestamp-micros (endb/arrow:arrow-date-days-to-local-time y))))
 
 (deftype arrow-binary ()
   '(vector uint8))
