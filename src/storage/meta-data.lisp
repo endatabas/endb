@@ -134,6 +134,11 @@
 (defun meta-data->json (x &key stream pretty)
   (com.inuoe.jzon:stringify x :stream stream :pretty pretty))
 
+(fset:define-cross-type-compare-methods endb/arrow:arrow-date-days)
+(fset:define-cross-type-compare-methods endb/arrow:arrow-timestamp-micros)
+(fset:define-cross-type-compare-methods endb/arrow:arrow-time-micros)
+(fset:define-cross-type-compare-methods endb/arrow:arrow-interval-month-day-nanos)
+
 (defmethod fset:compare ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-date-days))
   (fset:compare (endb/arrow:arrow-date-days-day x)
                 (endb/arrow:arrow-date-days-day y)))
@@ -149,11 +154,6 @@
 (defmethod fset:compare ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
   (fset:compare (endb/arrow:arrow-interval-month-day-nanos-uint128 x)
                 (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
-
-(fset:define-cross-type-compare-methods endb/arrow:arrow-date-days)
-(fset:define-cross-type-compare-methods endb/arrow:arrow-timestamp-micros)
-(fset:define-cross-type-compare-methods endb/arrow:arrow-time-micros)
-(fset:define-cross-type-compare-methods endb/arrow:arrow-interval-month-day-nanos)
 
 ;; https://datatracker.ietf.org/doc/html/rfc7386
 

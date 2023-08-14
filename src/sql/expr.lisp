@@ -48,18 +48,6 @@
 (defmethod sql-= (x (y (eql :null)))
   :null)
 
-(defmethod sql-= ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-date-days))
-  (= (endb/arrow:arrow-date-days-day x) (endb/arrow:arrow-date-days-day y)))
-
-(defmethod sql-= ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-time-micros))
-  (= (endb/arrow:arrow-time-micros-us x) (endb/arrow:arrow-time-micros-us y)))
-
-(defmethod sql-= ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
-  (= (endb/arrow:arrow-timestamp-micros-us x) (endb/arrow:arrow-timestamp-micros-us y)))
-
-(defmethod sql-= ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
-  (= (endb/arrow:arrow-interval-month-day-nanos-uint128 x) (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
-
 (defmethod sql-= ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-timestamp-micros))
   (sql-= (sql-cast x :timestamp) y))
 
@@ -70,58 +58,24 @@
   (= x y))
 
 (defmethod sql-= (x y)
-  (equal x y))
+  (fset:equal? x y))
 
 (defun sql-<> (x y)
   (sql-not (sql-= x y)))
 
-(defmethod sql-is ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-date-days))
-  (sql-= x y))
-
-(defmethod sql-is ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-time-micros))
-  (sql-= x y))
-
-(defmethod sql-is ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
-  (sql-= x y))
-
-(defmethod sql-= ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
-  (sql-= x y))
-
-(defmethod sql-is ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-timestamp-micros))
-  (sql-= x y))
-
-(defmethod sql-is ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-days))
-  (sql-= x y))
-
-(defmethod sql-is ((x number) (y number))
-  (= x y))
-
 (defmethod sql-is (x y)
-  (equal x y))
+  (fset:equal? x y))
 
 (defmethod sql-< (x y)
-  :null)
+  (case (fset:compare x y)
+    (:less t)
+    (:unequal :null)))
 
 (defmethod sql-< ((x (eql :null)) y)
   :null)
 
 (defmethod sql-< (x (y (eql :null)))
   :null)
-
-(defmethod sql-< ((x string) (y string))
-  (not (null (string< x y))))
-
-(defmethod sql-< ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-date-days))
-  (< (endb/arrow:arrow-date-days-day x) (endb/arrow:arrow-date-days-day y)))
-
-(defmethod sql-< ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-time-micros))
-  (< (endb/arrow:arrow-time-micros-us x) (endb/arrow:arrow-time-micros-us y)))
-
-(defmethod sql-< ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
-  (< (endb/arrow:arrow-timestamp-micros-us x) (endb/arrow:arrow-timestamp-micros-us y)))
-
-(defmethod sql-< ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
-  (< (endb/arrow:arrow-interval-month-day-nanos-uint128 x) (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
 
 (defmethod sql-< ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-timestamp-micros))
   (sql-< (sql-cast x :timestamp) y))
@@ -132,35 +86,19 @@
 (defmethod sql-< ((x number) (y number))
   (< x y))
 
-(defmethod sql-< ((x number) (y string))
-  t)
-
-(defmethod sql-< ((x string) (y number))
-  nil)
+(defmethod sql-< ((x string) (y string))
+  (not (null (string< x y))))
 
 (defmethod sql-<= (x y)
-  :null)
+  (case (fset:compare x y)
+    ((:less :equal) t)
+    (:unequal :null)))
 
 (defmethod sql-<= ((x (eql :null)) y)
   :null)
 
 (defmethod sql-<= (x (y (eql :null)))
   :null)
-
-(defmethod sql-<= ((x string) (y string))
-  (not (null (string<= x y))))
-
-(defmethod sql-<= ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-date-days))
-  (<= (endb/arrow:arrow-date-days-day x) (endb/arrow:arrow-date-days-day y)))
-
-(defmethod sql-<= ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-time-micros))
-  (<= (endb/arrow:arrow-time-micros-us x) (endb/arrow:arrow-time-micros-us y)))
-
-(defmethod sql-<= ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
-  (<= (endb/arrow:arrow-timestamp-micros-us x) (endb/arrow:arrow-timestamp-micros-us y)))
-
-(defmethod sql-<= ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
-  (<= (endb/arrow:arrow-interval-month-day-nanos-uint128 x) (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
 
 (defmethod sql-<= ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-timestamp-micros))
   (sql-<= (sql-cast x :timestamp) y))
@@ -171,35 +109,19 @@
 (defmethod sql-<= ((x number) (y number))
   (<= x y))
 
-(defmethod sql-<= ((x number) (y string))
-  t)
-
-(defmethod sql-<= ((x string) (y number))
-  nil)
+(defmethod sql-<= ((x string) (y string))
+  (not (null (string<= x y))))
 
 (defmethod sql-> (x y)
-  :null)
+  (case (fset:compare x y)
+    (:greater t)
+    (:unequal :null)))
 
 (defmethod sql-> ((x (eql :null)) y)
   :null)
 
 (defmethod sql-> (x (y (eql :null)))
   :null)
-
-(defmethod sql-> ((x string) (y string))
-  (not (null (string> x y))))
-
-(defmethod sql-> ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-date-days))
-  (> (endb/arrow:arrow-date-days-day x) (endb/arrow:arrow-date-days-day y)))
-
-(defmethod sql-> ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-time-micros))
-  (> (endb/arrow:arrow-time-micros-us x) (endb/arrow:arrow-time-micros-us y)))
-
-(defmethod sql-> ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
-  (> (endb/arrow:arrow-timestamp-micros-us x) (endb/arrow:arrow-timestamp-micros-us y)))
-
-(defmethod sql-> ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
-  (> (endb/arrow:arrow-interval-month-day-nanos-uint128 x) (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
 
 (defmethod sql-> ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-timestamp-micros))
   (sql-> (sql-cast x :timestamp) y))
@@ -210,35 +132,19 @@
 (defmethod sql-> ((x number) (y number))
   (> x y))
 
-(defmethod sql-> ((x number) (y string))
-  nil)
-
-(defmethod sql-> ((x string) (y number))
-  t)
+(defmethod sql-> ((x string) (y string))
+  (not (null (string> x y))))
 
 (defmethod sql->= (x y)
-  :null)
+  (case (fset:compare x y)
+    ((:greater :equal) t)
+    (:unequal :null)))
 
 (defmethod sql->= ((x (eql :null)) y)
   :null)
 
 (defmethod sql->= (x (y (eql :null)))
   :null)
-
-(defmethod sql->= ((x string) (y string))
-  (not (null (string>= x y))))
-
-(defmethod sql->= ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-date-days))
-  (>= (endb/arrow:arrow-date-days-day x) (endb/arrow:arrow-date-days-day y)))
-
-(defmethod sql->= ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-time-micros))
-  (>= (endb/arrow:arrow-time-micros-us x) (endb/arrow:arrow-time-micros-us y)))
-
-(defmethod sql->= ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
-  (>= (endb/arrow:arrow-timestamp-micros-us x) (endb/arrow:arrow-timestamp-micros-us y)))
-
-(defmethod sql->= ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
-  (>= (endb/arrow:arrow-interval-month-day-nanos-uint128 x) (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
 
 (defmethod sql->= ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-timestamp-micros))
   (sql->= (sql-cast x :timestamp) y))
@@ -249,11 +155,8 @@
 (defmethod sql->= ((x number) (y number))
   (>= x y))
 
-(defmethod sql->= ((x number) (y string))
-  nil)
-
-(defmethod sql->= ((x string) (y number))
-  t)
+(defmethod sql->= ((x string) (y string))
+  (not (null (string>= x y))))
 
 (defmethod sql-<< ((x (eql :null)) y)
   :null)
