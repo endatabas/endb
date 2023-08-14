@@ -118,7 +118,7 @@
       (call-next-method)))
 
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value list))
-  (if (endb/arrow::%alistp value)
+  (if (typep value 'endb/arrow:arrow-struct)
       (com.inuoe.jzon:write-value writer (alexandria:alist-hash-table value))
       (call-next-method)))
 

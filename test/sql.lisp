@@ -803,6 +803,11 @@
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT { a: 1, ...{} }")
+      (is (equalp '(((("a" . 1)))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT { a: 1, ...[2, 3], ...\"f\" }")
       (is (equalp '(((("a" . 1) ("1" . 3) ("0" . "f")))) result))
       (is (equal '("column1") columns)))))

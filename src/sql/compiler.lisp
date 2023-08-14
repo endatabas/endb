@@ -904,7 +904,8 @@
                                            (idx-sym (gensym)))
                                        `(let ((,spread-sym ,(ast->cl ctx (second kv))))
                                           (cond
-                                            ((endb/arrow::%alistp ,spread-sym)
+                                            ((and (typep ,spread-sym 'endb/arrow:arrow-struct)
+                                                  (not (eq :empty-struct ,spread-sym)))
                                              ,spread-sym)
                                             ((vectorp ,spread-sym)
                                              (loop for ,spread-sym across ,spread-sym
