@@ -1519,6 +1519,10 @@
   (is-valid (expr "'foo' > 2.0"))
   (is-valid (expr "'foo' >= 2.0"))
 
+  (is-valid (expr "NULL + NULL"))
+  (is-valid (expr "NULL + 'foo'"))
+  (is-valid (expr "'foo' + NULL"))
+
   (is-valid (expr "'foo' + 'foo'"))
   (is-valid (expr "'foo' - 'foo'"))
   (is-valid (expr "'foo' * 'foo'"))

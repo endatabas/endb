@@ -42,9 +42,6 @@
       (delete-duplicates rows :test 'equal)
       rows))
 
-(defmethod sql-= ((x (eql :null)) (y (eql :null)))
-  :null)
-
 (defmethod sql-= ((x (eql :null)) y)
   :null)
 
@@ -105,9 +102,6 @@
 (defmethod sql-< (x y)
   :null)
 
-(defmethod sql-< ((x (eql :null)) (y (eql :null)))
-  :null)
-
 (defmethod sql-< ((x (eql :null)) y)
   :null)
 
@@ -145,9 +139,6 @@
   nil)
 
 (defmethod sql-<= (x y)
-  :null)
-
-(defmethod sql-<= ((x (eql :null)) (y (eql :null)))
   :null)
 
 (defmethod sql-<= ((x (eql :null)) y)
@@ -189,9 +180,6 @@
 (defmethod sql-> (x y)
   :null)
 
-(defmethod sql-> ((x (eql :null)) (y (eql :null)))
-  :null)
-
 (defmethod sql-> ((x (eql :null)) y)
   :null)
 
@@ -231,9 +219,6 @@
 (defmethod sql->= (x y)
   :null)
 
-(defmethod sql->= ((x (eql :null)) (y (eql :null)))
-  :null)
-
 (defmethod sql->= ((x (eql :null)) y)
   :null)
 
@@ -270,9 +255,6 @@
 (defmethod sql->= ((x string) (y number))
   t)
 
-(defmethod sql-<< ((x (eql :null)) (y (eql :null)))
-  :null)
-
 (defmethod sql-<< ((x (eql :null)) y)
   :null)
 
@@ -281,9 +263,6 @@
 
 (defmethod sql-<< ((x number) (y number))
   (ash x y))
-
-(defmethod sql->> ((x (eql :null)) (y (eql :null)))
-  :null)
 
 (defmethod sql->> ((x (eql :null)) y)
   :null)
@@ -328,13 +307,16 @@
 (defmethod sql-unary+ (x)
   x)
 
-(defmethod sql-+ ((x (eql :null)) (y (eql :null)))
-  :null)
-
 (defmethod sql-+ ((x (eql :null)) (y number))
   :null)
 
 (defmethod sql-+ ((x number) (y (eql :null)))
+  :null)
+
+(defmethod sql-+ ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-+ (x (y (eql :null)))
   :null)
 
 (defmethod sql-+ ((x number) (y number))
@@ -387,13 +369,16 @@
 (defmethod sql-unary- ((x number))
   (- x))
 
-(defmethod sql-- ((x (eql :null)) (y (eql :null)))
-  :null)
-
 (defmethod sql-- ((x (eql :null)) (y number))
   :null)
 
 (defmethod sql-- ((x number) (y (eql :null)))
+  :null)
+
+(defmethod sql-- ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-- (x (y (eql :null)))
   :null)
 
 (defmethod sql-- ((x number) (y number))
@@ -446,13 +431,16 @@
        (periods:subtract-duration (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y)
                                   (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration x)))))
 
-(defmethod sql-* ((x (eql :null)) (y (eql :null)))
-  :null)
-
 (defmethod sql-* ((x (eql :null)) (y number))
   :null)
 
 (defmethod sql-* ((x number) (y (eql :null)))
+  :null)
+
+(defmethod sql-* ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-* (x (y (eql :null)))
   :null)
 
 (defmethod sql-* ((x number) (y number))
@@ -467,13 +455,16 @@
 (defmethod sql-* (x y)
   0)
 
-(defmethod sql-/ ((x (eql :null)) (y (eql :null)))
-  :null)
-
 (defmethod sql-/ ((x (eql :null)) (y number))
   :null)
 
 (defmethod sql-/ ((x number) (y (eql :null)))
+  :null)
+
+(defmethod sql-/ ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-/ (x (y (eql :null)))
   :null)
 
 (defmethod sql-/ ((x integer) (y integer))
@@ -495,13 +486,16 @@
 (defmethod sql-/ (x y)
   :null)
 
-(defmethod sql-% ((x (eql :null)) (y (eql :null)))
-  :null)
-
 (defmethod sql-% ((x (eql :null)) (y number))
   :null)
 
 (defmethod sql-% ((x number) (y (eql :null)))
+  :null)
+
+(defmethod sql-% ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-% (x (y (eql :null)))
   :null)
 
 (defmethod sql-% ((x number) (y number))
@@ -890,9 +884,6 @@
 (defmethod sql-exp ((x number))
   (exp x))
 
-(defmethod sql-power ((x (eql :null)) (y (eql :null)))
-  :null)
-
 (defmethod sql-power ((x (eql :null)) y)
   :null)
 
@@ -901,9 +892,6 @@
 
 (defmethod sql-power ((x number) (y number))
   (expt (coerce x 'double-float) y))
-
-(defmethod sql-log ((x (eql :null)) (y (eql :null)))
-  :null)
 
 (defmethod sql-log ((x (eql :null)) y)
   :null)
@@ -980,9 +968,6 @@
                         collect s)))
       (sql-duration (apply #'concatenate 'string "P" strs)))))
 
-(defmethod sql-like ((x (eql :null)) (pattern (eql :null)))
-  :null)
-
 (defmethod sql-like ((x (eql :null)) y)
   :null)
 
@@ -992,9 +977,6 @@
 (defmethod sql-like ((x string) (pattern string))
   (let ((regex (concatenate 'string "^" (ppcre:regex-replace-all "%" pattern ".*") "$")))
     (integerp (ppcre:scan regex x))))
-
-(defmethod sql-strftime ((format (eql :null)) (x (eql :null)))
-  :null)
 
 (defmethod sql-strftime ((format (eql :null)) x)
   :null)
@@ -1013,10 +995,6 @@
 (defmethod sql-strftime ((format string) (x endb/arrow:arrow-timestamp-micros))
   (let ((local-time:*default-timezone* local-time:+utc-zone+))
     (periods:strftime (endb/arrow:arrow-timestamp-micros-to-local-time x) :format format)))
-
-(defmethod sql-substring ((x (eql :null)) (y (eql :null)) &optional z)
-  (declare (ignore z))
-  :null)
 
 (defmethod sql-substring ((x (eql :null)) y &optional z)
   (declare (ignore z))
