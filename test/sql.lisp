@@ -1430,7 +1430,13 @@
     (interpret-sql-literal "INTERVAL '1-2' MONTH TO YEAR"))
 
   (signals endb/sql/expr:sql-runtime-error
-    (interpret-sql-literal "INTERVAL '1-2' YEAR")))
+    (interpret-sql-literal "INTERVAL '1-2' YEAR"))
+
+  (signals endb/sql/expr:sql-runtime-error
+    (interpret-sql-literal "[1 + 2]"))
+
+  (signals endb/sql/expr:sql-runtime-error
+    (interpret-sql-literal "{foo: 1 + 2}")))
 
 (defun endb->sqlite (x)
   (cond

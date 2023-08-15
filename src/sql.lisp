@@ -141,12 +141,12 @@
                    (fset:with acc (symbol-name (first kv)) (%interpret-sql-literal (second kv))))
                  (second ast)
                  :initial-value (fset:empty-map)))
-       (t :error)))
+       (t (error 'endb/sql/expr:sql-runtime-error :message "Invalid literal"))))
     ((and (listp ast)
           (eq :interval (first ast))
           (<= 2 (length (rest ast)) 3))
      (apply #'endb/sql/expr:sql-interval (rest ast)))
-    (t :error)))
+    (t (error 'endb/sql/expr:sql-runtime-error :message "Invalid literal"))))
 
 (defun interpret-sql-literal (src)
   (let* ((select-list (handler-case
@@ -157,7 +157,11 @@
          (literal (if (or (not (= 1 (length select-list)))
                           (not (= 1 (length ast))))
                       :error
-                      (%interpret-sql-literal (car ast)))))
+                      (handler-case
+                          (%interpret-sql-literal (car ast))
+                        (endb/sql/expr:sql-runtime-error (e)
+                          (declare (ignore e))
+                          :error)))))
     (if (eq :error literal)
         (error 'endb/sql/expr:sql-runtime-error
                :message (format nil "Invalid literal: ~A" src))
