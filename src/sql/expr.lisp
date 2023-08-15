@@ -18,7 +18,8 @@
            #:sql-round #:sql-sin #:sql-cos #:sql-tan #:sql-sinh #:sql-cosh #:sql-tanh #:sql-asin #:sqn-acos #:sql-atan #:sql-floor #:sql-ceiling #:sql-ceil
            #:sql-sign #:sql-sqrt #:sql-exp #:sql-power #:sql-power #:sql-log #:sql-log10 #:sql-ln
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-timestamp #:sql-duration #:sql-interval #:sql-like #:sql-substring #:sql-strftime
-           #:sql-current-date #:sql-current-time #:sql-current-timestamp #:sql-contains #:sql-overlaps #:sql-precedes #:sql-succedes #:sql-immediately-precedes #:sql-immediately-succedes
+           #:sql-current-date #:sql-current-time #:sql-current-timestamp #:sql-typeof
+           #:sql-contains #:sql-overlaps #:sql-precedes #:sql-succedes #:sql-immediately-precedes #:sql-immediately-succedes
            #:make-sql-agg #:sql-agg-accumulate #:sql-agg-finish
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-insert-objects #:sql-delete
            #:make-db #:copy-db #:db-buffer-pool #:db-wal #:db-object-store #:db-meta-data #:db-current-timestamp
@@ -941,6 +942,45 @@
 (defun sql-current-timestamp (db)
   (or (db-current-timestamp db)
       (endb/arrow:local-time-to-arrow-timestamp-micros (local-time:now))))
+
+(defmethod sql-typeof ((x string))
+  "text")
+
+(defmethod sql-typeof ((x integer))
+  "integer")
+
+(defmethod sql-typeof ((x double-float))
+  "real")
+
+(defmethod sql-typeof ((x vector))
+  "blob")
+
+(defmethod sql-typeof ((x endb/arrow:arrow-date-days))
+  "date")
+
+(defmethod sql-typeof ((x endb/arrow:arrow-time-micros))
+  "time")
+
+(defmethod sql-typeof ((x endb/arrow:arrow-timestamp-micros))
+  "timestamp")
+
+(defmethod sql-typeof ((x endb/arrow:arrow-interval-month-day-nanos))
+  "interval")
+
+(defmethod sql-typeof ((x (eql t)))
+  "boolean")
+
+(defmethod sql-typeof ((x (eql nil)))
+  "boolean")
+
+(defmethod sql-typeof ((x (eql :null)))
+  "null")
+
+(defmethod sql-typeof ((x fset:seq))
+  "array")
+
+(defmethod sql-typeof ((x fset:map))
+  "object")
 
 ;; Period predicates
 

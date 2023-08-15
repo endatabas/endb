@@ -1698,4 +1698,10 @@
   (is-valid (expr "LN(4.2)"))
   (is-valid (expr "LOG10(2)"))
   (is-valid (expr "LOG(2, 64)"))
-  (is-valid (expr "SIGN(-2.4)")))
+  (is-valid (expr "SIGN(-2.4)"))
+
+  (is-valid (expr "TYPEOF('foo')"))
+  (is-valid (expr "TYPEOF(2)"))
+  (is-valid (expr "TYPEOF(2.0)"))
+  (is-valid (expr "TYPEOF(x'CAFEBABE')"))
+  (is-valid (expr "TYPEOF(NULL)")))
