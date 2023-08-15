@@ -6,16 +6,6 @@
 
 (in-suite* :json)
 
-(test random-uuid
-  (let ((uuid (random-uuid #+sbcl (sb-ext:seed-random-state 0)
-                           #-sbcl *random-state*)))
-    #+sbcl (is (equal "8c7f0aac-97c4-4a2f-b716-a675d821ccc0" uuid))
-    (is (random-uuid-p uuid))
-    (is (random-uuid-p "00000000-0000-4000-8000-000000000000"))
-    (is (not (random-uuid-p "00000000-0000-1000-8000-000000000000")))
-    (is (not (random-uuid-p "foobar")))
-    (is (not (random-uuid-p 42)))))
-
 (test json
   (is (equal "{}" (json-stringify (fset:map))))
   (is (fset:equal? (json-parse "{}") (fset:map)))

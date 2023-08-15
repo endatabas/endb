@@ -1392,7 +1392,12 @@
       (is (equal '("column1") columns)))
 
     (signals endb/sql/expr:sql-runtime-error
-      (execute-sql db "SELECT SQRT(-1)"))))
+      (execute-sql db "SELECT SQRT(-1)"))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT UUID()")
+      (is (endb/sql/expr::%random-uuid-p (caar result)))
+      (is (equal '("column1") columns)))))
 
 (test interpret-sql-literal
   (is (equal "foo" (interpret-sql-literal "'foo'")))
