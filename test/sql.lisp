@@ -1436,7 +1436,10 @@
     (interpret-sql-literal "[1 + 2]"))
 
   (signals endb/sql/expr:sql-runtime-error
-    (interpret-sql-literal "{foo: 1 + 2}")))
+    (interpret-sql-literal "{foo: 1 + 2}"))
+
+  (is (equalp (endb/arrow:parse-arrow-date-days "2001-01-01")
+              (endb/json:resolve-json-ld-xsd-scalars (interpret-sql-literal "{\"@value\": \"2001-01-01\", \"@type\": \"xsd:date\"}")))))
 
 (defun endb->sqlite (x)
   (cond

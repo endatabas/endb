@@ -138,7 +138,11 @@
        (:array (fset:convert 'fset:seq (mapcar #'%interpret-sql-literal (second ast))))
        (:object (reduce
                  (lambda (acc kv)
-                   (fset:with acc (symbol-name (first kv)) (%interpret-sql-literal (second kv))))
+                   (let ((k (first kv)))
+                     (fset:with acc (if (stringp k)
+                                        k
+                                        (symbol-name k))
+                                (%interpret-sql-literal (second kv)))))
                  (second ast)
                  :initial-value (fset:empty-map)))
        (t (error 'endb/sql/expr:sql-runtime-error :message "Invalid literal"))))

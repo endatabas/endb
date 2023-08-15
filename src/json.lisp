@@ -1,6 +1,7 @@
 (defpackage :endb/json
   (:use :cl)
   (:export #:json-parse #:*json-ld-scalars* #:json-stringify #:json-merge-patch #:json-diff
+           #:resolve-json-ld-xsd-scalars
            #:binary-to-bloom #:binary-bloom-member-p #:calculate-stats
            #:random-uuid #:random-uuid-p)
   (:import-from :alexandria)
@@ -17,34 +18,53 @@
 ;; https://www.w3.org/2001/sw/rdb2rdf/wiki/Mapping_SQL_datatypes_to_XML_Schema_datatypes
 ;; https://www.w3.org/TR/xmlschema11-2/
 
-(defun %json-parse (x)
+(defun %json-to-fset (x)
   (cond
     ((hash-table-p x)
-     (if (and (= 2 (hash-table-count x))
-              (subsetp '("@value" "@type")
-                       (alexandria:hash-table-keys x)
-                       :test 'equal))
-         (let ((k (gethash "@type" x))
-               (v (gethash "@value" x)))
-           (cond
-             ((equal "xsd:date" k)
-              (endb/arrow:parse-arrow-date-days v))
-             ((equal "xsd:dateTime" k)
-              (endb/arrow:parse-arrow-timestamp-micros v))
-             ((equal "xsd:time" k)
-              (endb/arrow:parse-arrow-time-micros v))
-             ((equal "xsd:duration" k)
-              (endb/arrow:parse-arrow-interval-month-day-nanos v))
-             ((equal "xsd:base64Binary" k)
-              (qbase64:decode-string v))))
-         (loop with acc = (fset:empty-map)
-               for k being the hash-key
-                 using (hash-value v)
-                   of x
-               do (setf acc (fset:with acc k (%json-parse v)))
-               finally (return acc))))
+     (loop with acc = (fset:empty-map)
+           for k being the hash-key
+             using (hash-value v)
+               of x
+           do (setf acc (fset:with acc k (%json-to-fset v)))
+           finally (return acc)))
     ((and (vectorp x) (not (stringp x)))
-     (fset:convert 'fset:seq (map 'vector #'%json-parse x)))
+     (fset:convert 'fset:seq (map 'vector #'%json-to-fset x)))
+    (t x)))
+
+(defun resolve-json-ld-xsd-scalars (x)
+  (cond
+    ((fset:map? x)
+     (if (and (= 2 (fset:size x))
+              (equalp (fset:set "@value" "@type")
+                      (fset:domain x)))
+         (let ((k (fset:lookup x "@type"))
+               (v (fset:lookup x "@value")))
+           (cond
+             ((or (equal "xsd:date" k)
+                  (equal "http://www.w3.org/2001/XMLSchema#date" k))
+              (endb/arrow:parse-arrow-date-days v))
+             ((or (equal "xsd:dateTime" k)
+                  (equal "http://www.w3.org/2001/XMLSchema#dateTime" k))
+              (endb/arrow:parse-arrow-timestamp-micros v))
+             ((or (equal "xsd:time" k)
+                  (equal "http://www.w3.org/2001/XMLSchema#time" k))
+              (endb/arrow:parse-arrow-time-micros v))
+             ((or (equal "xsd:duration" k)
+                  (equal "http://www.w3.org/2001/XMLSchema#duration" k))
+              (endb/arrow:parse-arrow-interval-month-day-nanos v))
+             ((or (equal "xsd:base64Binary" k)
+                  (equal "http://www.w3.org/2001/XMLSchema#base64Binary" k))
+              (qbase64:decode-string v))
+             (t x)))
+         (fset:reduce (lambda (acc k v)
+                        (fset:with acc k (resolve-json-ld-xsd-scalars v)))
+                      x
+                      :initial-value (fset:empty-map))))
+    ((fset:seq? x)
+     (fset:reduce (lambda (acc x)
+                    (fset:with-last acc (resolve-json-ld-xsd-scalars x)))
+                  x
+                  :initial-value (fset:empty-seq)))
     (t x)))
 
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value fset:map))
@@ -117,16 +137,11 @@
           (com.inuoe.jzon:write-value writer (qbase64:encode-bytes value)))
       (call-next-method)))
 
-(defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value list))
-  (if (typep value 'endb/arrow:arrow-struct)
-      (com.inuoe.jzon:write-value writer (alexandria:alist-hash-table value))
-      (call-next-method)))
-
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value (eql :null)))
   (com.inuoe.jzon:write-value writer 'null))
 
 (defun json-parse (in)
-  (%json-parse (com.inuoe.jzon:parse in)))
+  (resolve-json-ld-xsd-scalars (%json-to-fset (com.inuoe.jzon:parse in))))
 
 (defun json-stringify (x &key stream pretty)
   (com.inuoe.jzon:stringify x :stream stream :pretty pretty))

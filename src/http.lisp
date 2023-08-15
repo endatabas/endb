@@ -119,7 +119,7 @@
                                             (cdr (assoc "q" (lack.request:request-parameters req) :test 'equal))))
                                    (parameters (loop for (k . v) in (lack.request:request-parameters req)
                                                      when (equal "parameter" k)
-                                                       collect (endb/sql:interpret-sql-literal v))))
+                                                       collect (endb/json:resolve-json-ld-xsd-scalars (endb/sql:interpret-sql-literal v)))))
                               (if sql
                                   (if (some (lambda (media-type)
                                               (lack.request:request-accepts-p req media-type))
