@@ -108,22 +108,20 @@
 
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value endb/arrow:arrow-time-micros))
   (if *json-ld-scalars*
-      (if *json-ld-scalars*
-          (com.inuoe.jzon:with-object writer
-            (com.inuoe.jzon:write-key writer "@value")
-            (com.inuoe.jzon:write-value writer (format nil "~A" value))
-            (com.inuoe.jzon:write-key writer "@type")
-            (com.inuoe.jzon:write-value writer "xsd:time")))
+      (com.inuoe.jzon:with-object writer
+        (com.inuoe.jzon:write-key writer "@value")
+        (com.inuoe.jzon:write-value writer (format nil "~A" value))
+        (com.inuoe.jzon:write-key writer "@type")
+        (com.inuoe.jzon:write-value writer "xsd:time"))
       (com.inuoe.jzon:write-value writer (format nil "~A" value))))
 
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value endb/arrow:arrow-interval-month-day-nanos))
   (if *json-ld-scalars*
-      (if *json-ld-scalars*
-          (com.inuoe.jzon:with-object writer
-            (com.inuoe.jzon:write-key writer "@value")
-            (com.inuoe.jzon:write-value writer (format nil "~A" value))
-            (com.inuoe.jzon:write-key writer "@type")
-            (com.inuoe.jzon:write-value writer "xsd:duration")))
+      (com.inuoe.jzon:with-object writer
+        (com.inuoe.jzon:write-key writer "@value")
+        (com.inuoe.jzon:write-value writer (format nil "~A" value))
+        (com.inuoe.jzon:write-key writer "@type")
+        (com.inuoe.jzon:write-value writer "xsd:duration"))
       (com.inuoe.jzon:write-value writer (format nil "~A" value))))
 
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value vector))
