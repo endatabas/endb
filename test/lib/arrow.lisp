@@ -1,6 +1,7 @@
 (defpackage :endb-test/lib/arrow
   (:use :cl :fiveam :endb/lib/arrow)
   (:import-from :endb/arrow)
+  (:import-from :fset)
   (:import-from :asdf))
 (in-package :endb-test/lib/arrow)
 
@@ -24,29 +25,30 @@
                             2 0 0 16 0 18 0 4 0 16 0 17 0 8 0 0 0 12 0 0 0 0 0 244 255 255 255 64 0 0 0 1
                             0 0 0 8 0 9 0 4 0 8 0 1 0 0 0 97 0 166 0 0 0 65 82 82 79 87 49)
                           '(vector (unsigned-byte 8))))
-        (array '((("a" . 1)))))
+        (array (list (fset:map ("a" 1)))))
 
     (is (equalp expected (write-arrow-arrays-to-ipc-buffer
                           (list (endb/arrow:to-arrow array)))))
-    (is (equal (list array)
-               (loop for x in (read-arrow-arrays-from-ipc-buffer expected)
-                     collect (coerce x 'list))))
+    (is (equalp (list array)
+                (loop for x in (read-arrow-arrays-from-ipc-buffer expected)
+                      collect (coerce x 'list))))
 
-    (dolist (array '((1 :null 2 4 8)
+    (dolist (array `((1 :null 2 4 8)
                      (1 2 3 4 8)
-                     (#(12 -7 25) :null #(0 -127 127 50) #())
-                     (#(#(1 2) #(3 4)) #(#(5 6 7) :null #(8)) #(#(9 10)))
+                     (,(fset:seq 12 -7 25) :null ,(fset:seq 0 -127 127 50) ,(fset:seq))
+                     (,(fset:seq (fset:seq 1 2) (fset:seq 3 4)) ,(fset:seq (fset:seq 5 6 7) :null (fset:seq 8)) ,(fset:seq (fset:seq 9 10)))
                      (1.2d0 :null 3.4d0 5)
                      ;; wrapped in a list as a top-level row cannot be null.
-                     (#((("name" . "joe") ("id" . 1))
-                        (("name" . :null) ("id" . 2))
-                        :null
-                        (("name" . "mark") ("id" . 4))))))
+                     (,(fset:seq (fset:map ("name" "joe") ("id" 1))
+                                 (fset:map ("name" :null) ("id" 2))
+                                 :null
+                                 (fset:map ("name" "mark") ("id" 4))))))
       (is (equalp (list array)
                   (loop for x in (read-arrow-arrays-from-ipc-buffer
                                   (write-arrow-arrays-to-ipc-buffer
                                    (list (endb/arrow:to-arrow array))))
-                        collect (mapcar #'cdar (coerce x 'list))))))
+                        collect (loop for y in (coerce x 'list)
+                                      collect (fset:lookup y ""))))))
 
     (let ((arrays '((1 :null 2 4 8)
                     (1 2 3 4 8))))
@@ -54,18 +56,19 @@
                   (loop for x in (read-arrow-arrays-from-ipc-buffer
                                   (write-arrow-arrays-to-ipc-buffer
                                    (mapcar #'endb/arrow:to-arrow arrays)))
-                        collect (mapcar #'cdar (coerce x 'list))))))))
+                        collect (loop for y in (coerce x 'list)
+                                      collect (fset:lookup y ""))))))))
 
 (test arrow-ffi-ipc-files
   (let* ((target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-file (merge-pathnames "example.arrow" target-dir))
-         (arrays '(((("a" . 1)))
-                   ((("a" . 2))))))
+         (arrays `((,(fset:map ("a" 1)))
+                   (,(fset:map ("a" 2))))))
     (ensure-directories-exist target-dir)
     (unwind-protect
          (progn
            (write-arrow-arrays-to-ipc-file test-file (mapcar #'endb/arrow:to-arrow arrays))
-           (is (equal arrays (loop for x in (read-arrow-arrays-from-ipc-file test-file)
-                                   collect (coerce x 'list)))))
+           (is (equalp arrays (loop for x in (read-arrow-arrays-from-ipc-file test-file)
+                                    collect (coerce x 'list)))))
       (when (probe-file test-file)
         (delete-file test-file)))))

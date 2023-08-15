@@ -158,15 +158,15 @@
 (test buffer-pool
   (let* ((out (make-instance 'fast-io:fast-output-stream))
          (wal (open-tar-wal :stream out))
-         (batches '(((("x" . 1))
-                     (("x" . 2))
-                     (("x" . 3))
-                     (("x" . 4)))
+         (batches (list (list (fset:map ("x" 1))
+                              (fset:map ("x" 2))
+                              (fset:map ("x" 3))
+                              (fset:map ("x" 4)))
 
-                    ((("x" . 5))
-                     (("x" . 6))
-                     (("x" . 7))
-                     (("x" . 8))))))
+                        (list (fset:map ("x" 5))
+                              (fset:map ("x" 6))
+                              (fset:map ("x" 7))
+                              (fset:map ("x" 8))))))
 
     (wal-append-entry wal
                       "foo.arrow"
@@ -179,16 +179,17 @@
            (bp (make-buffer-pool :object-store os))
            (actual (buffer-pool-get bp "foo.arrow")))
 
-      (is (equal batches (loop for x in actual
-                               collect (coerce x 'list))))
+      (is (equalp batches (loop for x in actual
+                                collect (coerce x 'list))))
       (is (eq actual (buffer-pool-get bp "foo.arrow")))
 
       (is (null (buffer-pool-get bp "bar.arrow"))))))
 
 (test writable-buffer-pool
   (let* ((out (make-instance 'fast-io:fast-output-stream))
-         (batches '(((("x" . 1))
-                     (("x" . 2)))))
+         (batches (list (list (fset:map ("x" 1))
+                              (fset:map ("x" 2))
+                              (fset:map ("x" 3)))))
          (in (make-instance 'fast-io:fast-input-stream :vector (fast-io:finish-output-stream out)))
          (os (open-tar-object-store :stream in))
          (bp (make-buffer-pool :object-store os))
@@ -198,7 +199,7 @@
 
     (is (null (buffer-pool-get bp "foo.arrow")))
 
-    (is (equal batches (loop for x in (buffer-pool-get wbp "foo.arrow")
-                             collect (coerce x 'list))))
+    (is (equalp batches (loop for x in (buffer-pool-get wbp "foo.arrow")
+                              collect (coerce x 'list))))
 
     (is (null (buffer-pool-get wbp "bar.arrow")))))

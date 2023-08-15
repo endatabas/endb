@@ -391,6 +391,12 @@
 (defmethod sql-concat ((x vector) (y vector))
   (concatenate 'vector x y))
 
+(defmethod sql-concat ((x fset:seq) (y fset:seq))
+  (fset:concat x y))
+
+(defmethod sql-concat ((x fset:map) (y fset:map))
+  (fset:map-union x y))
+
 (defmethod sql-concat ((x (eql :null)) y)
   :null)
 
@@ -403,11 +409,8 @@
 (defmethod sql-cardinality ((x vector))
   (length x))
 
-(defmethod sql-cardinality ((x list))
-  (length x))
-
-(defmethod sql-cardinality ((x (eql :empty-struct)))
-  0)
+(defmethod sql-cardinality ((x fset:collection))
+  (fset:size x))
 
 (defmethod sql-char_length ((x string))
   (length x))
@@ -426,8 +429,8 @@
 (defmethod sql-length ((x sequence))
   (length x))
 
-(defmethod sql-length ((x (eql :empty-struct)))
-  0)
+(defmethod sql-length ((x fset:collection))
+  (fset:size x))
 
 (defmethod sql-trim ((x string) &optional (y " "))
   (string-trim y x))
@@ -459,7 +462,9 @@
 (defun sql-access-finish (x y recursivep)
   (let ((x (sql-access x y recursivep)))
     (if (typep x 'path-seq)
-        (or (path-seq-acc x) :null)
+        (if (path-seq-acc x)
+            (fset:convert 'fset:seq (path-seq-acc x))
+            :null)
         x)))
 
 (defmethod sql-access (x y recursivep)
@@ -492,16 +497,35 @@
 (defmethod sql-access ((x vector) (y (eql :*)) (recursivep (eql nil)))
   (make-path-seq :acc x))
 
-(defmethod sql-access ((x list) (y string) (recursivep (eql nil)))
-  (let ((element (assoc y x :test 'equal)))
-    (if element
-        (cdr element)
+(defmethod sql-access ((x fset:seq) (y number) (recursivep (eql nil)))
+  (let ((y (if (minusp y)
+               (+ (fset:size x) y)
+               y)))
+    (if (and (>= y 0)
+             (< y (fset:size x)))
+        (fset:lookup x y)
         (make-path-seq))))
 
-(defmethod sql-access ((x list) (y (eql :*)) (recursivep (eql nil)))
-  (make-path-seq :acc (map 'vector #'cdr x)))
+(defmethod sql-access ((x fset:seq) (y string) recursivep)
+  (sql-access (make-path-seq :acc (fset:convert 'vector x)) y recursivep))
 
-(defmethod sql-access ((x list) y (recursivep (eql t)))
+(defmethod sql-access ((x fset:seq) y (recursivep (eql t)))
+  (%recursive-path-access x y))
+
+(defmethod sql-access ((x fset:seq) (y (eql :*)) (recursivep (eql nil)))
+  (make-path-seq :acc (fset:convert 'vector x)))
+
+(defmethod sql-access ((x fset:map) (y string) (recursivep (eql nil)))
+  (multiple-value-bind (v vp)
+      (fset:lookup x y)
+    (if vp
+        v
+        (make-path-seq))))
+
+(defmethod sql-access ((x fset:map) (y (eql :*)) (recursivep (eql nil)))
+  (make-path-seq :acc (%fset-values x)))
+
+(defmethod sql-access ((x fset:map) y (recursivep (eql t)))
   (%recursive-path-access x y))
 
 (defmethod sql-access ((x path-seq) y recursivep)
@@ -899,13 +923,14 @@
       (caar rows)))
 
 (defun sql-unnest (array &key with-ordinality)
-  (when (vectorp array)
-    (reverse (if (eq :with-ordinality with-ordinality)
-                 (loop for x across array
-                       for idx from 0
-                       collect (list x idx))
-                 (loop for x across array
-                       collect (list x))))))
+  (when (fset:seq? array)
+    (let ((array (fset:convert 'list array)))
+      (reverse (if (eq :with-ordinality with-ordinality)
+                   (loop for x in array
+                         for idx from 0
+                         collect (list x idx))
+                   (loop for x in array
+                         collect (list x)))))))
 
 (defun sql-current-date (db)
   (sql-cast (sql-current-timestamp db) :date))
@@ -919,20 +944,17 @@
 
 ;; Period predicates
 
-(defmethod %period-field ((x list) field)
-  (let ((f (assoc field x :test 'equal)))
-    (if f
-        (cdr f)
-        :null)))
+(defmethod %period-field ((x fset:map) field)
+  (sql-access-finish x field nil))
 
-(defmethod %period-field ((x vector) (field (eql "start")))
-  (if (= 2 (length x))
-      (aref x 0)
+(defmethod %period-field ((x fset:seq) (field (eql "start")))
+  (if (= 2 (fset:size x))
+      (fset:lookup x 0)
       :null))
 
-(defmethod %period-field ((x vector) (field (eql "end")))
-  (if (= 2 (length x))
-      (aref x 1)
+(defmethod %period-field ((x fset:seq) (field (eql "end")))
+  (if (= 2 (fset:size x))
+      (fset:lookup x 1)
       :null))
 
 (defmethod %period-field ((x endb/arrow:arrow-date-days) field)
@@ -1171,9 +1193,10 @@
 
 (defmethod sql-agg-finish ((agg sql-array_agg))
   (with-slots (acc distinct) agg
-    (if (eq :distinct distinct)
-        (remove-duplicates acc)
-        acc)))
+    (fset:convert 'fset:seq
+                  (if (eq :distinct distinct)
+                      (remove-duplicates acc)
+                      acc))))
 
 (defstruct sql-object_agg (acc (make-hash-table :test 'equal)))
 
@@ -1194,9 +1217,7 @@
 
 (defmethod sql-agg-finish ((agg sql-object_agg))
   (with-slots (acc) agg
-    (if (zerop (hash-table-count acc))
-        :empty-struct
-        (alexandria:hash-table-alist acc))))
+    (fset:convert 'fset:map acc)))
 
 ;; Internals
 
@@ -1245,10 +1266,12 @@
 
 (defun base-table-visible-rows (db table-name &key arrow-file-idx-row-id-p)
   (let ((table-md (base-table-meta db table-name))
+        (projection (table-columns db table-name))
         (acc))
     (fset:do-map (arrow-file arrow-file-md table-md acc)
       (loop with deletes-md = (or (fset:lookup arrow-file-md "deletes") (fset:empty-map))
-            for ((nil . batch)) in (base-table-arrow-batches db table-name arrow-file)
+            for batch-row in (base-table-arrow-batches db table-name arrow-file)
+            for batch = (cdr (assoc table-name batch-row :test 'equal))
             for batch-idx from 0
             for batch-deletes = (or (fset:lookup deletes-md (prin1-to-string batch-idx)) (fset:empty-seq))
             do (setf acc (append acc (loop for row-id below (endb/arrow:arrow-length batch)
@@ -1256,8 +1279,9 @@
                                                              :key (lambda (x)
                                                                     (fset:lookup x "row_id")))
                                              collect (if arrow-file-idx-row-id-p
-                                                         (cons (list arrow-file batch-idx row-id) (mapcar #'cdr (endb/arrow:arrow-get batch row-id)))
-                                                         (mapcar #'cdr (endb/arrow:arrow-get batch row-id))))))))))
+                                                         (cons (list arrow-file batch-idx row-id)
+                                                               (endb/arrow:arrow-struct-projection batch row-id projection))
+                                                         (endb/arrow:arrow-struct-projection batch row-id projection)))))))))
 
 (defun batch-row-system-time-end (batch-deletes row-id)
   (fset:lookup (or (fset:find-if (lambda (x)
@@ -1306,16 +1330,24 @@
             thereis (and (equal table-name table)
                          (plusp idx)))))
 
+(defun %fset-values (m)
+  (fset:reduce (lambda (acc k v)
+                 (declare (ignore k))
+                 (vector-push-extend v acc)
+                 acc)
+               m
+               :initial-value (make-array 0 :fill-pointer 0)))
+
 (defun base-table-size (db table-name)
   (let ((table-md (base-table-meta db table-name)))
-    (fset:reduce (lambda (acc md)
-                   (+ acc (- (fset:lookup md "length")
-                             (fset:reduce (lambda (acc x)
-                                            (+ acc (fset:size x)))
-                                          (fset:range (or (fset:lookup md "deletes") (fset:empty-map)))
-                                          :initial-value 0))))
-                 (fset:range table-md)
-                 :initial-value 0)))
+    (reduce (lambda (acc md)
+              (+ acc (- (fset:lookup md "length")
+                        (reduce (lambda (acc x)
+                                  (+ acc (fset:size x)))
+                                (%fset-values (or (fset:lookup md "deletes") (fset:empty-map)))
+                                :initial-value 0))))
+            (%fset-values table-md)
+            :initial-value 0)))
 
 (defun %find-arrow-file-idx-row-id (db table-name predicate)
   (loop for (arrow-file-idx-row-id . row) in (base-table-visible-rows db table-name :arrow-file-idx-row-id-p t)
@@ -1417,20 +1449,18 @@
                          ("min" (make-sql-agg :min))
                          ("max" (make-sql-agg :max))
                          ("bloom" (make-instance 'cl-bloom::bloom-filter :order bloom-order))))
-             (calculate-col-stats (stats kv)
-               (destructuring-bind (k . v)
-                   kv
-                 (let ((col-stats (or (fset:lookup stats k) (make-col-stats))))
-                   (fset:with stats k (fset:image
-                                       (lambda (agg-k agg-v)
-                                         (values agg-k (sql-agg-accumulate agg-v v)))
-                                       col-stats))))))
+             (calculate-col-stats (stats k v)
+               (let ((col-stats (or (fset:lookup stats k) (make-col-stats))))
+                 (fset:with stats k (fset:image
+                                     (lambda (agg-k agg-v)
+                                       (values agg-k (sql-agg-accumulate agg-v v)))
+                                     col-stats)))))
       (let ((stats (reduce
                     (lambda (stats array)
                       (reduce
                        (lambda (stats row)
                          (if (typep row 'endb/arrow:arrow-struct)
-                             (reduce #'calculate-col-stats row :initial-value stats)
+                             (fset:reduce #'calculate-col-stats row :initial-value stats)
                              stats))
                        array
                        :initial-value stats))
@@ -1479,20 +1509,21 @@
                  (batch-md (fset:lookup table-md batch-file))
                  (batch (if batch-md
                             (car (endb/storage/buffer-pool:buffer-pool-get buffer-pool batch-key))
-                            (endb/arrow:make-arrow-array-for (list (cons table-name :null)
-                                                                   (cons "system_time_start" current-timestamp))))))
+                            (endb/arrow:make-arrow-array-for (fset:map (table-name :null)
+                                                                       ("system_time_start" current-timestamp))))))
             (loop for row in values
-                  do (endb/arrow:arrow-push batch (list (cons table-name
-                                                              (loop for v in row
-                                                                    for cn in (if created-p
-                                                                                  columns
-                                                                                  column-names)
-                                                                    collect (cons cn v)))
-                                                        (cons "system_time_start" current-timestamp))))
+                  do (endb/arrow:arrow-push batch (fset:map (table-name
+                                                             (fset:convert 'fset:map
+                                                                           (loop for v in row
+                                                                                 for cn in (if created-p
+                                                                                               columns
+                                                                                               column-names)
+                                                                                 collect (cons cn v))))
+                                                            ("system_time_start" current-timestamp))))
 
             (endb/storage/buffer-pool:buffer-pool-put buffer-pool batch-key (list batch))
 
-            (let* ((inner-batch (cdar (endb/arrow:arrow-children batch)))
+            (let* ((inner-batch (cdr (assoc table-name (endb/arrow:arrow-children batch) :test 'equal)))
                    (batch-md (fset:map-union (or batch-md (fset:empty-map))
                                              (fset:map
                                               ("length" (endb/arrow:arrow-length inner-batch))
@@ -1506,12 +1537,12 @@
 
 (defun sql-insert-objects (db table-name objects)
   (loop for object in objects
-        if (eq :empty-struct object)
+        if (fset:empty? object)
           do (error 'sql-runtime-error :message "Cannot insert empty object")
         else
           do (sql-insert db table-name
-                         (list (mapcar #'cdr object))
-                         :column-names (mapcar #'car object)))
+                         (list (coerce (%fset-values object) 'list))
+                         :column-names (fset:convert 'list (fset:domain object))))
   (values nil (length objects)))
 
 (defun sql-delete (db table-name new-batch-file-idx-deleted-row-ids)

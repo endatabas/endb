@@ -125,9 +125,6 @@
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value (eql :null)))
   (com.inuoe.jzon:write-value writer 'null))
 
-(defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value (eql :empty-struct)))
-  (com.inuoe.jzon:write-value writer (make-hash-table)))
-
 (defun json-parse (in)
   (%json-parse (com.inuoe.jzon:parse in)))
 

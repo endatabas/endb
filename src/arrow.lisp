@@ -236,6 +236,12 @@
 (defmethod murmurhash:murmurhash ((x endb/arrow:arrow-interval-month-day-nanos) &key (seed murmurhash:*default-seed*) mix-only)
   (murmurhash:murmurhash (arrow-interval-month-day-nanos-uint128 x) :seed seed :mix-only mix-only))
 
+(defmethod murmurhash:murmurhash ((x fset:seq) &key (seed murmurhash:*default-seed*) mix-only)
+  (murmurhash:murmurhash (fset:convert 'vector x) :seed seed :mix-only mix-only))
+
+(defmethod murmurhash:murmurhash ((x fset:map) &key (seed murmurhash:*default-seed*) mix-only)
+  (murmurhash:murmurhash (fset:convert 'hash-table x) :seed seed :mix-only mix-only))
+
 (fset:define-cross-type-compare-methods endb/arrow:arrow-date-days)
 (fset:define-cross-type-compare-methods endb/arrow:arrow-timestamp-micros)
 (fset:define-cross-type-compare-methods endb/arrow:arrow-time-micros)
@@ -268,20 +274,10 @@
   '(vector uint8))
 
 (deftype arrow-list ()
-  '(and vector (not (or string arrow-binary))))
+  'fset:seq)
 
-(defun %alistp (x)
-  (and (listp x)
-       (every #'consp x)))
-
-(deftype alist () '(satisfies %alistp))
-
-(defun %arrow-struct-p (x)
-  (or (and (%alistp x)
-           (plusp (length x)))
-      (eq :empty-struct x)))
-
-(deftype arrow-struct () '(satisfies %arrow-struct-p))
+(deftype arrow-struct ()
+  'fset:map)
 
 (defgeneric arrow-push (array x))
 (defgeneric arrow-valid-p (array n))
@@ -365,9 +361,11 @@
 (defun make-arrow-array-for (x)
   (let ((c (%array-class-for x)))
     (if (eq 'struct-array c)
-        (make-instance c :children (unless (equal :empty-struct x)
-                                     (loop for (k . v) in x
-                                           collect (cons k (make-arrow-array-for v)))))
+        (make-instance c :children (fset:reduce
+                                    (lambda (acc k v)
+                                      (append acc (list (cons k (make-arrow-array-for v)))))
+                                    x
+                                    :initial-value ()))
         (make-instance c))))
 
 (defun arrow-class-for-format (format)
@@ -780,11 +778,11 @@
           (setf values (cdr (first children))))
         (setf values (make-instance 'null-array)))))
 
-(defmethod arrow-push ((array list-array) (x vector))
+(defmethod arrow-push ((array list-array) (x fset:seq))
   (with-slots (offsets values) array
     (%push-valid array)
-    (loop for y across x
-          do (setf values (arrow-push values y)))
+    (fset:do-seq (y x)
+      (setf values (arrow-push values y)))
     (vector-push-extend (arrow-length values) offsets)
     array))
 
@@ -797,18 +795,11 @@
 (defmethod arrow-value ((array list-array) (n fixnum))
   (with-slots (offsets values) array
     (let* ((start (aref offsets n))
-           (end (aref offsets (1+ n)))
-           (len (- end start)))
-      (if (and (typep values 'primitive-array)
-               (zerop (arrow-null-count values)))
-          (make-array len :element-type (slot-value values 'element-type)
-                          :displaced-to (slot-value values 'values)
-                          :displaced-index-offset start)
-          (loop with acc = (make-array len)
-                for src-idx from start below end
-                for dst-idx from 0
-                do (setf (aref acc dst-idx) (arrow-get values src-idx))
-                finally (return acc))))))
+           (end (aref offsets (1+ n))))
+      (fset:convert 'fset:seq
+                    (loop for src-idx from start below end
+                          for dst-idx from 0
+                          collect (arrow-get values src-idx))))))
 
 (defmethod arrow-length ((array list-array))
   (with-slots (offsets) array
@@ -830,21 +821,21 @@
 
 (defun %same-struct-fields-p (array x)
   (with-slots (children) array
-    (if (eq :empty-struct x)
-        (null children)
-        (equal (mapcar #'car x)
-               (mapcar #'car children)))))
+    (equal (fset:convert 'list (fset:domain x))
+           (mapcar #'car children))))
 
 (defclass struct-array (validity-array)
-  ((children :initarg :children :initform () :type alist)))
+  ((children :initarg :children :initform () :type list)))
 
-(defmethod arrow-push ((array struct-array) (x list))
+(defmethod arrow-push ((array struct-array) (x fset:map))
   (if (%same-struct-fields-p array x)
       (with-slots (children) array
+        (when (fset:empty? x)
+          (%ensure-validity-buffer array))
         (%push-valid array)
-        (loop for kv-pair in children
-              for (k . v) in x
-              do (setf (cdr kv-pair) (arrow-push (cdr kv-pair) v)))
+        (fset:do-map (k v x)
+          (let ((kv-pair (assoc k children :test 'equal)))
+            (setf (cdr kv-pair) (arrow-push (cdr kv-pair) v))))
         array)
       (call-next-method)))
 
@@ -855,20 +846,13 @@
           do (setf (cdr kv-pair) (arrow-push (cdr kv-pair) :null)))
     array))
 
-(defmethod arrow-push ((array struct-array) (x (eql :empty-struct)))
-  (with-slots (children) array
-    (if (null children)
-        (progn
-          (%ensure-validity-buffer array)
-          (%push-valid array)
-          array)
-        (call-next-method))))
-
 (defmethod arrow-value ((array struct-array) (n fixnum))
   (with-slots (children) array
-    (or (loop for (k . v) in children
-              collect (cons k (arrow-get v n)))
-        :empty-struct)))
+    (reduce
+     (lambda (acc kv)
+       (fset:with acc (car kv) (arrow-get (cdr kv) n)))
+     children
+     :initial-value (fset:empty-map))))
 
 (defmethod arrow-length ((array struct-array))
   (with-slots (children validity) array
@@ -891,17 +875,18 @@
   (with-slots (children) array
     (loop with len = (arrow-length array)
           with missing-column = (make-instance 'null-array :null-count len :length len)
-          with children = (reverse children)
+          with children = children
           for c in projection
           collect (or (cdr (assoc c children :test 'equal)) missing-column))))
 
 (defun arrow-struct-projection (array n projection)
-  (loop with children = (reverse (arrow-get array n))
+  (loop with row = (arrow-get array n)
         for c in projection
-        for kv = (assoc c children :test 'equal)
-        collect (if kv
-                    (cdr kv)
-                    :null)))
+        collect (multiple-value-bind (v vp)
+                    (fset:lookup row c)
+                  (if vp
+                      v
+                      :null))))
 
 (defun arrow-struct-row-get (array n)
   (with-slots (children) array

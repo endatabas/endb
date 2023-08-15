@@ -4,6 +4,7 @@
   (:import-from :endb/sql/expr)
   (:import-from :endb/storage/object-store)
   (:import-from :cl-ppcre)
+  (:import-from :fset)
   (:import-from :sqlite)
   (:import-from :asdf)
   (:import-from :uiop))
@@ -339,7 +340,7 @@
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [?, ?]" 1 3)
-      (is (equalp '((#(1 3))) result))
+      (is (equalp `((,(fset:seq 1 3))) result))
       (is (equal '("column1") columns)))
 
     (signals endb/sql/expr:sql-runtime-error
@@ -630,8 +631,8 @@
 
         (multiple-value-bind (result columns)
             (execute-sql db "SELECT t1.*, t1.system_time FROM t1 FOR SYSTEM_TIME BETWEEN ? AND ?" system-time-as-of-insert system-time-as-of-update)
-          (is (equalp (list (list 101 104 (list (cons "start" system-time-as-of-update) (cons "end" endb/sql/expr:+end-of-time+)))
-                            (list 103 104 (list (cons "start" system-time-as-of-insert) (cons "end" system-time-as-of-update))))
+          (is (equalp (list (list 101 104 (fset:map ("start" system-time-as-of-update) ("end" endb/sql/expr:+end-of-time+)))
+                            (list 103 104 (fset:map ("start" system-time-as-of-insert) ("end" system-time-as-of-update))))
                       result))
           (is (equal '("a" "b" "system_time") columns)))
 
@@ -643,27 +644,27 @@
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT []")
-      (is (equalp '((#())) result))
+      (is (equalp `((,(fset:seq))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT ARRAY []")
-      (is (equalp '((#())) result))
+      (is (equalp `((,(fset:seq))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [1, 2]")
-      (is (equalp '((#(1 2))) result))
+      (is (equalp `((,(fset:seq 1 2))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT ARRAY [1, 2]")
-      (is (equalp '((#(1 2))) result))
+      (is (equalp `((,(fset:seq 1 2))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT ARRAY (VALUES (1), (2))")
-      (is (equalp '((#(1 2))) result))
+      (is (equalp `((,(fset:seq 1 2))) result))
       (is (equal '("column1") columns)))
 
     (signals endb/sql/expr:sql-runtime-error
@@ -671,38 +672,39 @@
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT ARRAY_AGG(x.column1) FROM (VALUES (1), (2)) AS x")
-      (is (equalp '((#(1 2))) result))
+      (is (equalp `((,(fset:seq 1 2))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT ARRAY_AGG(DISTINCT x.column1) FROM (VALUES (1), (1), (2)) AS x")
-      (is (equalp '((#(1 2))) result))
+      (is (equalp `((,(fset:seq 1 2))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT ARRAY_AGG(x.column1) FROM (VALUES (1)) AS x WHERE x.column1 = 2")
-      (is (equalp '((#())) result))
+      (is (equalp `((,(fset:seq))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT OBJECT_AGG(x.column1, x.column2) FROM (VALUES ('foo', 1), ('bar', 2)) AS x")
-      (is (equal '(((("bar" . 2) ("foo" . 1)))) result))
+      (is (equalp `((,(fset:map ("bar" 2) ("foo" 1)))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT OBJECT_AGG(x.column1, x.column2) FROM (VALUES ('foo', 1), ('baz', 1), ('bar', 2)) AS x GROUP BY x.column2")
-      (is (equal '(((("bar" . 2)))
-                   ((("baz" . 1) ("foo" . 1)))) result))
+      (is (equalp `((,(fset:map ("bar" 2)))
+                    (,(fset:map ("baz" 1) ("foo" 1))))
+                  result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT OBJECT_AGG(x.column1, x.column2) FROM (VALUES ('foo', 1), ('foo', 2)) AS x")
-      (is (equal '(((("foo" . 2)))) result))
+      (is (equalp `((,(fset:map ("foo" 2)))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT OBJECT_AGG(x.column1, x.column2) FROM (VALUES ('foo', 1)) AS x WHERE x.column1 = 'bar'")
-      (is (equal '((:empty-struct)) result))
+      (is (equalp `((,(fset:empty-map))) result))
       (is (equal '("column1") columns)))
 
     (signals endb/sql/expr:sql-runtime-error
@@ -730,33 +732,33 @@
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT {}")
-      (is (equal '((:empty-struct)) result))
+      (is (equalp `((,(fset:empty-map))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT OBJECT()")
-      (is (equal '((:empty-struct)) result))
+      (is (equalp `((,(fset:empty-map))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT {foo: 2, bar: 'baz'}")
-      (is (equal '(((("foo" . 2) ("bar" . "baz")))) result))
+      (is (equalp `((,(fset:map ("foo" 2) ("bar" "baz")))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT {\"foo\": 2, 'bar': 'baz'}")
-      (is (equal '(((("foo" . 2) ("bar" . "baz")))) result))
+      (is (equalp `((,(fset:map ("foo" 2) ("bar" "baz")))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT OBJECT(foo: 2, bar: 'baz')")
-      (is (equal '(((("foo" . 2) ("bar" . "baz")))) result))
+      (is (equalp `((,(fset:map ("foo" 2) ("bar" "baz")))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT {address: {street: 'Street', number: 42}, friends: [1, 2]}")
-      (is (equalp '(((("address" . (("street" . "Street") ("number" . 42)))
-                      ("friends" . #(1 2)))))
+      (is (equalp `((,(fset:map ("address" (fset:map ("street" "Street") ("number" 42)))
+                                ("friends" (fset:seq 1 2)))))
                   result))
       (is (equal '("column1") columns)))
 
@@ -768,48 +770,48 @@
 
       (multiple-value-bind (result columns)
           (execute-sql write-db "SELECT * FROM users")
-        (is (equalp '(((("address" . (("street" . "Street") ("number" . 43)))
-                        ("friends" . #(3 1))))
-                      ((("address" . (("street" . "Street") ("number" . 42)))
-                        ("friends" . #(1 2)))))
+        (is (equalp `((,(fset:map ("address" (fset:map ("street" "Street") ("number" 43)))
+                                  ("friends" (fset:seq 3 1))))
+                      (,(fset:map ("address" (fset:map ("street" "Street") ("number" 42)))
+                                  ("friends" (fset:seq 1 2)))))
                     result))
         (is (equal '("user") columns))))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT { foo: 2, bar, [2 + 2]: 5, ...baz } FROM (VALUES (1, [6, 7]), (2, {boz: 7, foo: 1})) AS foo(bar, baz)")
-      (is (equal '(((("bar" . 2) ("4" . 5) ("boz" . 7) ("foo" . 1)))
-                   ((("foo" . 2) ("bar" . 1) ("4" . 5) ("0" . 6) ("1" . 7))))
-                 result))
+      (is (equalp `((,(fset:map ("bar" 2) ("4" 5) ("boz" 7) ("foo" 1)))
+                    (,(fset:map ("foo" 2) ("bar" 1) ("4" 5) ("0" 6) ("1" 7))))
+                  result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [1, 2, ...[3, 4], 5]")
-      (is (equalp '((#(1 2 3 4 5))) result))
+      (is (equalp `((,(fset:seq 1 2 3 4 5))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [1, 2, ...4, 5]")
-      (is (equalp '((#(1 2 5))) result))
+      (is (equalp `((,(fset:seq 1 2 5))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [1, 2, ...\"foo\", 5]")
-      (is (equalp '((#(1 2 "f" "o" "o" 5))) result))
+      (is (equalp `((,(fset:seq 1 2 "f" "o" "o" 5))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT { a: 1, ...4 }")
-      (is (equalp '(((("a" . 1)))) result))
+      (is (equalp `((,(fset:map ("a" 1)))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT { a: 1, ...{} }")
-      (is (equalp '(((("a" . 1)))) result))
+      (is (equalp `((,(fset:map ("a" 1)))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT { a: 1, ...[2, 3], ...\"f\" }")
-      (is (equalp '(((("a" . 1) ("1" . 3) ("0" . "f")))) result))
+      (is (equalp `((,(fset:map ("a" 1) ("1" 3) ("0" "f")))) result))
       (is (equal '("column1") columns)))))
 
 (test semi-structured-access
@@ -892,12 +894,12 @@
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT {foo: 2, bar: ['baz']}['bar']")
-      (is (equalp '((#("baz"))) result))
+      (is (equalp `((,(fset:seq "baz"))) result))
       (is (equal '("bar") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT x.foo[0] FROM (VALUES ([{foo: [2]}, {foo: [3]}]), ([{foo: [4]}, {foo: [5]}])) AS x(x)")
-      (is (equalp '((#(4 5)) (#(2 3))) result))
+      (is (equalp `((,(fset:seq 4 5)) (,(fset:seq 2 3))) result))
       (is (equal '("column1") columns)))
 
     (let ((write-db (begin-write-tx (make-db))))
@@ -908,16 +910,16 @@
 
       (multiple-value-bind (result columns)
           (execute-sql write-db "SELECT users.user.address FROM users")
-        (is (equal '(((("street" . "Street") ("number" . 43)))
-                     ((("street" . "Street") ("number" . 42))))
-                   result))
+        (is (equalp `((,(fset:map ("street" "Street") ("number" 43)))
+                      (,(fset:map ("street" "Street") ("number" 42))))
+                    result))
         (is (equal '("address") columns)))
 
       (multiple-value-bind (result columns)
           (execute-sql write-db "SELECT user.address FROM users")
-        (is (equal '(((("street" . "Street") ("number" . 43)))
-                     ((("street" . "Street") ("number" . 42))))
-                   result))
+        (is (equalp `((,(fset:map ("street" "Street") ("number" 43)))
+                      (,(fset:map ("street" "Street") ("number" 42))))
+                    result))
         (is (equal '("address") columns)))
 
       (multiple-value-bind (result columns)
@@ -932,68 +934,69 @@
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT {a: 2, b: 3}[*]")
-      (is (equalp '((#(2 3))) result))
+      (is (equalp `((,(fset:seq 2 3))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT {a: 2, b: 3}..c")
-      (is (equalp '((#())) result))
+      (is (equalp `((,(fset:seq))) result))
       (is (equal '("c") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT {a: 2, b: {a: NULL}, c: [{a: 3}, 2]}..a")
-      (is (equalp '((#(2 :null 3))) result))
+      (is (equalp `((,(fset:seq 2 :null 3))) result))
       (is (equal '("a") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT {a: {b: 2}, b: {a: 3}, c: [{a: {b: 1}}, {b: 2}]}..a.b")
-      (is (equalp '((#(2 1))) result))
+      (is (equalp `((,(fset:seq 2 1))) result))
       (is (equal '("b") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [{a: NULL}, {a: 3}, {b: 4}].a")
-      (is (equalp '((#(:null 3))) result))
+      (is (equalp `((,(fset:seq :null 3))) result))
       (is (equal '("a") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [{a: 2}, {a: 3}, {b: 4}, 5][*]")
-      (is (equalp '((#((("a" . 2)) (("a" . 3)) (("b" . 4)) 5))) result))
+      (is (equalp `((,(fset:seq (fset:map ("a" 2)) (fset:map ("a" 3)) (fset:map ("b" 4)) 5))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [{a: 2, b: {c: [1, 2]}}, {b: 4}, 5]..[*]")
-      (is (equalp '((#((("a" . 2) ("b" ("c" . #(1 2)))) (("b" . 4)) 5 2 (("c" . #(1 2))) #(1 2) 1 2 4)))
+      (is (equalp `((,(fset:seq (fset:map ("a" 2) ("b" (fset:map ("c" (fset:seq 1 2)))))
+                                (fset:map ("b" 4)) 5 2 (fset:map ("c" (fset:seq 1 2))) (fset:seq 1 2) 1 2 4)))
                   result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [{a: 2, b: {c: [1, 2]}}, {b: 4}, 5]..[-1]")
-      (is (equalp '((#(5 2))) result))
+      (is (equalp `((,(fset:seq 5 2))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [{a: 2, b: {c: [1, 2]}}, {b: 4}, 5]..b")
-      (is (equalp '((#((("c" . #(1 2))) 4))) result))
+      (is (equalp `((,(fset:seq (fset:map ("c" (fset:seq 1 2))) 4))) result))
       (is (equal '("b") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [1, 2, 3, 4][*]")
-      (is (equalp '((#(1 2 3 4))) result))
+      (is (equalp `((,(fset:seq 1 2 3 4))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT 1[*]")
-      (is (equal '((#())) result))
+      (is (equalp `((,(fset:seq))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT {}[*]")
-      (is (equalp '((#())) result))
+      (is (equalp `((,(fset:seq))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT 1..a")
-      (is (equalp '((#())) result))
+      (is (equalp `((,(fset:seq))) result))
       (is (equal '("a") columns)))))
 
 (test directory-db
@@ -1385,7 +1388,7 @@
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [1, 2] || [3, 4]")
-      (is (equalp '((#(1 2 3 4))) result))
+      (is (equalp `((,(fset:seq 1 2 3 4))) result))
       (is (equal '("column1") columns)))
 
     (signals endb/sql/expr:sql-runtime-error
@@ -1409,10 +1412,10 @@
 
   (is (equalp (endb/arrow:parse-arrow-interval-month-day-nanos "P1Y2M") (interpret-sql-literal "INTERVAL '1-2' YEAR TO MONTH")))
 
-  (is (equalp '(("address" . (("street" . "Street") ("number" . 42)))
-                ("friends" . #(1 2)))
+  (is (equalp (fset:map ("address" (fset:map ("street" "Street") ("number" 42)))
+                        ("friends" (fset:seq 1 2)))
               (interpret-sql-literal "{address: {street: 'Street', number: 42}, friends: [1, 2]}")))
-  (is (eq :empty-struct (interpret-sql-literal "{}")))
+  (is (equalp (fset:empty-map) (interpret-sql-literal "{}")))
 
   (signals endb/sql/expr:sql-runtime-error
     (interpret-sql-literal "2001-01-01ASFOO"))

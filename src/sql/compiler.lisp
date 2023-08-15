@@ -174,6 +174,7 @@
                (table-md-sym (gensym))
                (arrow-file-md-sym (gensym))
                (deletes-md-sym (gensym))
+               (batch-row-sym (gensym))
                (batch-sym (or (fset:lookup ctx :batch-sym) (gensym)))
                (system-time-start-sym (gensym))
                (system-time-end-sym (gensym))
@@ -192,7 +193,9 @@
                          (,system-time-end-sym ,(ast->cl ctx temporal-end)))))
                (fset:do-map (,scan-arrow-file-sym ,arrow-file-md-sym ,table-md-sym)
                  (loop with ,deletes-md-sym = (or (fset:lookup ,arrow-file-md-sym "deletes") (fset:empty-map))
-                       for ((nil . ,batch-sym) (nil . ,temporal-sym)) in (endb/sql/expr:base-table-arrow-batches ,(fset:lookup ctx :db-sym) ,table-name ,scan-arrow-file-sym)
+                       for ,batch-row-sym in (endb/sql/expr:base-table-arrow-batches ,(fset:lookup ctx :db-sym) ,table-name ,scan-arrow-file-sym)
+                       for ,batch-sym = (cdr (assoc ,table-name ,batch-row-sym :test 'equal))
+                       for ,temporal-sym = (cdr (assoc "system_time_start" ,batch-row-sym :test 'equal))
                        for ,scan-batch-idx-sym from 0
                        for ,raw-deleted-row-ids-sym = (or (fset:lookup ,deletes-md-sym (prin1-to-string ,scan-batch-idx-sym))
                                                           (fset:empty-seq))
@@ -206,8 +209,8 @@
                                 for ,vars = ,(if  endb/sql/expr:*sqlite-mode*
                                                   `(endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',projection)
                                                   `(append (endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',(remove "system_time" projection :test 'equal))
-                                                           (list (list (cons "start" (endb/arrow:arrow-get ,temporal-sym ,scan-row-id-sym))
-                                                                       (cons "end" (endb/sql/expr:batch-row-system-time-end ,raw-deleted-row-ids-sym ,scan-row-id-sym))))))
+                                                           (list (fset:map ("start" (endb/arrow:arrow-get ,temporal-sym ,scan-row-id-sym))
+                                                                           ("end" (endb/sql/expr:batch-row-system-time-end ,raw-deleted-row-ids-sym ,scan-row-id-sym))))))
                                 when (and ,(if temporal-type-p
                                                `(eq t (,(case temporal-type
                                                           (:as-of 'endb/sql/expr:sql-<=)
@@ -691,8 +694,7 @@
                                                                :ast clause)))
                (update-select-list (loop for (update-col expr) in update-cols
                                          collect `(cons ,(symbol-name update-col) ,(ast->cl ctx expr))))
-               (unset-columns (loop for c in unset
-                                    collect (list (symbol-name c))))
+               (unset-columns (mapcar #'symbol-name unset))
                (updated-columns (loop for update-col in (append (mapcar #'car update-cols) unset)
                                       collect (symbol-name update-col)))
                (updated-rows-sym (gensym))
@@ -700,16 +702,13 @@
                (value-sym (gensym))
                (object-sym (gensym))
                (key-sym (gensym))
-               (kv-sym (gensym))
                (insertp-sym (gensym))
                (update-src (when update
-                             `((push (set-difference (delete-duplicates (append (endb/arrow:arrow-get ,batch-sym ,scan-row-id-sym)
-                                                                                (list ,@update-select-list))
-                                                                        :test 'equal
-                                                                        :key #'car)
-                                                     ',unset-columns
-                                                     :test 'equal
-                                                     :key #'car)
+                             `((push (reduce
+                                      #'fset:less
+                                      ',unset-columns
+                                      :initial-value (fset:map-union (endb/arrow:arrow-get ,batch-sym ,scan-row-id-sym)
+                                                                     (fset:convert 'fset:map (list ,@update-select-list))))
                                      ,updated-rows-sym)
                                (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym)))))
           (when (and update (null updated-columns))
@@ -721,7 +720,7 @@
              ,(if upsertp
                   `(loop for ,object-sym in (let ((,object-sym ,(if column-names
                                                                     `(loop for ,value-sym in ,(ast->cl ctx values)
-                                                                           collect (reverse (pairlis ',excluded-projection ,value-sym)))
+                                                                           collect (fset:convert 'fset:map (pairlis ',excluded-projection ,value-sym)))
                                                                     (ast->cl ctx values))))
                                               (unless (= (length ,object-sym)
                                                          (length (delete-duplicates
@@ -729,19 +728,13 @@
                                                                   :test 'equal
                                                                   :key (lambda (,object-sym)
                                                                          (loop for ,key-sym in ',on-conflict
-                                                                               for ,kv-sym = (assoc ,key-sym ,object-sym :test 'equal)
-                                                                               collect (if ,kv-sym
-                                                                                           (cdr ,kv-sym)
-                                                                                           :null))))))
+                                                                               collect (endb/sql/expr:sql-access-finish ,object-sym ,key-sym nil))))))
                                                 (%annotated-error ',table-name "Inserted values cannot contain duplicated on conflict columns"))
                                               ,object-sym)
                          for ,(loop for v in excluded-projection
                                     collect (fset:lookup excluded-env-extension v))
                            = (loop for ,key-sym in ',excluded-projection
-                                   for ,kv-sym = (assoc ,key-sym ,object-sym :test 'equal)
-                                   collect (if ,kv-sym
-                                               (cdr ,kv-sym)
-                                               :null))
+                                   collect (endb/sql/expr:sql-access-finish ,object-sym ,key-sym nil))
                          for ,insertp-sym = t
                          do
                          ,@(when from-src
@@ -867,7 +860,10 @@
                  collect (if (and (listp ast)
                                   (eq :spread-property (first ast)))
                              (let ((spread-sym (gensym)))
-                               `(let ((,spread-sym ,(ast->cl ctx (second ast))))
+                               `(let* ((,spread-sym ,(ast->cl ctx (second ast)))
+                                       (,spread-sym (if (fset:seq? ,spread-sym)
+                                                        (fset:convert 'vector ,spread-sym)
+                                                        ,spread-sym)))
                                   (when (vectorp ,spread-sym)
                                     (loop for ,spread-sym across ,spread-sym
                                           do (vector-push-extend (if (characterp ,spread-sym)
@@ -875,7 +871,7 @@
                                                                      ,spread-sym)
                                                                  ,acc-sym)))))
                              `(vector-push-extend ,(ast->cl ctx ast) ,acc-sym)))
-         ,acc-sym))))
+         (fset:convert 'fset:seq ,acc-sym)))))
 
 (defmethod sql->cl (ctx (type (eql :array-query)) &rest args)
   (destructuring-bind (query)
@@ -884,41 +880,40 @@
         (ast->cl ctx query)
       (unless (= 1 (length projection))
         (error 'endb/sql/expr:sql-runtime-error :message "ARRAY query must return single column"))
-      `(map 'vector #'car ,src))))
+      `(fset:convert 'fset:seq (mapcar #'car ,src)))))
 
 (defmethod sql->cl (ctx (type (eql :object)) &rest args)
   (destructuring-bind (args)
       args
-    (if args
-        `(delete-duplicates
-          (append ,@(loop for kv in args
-                          collect (case (first kv)
-                                    (:shorthand-property
-                                     `(list (cons ,(%unqualified-column-name (symbol-name (second kv)))
-                                                  ,(ast->cl ctx (second kv)))))
-                                    (:computed-property
-                                     `(list (cons (endb/sql/expr:sql-cast ,(ast->cl ctx (second kv)) :varchar)
-                                                  ,(ast->cl ctx (nth 2 kv)))))
-                                    (:spread-property
-                                     (let ((spread-sym (gensym))
-                                           (idx-sym (gensym)))
-                                       `(let ((,spread-sym ,(ast->cl ctx (second kv))))
-                                          (cond
-                                            ((and (typep ,spread-sym 'endb/arrow:arrow-struct)
-                                                  (not (eq :empty-struct ,spread-sym)))
-                                             ,spread-sym)
-                                            ((vectorp ,spread-sym)
-                                             (loop for ,spread-sym across ,spread-sym
-                                                   for ,idx-sym from 0
-                                                   collect (cons (format nil "~A" ,idx-sym) (if (characterp ,spread-sym)
-                                                                                                (princ-to-string ,spread-sym)
-                                                                                                ,spread-sym))))))))
-                                    (t `(list (cons ,(if (symbolp (first kv))
-                                                         (symbol-name (first kv))
-                                                         (first kv))
-                                                    ,(ast->cl ctx (second kv))))))))
-          :test 'equal :key #'car)
-        :empty-struct)))
+    `(fset:convert 'fset:map
+      (append ,@(loop for kv in args
+                      collect (case (first kv)
+                                (:shorthand-property
+                                 `(list (cons ,(%unqualified-column-name (symbol-name (second kv)))
+                                              ,(ast->cl ctx (second kv)))))
+                                (:computed-property
+                                 `(list (cons (endb/sql/expr:sql-cast ,(ast->cl ctx (second kv)) :varchar)
+                                              ,(ast->cl ctx (nth 2 kv)))))
+                                (:spread-property
+                                 (let ((spread-sym (gensym))
+                                       (idx-sym (gensym)))
+                                   `(let* ((,spread-sym ,(ast->cl ctx (second kv)))
+                                           (,spread-sym (if (fset:seq? ,spread-sym)
+                                                            (fset:convert 'vector ,spread-sym)
+                                                            ,spread-sym)))
+                                      (cond
+                                        ((typep ,spread-sym 'endb/arrow:arrow-struct)
+                                         (fset:convert 'list ,spread-sym))
+                                        ((vectorp ,spread-sym)
+                                         (loop for ,spread-sym across ,spread-sym
+                                               for ,idx-sym from 0
+                                               collect (cons (format nil "~A" ,idx-sym) (if (characterp ,spread-sym)
+                                                                                            (princ-to-string ,spread-sym)
+                                                                                            ,spread-sym))))))))
+                                (t `(list (cons ,(if (symbolp (first kv))
+                                                     (symbol-name (first kv))
+                                                     (first kv))
+                                                ,(ast->cl ctx (second kv)))))))))))
 
 (defmethod sql->cl (ctx (type (eql :access)) &rest args)
   (destructuring-bind (base path &key recursive)

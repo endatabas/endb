@@ -1,5 +1,6 @@
 (defpackage :endb-test/arrow
-  (:use :cl :fiveam :endb/arrow))
+  (:use :cl :fiveam :endb/arrow)
+  (:import-from :fset))
 (in-package :endb-test/arrow)
 
 (in-suite* :arrow)
@@ -33,7 +34,7 @@
     (is (= 2 (length (arrow-buffers array))))))
 
 (test variable-size-list-layout
-  (let* ((expected '(#(12 -7 25) :null #(0 -127 127 50) #()))
+  (let* ((expected (list (fset:seq 12 -7 25) :null (fset:seq 0 -127 127 50) (fset:seq)))
          (array (to-arrow expected)))
     (is (typep array 'endb/arrow::list-array))
     (is (= 4 (arrow-length array)))
@@ -49,7 +50,7 @@
       (is (typep values 'endb/arrow::int64-array))
       (is (equal '(12 -7 25 0 -127 127 50) (coerce values 'list)))))
 
-  (let* ((expected '(#(#(1 2) #(3 4)) #(#(5 6 7) :null #(8)) #(#(9 10))))
+  (let* ((expected (list (fset:seq (fset:seq 1 2) (fset:seq 3 4)) (fset:seq (fset:seq 5 6 7) :null (fset:seq 8)) (fset:seq (fset:seq 9 10))))
          (array (to-arrow expected)))
     (is (typep array 'endb/arrow::list-array))
     (is (= 3 (arrow-length array)))
@@ -75,20 +76,23 @@
         (is (equal '(1 2 3 4 5 6 7 8 9 10) (coerce values 'list)))))))
 
 (test struct-layout
-  (let* ((expected '((("name" . "joe") ("id" . 1)) (("name" . :null) ("id" . 2)) :null (("name" . "mark") ("id" . 4))))
+  (let* ((expected (list (fset:map ("name" "joe") ("id" 1))
+                         (fset:map ("name" :null) ("id" 2))
+                         :null
+                         (fset:map ("name" "mark") ("id" 4))))
          (array (to-arrow expected)))
     (is (typep array 'endb/arrow::struct-array))
     (is (= 4 (arrow-length array)))
     (is (= 1 (arrow-null-count array)))
     (is (equal #*1101
                (slot-value array 'endb/arrow::validity)))
-    (is (equal expected (coerce array 'list)))
+    (is (equalp expected (coerce array 'list)))
     (is (= 2 (length (arrow-children array))))
     (is (= 1 (length (arrow-buffers array))))
 
     (let* ((children (slot-value array 'endb/arrow::children))
-           (names (cdr (elt children 0)))
-           (ids (cdr (elt children 1))))
+           (ids (cdr (elt children 0)))
+           (names (cdr (elt children 1))))
 
       (is (typep names 'endb/arrow::utf8-array))
       (is (= 4 (arrow-length names)))
@@ -138,45 +142,47 @@
       (is (equal '(5) (coerce i 'list))))))
 
 (test empty-structs
-  (let* ((expected '((("x" . 1) ("y" . "foo")) (("x" . 2) ("z" . "bar")) :empty-struct))
+  (let* ((expected (list (fset:map ("x" 1) ("y" "foo"))
+                         (fset:map ("x" 2) ("z" "bar"))
+                         (fset:empty-map)))
          (array (to-arrow expected)))
     (is (typep array 'endb/arrow::dense-union-array))
     (is (= 3 (arrow-length array)))
     (is (zerop (arrow-null-count array)))
     (is (= 3 (length (slot-value array 'endb/arrow::children))))
-    (is (equal expected (coerce array 'list)))
+    (is (equalp expected (coerce array 'list)))
     (is (= 3 (length (arrow-children array))))
     (is (= 2 (length (arrow-buffers array)))))
 
-  (let* ((expected '(:empty-struct (("x" . 1) ("y" . "foo"))))
+  (let* ((expected (list (fset:empty-map) (fset:map ("x" 1) ("y" "foo"))))
          (array (to-arrow expected)))
     (is (typep array 'endb/arrow::dense-union-array))
     (is (= 2 (arrow-length array)))
     (is (zerop (arrow-null-count array)))
     (is (= 2 (length (slot-value array 'endb/arrow::children))))
-    (is (equal expected (coerce array 'list)))
+    (is (equalp expected (coerce array 'list)))
     (is (= 2 (length (arrow-children array))))
     (is (= 2 (length (arrow-buffers array)))))
 
-  (let* ((expected '(:empty-struct :empty-struct))
+  (let* ((expected (list (fset:empty-map) (fset:empty-map)))
          (array (to-arrow expected)))
     (is (typep array 'endb/arrow::struct-array))
     (is (= 2 (arrow-length array)))
     (is (zerop (arrow-null-count array)))
     (is (equal #*11
                (slot-value array 'endb/arrow::validity)))
-    (is (equal expected (coerce array 'list)))
+    (is (equalp expected (coerce array 'list)))
     (is (zerop (length (arrow-children array))))
     (is (= 1 (length (arrow-buffers array)))))
 
-  (let* ((expected '(:null :empty-struct))
+  (let* ((expected (list :null (fset:empty-map)))
          (array (to-arrow expected)))
     (is (typep array 'endb/arrow::struct-array))
     (is (= 2 (arrow-length array)))
     (is (= 1 (arrow-null-count array)))
     (is (equal #*01
                (slot-value array 'endb/arrow::validity)))
-    (is (equal expected (coerce array 'list)))
+    (is (equalp expected (coerce array 'list)))
     (is (zerop (length (arrow-children array))))
     (is (= 1 (length (arrow-buffers array))))))
 
@@ -214,7 +220,7 @@
     (is (= 2 (length (arrow-buffers array))))))
 
 (test lisp-vector-like-types
-  (let ((list #()))
+  (let ((list (fset:empty-seq)))
     (is (not (typep list 'endb/arrow::arrow-binary)))
     (is (typep list 'endb/arrow::arrow-list))
     (is (not (typep list 'endb/arrow::arrow-struct)))

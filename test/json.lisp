@@ -125,12 +125,15 @@
   (is (= (- (ash 1 63)) (json-parse (json-stringify (- (ash 1 63)))))))
 
 (test json-arrow
-  (is (equal "[1,2]" (json-stringify (vector 1 2))))
-  (is (equal "{\"foo\":\"bar\",\"baz\":2}" (json-stringify (list (cons "foo" "bar") (cons "baz" 2)))))
-  (is (equal "{}" (json-stringify :empty-struct))))
+  (is (equal "[1,2]" (json-stringify (fset:seq 1 2))))
+  (is (equal "{\"baz\":2,\"foo\":\"bar\"}" (json-stringify (fset:map ("foo" "bar") ("baz" 2)))))
+  (is (equal "{}" (json-stringify (fset:empty-map)))))
 
 (test stats
-  (let* ((expected '((("name" . "joe") ("id" . 1)) (("name" . :null) ("id" . 2)) :null (("name" . "mark") ("id" . 4))))
+  (let* ((expected (list (fset:map ("name" "joe") ("id" 1))
+                         (fset:map ("name" :null) ("id" 2))
+                         :null
+                         (fset:map ("name" "mark") ("id" 4))))
          (array (endb/arrow:to-arrow expected)))
     (is (fset:equal? (fset:map ("id" (fset:map ("count" 3) ("count_star" 3) ("min" 1) ("max" 4)
                                                ("bloom" (coerce #(20 195 165 82 10 165 210 104) '(vector (unsigned-byte 8))))))
@@ -138,15 +141,15 @@
                                                  ("bloom" (coerce #(10 192 38 170 10 26 185 168) '(vector (unsigned-byte 8)))))))
                      (calculate-stats (list array)))))
 
-  (let ((batches '(((("x" . 1))
-                    (("x" . 2))
-                    (("x" . 3))
-                    (("x" . 4)))
+  (let ((batches (list (list (fset:map ("x" 1))
+                             (fset:map ("x" 2))
+                             (fset:map ("x" 3))
+                             (fset:map ("x" 4)))
 
-                   ((("x" . 5))
-                    (("x" . 6))
-                    (("x" . 7))
-                    (("x" . 8))))))
+                       (list (fset:map ("x" 5))
+                             (fset:map ("x" 6))
+                             (fset:map ("x" 7))
+                             (fset:map ("x" 8))))))
     (is (fset:equal?
          (fset:map ("x" (fset:map ("count" 8) ("count_star" 8) ("min" 1) ("max" 8)
                                   ("bloom" (coerce #(221 83 121 73 211 117 15 215 69 92 198 129 97 148 5) '(vector (unsigned-byte 8)))))))
