@@ -291,6 +291,16 @@
    (periods:time-difference (endb/arrow:arrow-date-millis-to-local-time x)
                             (endb/arrow:arrow-date-millis-to-local-time y))))
 
+(defmethod sql-- ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-millis))
+  (endb/arrow:periods-duration-to-arrow-interval-month-day-nanos
+   (periods:time-difference (endb/arrow:arrow-timestamp-micros-to-local-time x)
+                            (endb/arrow:arrow-date-millis-to-local-time y))))
+
+(defmethod sql-- ((x endb/arrow:arrow-date-millis) (y endb/arrow:arrow-timestamp-micros))
+  (endb/arrow:periods-duration-to-arrow-interval-month-day-nanos
+   (periods:time-difference (endb/arrow:arrow-date-millis-to-local-time x)
+                            (endb/arrow:arrow-timestamp-micros-to-local-time y))))
+
 (defmethod sql-- ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-interval-month-day-nanos))
   (endb/arrow:local-time-to-arrow-time-micros
    (periods:subtract-time (endb/arrow:arrow-time-micros-to-local-time x)
