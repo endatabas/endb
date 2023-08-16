@@ -150,5 +150,5 @@
         (local-time:invalid-timestring (e)
           (%error-response +http-bad-request+ e))
         (error (e)
-          (log:error e)
+          (log:error "~A" e)
           (%error-response +http-internal-server-error+ e))))))
