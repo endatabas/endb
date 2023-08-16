@@ -49,7 +49,7 @@ SLT_TESTS = $(SLT_SELECT_TESTS)
 TPCH_SF ?= 001
 TPCH_REFERENCE_ENGINE = sqlite
 
-default: test target/endb
+default: update-quicklisp test target/endb
 
 endb_data:
 	mkdir -p endb_data
@@ -69,7 +69,10 @@ run:
 run-binary: target/endb
 	@rlwrap ./$<
 
-test: lib-test target/libendb$(SHARED_LIB_EXT)
+update-quicklisp:
+	$(LISP) --non-interactive --eval '(ql:update-dist "quicklisp" :prompt nil)'
+
+test: lib-test target/libendb$(SHARED_LIB_EXT) update-quicklisp
 	$(LISP) --non-interactive \
 		--eval '(ql:quickload :endb-test :silent t)' \
 		--eval '(uiop:quit (if (fiveam:run-all-tests) 0 1))'
@@ -181,6 +184,6 @@ clean:
 	(cd lib; $(CARGO) clean)
 	rm -rf target $(FASL_FILES)
 
-.PHONY: repl run run-binary test lib-check lib-lint lib-test lib-microbench \
+.PHONY: repl run run-binary update-quicklisp test lib-check lib-lint lib-test lib-microbench \
 	slt-test slt-test-select slt-test-random slt-test-index slt-test-evidence slt-test-all slt-test-tpch slt-test-ci \
 	docker docker-alpine run-docker push-docker clean

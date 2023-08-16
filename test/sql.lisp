@@ -410,7 +410,7 @@
 
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM information_schema.views")
-      (is (equal '((:null "main" "foo" "(:select ((1) (2)))")) result))
+      (is (equal '((:null "main" "foo" "(:SELECT ((1) (2)))")) result))
       (is (equal '("table_catalog" "table_schema" "table_name" "view_definition")
                  columns)))
 
@@ -1474,6 +1474,11 @@
            (endb-result (first (first (execute-sql endb query)))))
       (list endb-result sqlite-result expr))))
 
+(defun sqlite-math-functions-p ()
+  (sqlite:with-open-database (sqlite ":memory:")
+    (let* ((query (format nil "SELECT ~A" "")))
+      (= 1 (sqlite:execute-single sqlite "SELECT sqlite_compileoption_used('SQLITE_ENABLE_MATH_FUNCTIONS')")))))
+
 (defun is-valid (result)
   (destructuring-bind (endb-result sqlite-result expr)
       result
@@ -1697,21 +1702,22 @@
   (is-valid (expr "LOWER('FooBar')"))
   (is-valid (expr "UPPER('FooBar')"))
 
-  (is-valid (expr "ROUND(2.4)"))
-  (is-valid (expr "FLOOR(2.4)"))
-  (is-valid (expr "CEIL(-2.4)"))
-  (is-valid (expr "CEILING(4)"))
+  (when (sqlite-math-functions-p)
+    (is-valid (expr "ROUND(2.4)"))
+    (is-valid (expr "FLOOR(2.4)"))
+    (is-valid (expr "CEIL(-2.4)"))
+    (is-valid (expr "CEILING(4)"))
 
-  (is-valid (expr "SIN(2.4)"))
-  (is-valid (expr "ATAN(2)"))
-  (is-valid (expr "COS(NULL)"))
-  (is-valid (expr "SQRT(2)"))
-  (is-valid (expr "POWER(2, 2)"))
-  (is-valid (expr "POWER(2, NULL)"))
-  (is-valid (expr "LN(4.2)"))
-  (is-valid (expr "LOG10(2)"))
-  (is-valid (expr "LOG(2, 64)"))
-  (is-valid (expr "SIGN(-2.4)"))
+    (is-valid (expr "SIN(2.4)"))
+    (is-valid (expr "ATAN(2)"))
+    (is-valid (expr "COS(NULL)"))
+    (is-valid (expr "SQRT(2)"))
+    (is-valid (expr "POWER(2, 2)"))
+    (is-valid (expr "POWER(2, NULL)"))
+    (is-valid (expr "LN(4.2)"))
+    (is-valid (expr "LOG10(2)"))
+    (is-valid (expr "LOG(2, 64)"))
+    (is-valid (expr "SIGN(-2.4)")))
 
   (is-valid (expr "TYPEOF('foo')"))
   (is-valid (expr "TYPEOF(2)"))

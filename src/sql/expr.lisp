@@ -1475,7 +1475,8 @@
                                        (lambda (row)
                                          (equal view-name (nth 2 row))))
     (sql-insert db "information_schema.tables" (list (list :null *default-schema* view-name "VIEW")))
-    (sql-insert db "information_schema.views" (list (list :null *default-schema* view-name (prin1-to-string query))))
+    (sql-insert db "information_schema.views" (list (list :null *default-schema* view-name (let ((*print-case* :upcase))
+                                                                                             (prin1-to-string query)))))
     (sql-insert db "information_schema.columns" (loop for c in columns
                                                       for idx from 1
                                                       collect  (list :null *default-schema* view-name c idx)))
