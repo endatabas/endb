@@ -213,12 +213,14 @@
 (defmethod sql-+ ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-timestamp-micros))
   (sql-+ y x))
 
-(defmethod sql-+ ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-interval-month-day-nanos))
-  (endb/arrow:local-time-to-arrow-date-days
-   (periods:add-time (endb/arrow:arrow-date-days-to-local-time x)
-                     (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y))))
+(defmethod sql-+ ((x endb/arrow:arrow-date-millis) (y endb/arrow:arrow-interval-month-day-nanos))
+  (let ((z (periods:add-time (endb/arrow:arrow-date-millis-to-local-time x)
+                             (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y))))
+    (if (zerop (endb/arrow:arrow-interval-month-day-nanos-ns y))
+        (endb/arrow:local-time-to-arrow-date-millis z)
+        (endb/arrow:local-time-to-arrow-timestamp-micros z))))
 
-(defmethod sql-+ ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-date-days))
+(defmethod sql-+ ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-date-millis))
   (sql-+ y x))
 
 (defmethod sql-+ ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-interval-month-day-nanos))
@@ -277,15 +279,17 @@
    (periods:time-difference (endb/arrow:arrow-timestamp-micros-to-local-time x)
                             (endb/arrow:arrow-timestamp-micros-to-local-time y))))
 
-(defmethod sql-- ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-interval-month-day-nanos))
-  (endb/arrow:local-time-to-arrow-date-days
-   (periods:subtract-time (endb/arrow:arrow-date-days-to-local-time x)
-                          (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y))))
+(defmethod sql-- ((x endb/arrow:arrow-date-millis) (y endb/arrow:arrow-interval-month-day-nanos))
+  (let ((z (periods:subtract-time (endb/arrow:arrow-date-millis-to-local-time x)
+                                  (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y))))
+    (if (zerop (endb/arrow:arrow-interval-month-day-nanos-ns y))
+        (endb/arrow:local-time-to-arrow-date-millis z)
+        (endb/arrow:local-time-to-arrow-timestamp-micros z))))
 
-(defmethod sql-- ((x endb/arrow:arrow-date-days) (y endb/arrow:arrow-date-days))
+(defmethod sql-- ((x endb/arrow:arrow-date-millis) (y endb/arrow:arrow-date-millis))
   (endb/arrow:periods-duration-to-arrow-interval-month-day-nanos
-   (periods:time-difference (endb/arrow:arrow-date-days-to-local-time x)
-                            (endb/arrow:arrow-date-days-to-local-time y))))
+   (periods:time-difference (endb/arrow:arrow-date-millis-to-local-time x)
+                            (endb/arrow:arrow-date-millis-to-local-time y))))
 
 (defmethod sql-- ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-interval-month-day-nanos))
   (endb/arrow:local-time-to-arrow-time-micros
@@ -600,14 +604,14 @@
 (defmethod sql-cast ((x real) (type (eql :integer)))
   (round x))
 
-(defmethod sql-cast ((x endb/arrow:arrow-date-days) (type (eql :integer)))
-  (local-time:timestamp-year (endb/arrow:arrow-date-days-to-local-time x)))
+(defmethod sql-cast ((x endb/arrow:arrow-date-millis) (type (eql :integer)))
+  (local-time:timestamp-year (endb/arrow:arrow-date-millis-to-local-time x)))
 
-(defmethod sql-cast ((x endb/arrow:arrow-date-days) (type (eql :timestamp)))
-  (endb/arrow:local-time-to-arrow-timestamp-micros (endb/arrow:arrow-date-days-to-local-time x)))
+(defmethod sql-cast ((x endb/arrow:arrow-date-millis) (type (eql :timestamp)))
+  (endb/arrow:local-time-to-arrow-timestamp-micros (endb/arrow:arrow-date-millis-to-local-time x)))
 
 (defmethod sql-cast ((x endb/arrow:arrow-timestamp-micros) (type (eql :date)))
-  (endb/arrow:local-time-to-arrow-date-days (endb/arrow:arrow-timestamp-micros-to-local-time x)))
+  (endb/arrow:local-time-to-arrow-date-millis (endb/arrow:arrow-timestamp-micros-to-local-time x)))
 
 (defmethod sql-cast ((x endb/arrow:arrow-timestamp-micros) (type (eql :time)))
   (endb/arrow:local-time-to-arrow-time-micros (endb/arrow:arrow-timestamp-micros-to-local-time x)))
@@ -816,7 +820,7 @@
   :null)
 
 (defmethod sql-date ((x string))
-  (endb/arrow:parse-arrow-date-days x))
+  (endb/arrow:parse-arrow-date-millis x))
 
 (defmethod sql-time ((x (eql :null)))
   :null)
@@ -882,9 +886,9 @@
 (defmethod sql-strftime (format (x (eql :null)))
   :null)
 
-(defmethod sql-strftime ((format string) (x endb/arrow:arrow-date-days))
+(defmethod sql-strftime ((format string) (x endb/arrow:arrow-date-millis))
   (let ((local-time:*default-timezone* local-time:+utc-zone+))
-    (periods:strftime (endb/arrow:arrow-date-days-to-local-time x) :format format)))
+    (periods:strftime (endb/arrow:arrow-date-millis-to-local-time x) :format format)))
 
 (defmethod sql-strftime ((format string) (x endb/arrow:arrow-time-micros))
   (let ((local-time:*default-timezone* local-time:+utc-zone+))
@@ -982,7 +986,7 @@
 (defmethod sql-typeof ((x vector))
   "blob")
 
-(defmethod sql-typeof ((x endb/arrow:arrow-date-days))
+(defmethod sql-typeof ((x endb/arrow:arrow-date-millis))
   "date")
 
 (defmethod sql-typeof ((x endb/arrow:arrow-time-micros))
@@ -1024,7 +1028,7 @@
       (fset:lookup x 1)
       :null))
 
-(defmethod %period-field ((x endb/arrow:arrow-date-days) field)
+(defmethod %period-field ((x endb/arrow:arrow-date-millis) field)
   x)
 
 (defmethod %period-field ((x endb/arrow:arrow-timestamp-micros) field)

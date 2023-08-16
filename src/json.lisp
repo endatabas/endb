@@ -42,7 +42,7 @@
            (cond
              ((or (equal "xsd:date" k)
                   (equal "http://www.w3.org/2001/XMLSchema#date" k))
-              (endb/arrow:parse-arrow-date-days v))
+              (endb/arrow:parse-arrow-date-millis v))
              ((or (equal "xsd:dateTime" k)
                   (equal "http://www.w3.org/2001/XMLSchema#dateTime" k))
               (endb/arrow:parse-arrow-timestamp-micros v))
@@ -97,7 +97,7 @@
         (com.inuoe.jzon:write-value writer "xsd:dateTime"))
       (com.inuoe.jzon:write-value writer (format nil "~A" value))))
 
-(defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value endb/arrow:arrow-date-days))
+(defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value endb/arrow:arrow-date-millis))
   (if *json-ld-scalars*
       (com.inuoe.jzon:with-object writer
         (com.inuoe.jzon:write-key writer "@value")

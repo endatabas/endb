@@ -53,7 +53,7 @@
          "{\"title\":\"Hello!\",\"author\":{\"givenName\":\"John\"},\"tags\":[ \"example\"],\"content\":\"This will be unchanged\"}")))))
 
 (test xsd-json-ld-scalars
-  (let* ((date (endb/arrow:parse-arrow-date-days "2001-01-01"))
+  (let* ((date (endb/arrow:parse-arrow-date-millis "2001-01-01"))
          (json "{\"@value\":\"2001-01-01\",\"@type\":\"xsd:date\"}"))
     (is (equalp date (json-parse json)))
     (is (equal json (json-stringify date)))
@@ -85,7 +85,7 @@
 
 (test xsd-json-scalars
   (let ((*json-ld-scalars* nil))
-    (let* ((date (endb/arrow:parse-arrow-date-days "2001-01-01"))
+    (let* ((date (endb/arrow:parse-arrow-date-millis "2001-01-01"))
            (json "\"2001-01-01\""))
       (is (equal json (json-stringify date))))
 
