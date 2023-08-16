@@ -16,7 +16,7 @@ def from_json_ld(obj):
         case 'xsd:base64Binary':
             return base64.b64decode(obj['@value'])
         case _:
-            return obj
+            return obj.get('@graph', obj)
 
 class JSONLDEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -36,10 +36,7 @@ def sql(q, parameters=[], headers={'Accept': 'application/ld+json'}, auth=None, 
     payload = {'q': q, 'parameter': [json.dumps(x, cls=JSONLDEncoder) for x in parameters]}
     r = requests.post(url, payload, headers=headers, auth=auth)
     r.raise_for_status()
-    json = r.json(object_hook=from_json_ld)
-    if isinstance(json, dict):
-        return json.get('@graph', json)
-    return json
+    return r.json(object_hook=from_json_ld)
 
 if __name__ == "__main__":
     import sys

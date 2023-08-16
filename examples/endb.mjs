@@ -24,6 +24,9 @@ function jsonLDDecoder(x) {
             return Uint8Array.from(atob(x['@value']), (m) => m.codePointAt(0));
         }
     }
+    if (x instanceof Object && x['@graph']) {
+        return x['@graph'];
+    }
     return x;
 }
 
@@ -41,12 +44,7 @@ async function sql(q, {parameters = [], headers = {'Accept': 'application/ld+jso
     const response = await fetch(url, {method: 'POST', headers: headers, body: body});
 
     if (response.ok) {
-        const json = JSON.parse(await response.text(), (k, v) => jsonLDDecoder(v));
-        if (json instanceof Object && json['@graph']) {
-            return json['@graph'];
-        } else {
-            return json;
-        }
+        return JSON.parse(await response.text(), (k, v) => jsonLDDecoder(v));
     } else {
         throw new Error(response.status + ': ' + response.statusText + '\n' + await response.text());
     }
