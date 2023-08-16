@@ -3,3 +3,4 @@ test.db
 target
 perf.data*
 endb_data
+__pycache__
