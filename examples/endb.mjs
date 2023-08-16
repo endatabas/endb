@@ -56,6 +56,6 @@ async function sql(q, {parameters = [], accept = 'application/ld+json', auth = [
 
 export { sql };
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (typeof process !== 'undefined' && import.meta.url === `file://${process.argv[1]}`) {
     console.log(await sql(process.argv[2]));
 }
