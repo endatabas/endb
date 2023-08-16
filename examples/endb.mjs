@@ -31,12 +31,15 @@ function jsonLDDecoder(x) {
     return x;
 }
 
-async function sql(q, {parameters = [], headers = {'Accept': 'application/ld+json'}, auth = [], url = 'http://localhost:3803/sql'} = {}) {
+async function sql(q, {parameters = [], accept = 'application/ld+json', auth = [], url = 'http://localhost:3803/sql'} = {}) {
     const body = new FormData();
+
     body.append('q', q);
     parameters.forEach(p => {
         body.append('parameter', JSON.stringify(jsonLDEncoder(p)));
     });
+
+    const headers = {'Accept': accept};
 
     if (auth.length == 2) {
         headers['Authorization'] = 'Basic ' + btoa(auth[0] + ":" + auth[1]);

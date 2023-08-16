@@ -32,9 +32,9 @@ class JSONLDEncoder(json.JSONEncoder):
            case _:
                return super().default(obj)
 
-def sql(q, parameters=[], headers={'Accept': 'application/ld+json'}, auth=None, url='http://localhost:3803/sql'):
+def sql(q, parameters=[], accept='application/ld+json', auth=None, url='http://localhost:3803/sql'):
     payload = {'q': q, 'parameter': [json.dumps(x, cls=JSONLDEncoder) for x in parameters]}
-    r = requests.post(url, payload, headers=headers, auth=auth)
+    r = requests.post(url, payload, headers={'Accept': accept}, auth=auth)
     r.raise_for_status()
     return r.json(object_hook=from_json_ld)
 
