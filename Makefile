@@ -18,7 +18,12 @@ DOCKER_RUST_OS = bullseye
 DOCKER_SBCL_OS = debian
 DOCKER_ENDB_OS = debian
 DOCKER_TAGS = -t endatabas/endb:$(DOCKER_ENDB_OS) -t endatabas/endb:latest-$(DOCKER_ENDB_OS) -t endatabas/endb:latest
-DOCKER_ID = $(shell docker images -q localhost/endatabas/endb:latest)
+ifeq ($(shell docker --version | cut -d" " -f1),podman)
+	DOCKER_IMAGE = localhost/endatabas/endb:latest
+else
+	DOCKER_IMAGE = endatabas/endb:latest
+endif
+DOCKER_ID = $(shell docker images -q $(DOCKER_IMAGE))
 
 LIB_PROFILE = release
 LIB_PROFILE_DIR = $(LIB_PROFILE)
