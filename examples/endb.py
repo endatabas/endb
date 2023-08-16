@@ -3,7 +3,8 @@
 import base64
 from datetime import date, datetime, time
 import json
-import requests
+import urllib.parse
+import urllib.request
 
 def from_json_ld(obj):
     match obj.get('@type', None):
@@ -33,10 +34,18 @@ class JSONLDEncoder(json.JSONEncoder):
                return super().default(obj)
 
 def sql(q, parameters=[], accept='application/ld+json', auth=None, url='http://localhost:3803/sql'):
+    headers = {'Accept': accept}
+    if auth and len(auth) == 2:
+        auth_base64 = base64.b64encode(bytes('%s:%s' % auth, 'ascii'))
+        headers['Authorization'] = 'Basic %s' % auth_base64.decode('utf-8')
+
     payload = {'q': q, 'parameter': [json.dumps(x, cls=JSONLDEncoder) for x in parameters]}
-    r = requests.post(url, payload, headers={'Accept': accept}, auth=auth)
-    r.raise_for_status()
-    return r.json(object_hook=from_json_ld)
+    data = urllib.parse.urlencode(payload, doseq=True)
+    data = data.encode('ascii')
+
+    req = urllib.request.Request(url, data, headers, method='POST')
+    with urllib.request.urlopen(req) as response:
+        return json.loads(response.read(), object_hook=from_json_ld)
 
 if __name__ == "__main__":
     import sys
