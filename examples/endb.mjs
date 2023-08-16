@@ -1,22 +1,23 @@
 #!/usr/bin/env node
 
 function jsonLDEncoder(x) {
-    if (x instanceof Date) {
-        return {'@type': 'xsd:dateTime', '@value': x.toISOString()};
-    } else if (x instanceof Uint8Array) {
-        const b = Array.from(x, (y) => String.fromCodePoint(y)).join('');
-        return {'@type': 'xsd:base64Binary', '@value': btoa(b)};
-    } else if (x instanceof Array) {
-        return x.map(jsonLDEncoder);
-    } else if (x instanceof Object) {
-        return Object.fromEntries(Object.entries(x).map(([k, v], i) => [k, jsonLDEncoder(v)]));
-    } else {
-        return x;
+    switch (x.constructor) {
+        case Date:
+            return {'@type': 'xsd:dateTime', '@value': x.toISOString()};
+        case Uint8Array:
+            const b = Array.from(x, (y) => String.fromCodePoint(y)).join('');
+            return {'@type': 'xsd:base64Binary', '@value': btoa(b)};
+        case Array:
+            return x.map(jsonLDEncoder);
+        case Object:
+            return Object.fromEntries(Object.entries(x).map(([k, v], i) => [k, jsonLDEncoder(v)]));
+        default:
+            return x;
     }
 }
 
 function jsonLDDecoder(x) {
-    if (x instanceof Object && x['@type'] && x['@value']) {
+    if (Object.hasOwn(x, '@type') && Object.hasOwn(x, '@value')) {
         const t = x['@type'];
         if (t === 'xsd:date' || t === 'xsd:dateTime') {
             return new Date(x['@value']);
@@ -24,7 +25,7 @@ function jsonLDDecoder(x) {
             return Uint8Array.from(atob(x['@value']), (m) => m.codePointAt(0));
         }
     }
-    if (x instanceof Object && x['@graph']) {
+    if (Object.hasOwn(x, '@graph')) {
         return x['@graph'];
     }
     return x;
