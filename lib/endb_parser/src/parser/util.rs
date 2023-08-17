@@ -34,7 +34,7 @@ pub fn kw<
     C: Char<Str = str> + 'a,
     E: ParserExtra<'a, I> + 'a,
 >(
-    keyword: &'a str,
+    keyword: &'a C::Str,
 ) -> impl Parser<'a, I, &'a C::Str, E> + Clone + 'a
 where
     C::Str: PartialEq,
@@ -48,7 +48,7 @@ pub fn kw_no_pad<
     C: Char<Str = str> + 'a,
     E: ParserExtra<'a, I> + 'a,
 >(
-    keyword: &'a str,
+    keyword: &'a C::Str,
 ) -> impl Parser<'a, I, &'a C::Str, E> + Clone + 'a
 where
     C::Str: PartialEq,
