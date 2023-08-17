@@ -5,7 +5,7 @@
   :version "0.1.0"
   :author "Håkan Råberg <hakan.raberg@gmail.com>, Steven Deobald <steven@deobald.ca>"
   :license "AGPL-3.0-only"
-  :description "Endatabase is a SQL document database with full history."
+  :description "Endatabas is a SQL document database with full history."
   :homepage "https://www.endatabas.com/"
   :source-control "https://github.com/endatabas/endb"
   :class :package-inferred-system

@@ -1,6 +1,6 @@
 ![Endatabas](https://www.endatabas.com/resources/images/github-banner-logo_3200x476.png)
 
-Endatabase is a SQL document database with full history.
+Endatabas is a SQL document database with full history.
 
 For more information, please contact us at [hello@endatabas.com](mailto:hello@endatabas.com).
 
