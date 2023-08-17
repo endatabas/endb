@@ -65,61 +65,6 @@ where
     choice((string, double_quoted_string))
 }
 
-pub fn date_or_timestamp_ast_parser_no_pad<'input, E>(
-) -> impl Parser<'input, &'input str, Ast, E> + Clone
-where
-    E: ParserExtra<'input, &'input str>,
-{
-    use super::ast::Keyword::*;
-
-    let iso_date = digits(4, 4)
-        .then(just('-'))
-        .then(digits(2, 2))
-        .then(just('-'))
-        .then(digits(2, 2));
-
-    let iso_time = digits(2, 2)
-        .then(just(':'))
-        .then(digits(2, 2))
-        .then(just(':'))
-        .then(digits(2, 2))
-        .then(just('.').then(digits(1, 6)).or_not());
-
-    let date_ctor = |_, span: SimpleSpan<_>| kw_literal(Date, &span);
-
-    let date = choice((
-        kw("DATE").ignore_then(
-            iso_date
-                .clone()
-                .map_with_span(date_ctor)
-                .padded_by(just('\'')),
-        ),
-        iso_date.clone().map_with_span(date_ctor),
-    ));
-
-    let timestamp_ctor = |_, span: SimpleSpan<_>| kw_literal(Timestamp, &span);
-
-    let timestamp = choice((
-        kw("TIMESTAMP").ignore_then(
-            iso_date
-                .clone()
-                .then(one_of(" T"))
-                .then(iso_time.clone())
-                .then(just('Z').or_not())
-                .map_with_span(timestamp_ctor)
-                .padded_by(just('\'')),
-        ),
-        iso_date
-            .clone()
-            .then(just('T'))
-            .then(iso_time.clone())
-            .then(just('Z').or_not())
-            .map_with_span(timestamp_ctor),
-    ));
-
-    choice((timestamp, date))
-}
-
 fn kw_literal(kw: Keyword, span: &SimpleSpan<usize>) -> Ast {
     use super::ast::Ast::*;
 
@@ -157,6 +102,44 @@ where
         iso_time.clone().map_with_span(time_ctor),
     ));
 
+    let iso_date = digits(4, 4)
+        .then(just('-'))
+        .then(digits(2, 2))
+        .then(just('-'))
+        .then(digits(2, 2));
+
+    let date_ctor = |_, span: SimpleSpan<_>| kw_literal(Date, &span);
+
+    let date = choice((
+        kw("DATE").ignore_then(
+            iso_date
+                .clone()
+                .map_with_span(date_ctor)
+                .padded_by(just('\'')),
+        ),
+        iso_date.clone().map_with_span(date_ctor),
+    ));
+
+    let timestamp_ctor = |_, span: SimpleSpan<_>| kw_literal(Timestamp, &span);
+
+    let timestamp = choice((
+        kw("TIMESTAMP").ignore_then(
+            iso_date
+                .clone()
+                .then(one_of(" T"))
+                .then(iso_time.clone())
+                .then(just('Z').or_not())
+                .map_with_span(timestamp_ctor)
+                .padded_by(just('\'')),
+        ),
+        iso_date
+            .clone()
+            .then(just('T'))
+            .then(iso_time.clone())
+            .then(just('Z').or_not())
+            .map_with_span(timestamp_ctor),
+    ));
+
     let iso_quantity = text::int(10).then(one_of(",.").then(text::digits(10)).or_not());
 
     let iso_duration = just('P')
@@ -171,15 +154,6 @@ where
                 .or_not(),
         )
         .map_with_span(|_, span: SimpleSpan<_>| kw_literal(Duration, &span));
-
-    let number = text::int(10)
-        .then(just('.').then(text::digits(10)).or_not())
-        .map_slice(|s: &str| match s.find('.') {
-            Some(_) => Float(s.parse().unwrap()),
-            None => Integer(s.parse().unwrap()),
-        });
-
-    let string = string_ast_parser_no_pad();
 
     let interval_field = choice((
         kw("YEAR").to(Year),
@@ -229,6 +203,13 @@ where
 
     let interval = choice((iso_duration, interval));
 
+    let number = text::int(10)
+        .then(just('.').then(text::digits(10)).or_not())
+        .map_slice(|s: &str| match s.find('.') {
+            Some(_) => Float(s.parse().unwrap()),
+            None => Integer(s.parse().unwrap()),
+        });
+
     let binary = one_of("Xx").ignore_then(
         text::int(16)
             .map_with_span(|_, span: SimpleSpan<_>| Binary {
@@ -237,6 +218,8 @@ where
             })
             .padded_by(just('\'')),
     );
+
+    let string = string_ast_parser_no_pad();
 
     let boolean = choice((
         kw_no_pad("TRUE").to(True),
@@ -252,8 +235,16 @@ where
     ))
     .map(KW);
 
+    let parameter = choice((
+        pad('?').to(Parameter).map(|_| List(vec![KW(Parameter)])),
+        one_of(":$")
+            .ignore_then(id_ast_parser_no_pad())
+            .map(|id| List(vec![KW(Parameter), id])),
+    ));
+
     choice((
-        date_or_timestamp_ast_parser_no_pad(),
+        timestamp,
+        date,
         time,
         interval,
         number,
@@ -261,9 +252,11 @@ where
         string,
         boolean,
         current_literals,
+        parameter,
         col_ref_ast_parser_no_pad(),
     ))
     .then_ignore(text::whitespace())
+    .boxed()
 }
 
 pub fn object_ast_parser<'input, E>(
@@ -479,8 +472,6 @@ where
         ))
         .boxed();
 
-        let parameter = pad('?').to(Parameter).map(KW);
-
         let atom = choice((
             count_star,
             aggregate_function,
@@ -492,7 +483,6 @@ where
             function,
             scalar_subquery,
             atom_ast_parser(),
-            parameter,
             expr.clone().delimited_by(pad('('), pad(')')),
         ))
         .boxed();

@@ -70,12 +70,7 @@ where
                 start: span.start() as i32,
                 end: span.end() as i32,
             })
-            .padded();
-
-        let date_or_timestamp = choice((
-            date_or_timestamp_ast_parser_no_pad().padded(),
-            pad('?').to(Parameter).map(KW),
-        ));
+            .then_ignore(text::whitespace());
 
         let table_alias = choice((
             kw("AS").ignore_then(id.clone()),
@@ -98,6 +93,8 @@ where
             ),
         ))
         .then(id_list_parens.clone().or_not());
+
+        let system_time_atom = atom_ast_parser();
 
         let table = choice((
             subquery
@@ -133,17 +130,17 @@ where
                     .ignore_then(choice((
                         kw("AS")
                             .ignore_then(kw("OF"))
-                            .ignore_then(date_or_timestamp.clone())
+                            .ignore_then(system_time_atom.clone())
                             .map(|as_of| List(vec![KW(AsOf), as_of])),
                         kw("FROM")
-                            .ignore_then(date_or_timestamp.clone())
+                            .ignore_then(system_time_atom.clone())
                             .then_ignore(kw("TO"))
-                            .then(date_or_timestamp.clone())
+                            .then(system_time_atom.clone())
                             .map(|(start, end)| List(vec![KW(From), start, end])),
                         kw("BETWEEN")
-                            .ignore_then(date_or_timestamp.clone())
+                            .ignore_then(system_time_atom.clone())
                             .then_ignore(kw("AND"))
-                            .then(date_or_timestamp)
+                            .then(system_time_atom)
                             .map(|(start, end)| List(vec![KW(Between), start, end])),
                     )))
                     .or_not(),
@@ -319,6 +316,7 @@ where
                 kw("UNION").then_ignore(kw("ALL")).to(UnionAll),
                 kw("UNION").to(Union),
             ))
+            .padded()
             .then(select_core)
             .repeated(),
             |lhs, (op, rhs)| List(vec![KW(op), lhs, rhs]),
@@ -658,8 +656,22 @@ mod tests {
             - KW: Select
             - List:
                 - List:
-                    - KW: Parameter
-        "###)
+                    - List:
+                        - KW: Parameter
+        "###);
+        assert_yaml_snapshot!(parse("SELECT :name"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Parameter
+                        - Id:
+                            start: 8
+                            end: 12
+        "###);
     }
 
     #[test]
@@ -1133,6 +1145,12 @@ mod tests {
 
     #[test]
     fn error() {
+        assert_yaml_snapshot!(parse("SELEC"), @r###"
+        ---
+        Err:
+          - found end of input expected something else
+        "###);
+
         assert_yaml_snapshot!(parse("SELECT x 2"), @r###"
         ---
         Err:
@@ -1972,7 +1990,8 @@ mod tests {
                     - List: []
                     - List:
                         - KW: AsOf
-                        - KW: Parameter
+                        - List:
+                            - KW: Parameter
         "###);
 
         assert_yaml_snapshot!(parse("SELECT * FROM Emp FOR SYSTEM_TIME AS OF TIMESTAMP '2011-01-02 00:00:00'"), @r###"

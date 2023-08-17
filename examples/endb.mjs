@@ -35,9 +35,7 @@ async function sql(q, {parameters = [], accept = 'application/ld+json', auth = [
     const body = new FormData();
 
     body.append('q', q);
-    parameters.forEach(p => {
-        body.append('parameter', JSON.stringify(jsonLDEncoder(p)));
-    });
+    body.append('p', JSON.stringify(jsonLDEncoder(parameters)))
 
     const headers = {'Accept': accept};
 

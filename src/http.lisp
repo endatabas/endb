@@ -117,15 +117,16 @@
                                                  (equal "application/sql" (lack.request:request-content-type req)))
                                             (trivial-utf-8:utf-8-bytes-to-string (lack.request:request-content req))
                                             (cdr (assoc "q" (lack.request:request-parameters req) :test 'equal))))
-                                   (parameters (loop for (k . v) in (lack.request:request-parameters req)
-                                                     when (equal "parameter" k)
-                                                       collect (endb/json:resolve-json-ld-xsd-scalars (endb/sql:interpret-sql-literal v)))))
-                              (if sql
+                                   (parameters (cdr (assoc "p" (lack.request:request-parameters req) :test 'equal)))
+                                   (parameters (if parameters
+                                                 (endb/json:resolve-json-ld-xsd-scalars (endb/sql:interpret-sql-literal parameters))
+                                                 (fset:empty-seq))))
+                              (if (and sql (fset:collection? parameters))
                                   (if (some (lambda (media-type)
                                               (lack.request:request-accepts-p req media-type))
                                             *response-media-types*)
                                       (multiple-value-bind (result result-code)
-                                          (apply #'endb/sql:execute-sql write-db sql parameters)
+                                          (endb/sql:execute-sql write-db sql parameters)
                                         (cond
                                           ((or result (and (listp result-code)
                                                            (not (null result-code))))

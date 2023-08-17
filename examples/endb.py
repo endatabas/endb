@@ -39,8 +39,8 @@ def sql(q, parameters=[], accept='application/ld+json', auth=None, url='http://l
         auth_base64 = base64.b64encode(bytes('%s:%s' % auth, 'ascii'))
         headers['Authorization'] = 'Basic %s' % auth_base64.decode('utf-8')
 
-    payload = {'q': q, 'parameter': [json.dumps(x, cls=JSONLDEncoder) for x in parameters]}
-    data = urllib.parse.urlencode(payload, doseq=True)
+    payload = {'q': q, 'p': json.dumps(parameters, cls=JSONLDEncoder)}
+    data = urllib.parse.urlencode(payload)
     data = data.encode('ascii')
 
     req = urllib.request.Request(url, data, headers, method='POST')

@@ -334,13 +334,18 @@
 (test parameters
   (let* ((db (make-db)))
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT ? + ?" 1 3)
+        (execute-sql db "SELECT ? + ?" (fset:seq 1 3))
       (is (equal '((4)) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT [?, ?]" 1 3)
+        (execute-sql db "SELECT [?, ?]" (fset:seq 1 3))
       (is (equalp `((,(fset:seq 1 3))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT :x + :y" (fset:map ("x" 1) ("y" 3)))
+      (is (equal '((4)) result))
       (is (equal '("column1") columns)))
 
     (signals endb/sql/expr:sql-runtime-error
@@ -605,7 +610,7 @@
 
       (is (equal '((103 104)) (execute-sql db "SELECT * FROM t1")))
 
-      (is (null (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME AS OF ?" system-time-as-of-empty)))
+      (is (null (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME AS OF ?" (fset:seq system-time-as-of-empty))))
 
       (sleep 0.01)
 
@@ -623,19 +628,19 @@
         (setf db (commit-write-tx db write-db))
 
         (is (equal '((101 104)) (execute-sql db "SELECT * FROM t1")))
-        (is (equal '((101 104)) (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME AS OF ?" system-time-as-of-update)))
-        (is (equal '((103 104)) (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME AS OF ?" system-time-as-of-insert)))
-        (is (null (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME AS OF ?" system-time-as-of-empty)))
+        (is (equal '((101 104)) (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME AS OF ?" (fset:seq system-time-as-of-update))))
+        (is (equal '((103 104)) (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME AS OF ?" (fset:seq system-time-as-of-insert))))
+        (is (null (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME AS OF ?" (fset:seq system-time-as-of-empty))))
 
-        (is (equal '((101 104) (103 104)) (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME BETWEEN ? AND ?" system-time-as-of-insert system-time-as-of-update)))
-        (is (equal '((103 104)) (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME BETWEEN ? AND ?" system-time-as-of-empty system-time-as-of-insert)))
-        (is (null (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME BETWEEN ? AND ?" system-time-as-of-empty system-time-as-of-empty)))
+        (is (equal '((101 104) (103 104)) (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME BETWEEN ? AND ?" (fset:seq system-time-as-of-insert system-time-as-of-update))))
+        (is (equal '((103 104)) (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME BETWEEN ? AND ?" (fset:seq system-time-as-of-empty system-time-as-of-insert))))
+        (is (null (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME BETWEEN ? AND ?" (fset:seq system-time-as-of-empty system-time-as-of-empty))))
 
-        (is (equal '((103 104)) (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME FROM ? TO ?" system-time-as-of-insert system-time-as-of-update)))
-        (is (null (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME FROM ? TO ?" system-time-as-of-empty system-time-as-of-insert)))
+        (is (equal '((103 104)) (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME FROM ? TO ?" (fset:seq system-time-as-of-insert system-time-as-of-update))))
+        (is (null (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME FROM ? TO ?" (fset:seq system-time-as-of-empty system-time-as-of-insert))))
 
         (multiple-value-bind (result columns)
-            (execute-sql db "SELECT t1.*, t1.system_time FROM t1 FOR SYSTEM_TIME BETWEEN ? AND ?" system-time-as-of-insert system-time-as-of-update)
+            (execute-sql db "SELECT t1.*, t1.system_time FROM t1 FOR SYSTEM_TIME BETWEEN ? AND ?" (fset:seq system-time-as-of-insert system-time-as-of-update))
           (is (equalp (list (list 101 104 (fset:map ("start" system-time-as-of-update) ("end" endb/sql/expr:+end-of-time+)))
                             (list 103 104 (fset:map ("start" system-time-as-of-insert) ("end" system-time-as-of-update))))
                       result))
@@ -1476,8 +1481,7 @@
 
 (defun sqlite-math-functions-p ()
   (sqlite:with-open-database (sqlite ":memory:")
-    (let* ((query (format nil "SELECT ~A" "")))
-      (= 1 (sqlite:execute-single sqlite "SELECT sqlite_compileoption_used('SQLITE_ENABLE_MATH_FUNCTIONS')")))))
+    (= 1 (sqlite:execute-single sqlite "SELECT sqlite_compileoption_used('SQLITE_ENABLE_MATH_FUNCTIONS')"))))
 
 (defun is-valid (result)
   (destructuring-bind (endb-result sqlite-result expr)

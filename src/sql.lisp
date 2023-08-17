@@ -100,21 +100,29 @@
 (defun %execute-sql (db sql parameters)
   (let* ((ast (endb/lib/parser:parse-sql sql))
          (ctx (fset:map (:db db)))
+         (parameters (if (fset:map? parameters)
+                         parameters
+                         (fset:convert 'fset:map (loop for x in (fset:convert 'list parameters)
+                                                       for idx from 0
+                                                       collect (cons idx x)))))
          (*print-length* 16)
          (sql-fn (if (eq :multiple-statments (first ast))
-                     (lambda (db)
-                       (loop with end-idx = (length (second ast))
-                             for ast in (second ast)
-                             for idx from 1
-                             for sql-fn = (endb/sql/compiler:compile-sql ctx ast)
-                             if (= end-idx idx)
-                               do (return (funcall sql-fn db))
-                             else
-                               do (funcall sql-fn db)))
+                     (if (and (plusp (fset:size parameters))
+                              (> (length (second ast)) 1))
+                         (error 'endb/sql/expr:sql-runtime-error :message "Multiple statements does not currently support parameters")
+                         (lambda (db parameters)
+                           (loop with end-idx = (length (second ast))
+                                 for ast in (second ast)
+                                 for idx from 1
+                                 for sql-fn = (endb/sql/compiler:compile-sql ctx ast)
+                                 if (= end-idx idx)
+                                   do (return (funcall sql-fn db parameters))
+                                 else
+                                   do (funcall sql-fn db parameters))))
                      (endb/sql/compiler:compile-sql ctx ast))))
-    (apply sql-fn db parameters)))
+    (funcall sql-fn db parameters)))
 
-(defun execute-sql (db sql &rest parameters)
+(defun execute-sql (db sql &optional parameters)
   (if *query-timing*
       (time (%execute-sql db sql parameters))
       (%execute-sql db sql parameters)))

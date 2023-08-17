@@ -995,9 +995,12 @@
                      (list (list t :null))))))))
 
 (defmethod sql->cl (ctx (type (eql :parameter)) &rest args)
-  (destructuring-bind (idx)
+  (destructuring-bind (parameter)
       args
-    `(nth ,idx ,(fset:lookup ctx :param-sym))))
+    `(fset:lookup ,(fset:lookup ctx :param-sym)
+                  ,(if (symbolp parameter)
+                       (symbol-name parameter)
+                       parameter))))
 
 (defmethod sql->cl (ctx fn &rest args)
   (sql->cl ctx :function fn args))
@@ -1075,15 +1078,24 @@
                   *interpreter-from-limit*)))))
 
 (defun %resolve-parameters (ast)
-  (let ((idx 0))
+  (let ((idx 0)
+        (parameters))
     (labels ((walk (x)
                (cond
-                 ((eq :parameter x) (let ((src `(:parameter ,idx)))
-                                      (incf idx)
-                                      src))
-                 ((listp x) (mapcar #'walk x))
+                 ((and (listp x)
+                       (eq :parameter (first x)))
+                  (if (second x)
+                      (progn
+                        (pushnew (symbol-name (second x)) parameters)
+                        x)
+                      (let ((src `(:parameter ,idx)))
+                        (push idx parameters)
+                        (incf idx)
+                        src)))
+                 ((listp x)
+                  (mapcar #'walk x))
                  (t x))))
-      (values (walk ast) idx))))
+      (values (walk ast) parameters))))
 
 (defun compile-sql (ctx ast)
   (let ((*print-length* 16)
@@ -1095,7 +1107,7 @@
            (ctx (fset:map-union ctx (fset:map (:db-sym db-sym)
                                               (:index-sym index-sym)
                                               (:param-sym param-sym)))))
-      (multiple-value-bind (ast number-of-parameters)
+      (multiple-value-bind (ast parameters)
           (%resolve-parameters ast)
         (multiple-value-bind (src projection)
             (ast->cl ctx ast)
@@ -1103,13 +1115,14 @@
           (let* ((src (if projection
                           `(values ,src ,(list 'quote projection))
                           src))
-                 (src `(lambda (,db-sym &rest ,param-sym)
+                 (src `(lambda (,db-sym &optional ,param-sym)
                          (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
                          (declare (ignorable ,db-sym ,param-sym))
-                         (unless (= ,number-of-parameters (length ,param-sym))
-                           (error 'endb/sql/expr:sql-runtime-error :message (format nil "Number of required parameters: ~A does not match given: ~A"
-                                                                                    ,number-of-parameters
-                                                                                    (length ,param-sym))))
+                         (unless (fset:equal? (fset:convert 'fset:set ',parameters)
+                                              (fset:domain ,param-sym))
+                           (error 'endb/sql/expr:sql-runtime-error :message (format nil "Required parameters: ~A does not match given: ~A"
+                                                                                    (fset:convert 'fset:set ',parameters)
+                                                                                    (fset:domain ,param-sym))))
                          (let ((,index-sym (make-hash-table :test 'equal)))
                            (declare (ignorable ,index-sym))
                            ,src))))
