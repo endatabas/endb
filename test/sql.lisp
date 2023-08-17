@@ -1413,6 +1413,7 @@
   (is (equal "foo" (interpret-sql-literal "'foo'")))
   (is (equal "foo" (interpret-sql-literal "\"foo\"")))
   (is (= 2.0 (interpret-sql-literal "2.0")))
+  (is (= 9223372036854775807 (interpret-sql-literal "9223372036854775807")))
 
   (is (eq t (interpret-sql-literal "TRUE")))
   (is (null (interpret-sql-literal "FALSE")))

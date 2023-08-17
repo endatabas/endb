@@ -55,6 +55,9 @@
              ((or (equal "xsd:base64Binary" k)
                   (equal "http://www.w3.org/2001/XMLSchema#base64Binary" k))
               (qbase64:decode-string v))
+             ((or (equal "xsd:long" k)
+                  (equal "http://www.w3.org/2001/XMLSchema#long" k))
+              (parse-integer v))
              (t x)))
          (fset:reduce (lambda (acc k v)
                         (fset:with acc k (resolve-json-ld-xsd-scalars v)))
@@ -134,6 +137,21 @@
             (com.inuoe.jzon:write-value writer "xsd:base64Binary"))
           (com.inuoe.jzon:write-value writer (qbase64:encode-bytes value)))
       (call-next-method)))
+
+(defparameter +max-safe-integer+ (1- (ash 1 53)))
+(defparameter +min-safe-integer+ (- +max-safe-integer+))
+
+(defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value integer))
+  (if (or (> value +max-safe-integer+)
+          (< value +min-safe-integer+))
+      (if *json-ld-scalars*
+          (com.inuoe.jzon:with-object writer
+            (com.inuoe.jzon:write-key writer "@value")
+            (com.inuoe.jzon:write-value writer (format nil "~A" value))
+            (com.inuoe.jzon:write-key writer "@type")
+            (com.inuoe.jzon:write-value writer "xsd:long"))
+          (com.inuoe.jzon:write-value writer (format nil "~A" value)))
+      (com.inuoe.jzon::%write-json-atom writer value)))
 
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value (eql :null)))
   (com.inuoe.jzon:write-value writer 'null))

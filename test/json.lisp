@@ -82,7 +82,19 @@
          (json "{\"@value\":\"aGVsbG8gd29ybGQ=\",\"@type\":\"xsd:base64Binary\"}"))
     (is (equalp binary (json-parse json)))
     (is (equal json (json-stringify binary)))
-    (is (fset:equal? binary (json-parse json)))))
+    (is (fset:equal? binary (json-parse json))))
+
+  (let* ((long 9007199254740992)
+         (json "{\"@value\":\"9007199254740992\",\"@type\":\"xsd:long\"}"))
+    (is (equalp long (json-parse json)))
+    (is (equal json (json-stringify long)))
+    (is (= long (json-parse json))))
+
+  (let* ((long -9007199254740992)
+         (json "{\"@value\":\"-9007199254740992\",\"@type\":\"xsd:long\"}"))
+    (is (equalp long (json-parse json)))
+    (is (equal json (json-stringify long)))
+    (is (= long (json-parse json)))))
 
 (test xsd-json-scalars
   (let ((*json-ld-scalars* nil))
@@ -109,7 +121,15 @@
     (let* ((sql-null :null)
            (json "null"))
       (is (eql 'null (json-parse json)))
-      (is (equal json (json-stringify sql-null))))))
+      (is (equal json (json-stringify sql-null))))
+
+    (let* ((long 9007199254740992)
+           (json "\"9007199254740992\""))
+      (is (equal json (json-stringify long))))
+
+    (let* ((long -9007199254740992)
+           (json "\"-9007199254740992\""))
+      (is (equal json (json-stringify long))))))
 
 (test json-int64
   (is (= (1- (ash 1 63)) (json-parse (json-stringify (1- (ash 1 63))))))

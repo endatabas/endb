@@ -16,6 +16,8 @@ def from_json_ld(obj):
             return time.fromisoformat(obj['@value'])
         case 'xsd:base64Binary':
             return base64.b64decode(obj['@value'])
+        case 'xsd:long':
+            return int(obj['@value'])
         case _:
             return obj.get('@graph', obj)
 
@@ -33,13 +35,13 @@ class JSONLDEncoder(json.JSONEncoder):
            case _:
                return super().default(obj)
 
-def sql(q, parameters=[], accept='application/ld+json', auth=None, url='http://localhost:3803/sql'):
+def sql(q, p=[], accept='application/ld+json', auth=None, url='http://localhost:3803/sql'):
     headers = {'Accept': accept}
     if auth and len(auth) == 2:
         auth_base64 = base64.b64encode(bytes('%s:%s' % auth, 'ascii'))
         headers['Authorization'] = 'Basic %s' % auth_base64.decode('utf-8')
 
-    payload = {'q': q, 'p': json.dumps(parameters, cls=JSONLDEncoder)}
+    payload = {'q': q, 'p': json.dumps(p, cls=JSONLDEncoder)}
     data = urllib.parse.urlencode(payload)
     data = data.encode('ascii')
 
