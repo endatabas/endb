@@ -183,7 +183,7 @@ run-docker: docker endb_data
 push-docker: ~/.config/containers/registries.conf
 	$(DOCKER) login --username=endatabas
 	$(DOCKER) tag $(DOCKER_ID) endatabas/endb:latest
-	$(DOCKER) push endatabas/endb
+	$(DOCKER) push endatabas/endb:latest
 
 clean:
 	(cd lib; $(CARGO) clean)
