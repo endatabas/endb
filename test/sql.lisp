@@ -1479,9 +1479,9 @@
            (endb-result (first (first (execute-sql endb query)))))
       (list endb-result sqlite-result expr))))
 
-(defun sqlite-math-functions-p ()
+(defun sqlite-compileoption-used-p (option)
   (sqlite:with-open-database (sqlite ":memory:")
-    (= 1 (sqlite:execute-single sqlite "SELECT sqlite_compileoption_used('SQLITE_ENABLE_MATH_FUNCTIONS')"))))
+    (= 1 (sqlite:execute-single sqlite (format nil "SELECT sqlite_compileoption_used('~A')" option)))))
 
 (defun is-valid (result)
   (destructuring-bind (endb-result sqlite-result expr)
@@ -1706,7 +1706,7 @@
   (is-valid (expr "LOWER('FooBar')"))
   (is-valid (expr "UPPER('FooBar')"))
 
-  (when (sqlite-math-functions-p)
+  (when (sqlite-compileoption-used-p "SQLITE_ENABLE_MATH_FUNCTIONS")
     (is-valid (expr "ROUND(2.4)"))
     (is-valid (expr "FLOOR(2.4)"))
     (is-valid (expr "CEIL(-2.4)"))
