@@ -50,7 +50,11 @@ async function sql(q, {p = [], accept = 'application/ld+json', auth = [], url = 
     const response = await fetch(url, {method: 'POST', headers: headers, body: body});
 
     if (response.ok) {
-        return JSON.parse(await response.text(), (k, v) => jsonLDDecoder(v));
+        if accept === 'text/csv' {
+            return await response.text();
+        } else {
+            return JSON.parse(await response.text(), (k, v) => jsonLDDecoder(v));
+        }
     } else {
         throw new Error(response.status + ': ' + response.statusText + '\n' + await response.text());
     }

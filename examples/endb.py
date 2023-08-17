@@ -47,7 +47,10 @@ def sql(q, p=[], accept='application/ld+json', auth=None, url='http://localhost:
 
     req = urllib.request.Request(url, data, headers, method='POST')
     with urllib.request.urlopen(req) as response:
-        return json.loads(response.read(), object_hook=from_json_ld)
+        if accept == 'text/csv':
+            return response.read().decode()
+        else:
+            return json.loads(response.read(), object_hook=from_json_ld)
 
 if __name__ == "__main__":
     import sys
