@@ -20,34 +20,44 @@ class EndbShell(cmd.Cmd):
     def emptyline(self):
         pass
 
-    def complete__accept(self, text, line, begidx, endidx):
+    def complete_accept(self, text, line, begidx, endidx):
         return [x for x in ['application/json', 'application/ld+json', 'text/csv'] if x.startswith(text)]
 
-    def do__accept(self, arg):
-        'Accepted mime type'
+    def do_accept(self, arg):
+        'Accepted mime type.'
         if arg:
             self.accept = arg
         print(self.accept)
 
-    def do__url(self, arg):
-        'Database URL'
+    def do_url(self, arg):
+        'Database URL.'
         if arg:
             self.url = arg
         print(self.url)
 
-    def do__username(self, arg):
-        'Database user'
+    def do_username(self, arg):
+        'Database user.'
         if arg:
             self.username = arg
         print(self.username)
 
-    def do__password(self, arg):
-        'Database password'
+    def do_password(self, arg):
+        'Database password.'
         if arg:
             self.password = arg
-        print('*******')
+        if self.password:
+            print('*******')
+        else:
+            print(None)
+
+    def do_quit(self, arg):
+        'Quits the console.'
+        return 'stop'
 
     def default(self, line):
+        if line == 'EOF':
+            print()
+            return 'stop'
         try:
             auth = None
             if self.username and self.password:
@@ -71,4 +81,8 @@ if __name__ == "__main__":
     url = 'http://localhost:3803/sql'
     if len(sys.argv) > 1:
         url = sys.argv[1]
-    EndbShell(url).cmdloop()
+    try:
+        EndbShell(url).cmdloop()
+    except KeyboardInterrupt:
+        print()
+        pass
