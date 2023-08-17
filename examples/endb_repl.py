@@ -6,16 +6,15 @@ import pprint
 import urllib.error
 
 class EndbShell(cmd.Cmd):
-    intro = 'Endatabas is a SQL document database with full history.'
-    prompt = '-> '
     file = None
 
-    def __init__(self, url, accept='application/ld+json', username=None, password=None):
+    def __init__(self, url, accept='application/ld+json', username=None, password=None, prompt='-> '):
         super().__init__()
         self.url = url
         self.accept = accept
         self.username = username
         self.password = password
+        self.prompt = prompt
 
     def emptyline(self):
         pass
@@ -56,7 +55,6 @@ class EndbShell(cmd.Cmd):
 
     def default(self, line):
         if line == 'EOF':
-            print()
             return 'stop'
         try:
             auth = None
@@ -81,8 +79,13 @@ if __name__ == "__main__":
     url = 'http://localhost:3803/sql'
     if len(sys.argv) > 1:
         url = sys.argv[1]
+    prompt = '-> '
+    if not sys.stdin.isatty():
+        prompt = ''
     try:
-        EndbShell(url).cmdloop()
+        EndbShell(url, prompt=prompt).cmdloop()
+        if sys.stdin.isatty():
+            print()
     except KeyboardInterrupt:
         print()
         pass
