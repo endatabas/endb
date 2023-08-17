@@ -9,7 +9,7 @@
   (:import-from :cffi)
   (:import-from :com.inuoe.jzon)
   (:import-from :endb/arrow)
-  (:import-from :endb/sql/expr)
+  (:import-from :endb/lib/arrow)
   (:import-from :fset)
   (:import-from :qbase64)
   (:import-from :cl-bloom))
@@ -194,6 +194,3 @@
           always (multiple-value-bind (byte-index bit-index)
                      (truncate index 8)
                    (logbitp bit-index (aref binary byte-index))))))
-
-(defun calculate-stats (arrays)
-  (endb/sql/expr:calculate-stats arrays))

@@ -6,6 +6,7 @@
   (:import-from :periods)
   (:import-from :endb/lib/parser)
   (:import-from :endb/arrow)
+  (:import-from :endb/json)
   (:import-from :endb/storage/buffer-pool)
   (:import-from :cl-bloom)
   (:import-from :fset)
@@ -584,6 +585,14 @@
 (defmethod sql-cast (x (type (eql :varchar)))
   (princ-to-string x))
 
+(defmethod sql-cast ((x fset:seq) (type (eql :varchar)))
+  (let ((endb/json:*json-ld-scalars* nil))
+    (endb/json:json-stringify x)))
+
+(defmethod sql-cast ((x fset:map) (type (eql :varchar)))
+  (let ((endb/json:*json-ld-scalars* nil))
+    (endb/json:json-stringify x)))
+
 (defmethod sql-cast ((x (eql t)) (type (eql :varchar)))
   "1")
 
@@ -598,6 +607,12 @@
 
 (defmethod sql-cast ((x real) (type (eql :varchar)))
   (format nil "~F" x))
+
+(defmethod sql-cast ((x string) (type (eql :blob)))
+  (trivial-utf-8:string-to-utf-8-bytes x))
+
+(defmethod sql-cast ((x vector) (type (eql :blob)))
+  x)
 
 (defmethod sql-cast ((x (eql t)) (type (eql :integer)))
   1)

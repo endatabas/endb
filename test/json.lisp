@@ -1,6 +1,7 @@
 (defpackage :endb-test/json
   (:use :cl :fiveam :endb/json)
   (:import-from :endb/arrow)
+  (:import-from :endb/sql/expr)
   (:import-from :cl-bloom))
 (in-package :endb-test/json)
 
@@ -129,7 +130,7 @@
                                                ("bloom" (coerce #(20 195 165 82 10 165 210 104) '(vector (unsigned-byte 8))))))
                                ("name" (fset:map ("count" 2) ("count_star" 3) ("min" "joe") ("max" "mark")
                                                  ("bloom" (coerce #(10 192 38 170 10 26 185 168) '(vector (unsigned-byte 8)))))))
-                     (calculate-stats (list array)))))
+                     (endb/sql/expr:calculate-stats (list array)))))
 
   (let ((batches (list (list (fset:map ("x" 1))
                              (fset:map ("x" 2))
@@ -143,7 +144,7 @@
     (is (fset:equal?
          (fset:map ("x" (fset:map ("count" 8) ("count_star" 8) ("min" 1) ("max" 8)
                                   ("bloom" (coerce #(221 83 121 73 211 117 15 215 69 92 198 129 97 148 5) '(vector (unsigned-byte 8)))))))
-         (calculate-stats (mapcar #'endb/arrow:to-arrow batches))))))
+         (endb/sql/expr:calculate-stats (mapcar #'endb/arrow:to-arrow batches))))))
 
 (test binary-to-bloom
   (let* ((binary (coerce #(10 192 38 170 10 26 185 168) '(vector (unsigned-byte 8))))
