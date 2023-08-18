@@ -1121,8 +1121,8 @@
                          (unless (fset:equal? (fset:convert 'fset:set ',parameters)
                                               (fset:domain ,param-sym))
                            (error 'endb/sql/expr:sql-runtime-error :message (format nil "Required parameters: ~A does not match given: ~A"
-                                                                                    (fset:convert 'fset:set ',parameters)
-                                                                                    (fset:domain ,param-sym))))
+                                                                                    (fset:convert 'list ',parameters)
+                                                                                    (fset:convert 'list (fset:domain ,param-sym)))))
                          (let ((,index-sym (make-hash-table :test 'equal)))
                            (declare (ignorable ,index-sym))
                            ,src))))
