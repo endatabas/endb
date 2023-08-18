@@ -844,7 +844,7 @@
 (defmethod sql->cl (ctx (type (eql :cast)) &rest args)
   (destructuring-bind (x sql-type)
       args
-    `(endb/sql/expr:sql-cast ,(ast->cl ctx x) ,(intern (symbol-name sql-type) :keyword))))
+    `(endb/sql/expr:sql-cast ,(ast->cl ctx x) ,(intern (string-upcase (symbol-name sql-type)) :keyword))))
 
 (defmethod sql->cl (ctx (type (eql :interval)) &rest args)
   (destructuring-bind (x from &optional to)

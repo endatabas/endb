@@ -1643,6 +1643,8 @@
   (is-valid (expr "cast(10 AS VARCHAR)"))
   (is-valid (expr "cast(10.5 AS VARCHAR)"))
 
+  (is-valid (expr "cast(10.5 AS varchar)"))
+
   (is-valid (expr "cast(TRUE AS VARCHAR)"))
   (is-valid (expr "cast(FALSE AS VARCHAR)"))
   (is-valid (expr "cast(NULL AS VARCHAR)"))
