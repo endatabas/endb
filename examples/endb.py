@@ -14,7 +14,7 @@ class Endb:
         self.username = username
         self.password = password
 
-    def __from_json_ld(self, obj):
+    def _from_json_ld(self, obj):
         match obj.get('@type', None):
             case 'xsd:dateTime':
                 return datetime.fromisoformat(obj['@value'].replace('Z', '+00:00'))
@@ -29,7 +29,7 @@ class Endb:
             case _:
                  return obj.get('@graph', obj)
 
-    def __to_json_ld(self, obj):
+    def _to_json_ld(self, obj):
         match obj:
             case datetime():
                  return {'@value': datetime.isoformat(obj), '@type': 'xsd:dateTime'}
@@ -50,7 +50,7 @@ class Endb:
             auth_base64 = base64.b64encode(bytes('%s:%s' % (self.username, self.password), 'ascii'))
             headers['Authorization'] = 'Basic %s' % auth_base64.decode('utf-8')
 
-        payload = {'q': q, 'p': json.dumps(p, default=self.__to_json_ld)}
+        payload = {'q': q, 'p': json.dumps(p, default=self._to_json_ld)}
         data = urllib.parse.urlencode(payload)
         data = data.encode('ascii')
 
@@ -59,7 +59,7 @@ class Endb:
             if accept == 'text/csv':
                 return response.read().decode()
             else:
-                return json.loads(response.read(), object_hook=self.__from_json_ld)
+                return json.loads(response.read(), object_hook=self._from_json_ld)
 
 if __name__ == '__main__':
     import sys
