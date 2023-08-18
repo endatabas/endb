@@ -254,6 +254,15 @@
     (is (equal '(1 4 :null) (coerce array 'list)))
     (is (equal '(4 :null) (coerce (remove 1 array) 'list)))))
 
+(test in64-overflow
+  (let ((array (to-arrow '(9223372036854775807 9223372036854775808))))
+    (is (typep array 'endb/arrow::dense-union-array))
+    (is (equal '(9223372036854775807 9.223372036854776d18) (coerce array 'list))))
+
+  (let ((array (to-arrow '(-9223372036854775809))))
+    (is (typep array 'endb/arrow::float64-array))
+    (is (equal '(-9.223372036854776d18) (coerce array 'list)))))
+
 (test temporal-arrays
   (let* ((expected (list (endb/arrow:parse-arrow-date-millis "2001-01-01")
                          (endb/arrow:parse-arrow-time-micros "12:01:20")

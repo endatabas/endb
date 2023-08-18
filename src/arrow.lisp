@@ -562,10 +562,12 @@
    (element-type :initform 'int64)))
 
 (defmethod arrow-push ((array int64-array) (x integer))
-  (with-slots (values) array
-    (%push-valid array)
-    (vector-push-extend x values)
-    array))
+  (if (typep x 'int64)
+      (with-slots (values) array
+        (%push-valid array)
+        (vector-push-extend x values)
+        array)
+      (call-next-method)))
 
 (defmethod arrow-value ((array int64-array) (n fixnum))
   (aref (slot-value array 'values) n))
