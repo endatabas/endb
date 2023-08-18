@@ -1407,6 +1407,13 @@
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT UUID()")
       (is (endb/sql/expr::%random-uuid-p (caar result)))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT CAST([1, 'foo', {a: 2001-01-01, b: NULL}] AS VARCHAR)")
+      (is (equalp `(("[1,\"foo\",{\"a\":2001-01-01,\"b\":null}]")) result))
+      (is (equalp (fset:seq 1 "foo" (fset:map ("a" (endb/arrow:parse-arrow-date-millis "2001-01-01")) ("b" :null)))
+                  (interpret-sql-literal (caar result))))
       (is (equal '("column1") columns)))))
 
 (test interpret-sql-literal
