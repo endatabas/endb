@@ -309,8 +309,10 @@
       (is (equal '((2)) result))
       (is (equal '("b") columns)))
 
-    (let* ((write-db (begin-write-tx db)))
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "SELECT 1 AS a; SELECT ? AS b;" (fset:seq 2)))
 
+    (let* ((write-db (begin-write-tx db)))
       (multiple-value-bind (result columns)
           (execute-sql write-db "INSERT INTO t1(a, b) VALUES(103, 104); INSERT INTO t1(b, c) VALUES(105, FALSE); SELECT * FROM t1 ORDER BY b;")
         (is (equal '((103 104 :null) (:null 105 nil)) result))

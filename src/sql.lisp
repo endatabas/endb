@@ -107,18 +107,20 @@
                                                        collect (cons idx x)))))
          (*print-length* 16)
          (sql-fn (if (eq :multiple-statments (first ast))
-                     (if (and (plusp (fset:size parameters))
-                              (> (length (second ast)) 1))
-                         (error 'endb/sql/expr:sql-runtime-error :message "Multiple statements does not currently support parameters")
-                         (lambda (db parameters)
-                           (loop with end-idx = (length (second ast))
-                                 for ast in (second ast)
-                                 for idx from 1
-                                 for sql-fn = (endb/sql/compiler:compile-sql ctx ast)
-                                 if (= end-idx idx)
-                                   do (return (funcall sql-fn db parameters))
-                                 else
-                                   do (funcall sql-fn db parameters))))
+                     (let ((asts (second ast)))
+                       (if (= 1 (length asts))
+                           (endb/sql/compiler:compile-sql ctx (first asts))
+                           (if (plusp (fset:size parameters))
+                               (error 'endb/sql/expr:sql-runtime-error :message "Multiple statements does not support parameters")
+                               (lambda (db parameters)
+                                 (loop with end-idx = (length asts)
+                                       for ast in asts
+                                       for idx from 1
+                                       for sql-fn = (endb/sql/compiler:compile-sql ctx ast)
+                                       if (= end-idx idx)
+                                         do (return (funcall sql-fn db parameters))
+                                       else
+                                         do (funcall sql-fn db parameters))))))
                      (endb/sql/compiler:compile-sql ctx ast))))
     (funcall sql-fn db parameters)))
 
