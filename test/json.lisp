@@ -85,13 +85,13 @@
     (is (fset:equal? binary (json-parse json))))
 
   (let* ((long 9007199254740992)
-         (json "{\"@value\":\"9007199254740992\",\"@type\":\"xsd:long\"}"))
+         (json "{\"@value\":\"9007199254740992\",\"@type\":\"xsd:integer\"}"))
     (is (equalp long (json-parse json)))
     (is (equal json (json-stringify long)))
     (is (= long (json-parse json))))
 
   (let* ((long -9007199254740992)
-         (json "{\"@value\":\"-9007199254740992\",\"@type\":\"xsd:long\"}"))
+         (json "{\"@value\":\"-9007199254740992\",\"@type\":\"xsd:integer\"}"))
     (is (equalp long (json-parse json)))
     (is (equal json (json-stringify long)))
     (is (= long (json-parse json)))))

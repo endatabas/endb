@@ -55,7 +55,7 @@
              ((or (equal "xsd:base64Binary" k)
                   (equal "http://www.w3.org/2001/XMLSchema#base64Binary" k))
               (qbase64:decode-string v))
-             ((or (equal "xsd:long" k)
+             ((or (equal "xsd:integer" k)
                   (equal "http://www.w3.org/2001/XMLSchema#long" k))
               (parse-integer v))
              (t x)))
@@ -149,7 +149,7 @@
             (com.inuoe.jzon:write-key writer "@value")
             (com.inuoe.jzon:write-value writer (format nil "~A" value))
             (com.inuoe.jzon:write-key writer "@type")
-            (com.inuoe.jzon:write-value writer "xsd:long"))
+            (com.inuoe.jzon:write-value writer "xsd:integer"))
           (com.inuoe.jzon:write-value writer (format nil "~A" value)))
       (com.inuoe.jzon::%write-json-atom writer value)))
 

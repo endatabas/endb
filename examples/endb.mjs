@@ -8,7 +8,7 @@ function jsonLDEncoder(x) {
             const b = Array.from(x, (y) => String.fromCodePoint(y)).join('');
             return {'@type': 'xsd:base64Binary', '@value': btoa(b)};
         case BigInt:
-            return {'@type': 'xsd:long', '@value': x.toString()};
+            return {'@type': 'xsd:integer', '@value': x.toString()};
         case Array:
             return x.map(jsonLDEncoder);
         case Object:
@@ -25,7 +25,7 @@ function jsonLDDecoder(x) {
             return new Date(x['@value']);
         } else if (t === 'xsd:base64Binary') {
             return Uint8Array.from(atob(x['@value']), (m) => m.codePointAt(0));
-        } else if (t === 'xsd:long') {
+        } else if (t === 'xsd:integer') {
             return BigInt(x['@value']);
         }
     }

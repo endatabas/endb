@@ -688,6 +688,33 @@ mod tests {
                 - List:
                     - Integer: 2
         "###);
+        assert_yaml_snapshot!(parse("SELECT 2.2e2"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Float: 220
+        "###);
+        assert_yaml_snapshot!(parse("SELECT 2e-2"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Float: 0.02
+        "###);
+        assert_yaml_snapshot!(parse("SELECT 9223372036854775808"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Float: 9223372036854776000
+        "###);
     }
 
     #[test]

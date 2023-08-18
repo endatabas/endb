@@ -16,7 +16,7 @@ def from_json_ld(obj):
             return time.fromisoformat(obj['@value'])
         case 'xsd:base64Binary':
             return base64.b64decode(obj['@value'])
-        case 'xsd:long':
+        case 'xsd:integer':
             return int(obj['@value'])
         case _:
             return obj.get('@graph', obj)
@@ -60,9 +60,9 @@ class Endb:
             if accept == 'text/csv':
                 return response.read().decode()
             else:
-               return json.loads(response.read(), object_hook=from_json_ld)
+                return json.loads(response.read(), object_hook=from_json_ld)
 
 if __name__ == '__main__':
     import sys
     if len(sys.argv) > 1:
-        print(sql(Endb().sys.argv[1]))
+        print(Endb().sql(sys.argv[1], [9223372036854775808]))

@@ -203,12 +203,19 @@ where
 
     let interval = choice((iso_duration, interval));
 
+    let frac = just('.').then(text::digits(10));
+    let exp = one_of("eE")
+        .then(one_of("+-").or_not())
+        .then(text::digits(10));
+
     let number = text::int(10)
-        .then(just('.').then(text::digits(10)).or_not())
-        .map_slice(|s: &str| match s.find('.') {
-            Some(_) => Float(s.parse().unwrap()),
-            None => Integer(s.parse().unwrap()),
-        });
+        .then(frac.or_not())
+        .then(exp.or_not())
+        .map_slice(|s: &str| match s.parse::<i64>() {
+            Ok(x) => Integer(x),
+            Err(_) => Float(s.parse().unwrap()),
+        })
+        .boxed();
 
     let binary = one_of("Xx").ignore_then(
         text::int(16)
