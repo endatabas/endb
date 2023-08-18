@@ -1,24 +1,6 @@
 #!/usr/bin/env node
 
-function jsonLDEncoder(x) {
-    switch (x.constructor) {
-        case Date:
-            return {'@type': 'xsd:dateTime', '@value': x.toISOString()};
-        case Uint8Array:
-            const b = Array.from(x, (y) => String.fromCodePoint(y)).join('');
-            return {'@type': 'xsd:base64Binary', '@value': btoa(b)};
-        case BigInt:
-            return {'@type': 'xsd:integer', '@value': x.toString()};
-        case Array:
-            return x.map(jsonLDEncoder);
-        case Object:
-            return Object.fromEntries(Object.entries(x).map(([k, v], i) => [k, jsonLDEncoder(v)]));
-        default:
-            return x;
-    }
-}
-
-function jsonLDDecoder(x) {
+function fromJSONLD(x) {
     if (Object.hasOwn(x, '@type') && Object.hasOwn(x, '@value')) {
         const t = x['@type'];
         if (t === 'xsd:date' || t === 'xsd:dateTime') {
@@ -35,6 +17,24 @@ function jsonLDDecoder(x) {
     return x;
 }
 
+function toJSONLD(x) {
+    switch (x.constructor) {
+        case Date:
+            return {'@type': 'xsd:dateTime', '@value': x.toISOString()};
+        case Uint8Array:
+            const b = Array.from(x, (y) => String.fromCodePoint(y)).join('');
+            return {'@type': 'xsd:base64Binary', '@value': btoa(b)};
+        case BigInt:
+            return {'@type': 'xsd:integer', '@value': x.toString()};
+        case Array:
+            return x.map(toJSONLD);
+        case Object:
+            return Object.fromEntries(Object.entries(x).map(([k, v], i) => [k, toJSONLD(v)]));
+        default:
+            return x;
+    }
+}
+
 class Endb {
     constructor(url = 'http://localhost:3803/sql', {accept = 'application/ld+json', username, password} = {}) {
         this.url = url;
@@ -47,7 +47,7 @@ class Endb {
         const body = new FormData();
 
         body.append('q', q);
-        body.append('p', JSON.stringify(jsonLDEncoder(p)))
+        body.append('p', JSON.stringify(toJSONLD(p)))
 
         accept = accept || this.accept;
         const headers = {'Accept': accept};
@@ -62,14 +62,13 @@ class Endb {
             if (accept === 'text/csv') {
                 return await response.text();
             } else {
-                return JSON.parse(await response.text(), (k, v) => jsonLDDecoder(v));
+                return JSON.parse(await response.text(), (k, v) => fromJSONLD(v));
             }
         } else {
             throw new Error(response.status + ': ' + response.statusText + '\n' + await response.text());
         }
     }
 }
-
 
 export { Endb };
 

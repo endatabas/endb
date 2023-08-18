@@ -29,19 +29,18 @@ class Endb:
             case _:
                  return obj.get('@graph', obj)
 
-    class __JSONLDEncoder(json.JSONEncoder):
-        def default(self, obj):
-            match obj:
-               case datetime():
-                   return {'@value': datetime.isoformat(obj), '@type': 'xsd:dateTime'}
-               case date():
-                   return {'@value': date.isoformat(obj), '@type': 'xsd:date'}
-               case time():
-                    return {'@value': time.isoformat(obj), '@type': 'xsd:time'}
-               case bytes():
-                    return {'@value': base64.b64encode(obj).decode(), '@type': 'xsd:base64Binary'}
-               case _:
-                    return super().default(obj)
+    def __to_json_ld(self, obj):
+        match obj:
+            case datetime():
+                 return {'@value': datetime.isoformat(obj), '@type': 'xsd:dateTime'}
+            case date():
+                 return {'@value': date.isoformat(obj), '@type': 'xsd:date'}
+            case time():
+                 return {'@value': time.isoformat(obj), '@type': 'xsd:time'}
+            case bytes():
+                 return {'@value': base64.b64encode(obj).decode(), '@type': 'xsd:base64Binary'}
+            case _:
+                 raise TypeError
 
     def sql(self, q, p=[], accept=None):
         if accept is None:
@@ -51,7 +50,7 @@ class Endb:
             auth_base64 = base64.b64encode(bytes('%s:%s' % (self.username, self.password), 'ascii'))
             headers['Authorization'] = 'Basic %s' % auth_base64.decode('utf-8')
 
-        payload = {'q': q, 'p': json.dumps(p, cls=Endb.__JSONLDEncoder)}
+        payload = {'q': q, 'p': json.dumps(p, default=self.__to_json_ld)}
         data = urllib.parse.urlencode(payload)
         data = data.encode('ascii')
 
