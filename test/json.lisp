@@ -135,7 +135,7 @@
   (is (= (1- (ash 1 63)) (json-parse (json-stringify (1- (ash 1 63))))))
   (is (= (- (ash 1 63)) (json-parse (json-stringify (- (ash 1 63)))))))
 
-(test json-integer-overflow
+(test json-int64-overflow
   (is (= 9223372036854776000d0 (json-parse (json-stringify (ash 1 63)))))
   (is (= -9223372036854776000d0 (json-parse (json-stringify (- (1+ (ash 1 63))))))))
 
