@@ -7,8 +7,6 @@ import urllib.error
 import re
 
 class EndbConsole(cmd.Cmd):
-    file = None
-
     def __init__(self, url, accept='application/ld+json', username=None, password=None, prompt='-> '):
         super().__init__()
         self.url = url
@@ -45,7 +43,7 @@ class EndbConsole(cmd.Cmd):
         'Sets the database password.'
         if arg:
             self.password = re.sub('=\s*', '', arg)
-        if self.password:
+        if self.password is not None:
             print('*******')
         else:
             print(None)
@@ -72,7 +70,7 @@ class EndbConsole(cmd.Cmd):
             print(self.url)
             print(e.reason)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     import sys
     url = 'http://localhost:3803/sql'
     if len(sys.argv) > 1:

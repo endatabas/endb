@@ -44,9 +44,10 @@ class Endb:
         self.password = password
 
     def sql(self, q, p=[], accept=None):
-        accept = accept or self.accept
+        if accept is None:
+            accept = self.accept
         headers = {'Accept': accept}
-        if self.username and self.password:
+        if self.username is not None and self.password is not None:
             auth_base64 = base64.b64encode(bytes('%s:%s' % (self.username, self.password), 'ascii'))
             headers['Authorization'] = 'Basic %s' % auth_base64.decode('utf-8')
 
@@ -61,7 +62,7 @@ class Endb:
             else:
                return json.loads(response.read(), object_hook=from_json_ld)
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     import sys
     if len(sys.argv) > 1:
         print(sql(Endb().sys.argv[1]))
