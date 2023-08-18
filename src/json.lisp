@@ -56,7 +56,7 @@
                   (equal "http://www.w3.org/2001/XMLSchema#base64Binary" k))
               (qbase64:decode-string v))
              ((or (equal "xsd:integer" k)
-                  (equal "http://www.w3.org/2001/XMLSchema#long" k))
+                  (equal "http://www.w3.org/2001/XMLSchema#integer" k))
               (let ((x (parse-integer v)))
                 (if (> (integer-length x) 63)
                     (coerce x 'double-float)
