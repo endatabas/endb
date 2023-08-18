@@ -776,7 +776,7 @@
         `(endb/sql/expr:sql-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx values)))))
 
 (defmethod sql->cl (ctx (type (eql :delete)) &rest args)
-  (destructuring-bind (table-name where)
+  (destructuring-bind (table-name &key (where :true))
       args
     (multiple-value-bind (from-src projection)
         (%base-table-or-view->cl ctx table-name)

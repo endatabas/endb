@@ -453,9 +453,12 @@ where
     let delete_stmt = kw("DELETE")
         .ignore_then(kw("FROM"))
         .ignore_then(id.clone())
-        .then_ignore(kw("WHERE"))
-        .then(expr.clone())
-        .map(|(id, expr)| List(vec![KW(Delete), id, expr]));
+        .then(kw("WHERE").ignore_then(expr.clone()).or_not())
+        .map(|(id, expr)| {
+            let mut acc = vec![KW(Delete), id];
+            add_clause(&mut acc, Where, expr);
+            List(acc)
+        });
 
     let update_stmt = kw("UPDATE")
         .ignore_then(id.clone())
@@ -1646,7 +1649,17 @@ mod tests {
             - Id:
                 start: 12
                 end: 15
+            - KW: Where
             - KW: "False"
+        "###);
+        assert_yaml_snapshot!(parse("DELETE FROM foo"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Delete
+            - Id:
+                start: 12
+                end: 15
         "###);
         assert_yaml_snapshot!(parse("UPDATE foo SET x = 1, y = 2 WHERE NULL"), @r###"
         ---
