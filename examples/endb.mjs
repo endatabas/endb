@@ -35,33 +35,44 @@ function jsonLDDecoder(x) {
     return x;
 }
 
-async function sql(q, p = [], {accept = 'application/ld+json', auth = [], url = 'http://localhost:3803/sql'} = {}) {
-    const body = new FormData();
-
-    body.append('q', q);
-    body.append('p', JSON.stringify(jsonLDEncoder(p)))
-
-    const headers = {'Accept': accept};
-
-    if (auth.length == 2) {
-        headers['Authorization'] = 'Basic ' + btoa(auth[0] + ":" + auth[1]);
+class Endb {
+    constructor(url = 'http://localhost:3803/sql', {accept = 'application/ld+json', username, password} = {}) {
+        this.url = url;
+        this.accept = accept;
+        this.username = username;
+        this.password = password;
     }
 
-    const response = await fetch(url, {method: 'POST', headers: headers, body: body});
+    async sql(q, p = [], accept) {
+        const body = new FormData();
 
-    if (response.ok) {
-        if (accept === 'text/csv') {
-            return await response.text();
-        } else {
-            return JSON.parse(await response.text(), (k, v) => jsonLDDecoder(v));
+        body.append('q', q);
+        body.append('p', JSON.stringify(jsonLDEncoder(p)))
+
+        accept = accept || this.accept;
+        const headers = {'Accept': accept};
+
+        if (this.username && this.password) {
+            headers['Authorization'] = 'Basic ' + btoa(this.username + ":" + this.password);
         }
-    } else {
-        throw new Error(response.status + ': ' + response.statusText + '\n' + await response.text());
+
+        const response = await fetch(this.url, {method: 'POST', headers: headers, body: body});
+
+        if (response.ok) {
+            if (accept === 'text/csv') {
+                return await response.text();
+            } else {
+                return JSON.parse(await response.text(), (k, v) => jsonLDDecoder(v));
+            }
+        } else {
+            throw new Error(response.status + ': ' + response.statusText + '\n' + await response.text());
+        }
     }
 }
 
-export { sql };
+
+export { Endb };
 
 if (typeof process !== 'undefined' && import.meta.url === `file://${process.argv[1]}`) {
-    console.log(await sql(process.argv[2]));
+    console.log(await new Endb().sql(process.argv[2]));
 }

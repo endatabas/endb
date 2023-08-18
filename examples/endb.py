@@ -35,24 +35,33 @@ class JSONLDEncoder(json.JSONEncoder):
            case _:
                return super().default(obj)
 
-def sql(q, p=[], accept='application/ld+json', auth=None, url='http://localhost:3803/sql'):
-    headers = {'Accept': accept}
-    if auth and len(auth) == 2:
-        auth_base64 = base64.b64encode(bytes('%s:%s' % auth, 'ascii'))
-        headers['Authorization'] = 'Basic %s' % auth_base64.decode('utf-8')
+class Endb:
+    def __init__(self, url='http://localhost:3803/sql', accept='application/ld+json', username=None, password=None):
+        super().__init__()
+        self.url = url
+        self.accept = accept
+        self.username = username
+        self.password = password
 
-    payload = {'q': q, 'p': json.dumps(p, cls=JSONLDEncoder)}
-    data = urllib.parse.urlencode(payload)
-    data = data.encode('ascii')
+    def sql(self, q, p=[], accept=None):
+        accept = accept or self.accept
+        headers = {'Accept': accept}
+        if self.username and self.password:
+            auth_base64 = base64.b64encode(bytes('%s:%s' % (self.username, self.password), 'ascii'))
+            headers['Authorization'] = 'Basic %s' % auth_base64.decode('utf-8')
 
-    req = urllib.request.Request(url, data, headers, method='POST')
-    with urllib.request.urlopen(req) as response:
-        if accept == 'text/csv':
-            return response.read().decode()
-        else:
-            return json.loads(response.read(), object_hook=from_json_ld)
+        payload = {'q': q, 'p': json.dumps(p, cls=JSONLDEncoder)}
+        data = urllib.parse.urlencode(payload)
+        data = data.encode('ascii')
+
+        req = urllib.request.Request(self.url, data, headers, method='POST')
+        with urllib.request.urlopen(req) as response:
+            if accept == 'text/csv':
+                return response.read().decode()
+            else:
+               return json.loads(response.read(), object_hook=from_json_ld)
 
 if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1:
-        print(sql(sys.argv[1]))
+        print(sql(Endb().sys.argv[1]))

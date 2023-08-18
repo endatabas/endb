@@ -4,8 +4,9 @@ import cmd
 import endb
 import pprint
 import urllib.error
+import re
 
-class EndbShell(cmd.Cmd):
+class EndbConsole(cmd.Cmd):
     file = None
 
     def __init__(self, url, accept='application/ld+json', username=None, password=None, prompt='-> '):
@@ -23,27 +24,27 @@ class EndbShell(cmd.Cmd):
         return [x for x in ['application/json', 'application/ld+json', 'text/csv'] if x.startswith(text)]
 
     def do_accept(self, arg):
-        'Accepted mime type.'
+        'Sets or shows the accepted mime type.'
         if arg:
-            self.accept = arg
+            self.accept = re.sub('=\s*', '', arg)
         print(self.accept)
 
     def do_url(self, arg):
-        'Database URL.'
+        'Sets or shows the database URL.'
         if arg:
-            self.url = arg
+            self.url = re.sub('=\s*', '', arg)
         print(self.url)
 
     def do_username(self, arg):
-        'Database user.'
+        'Sets or shows the database user.'
         if arg:
-            self.username = arg
+            self.username = re.sub('=\s*', '', arg)
         print(self.username)
 
     def do_password(self, arg):
-        'Database password.'
+        'Sets the database password.'
         if arg:
-            self.password = arg
+            self.password = re.sub('=\s*', '', arg)
         if self.password:
             print('*******')
         else:
@@ -57,10 +58,7 @@ class EndbShell(cmd.Cmd):
         if line == 'EOF':
             return 'stop'
         try:
-            auth = None
-            if self.username and self.password:
-                auth = (self.username, self.password)
-            result = endb.sql(line, accept=self.accept, url=self.url, auth=auth)
+            result = endb.Endb(self.url, self.accept, self.username, self.password).sql(line)
             if self.accept == 'text/csv':
                 print(result.strip())
             else:
@@ -83,7 +81,7 @@ if __name__ == "__main__":
     if not sys.stdin.isatty():
         prompt = ''
     try:
-        EndbShell(url, prompt=prompt).cmdloop()
+        EndbConsole(url, prompt=prompt).cmdloop()
         if sys.stdin.isatty():
             print()
     except KeyboardInterrupt:
