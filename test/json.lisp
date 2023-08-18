@@ -135,6 +135,10 @@
   (is (= (1- (ash 1 63)) (json-parse (json-stringify (1- (ash 1 63))))))
   (is (= (- (ash 1 63)) (json-parse (json-stringify (- (ash 1 63)))))))
 
+(test json-integer-overflow
+  (is (= 9223372036854776000d0 (json-parse (json-stringify (ash 1 63)))))
+  (is (= -9223372036854776000d0 (json-parse (json-stringify (- (1+ (ash 1 63))))))))
+
 (test json-arrow
   (is (equal "[1,2]" (json-stringify (fset:seq 1 2))))
   (is (equal "{\"baz\":2,\"foo\":\"bar\"}" (json-stringify (fset:map ("foo" "bar") ("baz" 2)))))
