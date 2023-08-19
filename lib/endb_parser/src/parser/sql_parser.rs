@@ -2623,7 +2623,7 @@ mod tests {
                                         - Integer: 2
         "###);
 
-        assert_yaml_snapshot!(parse("SELECT { foo, ...bar, ['baz' || 'boz']: 42 }"), @r###"
+        assert_yaml_snapshot!(parse("SELECT { :baz, foo, ...bar, ['baz' || 'boz']: 42 }"), @r###"
         ---
         Ok:
           List:
@@ -2635,24 +2635,31 @@ mod tests {
                         - List:
                             - List:
                                 - KW: ShorthandProperty
+                                - List:
+                                    - KW: Parameter
+                                    - Id:
+                                        start: 10
+                                        end: 13
+                            - List:
+                                - KW: ShorthandProperty
                                 - Id:
-                                    start: 9
-                                    end: 12
+                                    start: 15
+                                    end: 18
                             - List:
                                 - KW: SpreadProperty
                                 - Id:
-                                    start: 17
-                                    end: 20
+                                    start: 23
+                                    end: 26
                             - List:
                                 - KW: ComputedProperty
                                 - List:
                                     - KW: Concat
                                     - String:
-                                        start: 24
-                                        end: 27
+                                        start: 30
+                                        end: 33
                                     - String:
-                                        start: 33
-                                        end: 36
+                                        start: 39
+                                        end: 42
                                 - Integer: 42
         "###);
         assert_yaml_snapshot!(parse("SELECT [ 1, 2, ... bar, 4 ]"), @r###"

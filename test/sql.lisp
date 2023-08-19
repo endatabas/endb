@@ -294,7 +294,14 @@
       (is (equal '("a" "b" "c") columns)))
 
     (signals endb/sql/expr:sql-runtime-error
-      (execute-sql write-db "INSERT INTO users {}"))))
+      (execute-sql write-db "INSERT INTO users {}"))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql write-db "INSERT INTO foo { ...:a } ON CONFLICT (name) DO NOTHING" (fset:map ("a" (fset:map ("b" 1))))))
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql write-db "INSERT INTO foo { :a } ON CONFLICT (a) DO NOTHING" (fset:map ("a" 1))))
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql write-db "INSERT INTO foo { [1 + 1]: 2 } ON CONFLICT (name) DO NOTHING"))))
 
 (test multiple-statments
   (let* ((db (make-db)))
@@ -349,6 +356,11 @@
         (execute-sql db "SELECT :x + :y" (fset:map ("x" 1) ("y" 3)))
       (is (equal '((4)) result))
       (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT :x" (fset:map ("x" 1)))
+      (is (equal '((1)) result))
+      (is (equal '("x") columns)))
 
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql db "SELECT ?"))
@@ -408,7 +420,21 @@
     (let ((write-db (begin-write-tx db)))
       (multiple-value-bind (result result-code)
           (execute-sql write-db "INSERT INTO foo { ...? }"  (fset:seq (fset:seq (fset:map ("x" 1) ("y" 3)))
-                                                                      (fset:seq (fset:map ("x" 2) ("y" 4)))) t)
+                                                                      (fset:seq (fset:map ("x" 2) ("y" 4))))
+                       t)
+        (is (null result))
+        (is (= 2 result-code)))
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "SELECT * FROM foo ORDER BY x")
+        (is (equal '((1 3) (2 4)) result))
+        (is (equal '("x" "y") columns))))
+
+    (let ((write-db (begin-write-tx db)))
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "INSERT INTO foo { :x, :y }"  (fset:seq (fset:map ("x" 1) ("y" 3))
+                                                                        (fset:map ("x" 2) ("y" 4)))
+                       t)
         (is (null result))
         (is (= 2 result-code)))
 

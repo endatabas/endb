@@ -30,6 +30,18 @@ where
         })
 }
 
+pub fn named_parameter_ast_parser_no_pad<'input, E>(
+) -> impl Parser<'input, &'input str, Ast, E> + Clone
+where
+    E: ParserExtra<'input, &'input str>,
+{
+    use super::ast::{Ast::*, Keyword::*};
+
+    one_of(":$")
+        .ignore_then(id_ast_parser_no_pad())
+        .map(|id| List(vec![KW(Parameter), id]))
+}
+
 pub fn string_ast_parser_no_pad<'input, E>() -> impl Parser<'input, &'input str, Ast, E> + Clone
 where
     E: ParserExtra<'input, &'input str>,
@@ -244,9 +256,7 @@ where
 
     let parameter = choice((
         pad('?').to(Parameter).map(|_| List(vec![KW(Parameter)])),
-        one_of(":$")
-            .ignore_then(id_ast_parser_no_pad())
-            .map(|id| List(vec![KW(Parameter), id])),
+        named_parameter_ast_parser_no_pad(),
     ));
 
     choice((
@@ -277,6 +287,7 @@ where
     let id = id_ast_parser_no_pad().padded();
     let string = string_ast_parser_no_pad().padded();
     let col_ref = col_ref_ast_parser_no_pad().padded();
+    let named_parameter = named_parameter_ast_parser_no_pad().padded();
 
     let kw_pair = choice((id, string))
         .clone()
@@ -284,7 +295,7 @@ where
         .then(expr.clone())
         .map(|(k, v)| List(vec![k, v]));
 
-    let shorthand_property = col_ref
+    let shorthand_property = choice((col_ref, named_parameter))
         .clone()
         .map(|col_ref| List(vec![KW(ShorthandProperty), col_ref]));
 

@@ -38,6 +38,10 @@
                  ((%qualified-asterisk-p expr)
                   (mapcar #'%unqualified-column-name (gethash (symbol-name (second expr)) table-by-alias)))
                  ((and (listp expr)
+                       (eq :parameter (first expr))
+                       (symbolp (second expr)))
+                  (list (%unqualified-column-name (symbol-name (second expr)))))
+                 ((and (listp expr)
                        (eq :access (first expr))
                        (not (eq :* (nth 2 expr)))
                        (or (stringp (nth 2 expr))
@@ -665,7 +669,8 @@
                                               (%annotated-error table-name "Column names needs to contain the on conflict columns"))
                                           (sort (delete-duplicates (loop for object in values
                                                                          for keys = (loop for (k nil) in (second object)
-                                                                                          when (symbolp k)
+                                                                                          when (and (symbolp k)
+                                                                                                    (not (keywordp k)))
                                                                                             collect (symbol-name k))
                                                                          unless (subsetp on-conflict keys :test 'equal)
                                                                            do (%annotated-error table-name "All inserted values needs to provide the on conflict columns")
@@ -885,12 +890,18 @@
 (defmethod sql->cl (ctx (type (eql :object)) &rest args)
   (destructuring-bind (args)
       args
-    `(fset:convert 'fset:map
+    `(fset:convert
+      'fset:map
       (append ,@(loop for kv in args
                       collect (case (first kv)
                                 (:shorthand-property
-                                 `(list (cons ,(%unqualified-column-name (symbol-name (second kv)))
-                                              ,(ast->cl ctx (second kv)))))
+                                 (let* ((k (second kv))
+                                        (k (if (and (listp k)
+                                                    (eq :parameter (first k)))
+                                               (second k)
+                                               k)))
+                                   `(list (cons ,(%unqualified-column-name (symbol-name k))
+                                                ,(ast->cl ctx (second kv))))))
                                 (:computed-property
                                  `(list (cons (endb/sql/expr:sql-cast ,(ast->cl ctx (second kv)) :varchar)
                                               ,(ast->cl ctx (nth 2 kv)))))
