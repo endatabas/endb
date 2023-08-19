@@ -115,6 +115,7 @@ pub enum Keyword {
     Second,
     Interval,
     OnConflict,
+    Blob,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
@@ -126,5 +127,4 @@ pub enum Ast {
     Float(f64),
     Id { start: i32, end: i32 },
     String { start: i32, end: i32 },
-    Binary { start: i32, end: i32 },
 }

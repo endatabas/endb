@@ -624,6 +624,9 @@
 (defmethod sql-cast ((x (eql :null)) type)
   :null)
 
+(defmethod sql-cast (x (type (eql :text)))
+  (sql-cast x :varchar))
+
 (defmethod sql-cast (x (type (eql :varchar)))
   (princ-to-string x))
 

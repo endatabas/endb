@@ -1050,9 +1050,11 @@ mod tests {
             - KW: Select
             - List:
                 - List:
-                    - Binary:
-                        start: 9
-                        end: 13
+                    - List:
+                        - KW: Blob
+                        - String:
+                            start: 9
+                            end: 13
         "###);
         assert_yaml_snapshot!(parse("SELECT x'AF01'"), @r###"
         ---
@@ -1061,9 +1063,11 @@ mod tests {
             - KW: Select
             - List:
                 - List:
-                    - Binary:
-                        start: 9
-                        end: 13
+                    - List:
+                        - KW: Blob
+                        - String:
+                            start: 9
+                            end: 13
         "###);
     }
 

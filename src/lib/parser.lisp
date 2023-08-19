@@ -119,7 +119,8 @@
   :minute
   :second
   :interval
-  :on-conflict)
+  :on-conflict
+  :blob)
 
 (cffi:defcenum Ast_Tag
   :List
@@ -127,18 +128,13 @@
   :Integer
   :Float
   :Id
-  :String
-  :Binary)
+  :String)
 
 (cffi:defcstruct Id_Union
   (start :int32)
   (end :int32))
 
 (cffi:defcstruct String_Union
-  (start :int32)
-  (end :int32))
-
-(cffi:defcstruct Binary_Union
   (start :int32)
   (end :int32))
 
@@ -162,8 +158,7 @@
   (integer (:struct Integer_Union))
   (float (:struct float_Union))
   (id (:struct Id_Union))
-  (string (:struct String_Union))
-  (binary (:struct Binary_Union)))
+  (string (:struct String_Union)))
 
 (cffi:defcstruct Ast
   (tag :int32)
@@ -206,16 +201,6 @@
                              do (setf (aref acc k) v)
                              finally (return acc)))
 
-(defun hex-to-binary (hex)
-  (loop with acc = (make-array (/ (length hex) 2) :element-type '(unsigned-byte 8))
-        with tmp = (make-string 2)
-        for idx below (length hex) by 2
-        for out-idx from 0
-        do (setf (schar tmp 0) (aref hex idx))
-           (setf (schar tmp 1) (aref hex (1+ idx)))
-           (setf (aref acc out-idx) (parse-integer tmp :radix 16))
-        finally (return acc)))
-
 (defun visit-ast (input builder ast)
   (loop with input-bytes = (trivial-utf-8:string-to-utf-8-bytes input)
         with queue = (list ast)
@@ -247,9 +232,7 @@
                          (setf (get s :start) start (get s :end) end (get s :input) input)
                          (push s (first acc)))))
                   (5 (cffi:with-foreign-slots ((start end) value (:struct String_Union))
-                       (push (trivial-utf-8:utf-8-bytes-to-string input-bytes :start start :end end) (first acc))))
-                  (6 (cffi:with-foreign-slots ((start end) value (:struct Binary_Union))
-                       (push (hex-to-binary (trivial-utf-8:utf-8-bytes-to-string input-bytes :start start :end end)) (first acc))))))))))
+                       (push (trivial-utf-8:utf-8-bytes-to-string input-bytes :start start :end end) (first acc))))))))))
 
 (defun strip-ansi-escape-codes (s)
   (ppcre:regex-replace-all "\\[3\\d(?:;\\d+;\\d+)?m(.+?)\\[0m" s "\\1"))

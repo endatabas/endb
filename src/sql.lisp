@@ -161,6 +161,7 @@
        (:time (endb/sql/expr:sql-time (second ast)))
        (:timestamp (endb/sql/expr:sql-datetime (second ast)))
        (:duration (endb/sql/expr:sql-duration (second ast)))
+       (:blob (endb/sql/expr:sql-unhex (second ast)))
        (:array (fset:convert 'fset:seq (mapcar #'%interpret-sql-literal (second ast))))
        (:object (reduce
                  (lambda (acc kv)

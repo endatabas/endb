@@ -231,10 +231,7 @@ where
 
     let binary = one_of("Xx").ignore_then(
         text::int(16)
-            .map_with_span(|_, span: SimpleSpan<_>| Binary {
-                start: span.start() as i32,
-                end: span.end() as i32,
-            })
+            .map_with_span(|_, span: SimpleSpan<_>| kw_literal(Blob, &span))
             .padded_by(just('\'')),
     );
 

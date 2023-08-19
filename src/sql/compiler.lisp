@@ -856,6 +856,26 @@
       args
     `(endb/sql/expr:sql-interval ,(ast->cl ctx x) ,from ,to)))
 
+(defmethod sql->cl (ctx (type (eql :date)) &rest args)
+  (destructuring-bind (x)
+      args
+    (endb/sql/expr:sql-date x)))
+
+(defmethod sql->cl (ctx (type (eql :time)) &rest args)
+  (destructuring-bind (x)
+      args
+    (endb/sql/expr:sql-time x)))
+
+(defmethod sql->cl (ctx (type (eql :timestamp)) &rest args)
+  (destructuring-bind (x)
+      args
+    (endb/sql/expr:sql-timestamp x)))
+
+(defmethod sql->cl (ctx (type (eql :blob)) &rest args)
+  (destructuring-bind (x)
+      args
+    (endb/sql/expr:sql-unhex x)))
+
 (defmethod sql->cl (ctx (type (eql :array)) &rest args)
   (destructuring-bind (args)
       args

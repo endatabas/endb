@@ -116,6 +116,7 @@ typedef enum Keyword {
   Second,
   Interval,
   OnConflict,
+  Blob,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;
@@ -127,7 +128,6 @@ typedef enum Ast_Tag {
   Float,
   Id,
   String,
-  Binary,
 } Ast_Tag;
 
 typedef struct Id_Body {
@@ -139,11 +139,6 @@ typedef struct String_Body {
   int32_t start;
   int32_t end;
 } String_Body;
-
-typedef struct Binary_Body {
-  int32_t start;
-  int32_t end;
-} Binary_Body;
 
 typedef struct Ast {
   Ast_Tag tag;
@@ -162,7 +157,6 @@ typedef struct Ast {
     };
     Id_Body id;
     String_Body string;
-    Binary_Body binary;
   };
 } Ast;
 
