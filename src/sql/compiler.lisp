@@ -1074,8 +1074,10 @@
     (case (first ast)
       ((:create-table :create-index :drop-table :drop-view :insert-objects) t)
       (:insert (eq :values (first (third ast))))
-      (:select (> (length (cdr (getf ast :from)))
-                  *interpreter-from-limit*)))))
+      (:select (let ((from (cdr (getf ast :from))))
+                 (or (> (length from)
+                        *interpreter-from-limit*)
+                     (null from)))))))
 
 (defun %resolve-parameters (ast)
   (let ((idx 0)

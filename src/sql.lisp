@@ -97,22 +97,29 @@
             (setf (endb/sql/expr:db-meta-data new-db) new-md)
             new-db)))))
 
-(defun %execute-sql (db sql parameters)
+(defun %execute-sql (db sql parameters manyp)
+  (when (and manyp (not (fset:seq? parameters)))
+    (error 'endb/sql/expr:sql-runtime-error :message "Many parameters must be a seq"))
   (let* ((ast (endb/lib/parser:parse-sql sql))
          (ctx (fset:map (:db db)))
-         (parameters (if (fset:map? parameters)
-                         parameters
-                         (fset:convert 'fset:map (loop for x in (fset:convert 'list parameters)
-                                                       for idx from 0
-                                                       collect (cons idx x)))))
+         (all-parameters (if manyp
+                             (fset:convert 'list parameters)
+                             (list parameters)))
+         (all-parameters (loop for parameters in all-parameters
+                               collect (etypecase parameters
+                                         (fset:map parameters)
+                                         (fset:seq (fset:convert 'fset:map (loop for x in (fset:convert 'list parameters)
+                                                                                 for idx from 0
+                                                                                 collect (cons idx x))))
+                                         (t (error 'endb/sql/expr:sql-runtime-error :message "Parameters must be seq or a map")))))
          (*print-length* 16)
          (sql-fn (if (eq :multiple-statments (first ast))
                      (let ((asts (second ast)))
                        (if (= 1 (length asts))
                            (endb/sql/compiler:compile-sql ctx (first asts))
-                           (if (plusp (fset:size parameters))
-                               (error 'endb/sql/expr:sql-runtime-error :message "Multiple statements does not support parameters")
-                               (lambda (db parameters)
+                           (lambda (db parameters)
+                             (if (or (plusp (fset:size parameters)) manyp)
+                                 (error 'endb/sql/expr:sql-runtime-error :message "Multiple statements does not support parameters")
                                  (loop with end-idx = (length asts)
                                        for ast in asts
                                        for idx from 1
@@ -122,12 +129,21 @@
                                        else
                                          do (funcall sql-fn db parameters))))))
                      (endb/sql/compiler:compile-sql ctx ast))))
-    (funcall sql-fn db parameters)))
+    (loop with final-result = nil
+          with final-result-code = nil
+          for parameters in all-parameters
+          do (multiple-value-bind (result result-code)
+                 (funcall sql-fn db parameters)
+               (setf final-result result)
+               (if (numberp result-code)
+                   (setf final-result-code (+ result-code (or final-result-code 0)))
+                   (setf final-result-code result-code)))
+          finally (return (values final-result final-result-code)))))
 
-(defun execute-sql (db sql &optional parameters)
+(defun execute-sql (db sql &optional (parameters (fset:empty-seq)) manyp)
   (if *query-timing*
-      (time (%execute-sql db sql parameters))
-      (%execute-sql db sql parameters)))
+      (time (%execute-sql db sql parameters manyp))
+      (%execute-sql db sql parameters manyp)))
 
 (defun %interpret-sql-literal (ast)
   (cond

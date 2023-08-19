@@ -43,11 +43,12 @@ class Endb {
         this.password = password;
     }
 
-    async sql(q, p = [], accept) {
+    async sql(q, p = [], m = false, accept) {
         const body = new FormData();
 
         body.append('q', q);
-        body.append('p', JSON.stringify(toJSONLD(p)))
+        body.append('p', JSON.stringify(toJSONLD(p)));
+        body.append('m', JSON.stringify(m));
 
         accept = accept || this.accept;
         const headers = {'Accept': accept};

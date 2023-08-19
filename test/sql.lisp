@@ -351,7 +351,71 @@
       (is (equal '("column1") columns)))
 
     (signals endb/sql/expr:sql-runtime-error
-      (execute-sql db "SELECT ?"))))
+      (execute-sql db "SELECT ?"))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "SELECT ?" 1))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "SELECT ?" nil))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT ? + ?" (fset:seq (fset:seq 1 3) (fset:seq 2 4)) t)
+      (is (equal '((6)) result))
+      (is (equal '("column1") columns)))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "SELECT ?" (fset:map ("x" 1) ("y" 3)) t))
+
+    (let ((write-db (begin-write-tx db)))
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "INSERT INTO foo(x, y) VALUES (?, ?)" (fset:seq (fset:seq 1 3) (fset:seq 2 4)) t)
+        (is (null result))
+        (is (= 2 result-code)))
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "SELECT * FROM foo ORDER BY x")
+        (is (equal '((1 3) (2 4)) result))
+        (is (equal '("x" "y") columns))))
+
+    (let ((write-db (begin-write-tx db)))
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "INSERT INTO foo(x, y) VALUES (:x, :y)" (fset:seq (fset:map ("x" 1) ("y" 3)) (fset:map ("x" 2) ("y" 4))) t)
+        (is (null result))
+        (is (= 2 result-code)))
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "SELECT * FROM foo ORDER BY x")
+        (is (equal '((1 3) (2 4)) result))
+        (is (equal '("x" "y") columns)))
+
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "INSERT INTO foo(x, y) VALUES (:x, :y)" (fset:seq) t)
+        (is (null result))
+        (is (null result-code))))
+
+    (let ((write-db (begin-write-tx db)))
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "INSERT INTO foo {x: ?, y: ?};"  (fset:seq (fset:seq 1 3) (fset:seq 2 4)) t)
+        (is (null result))
+        (is (= 2 result-code)))
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "SELECT * FROM foo ORDER BY x")
+        (is (equal '((1 3) (2 4)) result))
+        (is (equal '("x" "y") columns))))
+
+    (let ((write-db (begin-write-tx db)))
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "INSERT INTO foo { ...? }"  (fset:seq (fset:seq (fset:map ("x" 1) ("y" 3)))
+                                                                      (fset:seq (fset:map ("x" 2) ("y" 4)))) t)
+        (is (null result))
+        (is (= 2 result-code)))
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "SELECT * FROM foo ORDER BY x")
+        (is (equal '((1 3) (2 4)) result))
+        (is (equal '("x" "y") columns))))))
 
 (test information-schema
   (let* ((db (make-db))

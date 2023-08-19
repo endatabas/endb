@@ -42,7 +42,7 @@ class Endb:
             case _:
                  raise TypeError
 
-    def sql(self, q, p=[], accept=None):
+    def sql(self, q, p=[], m=False, accept=None):
         if accept is None:
             accept = self.accept
         headers = {'Accept': accept}
@@ -50,7 +50,7 @@ class Endb:
             auth_base64 = base64.b64encode(bytes('%s:%s' % (self.username, self.password), 'ascii'))
             headers['Authorization'] = 'Basic %s' % auth_base64.decode('utf-8')
 
-        payload = {'q': q, 'p': json.dumps(p, default=self._to_json_ld)}
+        payload = {'q': q, 'p': json.dumps(p, default=self._to_json_ld), 'm': json.dumps(m)}
         data = urllib.parse.urlencode(payload)
         data = data.encode('ascii')
 
