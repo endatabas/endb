@@ -15,6 +15,7 @@
            #:sql-access #:sql-access-finish #:sql-between #:sql-in #:sql-exists #:sql-coalesce
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery #:sql-unnest
            #:sql-concat #:sql-cardinality #:sql-char_length #:sql-character_length #:sql-octet_length #:sql-length #:sql-trim #:sql-ltrim #:sql-rtrim #:sql-lower #:sql-upper
+           #:sql-replace #:sql-unhex #:sql-hex
            #:sql-round #:sql-sin #:sql-cos #:sql-tan #:sql-sinh #:sql-cosh #:sql-tanh #:sql-asin #:sqn-acos #:sql-atan #:sql-floor #:sql-ceiling #:sql-ceil
            #:sql-sign #:sql-sqrt #:sql-exp #:sql-power #:sql-power #:sql-log #:sql-log10 #:sql-ln
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-timestamp #:sql-duration #:sql-interval #:sql-like #:sql-substring #:sql-strftime
@@ -461,6 +462,48 @@
 
 (defmethod sql-upper ((x string))
   (string-upcase x))
+
+(defmethod sql-replace ((x (eql :null)) y z)
+  :null)
+
+(defmethod sql-replace (x (y (eql :null)) z)
+  :null)
+
+(defmethod sql-replace (x y (z (eql :null)))
+  :null)
+
+(defmethod sql-replace ((x string) (y string) (z string))
+  (ppcre:regex-replace-all (ppcre:quote-meta-chars y) x z))
+
+(defmethod sql-unhex ((x (eql :null)) &optional y)
+  (declare (ignore y))
+  :null)
+
+(defparameter +hex-scanner+ (ppcre:create-scanner "^(?i:[0-9a-f]{2})+$"))
+
+(defmethod sql-unhex ((x string) &optional (y ""))
+  (let ((x (remove-if (lambda (x)
+                        (find x y))
+                      x)))
+    (if (ppcre:scan +hex-scanner+ x)
+        (loop with acc = (make-array (/ (length x) 2) :element-type '(unsigned-byte 8))
+              with tmp = (make-string 2)
+              for idx below (length x) by 2
+              for out-idx from 0
+              do (setf (schar tmp 0) (aref x idx))
+                 (setf (schar tmp 1) (aref x (1+ idx)))
+                 (setf (aref acc out-idx) (parse-integer tmp :radix 16))
+              finally (return acc))
+        :null)))
+
+(defmethod sql-hex ((x number))
+  (sql-hex (trivial-utf-8:string-to-utf-8-bytes (format nil "~A" x))))
+
+(defmethod sql-hex ((x vector))
+  (format nil "~{~X~}" (coerce x 'list)))
+
+(defmethod sql-hex ((x (eql :null)))
+  :null)
 
 (defstruct path-seq acc)
 

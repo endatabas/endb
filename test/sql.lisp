@@ -1506,6 +1506,26 @@
       (is (equalp `(("[1,\"foo\",{\"a\":2001-01-01,\"b\":null}]")) result))
       (is (equalp (fset:seq 1 "foo" (fset:map ("a" (endb/arrow:parse-arrow-date-millis "2001-01-01")) ("b" :null)))
                   (interpret-sql-literal (caar result))))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT UNHEX('ABCD')")
+      (is (equalp '((#(171 205))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT UNHEX('A ')")
+      (is (equalp '((:null)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT UNHEX('AB CD')")
+      (is (equalp '((:null)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT UNHEX('ab CD', ' ')")
+      (is (equalp '((#(171 205))) result))
       (is (equal '("column1") columns)))))
 
 (test interpret-sql-literal
@@ -1829,4 +1849,9 @@
   (is-valid (expr "TYPEOF(2)"))
   (is-valid (expr "TYPEOF(2.0)"))
   (is-valid (expr "TYPEOF(x'CAFEBABE')"))
-  (is-valid (expr "TYPEOF(NULL)")))
+  (is-valid (expr "TYPEOF(NULL)"))
+
+  (is-valid (expr "HEX(12345678)"))
+  (is-valid (expr "HEX(x'ABCD')"))
+
+  (is-valid (expr "REPLACE('foobar', 'oo', 'aa')")))
