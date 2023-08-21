@@ -272,7 +272,15 @@
          (array (to-arrow expected)))
     (is (typep array 'endb/arrow::decimal-array))
     (is (= 16 (slot-value array 'endb/arrow::element-size)))
-    (is (equal expected (coerce array 'list)))))
+    (is (equal expected (coerce array 'list))))
+
+  (let* ((array (to-arrow '(170141183460469231731687303715884105727))))
+    (is (equalp #(255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 127)
+                (slot-value array 'endb/arrow::values))))
+
+  (let* ((array (to-arrow '(-170141183460469231731687303715884105728))))
+    (is (equalp #(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 128)
+                (slot-value array 'endb/arrow::values)))))
 
 (test temporal-arrays
   (let* ((expected (list (endb/arrow:parse-arrow-date-millis "2001-01-01")

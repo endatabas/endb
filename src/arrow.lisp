@@ -726,18 +726,19 @@
 
 (defmethod arrow-push ((array decimal-array) (x integer))
   (if (typep x 'int128)
-      (with-slots (values element-size) array
-        (%push-valid array)
-        (loop for idx from (1- element-size) downto 0
-              do (vector-push-extend (ldb (byte 8 (* 8 idx)) x) values))
-        array)
+      (with-slots (element-size) array
+        (loop with xs = (make-array element-size :element-type 'uint8)
+              for idx from 0 below element-size
+              do (setf (aref xs idx) (ldb (byte 8 (* 8 idx)) x))
+              finally (return (arrow-push array xs))))
       (call-next-method)))
 
 (defmethod arrow-value ((array decimal-array) (n fixnum))
   (with-slots (values element-size) array
     (loop with v = 0
           for x across (call-next-method)
-          do (setf v (logior (ash v 8) x))
+          for idx from 0 below element-size
+          do (setf v (dpb x (byte 8 (* 8 idx)) v))
           finally (return (if (and (= (integer-length v) 128)
                                    (plusp v))
                               (- v (ash 1 128))
@@ -753,18 +754,19 @@
   ((element-size :initform 16)))
 
 (defmethod arrow-push ((array interval-month-day-nanos-array) (x arrow-interval-month-day-nanos))
-  (with-slots (values element-size) array
-    (%push-valid array)
+  (with-slots (element-size) array
     (loop with x = (arrow-interval-month-day-nanos-uint128 x)
-          for idx from (1- element-size) downto 0
-          do (vector-push-extend (ldb (byte 8 (* 8 idx)) x) values))
-    array))
+          with xs = (make-array element-size :element-type 'uint8)
+          for idx from 0 below element-size
+          do (setf (aref xs idx) (ldb (byte 8 (* 8 idx)) x))
+          finally (return (arrow-push array xs)))))
 
 (defmethod arrow-value ((array interval-month-day-nanos-array) (n fixnum))
   (with-slots (values element-size) array
     (loop with v = 0
           for x across (call-next-method)
-          do (setf v (logior (ash v 8) x))
+          for idx from 0 below element-size
+          do (setf v (dpb x (byte 8 (* 8 idx)) v))
           finally (return (make-arrow-interval-month-day-nanos :month (ldb (byte 32 96) v)
                                                                :day (ldb (byte 32 64) v)
                                                                :ns (ldb (byte 64 0) v))))))
