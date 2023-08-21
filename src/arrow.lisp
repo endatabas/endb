@@ -378,11 +378,11 @@
     ((equal "tdm" format) 'date-millis-array)
     ((equal "ttu" format) 'time-micros-array)
     ((equal "tin" format) 'interval-month-day-nanos-array)
+    ((equal "d:38,0" format) 'decimal-array)
     ((equal "z" format) 'binary-array)
     ((equal "u" format) 'utf8-array)
     ((equal "+s" format) 'struct-array)
     ((equal "+l" format) 'list-array)
-    ((equal "+d:38,0" format) 'decimal-array)
     (t (if (alexandria:starts-with-subseq "+ud:" format)
            'dense-union-array
            (error "unknown format: ~s" format)))))
@@ -579,24 +579,6 @@
 (defmethod arrow-data-type ((array int64-array))
   "l")
 
-(defclass decimal-array (primitive-array)
-  ((values :type (vector int128))
-   (element-type :initform 'int128)))
-
-(defmethod arrow-push ((array decimal-array) (x integer))
-  (if (typep x 'int128)
-      (with-slots (values) array
-        (%push-valid array)
-        (vector-push-extend x values)
-        array)
-      (call-next-method)))
-
-(defmethod arrow-value ((array decimal-array) (n fixnum))
-  (aref (slot-value array 'values) n))
-
-(defmethod arrow-data-type ((array decimal-array))
-  "+d:38,0")
-
 (defclass timestamp-micros-array (int64-array) ())
 
 (defmethod arrow-push ((array timestamp-micros-array) (x arrow-timestamp-micros))
@@ -707,6 +689,68 @@
 
 (defmethod arrow-lisp-type ((array boolean-array))
   'boolean)
+
+(defclass fixed-width-binary-array (validity-array)
+  ((values :type (vector uint8))
+   (element-size :type int8)))
+
+(defmethod initialize-instance :after ((array fixed-width-binary-array) &key (length 0 lengthp))
+  (with-slots (values element-size) array
+    (let ((length (* element-size length)))
+      (setf values (make-array length :element-type 'uint8
+                                      :fill-pointer (unless lengthp
+                                                      length))))))
+
+(defmethod arrow-push ((array fixed-width-binary-array) (x (eql :null)))
+  (with-slots (values element-size) array
+    (%push-invalid array)
+    (adjust-array values (+ element-size (length values)) :fill-pointer (+ element-size (fill-pointer values)))
+    array))
+
+(defmethod arrow-length ((array fixed-width-binary-array))
+  (with-slots (values element-size) array
+    (truncate (length values) element-size)))
+
+(defmethod arrow-buffers ((array fixed-width-binary-array))
+  (with-slots (values) array
+    (append (call-next-method) (list values))))
+
+(defmethod arrow-data-type ((array fixed-width-binary-array))
+  (format nil "w:~d" (slot-value array 'element-size)))
+
+(defmethod arrow-lisp-type ((array fixed-width-binary-array))
+  '(vector uint8))
+
+(defclass decimal-array (fixed-width-binary-array)
+  ((element-size :initform 16)))
+
+(defmethod arrow-push ((array decimal-array) (x integer))
+  (if (typep x 'int128)
+      (with-slots (values) array
+        (%push-valid array)
+        (loop for idx from 0 below 16
+              do (vector-push-extend (ldb (byte 8 (* 8 idx)) x) values))
+        array)
+      (call-next-method)))
+
+(defmethod arrow-value ((array decimal-array) (n fixnum))
+  (with-slots (values) array
+    (loop with v = 0
+          with offset = (* 16 n)
+          for idx from 0 below 16
+          do (setf v (dpb (aref values (+ offset idx))
+                          (byte 8 (* 8 idx))
+                          v))
+          finally (return (if (and (> (integer-length v) 127)
+                                   (plusp v))
+                              (- v (ash 1 128))
+                              v)))))
+
+(defmethod arrow-lisp-type ((array decimal-array))
+  'integer)
+
+(defmethod arrow-data-type ((array decimal-array))
+  "d:38,0")
 
 (defclass binary-array (validity-array)
   ((offsets :type (vector int32))

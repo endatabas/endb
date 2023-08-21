@@ -42,7 +42,8 @@
                      (,(fset:seq (fset:map ("name" "joe") ("id" 1))
                                  (fset:map ("name" :null) ("id" 2))
                                  :null
-                                 (fset:map ("name" "mark") ("id" 4))))))
+                                 (fset:map ("name" "mark") ("id" 4))))
+                     (170141183460469231731687303715884105727 -170141183460469231731687303715884105728)))
       (is (equalp (list array)
                   (loop for x in (read-arrow-arrays-from-ipc-buffer
                                   (write-arrow-arrays-to-ipc-buffer
