@@ -223,7 +223,7 @@ where
     let number = text::int(10)
         .then(frac.or_not())
         .then(exp.or_not())
-        .map_slice(|s: &str| match s.parse::<i64>() {
+        .map_slice(|s: &str| match s.parse::<i128>() {
             Ok(x) => Integer(x),
             Err(_) => Float(s.parse().unwrap()),
         })

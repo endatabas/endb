@@ -150,7 +150,7 @@ typedef struct Ast {
       enum Keyword kw;
     };
     struct {
-      int64_t integer;
+      i128 integer;
     };
     struct {
       double float_;

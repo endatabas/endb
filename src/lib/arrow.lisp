@@ -247,11 +247,11 @@
   (etypecase b
     ((vector bit) (truncate (+ 7 buffer-size) 8))
     ((vector (unsigned-byte 8)) buffer-size)
-    ((vector (unsigned-byte 128)) (* 16 buffer-size))
     ((vector (signed-byte 8)) buffer-size)
     ((vector (signed-byte 32)) (* 4 buffer-size))
     ((vector (signed-byte 64)) (* 8 buffer-size))
-    ((vector double-float) (* 8 buffer-size))))
+    ((vector double-float) (* 8 buffer-size))
+    (t (* 16 buffer-size))))
 
 (defun buffer-to-vector (buffer-ptr buffer-size &optional out)
   (let ((out (or out (make-array buffer-size :element-type '(unsigned-byte 8)))))

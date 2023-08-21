@@ -135,9 +135,12 @@
   (is (= (1- (ash 1 63)) (json-parse (json-stringify (1- (ash 1 63))))))
   (is (= (- (ash 1 63)) (json-parse (json-stringify (- (ash 1 63)))))))
 
-(test json-int64-overflow
-  (is (= 9223372036854776000d0 (json-parse (json-stringify (ash 1 63)))))
-  (is (= -9223372036854776000d0 (json-parse (json-stringify (- (1+ (ash 1 63))))))))
+(test json-int128-overflow
+  (is (= 9223372036854775808 (json-parse (json-stringify (ash 1 63)))))
+  (is (= -9223372036854775809 (json-parse (json-stringify (- (1+ (ash 1 63)))))))
+
+  (is (= 1.7014118346046923d38 (json-parse (json-stringify (ash 1 127)))))
+  (is (= -1.7014118346046923d38 (json-parse (json-stringify (- (1+ (ash 1 127))))))))
 
 (test json-arrow
   (is (equal "[1,2]" (json-stringify (fset:seq 1 2))))

@@ -1533,6 +1533,10 @@
   (is (equal "foo" (interpret-sql-literal "\"foo\"")))
   (is (= 2.0 (interpret-sql-literal "2.0")))
   (is (= 9223372036854775807 (interpret-sql-literal "9223372036854775807")))
+  (is (= -9223372036854775808 (interpret-sql-literal "-9223372036854775808")))
+
+  (is (= 170141183460469231731687303715884105727 (interpret-sql-literal "170141183460469231731687303715884105727")))
+  (is (= -170141183460469231731687303715884105727 (interpret-sql-literal "-170141183460469231731687303715884105727")))
 
   (is (eq t (interpret-sql-literal "TRUE")))
   (is (null (interpret-sql-literal "FALSE")))

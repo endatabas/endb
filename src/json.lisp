@@ -58,7 +58,7 @@
              ((or (equal "xsd:integer" k)
                   (equal "http://www.w3.org/2001/XMLSchema#integer" k))
               (let ((x (parse-integer v)))
-                (if (> (integer-length x) 63)
+                (if (> (integer-length x) 127)
                     (coerce x 'double-float)
                     x)))
              (t x)))

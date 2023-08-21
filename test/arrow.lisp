@@ -254,14 +254,23 @@
     (is (equal '(1 4 :null) (coerce array 'list)))
     (is (equal '(4 :null) (coerce (remove 1 array) 'list)))))
 
-(test in64-overflow
+(test in128-overflow
   (let ((array (to-arrow '(9223372036854775807 9223372036854775808))))
     (is (typep array 'endb/arrow::dense-union-array))
-    (is (equal '(9223372036854775807 9.223372036854776d18) (coerce array 'list))))
+    (is (equal '(9223372036854775807 9223372036854775808) (coerce array 'list)))
+    (let* ((children (slot-value array 'endb/arrow::children))
+           (i (elt children 0))
+           (d (elt children 1)))
+      (is (typep i 'endb/arrow::int64-array))
+      (is (typep d 'endb/arrow::decimal-array))))
 
-  (let ((array (to-arrow '(-9223372036854775809))))
+  (let ((array (to-arrow '(170141183460469231731687303715884105728 -170141183460469231731687303715884105729))))
     (is (typep array 'endb/arrow::float64-array))
-    (is (equal '(-9.223372036854776d18) (coerce array 'list)))))
+    (is (equal '(1.7014118346046923d38 -1.7014118346046923d38) (coerce array 'list))))
+
+  (let ((array (to-arrow '(170141183460469231731687303715884105727 -170141183460469231731687303715884105728))))
+    (is (typep array 'endb/arrow::decimal-array))
+    (is (equal '(170141183460469231731687303715884105727 -170141183460469231731687303715884105728) (coerce array 'list)))))
 
 (test temporal-arrays
   (let* ((expected (list (endb/arrow:parse-arrow-date-millis "2001-01-01")

@@ -123,7 +123,7 @@ pub enum Keyword {
 pub enum Ast {
     List(Vec<Ast>),
     KW(Keyword),
-    Integer(i64),
+    Integer(i128),
     Float(f64),
     Id { start: i32, end: i32 },
     String { start: i32, end: i32 },

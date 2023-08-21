@@ -12,6 +12,7 @@
            #:arrow-struct-projection #:arrow-struct-children #:arrow-struct-row-get #:arrow-struct-row-push
            #:arrow-array #:validity-array #:null-array #:int32-array #:int64-array #:float64-array
            #:date-millis-array #:timestamp-micros-array #:time-micros-array #:binary-array #:utf8-array #:list-array #:struct-array #:dense-union-array)
+  (:import-from :alexandria)
   (:import-from :cl-ppcre)
   (:import-from :cl-murmurhash)
   (:import-from :fset)
@@ -25,6 +26,7 @@
 (deftype int8 () '(signed-byte 8))
 (deftype int32 () '(signed-byte 32))
 (deftype int64 () '(signed-byte 64))
+(deftype int128 () '(signed-byte 128))
 (deftype float64 () 'double-float)
 
 (defstruct arrow-timestamp-micros (us 0 :type int64))
@@ -344,7 +346,8 @@
     ((eql :null) 'null-array)
     (boolean 'boolean-array)
     (int64 'int64-array)
-    ((and number (not int64)) 'float64-array)
+    (int128 'decimal-array)
+    ((and number (not int128)) 'float64-array)
     (arrow-date-millis 'date-millis-array)
     (arrow-time-micros 'time-micros-array)
     (arrow-timestamp-micros 'timestamp-micros-array)
@@ -379,7 +382,8 @@
     ((equal "u" format) 'utf8-array)
     ((equal "+s" format) 'struct-array)
     ((equal "+l" format) 'list-array)
-    (t (if (ppcre:scan "^\\+ud:" format)
+    ((equal "+d:38,0" format) 'decimal-array)
+    (t (if (alexandria:starts-with-subseq "+ud:" format)
            'dense-union-array
            (error "unknown format: ~s" format)))))
 
@@ -574,6 +578,24 @@
 
 (defmethod arrow-data-type ((array int64-array))
   "l")
+
+(defclass decimal-array (primitive-array)
+  ((values :type (vector int128))
+   (element-type :initform 'int128)))
+
+(defmethod arrow-push ((array decimal-array) (x integer))
+  (if (typep x 'int128)
+      (with-slots (values) array
+        (%push-valid array)
+        (vector-push-extend x values)
+        array)
+      (call-next-method)))
+
+(defmethod arrow-value ((array decimal-array) (n fixnum))
+  (aref (slot-value array 'values) n))
+
+(defmethod arrow-data-type ((array decimal-array))
+  "+d:38,0")
 
 (defclass timestamp-micros-array (int64-array) ())
 

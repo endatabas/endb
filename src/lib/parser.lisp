@@ -139,7 +139,8 @@
   (end :int32))
 
 (cffi:defcstruct Integer_Union
-  (n :int64))
+  (lower :uint64)
+  (upper :int64))
 
 (cffi:defcstruct Float_Union
   (n :double))
@@ -223,8 +224,8 @@
                        (push :start-list queue)))
                   (1 (cffi:with-foreign-slots ((kw) value (:struct KW_Union))
                        (push (aref kw-array kw) (first acc))))
-                  (2 (cffi:with-foreign-slots ((n) value (:struct Integer_Union))
-                       (push n (first acc))))
+                  (2 (cffi:with-foreign-slots ((lower upper) value (:struct Integer_Union))
+                       (push (logior (ash upper 64) lower) (first acc))))
                   (3 (cffi:with-foreign-slots ((n) value (:struct Float_Union))
                        (push n (first acc))))
                   (4 (cffi:with-foreign-slots ((start end) value (:struct Id_Union))
