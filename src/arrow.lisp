@@ -675,7 +675,9 @@
   ((values :type (vector uint8))
    (element-size :type int8)))
 
-(defmethod initialize-instance :after ((array fixed-width-binary-array) &key (length 0 lengthp))
+(defmethod initialize-instance :after ((array fixed-width-binary-array) &key (element-size nil element-size-p) (length 0 lengthp))
+  (when element-size-p
+    (setf (slot-value array 'element-size) element-size))
   (with-slots (values element-size) array
     (let ((length (* element-size length)))
       (setf values (make-array length :element-type 'uint8
@@ -688,9 +690,26 @@
     (adjust-array values (+ element-size (length values)) :fill-pointer (+ element-size (fill-pointer values)))
     array))
 
+(defmethod arrow-push ((array fixed-width-binary-array) (x vector))
+  (with-slots (values element-size) array
+    (if (= element-size (length x))
+        (progn
+          (%push-valid array)
+          (loop for y across x
+                do (vector-push-extend y values))
+          array)
+        (call-next-method))))
+
+(defmethod arrow-value ((array fixed-width-binary-array) (n fixnum))
+  (with-slots (values element-size) array
+    (let* ((start (* element-size n) )
+           (storage #+sbcl (sb-ext:array-storage-vector values)
+                    #-sbcl vlaues))
+      (make-array element-size :element-type 'uint8 :displaced-to storage :displaced-index-offset start))))
+
 (defmethod arrow-length ((array fixed-width-binary-array))
   (with-slots (values element-size) array
-    (truncate (length values) element-size)))
+    (nth-value 0 (truncate (length values) element-size))))
 
 (defmethod arrow-buffers ((array fixed-width-binary-array))
   (with-slots (values) array
@@ -707,22 +726,19 @@
 
 (defmethod arrow-push ((array decimal-array) (x integer))
   (if (typep x 'int128)
-      (with-slots (values) array
+      (with-slots (values element-size) array
         (%push-valid array)
-        (loop for idx from 0 below 16
+        (loop for idx from (1- element-size) downto 0
               do (vector-push-extend (ldb (byte 8 (* 8 idx)) x) values))
         array)
       (call-next-method)))
 
 (defmethod arrow-value ((array decimal-array) (n fixnum))
-  (with-slots (values) array
+  (with-slots (values element-size) array
     (loop with v = 0
-          with offset = (* 16 n)
-          for idx from 0 below 16
-          do (setf v (dpb (aref values (+ offset idx))
-                          (byte 8 (* 8 idx))
-                          v))
-          finally (return (if (and (> (integer-length v) 127)
+          for x across (call-next-method)
+          do (setf v (logior (ash v 8) x))
+          finally (return (if (and (= (integer-length v) 128)
                                    (plusp v))
                               (- v (ash 1 128))
                               v)))))
@@ -737,23 +753,18 @@
   ((element-size :initform 16)))
 
 (defmethod arrow-push ((array interval-month-day-nanos-array) (x arrow-interval-month-day-nanos))
-  (with-slots (values) array
+  (with-slots (values element-size) array
     (%push-valid array)
-    (with-slots (values) array
-      (%push-valid array)
-      (loop with x = (arrow-interval-month-day-nanos-uint128 x)
-            for idx from 0 below 16
-            do (vector-push-extend (ldb (byte 8 (* 8 idx)) x) values))
-      array)))
+    (loop with x = (arrow-interval-month-day-nanos-uint128 x)
+          for idx from (1- element-size) downto 0
+          do (vector-push-extend (ldb (byte 8 (* 8 idx)) x) values))
+    array))
 
 (defmethod arrow-value ((array interval-month-day-nanos-array) (n fixnum))
-  (with-slots (values) array
+  (with-slots (values element-size) array
     (loop with v = 0
-          with offset = (* 16 n)
-          for idx from 0 below 16
-          do (setf v (dpb (aref values (+ offset idx))
-                          (byte 8 (* 8 idx))
-                          v))
+          for x across (call-next-method)
+          do (setf v (logior (ash v 8) x))
           finally (return (make-arrow-interval-month-day-nanos :month (ldb (byte 32 96) v)
                                                                :day (ldb (byte 32 64) v)
                                                                :ns (ldb (byte 64 0) v))))))
