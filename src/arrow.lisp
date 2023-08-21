@@ -124,12 +124,12 @@
      (let ((time (arrow-time-micros-to-local-time object)))
        (local-time:format-rfc3339-timestring stream time :omit-date-part t :omit-timezone-part t :timezone local-time:+utc-zone+)))))
 
-(defstruct arrow-interval-month-day-nanos (day 0 :type int32) (month 0 :type int32) (ns 0 :type int64))
+(defstruct arrow-interval-month-day-nanos (month 0 :type int32) (day 0 :type int32) (ns 0 :type int64))
 
 (defun arrow-interval-month-day-nanos-uint128 (x)
-  (dpb (arrow-interval-month-day-nanos-ns x) (byte 64 0)
-       (dpb (arrow-interval-month-day-nanos-day x) (byte 32 64)
-            (dpb (arrow-interval-month-day-nanos-month x) (byte 32 96) 0))))
+  (dpb (arrow-interval-month-day-nanos-month x) (byte 32 0)
+       (dpb (arrow-interval-month-day-nanos-day x) (byte 32 32)
+            (dpb (arrow-interval-month-day-nanos-ns x) (byte 64 64) 0))))
 
 (defun periods-duration-to-arrow-interval-month-day-nanos (duration)
   (let ((month (+ (* (periods::duration-years duration) 12)
@@ -767,9 +767,9 @@
           for x across (call-next-method)
           for idx from 0 below element-size
           do (setf v (dpb x (byte 8 (* 8 idx)) v))
-          finally (return (make-arrow-interval-month-day-nanos :month (ldb (byte 32 96) v)
-                                                               :day (ldb (byte 32 64) v)
-                                                               :ns (ldb (byte 64 0) v))))))
+          finally (return (make-arrow-interval-month-day-nanos :month (ldb (byte 32 0) v)
+                                                               :day (ldb (byte 32 32) v)
+                                                               :ns (ldb (byte 64 64) v))))))
 
 (defmethod arrow-data-type ((array interval-month-day-nanos-array))
   "tin")

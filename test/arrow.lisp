@@ -289,4 +289,10 @@
                          (endb/arrow:parse-arrow-interval-month-day-nanos "P3Y6M")
                          (endb/arrow:parse-arrow-interval-month-day-nanos "PT12H30M5S")))
          (array (to-arrow expected)))
-    (is (equalp expected (coerce array 'list)))))
+    (is (equalp expected (coerce array 'list))))
+
+  (let* ((array (to-arrow (list (endb/arrow:parse-arrow-interval-month-day-nanos "P5M3DT0.000000006S")))))
+    (is (equalp #(5 0 0 0 3 0 0 0 6 0 0 0 0 0 0 0)
+                (slot-value array 'endb/arrow::values)))
+    (is (equalp (list (endb/arrow::make-arrow-interval-month-day-nanos :month 5 :day 3 :ns 6))
+                (coerce array 'list)))))
