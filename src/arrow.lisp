@@ -618,25 +618,6 @@
 (defmethod arrow-data-type ((array time-micros-array))
   "ttu")
 
-(defclass interval-month-day-nanos-array (primitive-array)
-  ((values :type (vector uint128))
-   (element-type :initform 'uint128)))
-
-(defmethod arrow-push ((array interval-month-day-nanos-array) (x arrow-interval-month-day-nanos))
-  (with-slots (values) array
-    (%push-valid array)
-    (vector-push-extend (arrow-interval-month-day-nanos-uint128 x) values)
-    array))
-
-(defmethod arrow-value ((array interval-month-day-nanos-array) (n fixnum))
-  (let ((x (aref (slot-value array 'values) n)))
-    (make-arrow-interval-month-day-nanos :month (ldb (byte 32 96) x)
-                                         :day (ldb (byte 32 64) x)
-                                         :ns (ldb (byte 64 0) x))))
-
-(defmethod arrow-data-type ((array interval-month-day-nanos-array))
-  "tin")
-
 (defmethod arrow-lisp-type ((array time-micros-array))
   'arrow-time-micros)
 
@@ -751,6 +732,37 @@
 
 (defmethod arrow-data-type ((array decimal-array))
   "d:38,0")
+
+(defclass interval-month-day-nanos-array (fixed-width-binary-array)
+  ((element-size :initform 16)))
+
+(defmethod arrow-push ((array interval-month-day-nanos-array) (x arrow-interval-month-day-nanos))
+  (with-slots (values) array
+    (%push-valid array)
+    (with-slots (values) array
+      (%push-valid array)
+      (loop with x = (arrow-interval-month-day-nanos-uint128 x)
+            for idx from 0 below 16
+            do (vector-push-extend (ldb (byte 8 (* 8 idx)) x) values))
+      array)))
+
+(defmethod arrow-value ((array interval-month-day-nanos-array) (n fixnum))
+  (with-slots (values) array
+    (loop with v = 0
+          with offset = (* 16 n)
+          for idx from 0 below 16
+          do (setf v (dpb (aref values (+ offset idx))
+                          (byte 8 (* 8 idx))
+                          v))
+          finally (return (make-arrow-interval-month-day-nanos :month (ldb (byte 32 96) v)
+                                                               :day (ldb (byte 32 64) v)
+                                                               :ns (ldb (byte 64 0) v))))))
+
+(defmethod arrow-data-type ((array interval-month-day-nanos-array))
+  "tin")
+
+(defmethod arrow-lisp-type ((array interval-month-day-nanos-array))
+  'arrow-interval-month-day-nanos)
 
 (defclass binary-array (validity-array)
   ((offsets :type (vector int32))
