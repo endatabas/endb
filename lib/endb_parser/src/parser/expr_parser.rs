@@ -230,7 +230,7 @@ where
         .boxed();
 
     let binary = one_of("Xx").ignore_then(
-        text::int(16)
+        text::digits(16)
             .map_with_span(|_, span: SimpleSpan<_>| kw_literal(Blob, &span))
             .padded_by(just('\'')),
     );

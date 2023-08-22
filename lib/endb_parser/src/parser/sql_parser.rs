@@ -1087,6 +1087,19 @@ mod tests {
 
     #[test]
     fn binary_expr() {
+        assert_yaml_snapshot!(parse("SELECT x'01'"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Blob
+                        - String:
+                            start: 9
+                            end: 11
+        "###);
         assert_yaml_snapshot!(parse("SELECT X'AF01'"), @r###"
         ---
         Ok:
