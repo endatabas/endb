@@ -378,6 +378,41 @@ where
                 List(acc)
             });
 
+        let order_by_list = expr
+            .clone()
+            .then(
+                choice((kw("ASC").to(Asc), kw("DESC").to(Desc)))
+                    .or_not()
+                    .map(|dir| KW(dir.unwrap_or(Asc))),
+            )
+            .map(|(var, dir)| List(vec![var, dir]))
+            .separated_by(pad(','))
+            .at_least(1)
+            .collect()
+            .map(List);
+
+        let order_by = kw("ORDER")
+            .ignore_then(kw("BY"))
+            .ignore_then(order_by_list)
+            .or_not();
+
+        let array_agg = kw("ARRAY_AGG")
+            .to(ArrayAgg)
+            .map(KW)
+            .then(
+                expr_list
+                    .clone()
+                    .then(order_by)
+                    .delimited_by(pad('('), pad(')'))
+                    .then(aggregate_filter.clone()),
+            )
+            .map(|(f, ((expr_list, order_by), filter))| {
+                let mut acc = vec![KW(AggregateFunction), f, expr_list];
+                add_clause(&mut acc, OrderBy, order_by);
+                add_clause(&mut acc, Where, filter);
+                List(acc)
+            });
+
         let aggregate_function = choice((
             kw("COUNT").to(Count),
             kw("AVG").to(Avg),
@@ -386,7 +421,6 @@ where
             kw("MAX").to(Max),
             kw("TOTAL").to(Total),
             kw("GROUP_CONCAT").to(GroupConcat),
-            kw("ARRAY_AGG").to(ArrayAgg),
             kw("OBJECT_AGG").to(ObjectAgg),
         ))
         .map(KW)
@@ -489,6 +523,7 @@ where
 
         let atom = choice((
             count_star,
+            array_agg,
             aggregate_function,
             cast,
             case,

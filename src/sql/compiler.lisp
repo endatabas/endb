@@ -995,7 +995,7 @@
                         collect (ast->cl ctx ast))))))
 
 (defmethod sql->cl (ctx (type (eql :aggregate-function)) &rest args)
-  (destructuring-bind (fn args &key distinct (where :true))
+  (destructuring-bind (fn args &key distinct (where :true) order-by)
       args
     (when (fset:lookup ctx :aggregate)
       (error 'endb/sql/expr:sql-runtime-error :message (format nil "Cannot nest aggregate functions: ~A" fn)))
@@ -1003,10 +1003,13 @@
            (ctx (fset:with ctx :aggregate t))
            (fn-sym (%find-sql-expr-symbol fn))
            (aggregate-sym (gensym))
-           (init-src `(endb/sql/expr:make-sql-agg ,fn :distinct ,distinct))
-           (src (loop for ast in (if (null args)
-                                     (list :null)
-                                     args)
+           (init-src (if order-by
+                         `(endb/sql/expr:make-sql-agg ,fn :order-by ',(mapcar #'second order-by))
+                         `(endb/sql/expr:make-sql-agg ,fn :distinct ,distinct)))
+           (src (loop for ast in (append (if (null args)
+                                             (list :null)
+                                             args)
+                                         (mapcar #'first order-by))
                       collect (ast->cl ctx ast)))
            (where-src (ast->cl ctx where))
            (agg (make-aggregate :src src :init-src init-src :var aggregate-sym :where-src where-src)))

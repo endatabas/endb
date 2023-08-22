@@ -410,6 +410,18 @@
 (defmethod sql-concat ((x fset:seq) (y fset:seq))
   (fset:concat x y))
 
+(defmethod sql-concat (x (y fset:seq))
+  (fset:with-first y x))
+
+(defmethod sql-concat ((x fset:seq) y)
+  (fset:with-last x y))
+
+(defmethod sql-concat ((x (eql :null)) (y fset:seq))
+  (fset:with-first y x))
+
+(defmethod sql-concat ((x fset:seq) (y (eql :null)))
+  (fset:with-last x y))
+
 (defmethod sql-concat ((x fset:map) (y fset:map))
   (fset:map-union x y))
 
@@ -1346,23 +1358,23 @@
 (defmethod sql-agg-finish ((agg sql-group_concat))
   (or (sql-group_concat-acc agg) :null))
 
-(defstruct sql-array_agg (acc (make-array 0 :fill-pointer 0)) distinct)
+(defstruct sql-array_agg acc order-by)
 
-(defmethod make-sql-agg ((type (eql :array_agg)) &key distinct)
-  (make-sql-array_agg :distinct distinct))
+(defmethod make-sql-agg ((type (eql :array_agg)) &key order-by)
+  (make-sql-array_agg :order-by (loop for dir in order-by
+                                      for idx from 2
+                                      collect (list idx dir))))
 
 (defmethod sql-agg-accumulate ((agg sql-array_agg) x &rest args)
-  (declare (ignore args))
-  (with-slots (acc) agg
-    (vector-push-extend x acc)
+  (with-slots (acc order-by) agg
+    (push (cons x args) acc)
     agg))
 
 (defmethod sql-agg-finish ((agg sql-array_agg))
-  (with-slots (acc distinct) agg
-    (fset:convert 'fset:seq
-                  (if (eq :distinct distinct)
-                      (remove-duplicates acc)
-                      acc))))
+  (with-slots (acc order-by) agg
+    (fset:convert 'fset:seq (mapcar #'car (if order-by
+                                              (%sql-order-by acc order-by)
+                                              (reverse acc))))))
 
 (defstruct sql-object_agg (acc (make-hash-table :test 'equal)))
 

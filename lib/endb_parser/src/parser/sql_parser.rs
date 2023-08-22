@@ -1170,6 +1170,29 @@ mod tests {
                         - List: []
         "###);
 
+        assert_yaml_snapshot!(parse("SELECT ARRAY_AGG(x ORDER BY y DESC)"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: AggregateFunction
+                        - KW: ArrayAgg
+                        - List:
+                            - Id:
+                                start: 17
+                                end: 18
+                        - KW: OrderBy
+                        - List:
+                            - List:
+                                - Id:
+                                    start: 28
+                                    end: 29
+                                - KW: Desc
+        "###);
+
         assert_yaml_snapshot!(parse("SELECT count(*) FILTER (WHERE x > 2)"), @r###"
         ---
         Ok:

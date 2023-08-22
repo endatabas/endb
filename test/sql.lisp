@@ -778,8 +778,13 @@
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT ARRAY_AGG(DISTINCT x.column1) FROM (VALUES (1), (1), (2)) AS x")
-      (is (equalp `((,(fset:seq 1 2))) result))
+        (execute-sql db "SELECT ARRAY_AGG(x.column1 ORDER BY x.column1 DESC) FROM (VALUES (1), (2)) AS x")
+      (is (equalp `((,(fset:seq 2 1))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT ARRAY_AGG(x.column1 ORDER BY x.column2 ASC) FROM (VALUES (3, 2), (4, 1)) AS x")
+      (is (equalp `((,(fset:seq 4 3))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
@@ -1497,6 +1502,16 @@
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [1, 2] || [3, 4]")
       (is (equalp `((,(fset:seq 1 2 3 4))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [1, 2] || 3")
+      (is (equalp `((,(fset:seq 1 2 3))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT NULL || [1, 2]")
+      (is (equalp `((,(fset:seq :null 1 2))) result))
       (is (equal '("column1") columns)))
 
     (signals endb/sql/expr:sql-runtime-error
