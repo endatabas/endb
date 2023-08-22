@@ -357,7 +357,32 @@
       (execute-sql db "WITH RECURSIVE cnt(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM cnt AS c1, cnt AS c2 WHERE c1.x<5) SELECT x FROM cnt"))
 
     (signals endb/sql/expr:sql-runtime-error
-      (execute-sql db "WITH RECURSIVE cnt(x) AS (VALUES(1) UNION ALL SELECT COUNT(x) FROM cnt WHERE x<5) SELECT x FROM cnt"))))
+      (execute-sql db "WITH RECURSIVE cnt(x) AS (VALUES(1) UNION ALL SELECT COUNT(x) FROM cnt WHERE x<5) SELECT x FROM cnt"))
+
+    (let* ((write-db (begin-write-tx db)))
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "INSERT INTO org(name, boss) VALUES('Alice',NULL), ('Bob','Alice'), ('Cindy','Alice'), ('Dave','Bob'), ('Emma','Bob'), ('Fred','Cindy'), ('Gail','Cindy')")
+        (is (null result))
+        (is (= 7 result-code)))
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "WITH RECURSIVE
+  under_alice(name,level) AS (
+    VALUES('Alice',0)
+    UNION ALL
+    SELECT org.name, under_alice.level+1
+      FROM org JOIN under_alice ON org.boss = under_alice.name
+  )
+SELECT substr('..........',1,level*3) || name FROM under_alice ORDER BY under_alice.level")
+        (is (equal '(("Alice")
+                     ("...Cindy")
+                     ("...Bob")
+                     ("......Gail")
+                     ("......Fred")
+                     ("......Emma")
+                     ("......Dave"))
+                   result))
+        (is (equal '("column1") columns))))))
 
 (test parameters
   (let* ((db (make-db)))

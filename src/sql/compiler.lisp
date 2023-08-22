@@ -64,17 +64,17 @@
            (progn
              (dolist (cb (fset:lookup ctx :on-cte-access))
                (funcall cb (symbol-name table-name)))
-             (values `(,(intern (symbol-name table-name))) (cte-projection cte)))))
+             (values `(,(intern (symbol-name table-name))) (cte-projection cte) (cte-free-vars cte)))))
       ((equal "BASE TABLE" table-type)
        (values (make-base-table :name (symbol-name table-name)
                                 :temporal temporal
                                 :size (endb/sql/expr:base-table-size db (symbol-name table-name)))
                (endb/sql/expr:table-columns db (symbol-name table-name))))
       ((equal "VIEW" table-type)
-       (multiple-value-bind (ast projection free-vars)
+       (multiple-value-bind (src projection free-vars)
            (%ast->cl-with-free-vars ctx (endb/sql/expr:view-definition db (symbol-name table-name)))
          (declare (ignore projection))
-         (values ast (endb/sql/expr:table-columns db (symbol-name table-name)) free-vars)))
+         (values src (endb/sql/expr:table-columns db (symbol-name table-name)) free-vars)))
       (errorp (%annotated-error table-name "Unknown table")))))
 
 (defun %wrap-with-order-by-and-limit (src order-by limit offset)
@@ -124,7 +124,7 @@
 
 (defstruct aggregate src init-src var where-src)
 
-(defstruct cte src projection ast)
+(defstruct cte src free-vars projection ast)
 
 (defun %binary-predicate-p (x)
   (and (listp x)
@@ -442,7 +442,8 @@
                           (table-alias (%unqualified-column-name (symbol-name table-alias)))
                           (qualified-projection (loop for column in projection
                                                       collect (%qualified-column-name table-alias column)))
-                          (projection (append projection (unless endb/sql/expr:*sqlite-mode*
+                          (projection (append projection (when (and (base-table-p table-src)
+                                                                    (not endb/sql/expr:*sqlite-mode*))
                                                            (list "system_time"))))
                           (env-extension (%env-extension table-alias projection))
                           (ctx (fset:map-union ctx env-extension))
@@ -509,10 +510,12 @@
                                 (offset (unless order-by
                                           offset))
                                 (group-by-needed-p (or group-by-p havingp (plusp (hash-table-count aggregate-table))))
-                                (correlated-vars (set-difference (loop for clause in where-clauses
-                                                                       append (where-clause-free-vars clause))
-                                                                 (loop for from-table in from-tables
-                                                                       append (from-table-vars from-table)))))
+                                (correlated-vars (append (set-difference (loop for clause in where-clauses
+                                                                               append (where-clause-free-vars clause))
+                                                                         (loop for from-table in from-tables
+                                                                               append (from-table-vars from-table)))
+                                                         (loop for (nil . cte) in (fset:convert 'list (fset:lookup ctx :ctes))
+                                                               append (cte-free-vars cte)))))
                            (values
                             (if group-by-needed-p
                                 (%group-by->cl ctx from-tables where-clauses selected-src limit offset group-by having-src correlated-vars)
@@ -1010,46 +1013,52 @@
                               (unless cte-columns
                                 (%annotated-error cte-name "WITH RECURSIVE requires named columns"))
                               (let ((cte (make-cte :src nil
-                                                   :ast cte-ast
-                                                   :projection (mapcar #'symbol-name cte-columns))))
+                                                   :free-vars (list (gensym))
+                                                   :projection (mapcar #'symbol-name cte-columns)
+                                                   :ast cte-ast)))
                                 (fset:with acc (symbol-name cte-name) cte))))
                           ctes
                           :initial-value (fset:empty-map)))
                (ctx (fset:with ctx :ctes (fset:map-union (or (fset:lookup ctx :ctes) (fset:empty-map)) new-ctes))))
           (multiple-value-bind (src projection)
               (ast->cl ctx query)
-            (values `(labels ,(loop for (cte-name) in ctes
-                                    for cte = (fset:lookup new-ctes (symbol-name cte-name))
-                                    collect `(,(intern (symbol-name cte-name)) ()
-                                              ,(multiple-value-bind (src projection)
-                                                   (let* ((cte-accessed)
-                                                          (cte-ctx (fset:map (:left-rec-cte (symbol-name cte-name))
-                                                                             (:on-cte-access
-                                                                              (cons (lambda (k)
-                                                                                      (when (equal k (symbol-name cte-name))
-                                                                                        (if cte-accessed
-                                                                                            (%annotated-error cte-name "Non-linear recursion not supported")
-                                                                                            (setf cte-accessed t))))
-                                                                                    (fset:lookup ctx :on-cte-access))))))
-                                                     (ast->cl (fset:map-union ctx cte-ctx) (cte-ast cte)))
-                                                 (unless (= (length projection) (length (cte-projection cte)))
-                                                   (%annotated-error cte-name "Number of column names does not match projection"))
-                                                 (let ((acc-sym (gensym))
-                                                       (last-acc-sym (gensym))
-                                                       (cte-sym (gensym))
-                                                       (distinct (when (and (listp (cte-ast cte))
-                                                                            (eq :union (first (cte-ast cte))))
-                                                                   :distinct)))
-                                                   `(block ,cte-sym
-                                                      (let ((,acc-sym)
-                                                            (,last-acc-sym))
-                                                        (labels ((,(intern (symbol-name cte-name)) () ,last-acc-sym))
-                                                          (loop
-                                                            (setf ,last-acc-sym (set-difference (endb/sql/expr::%sql-distinct ,src ,distinct) ,acc-sym :test 'equal))
-                                                            (if ,last-acc-sym
-                                                                (setf ,acc-sym (append ,acc-sym ,last-acc-sym))
-                                                                (return-from ,cte-sym ,acc-sym))))))))))
-                       ,src)
+            (values `(let ,(loop for (cte-name) in ctes
+                                 for cte = (fset:lookup new-ctes (symbol-name cte-name))
+                                 collect (list (first (cte-free-vars cte)) 0))
+                       (labels ,(loop for (cte-name) in ctes
+                                      for cte = (fset:lookup new-ctes (symbol-name cte-name))
+                                      collect `(,(intern (symbol-name cte-name)) ()
+                                                ,(multiple-value-bind (src projection)
+                                                     (let* ((cte-accessed)
+                                                            (cte-ctx (fset:map (:left-rec-cte (symbol-name cte-name))
+                                                                               (:on-cte-access
+                                                                                (cons (lambda (k)
+                                                                                        (when (equal k (symbol-name cte-name))
+                                                                                          (if cte-accessed
+                                                                                              (%annotated-error cte-name "Non-linear recursion not supported")
+                                                                                              (setf cte-accessed t))))
+                                                                                      (fset:lookup ctx :on-cte-access))))))
+                                                       (ast->cl (fset:map-union ctx cte-ctx) (cte-ast cte)))
+                                                   (unless (= (length projection) (length (cte-projection cte)))
+                                                     (%annotated-error cte-name "Number of column names does not match projection"))
+                                                   (let ((acc-sym (gensym))
+                                                         (last-acc-sym (gensym))
+                                                         (cte-sym (gensym))
+                                                         (distinct (when (and (listp (cte-ast cte))
+                                                                              (eq :union (first (cte-ast cte))))
+                                                                     :distinct)))
+                                                     `(block ,cte-sym
+                                                        (let ((,acc-sym)
+                                                              (,last-acc-sym))
+                                                          (labels ((,(intern (symbol-name cte-name)) ()
+                                                                     (incf ,(first (cte-free-vars cte)))
+                                                                     ,last-acc-sym))
+                                                            (loop
+                                                              (setf ,last-acc-sym (set-difference (endb/sql/expr::%sql-distinct ,src ,distinct) ,acc-sym :test 'equal))
+                                                              (if ,last-acc-sym
+                                                                  (setf ,acc-sym (append ,acc-sym ,last-acc-sym))
+                                                                  (return-from ,cte-sym ,acc-sym))))))))))
+                         ,src))
                     projection)))
         (let* ((new-ctes (reduce
                           (lambda (acc cte)
