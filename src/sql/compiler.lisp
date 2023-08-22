@@ -413,6 +413,12 @@
    projection
    :initial-value (fset:empty-map)))
 
+(defun %recursive-select-p (ctx table-or-subquery)
+  (when (symbolp table-or-subquery)
+    (and (fset:lookup (or (fset:lookup ctx :ctes) (fset:empty-map))
+                      (symbol-name table-or-subquery))
+         (fset:lookup ctx :on-cte-access))))
+
 (defmethod sql->cl (ctx (type (eql :select)) &rest args)
   (destructuring-bind (select-list &key distinct (from '(((:values ((:null))) #:dual))) (where :true)
                                      (group-by () group-by-p) (having :true havingp)
@@ -440,6 +446,9 @@
                                                            (list "system_time"))))
                           (env-extension (%env-extension table-alias projection))
                           (ctx (fset:map-union ctx env-extension))
+                          (ctx (if (%recursive-select-p ctx table-or-subquery)
+                                   (fset:with ctx :recursive-select t)
+                                   ctx))
                           (from-table (make-from-table :src table-src
                                                        :vars (loop for p in projection
                                                                    collect (fset:lookup env-extension p))
@@ -1078,6 +1087,8 @@
       args
     (when (fset:lookup ctx :aggregate)
       (error 'endb/sql/expr:sql-runtime-error :message (format nil "Cannot nest aggregate functions: ~A" fn)))
+    (when (fset:lookup ctx :recursive-select)
+      (error 'endb/sql/expr:sql-runtime-error :message (format nil "Cannot use aggregate functions in recursion: ~A" fn)))
     (let* ((aggregate-table (fset:lookup ctx :aggregate-table))
            (ctx (fset:with ctx :aggregate t))
            (fn-sym (%find-sql-expr-symbol fn))

@@ -354,7 +354,10 @@
       (execute-sql db "WITH RECURSIVE cnt(x) AS (SELECT x+1 FROM cnt WHERE x<5) SELECT x FROM cnt ORDER BY x"))
 
     (signals endb/sql/expr:sql-runtime-error
-      (execute-sql db "WITH RECURSIVE cnt(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM cnt AS c1, cnt AS c2 WHERE c1.x<5) SELECT x FROM cnt"))))
+      (execute-sql db "WITH RECURSIVE cnt(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM cnt AS c1, cnt AS c2 WHERE c1.x<5) SELECT x FROM cnt"))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "WITH RECURSIVE cnt(x) AS (VALUES(1) UNION ALL SELECT COUNT(x) FROM cnt WHERE x<5) SELECT x FROM cnt"))))
 
 (test parameters
   (let* ((db (make-db)))
