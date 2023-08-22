@@ -1036,16 +1036,19 @@
                                                    (%annotated-error cte-name "Number of column names does not match projection"))
                                                  (let ((acc-sym (gensym))
                                                        (last-acc-sym (gensym))
-                                                       (cte-sym (gensym)))
+                                                       (cte-sym (gensym))
+                                                       (distinct (when (and (listp (cte-ast cte))
+                                                                            (eq :union (first (cte-ast cte))))
+                                                                   :distinct)))
                                                    `(block ,cte-sym
                                                       (let ((,acc-sym)
                                                             (,last-acc-sym))
-                                                        (labels ((,(intern (symbol-name cte-name)) () ,acc-sym))
+                                                        (labels ((,(intern (symbol-name cte-name)) () ,last-acc-sym))
                                                           (loop
-                                                            (setf ,last-acc-sym (endb/sql/expr::%sql-distinct ,src :distinct))
-                                                            (if (= (length ,acc-sym) (length ,last-acc-sym))
-                                                                (return-from ,cte-sym ,acc-sym)
-                                                                (setf ,acc-sym ,last-acc-sym))))))))))
+                                                            (setf ,last-acc-sym (set-difference (endb/sql/expr::%sql-distinct ,src ,distinct) ,acc-sym :test 'equal))
+                                                            (if ,last-acc-sym
+                                                                (setf ,acc-sym (append ,acc-sym ,last-acc-sym))
+                                                                (return-from ,cte-sym ,acc-sym))))))))))
                        ,src)
                     projection)))
         (let* ((new-ctes (reduce
