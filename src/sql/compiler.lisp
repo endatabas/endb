@@ -59,10 +59,7 @@
          (table-type (endb/sql/expr:table-type db (symbol-name table-name))))
     (cond
       (cte
-       (multiple-value-bind (ast projection free-vars)
-           (%ast->cl-with-free-vars ctx (cte-src cte))
-         (declare (ignore projection))
-         (values ast (cte-projection cte) free-vars)))
+       (values `(,(intern (symbol-name table-name))) (cte-projection cte)))
       ((equal "BASE TABLE" table-type)
        (values (make-base-table :name (symbol-name table-name)
                                 :temporal temporal
@@ -991,21 +988,27 @@
 (defmethod sql->cl (ctx (type (eql :with)) &rest args)
   (destructuring-bind (ctes query)
       args
-    (let ((ctx (fset:with ctx :ctes (reduce
-                                     (lambda (acc cte)
-                                       (destructuring-bind (cte-name cte-query &optional cte-columns)
-                                           cte
-                                         (multiple-value-bind (ast projection)
-                                             (ast->cl (fset:with ctx :ctes acc) cte-query)
-                                           (declare (ignore ast))
-                                           (when (and cte-columns (not (= (length projection) (length cte-columns))))
-                                             (%annotated-error cte-name "Number of column names does not match projection"))
-                                           (fset:with acc
-                                                      (symbol-name cte-name)
-                                                      (make-cte :src cte-query :projection (or (mapcar #'symbol-name cte-columns) projection))))))
-                                     ctes
-                                     :initial-value (or (fset:lookup ctx :ctes) (fset:empty-map))))))
-      (ast->cl ctx query))))
+    (let* ((new-ctes (reduce
+                      (lambda (acc cte)
+                        (destructuring-bind (cte-name cte-ast &optional cte-columns)
+                            cte
+                          (multiple-value-bind (src projection)
+                              (ast->cl (fset:with ctx :ctes (fset:map-union (or (fset:lookup ctx :ctes) (fset:empty-map)) acc)) cte-ast)
+                            (when (and cte-columns (not (= (length projection) (length cte-columns))))
+                              (%annotated-error cte-name "Number of column names does not match projection"))
+                            (let ((cte (make-cte :src src
+                                                 :projection (or (mapcar #'symbol-name cte-columns) projection))))
+                              (fset:with acc (symbol-name cte-name) cte)))))
+                      ctes
+                      :initial-value (fset:empty-map)))
+           (ctx (fset:with ctx :ctes (fset:map-union (or (fset:lookup ctx :ctes) (fset:empty-map)) new-ctes))))
+      (multiple-value-bind (src projection)
+          (ast->cl ctx query)
+        (values `(flet ,(loop for (cte-name) in ctes
+                              for cte = (fset:lookup new-ctes (symbol-name cte-name))
+                              collect `(,(intern (symbol-name cte-name)) () ,(cte-src cte)))
+                   ,src)
+                projection)))))
 
 (defun %find-sql-expr-symbol (fn)
   (find-symbol (string-upcase (concatenate 'string "sql-" (symbol-name fn))) :endb/sql/expr))
