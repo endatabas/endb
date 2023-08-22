@@ -15,7 +15,7 @@
            #:sql-access #:sql-access-finish #:sql-between #:sql-in #:sql-exists #:sql-coalesce
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery #:sql-unnest
            #:sql-concat #:sql-cardinality #:sql-char_length #:sql-character_length #:sql-octet_length #:sql-length #:sql-trim #:sql-ltrim #:sql-rtrim #:sql-lower #:sql-upper
-           #:sql-replace #:sql-unhex #:sql-hex
+           #:sql-replace #:sql-unhex #:sql-hex #:sql-instr #:sql-min #:sql-max #:sql-char #:sql-unicode #:sql-random
            #:sql-round #:sql-sin #:sql-cos #:sql-tan #:sql-sinh #:sql-cosh #:sql-tanh #:sql-asin #:sqn-acos #:sql-atan #:sql-floor #:sql-ceiling #:sql-ceil
            #:sql-sign #:sql-sqrt #:sql-exp #:sql-power #:sql-power #:sql-log #:sql-log10 #:sql-ln
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-timestamp #:sql-duration #:sql-interval #:sql-like #:sql-substr #:sql-substring #:sql-strftime
@@ -684,6 +684,9 @@
 (defmethod sql-cast ((x real) (type (eql :varchar)))
   (format nil "~F" x))
 
+(defmethod sql-cast ((x vector) (type (eql :varchar)))
+  (trivial-utf-8:utf-8-bytes-to-string x))
+
 (defmethod sql-cast ((x string) (type (eql :blob)))
   (trivial-utf-8:string-to-utf-8-bytes x))
 
@@ -1024,6 +1027,43 @@
             (subseq x y z)
             :null))))
 
+(defmethod sql-instr ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-instr (x (y (eql :null)))
+  :null)
+
+(defmethod sql-instr ((x string) (y string))
+  (let ((idx (search y x)))
+    (if idx
+        (1+ idx)
+        0)))
+
+(defmethod sql-instr ((x vector) (y vector))
+  (let ((idx (search y x)))
+    (if idx
+        (1+ idx)
+        0)))
+
+(defun sql-char (&rest args)
+  (if (every #'integerp args)
+      (coerce (loop for x in args
+                    collect (code-char x))
+              'string)
+      ""))
+
+(defmethod sql-unicode ((x (eql  :null)))
+  :null)
+
+(defmethod sql-unicode ((x string))
+  (if (plusp (length x))
+      (char-code (char x 0))
+      :null))
+
+(defun sql-random ()
+  (let ((x (random (ash 1 64))))
+    (- x (ash 1 63))))
+
 (defun sql-scalar-subquery (rows)
   (when (> 1 (length rows))
     (error 'sql-runtime-error :message "Scalar subquery must return max one row"))
@@ -1122,6 +1162,12 @@
 
 (defmethod sql-typeof ((x fset:map))
   "object")
+
+(defun sql-min (x y &rest args)
+  (sql-agg-finish (reduce #'sql-agg-accumulate (cons x (cons y args)) :initial-value (make-sql-agg :min))))
+
+(defun sql-max (x y &rest args)
+  (sql-agg-finish (reduce #'sql-agg-accumulate (cons x (cons y args)) :initial-value (make-sql-agg :max))))
 
 ;; Period predicates
 
@@ -1346,7 +1392,7 @@
       (error 'sql-runtime-error :message "GROUP_CONCAT with argument doesn't support DISTINCT"))
     (if (member x seen :test 'equal)
         agg
-        (let ((separator (or (first args) ",")))
+        (let ((separator (sql-cast (or (first args) ",") :varchar)))
           (when distinct
             (push x seen))
           (setf acc (if acc
