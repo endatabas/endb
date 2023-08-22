@@ -59,7 +59,12 @@
          (table-type (endb/sql/expr:table-type db (symbol-name table-name))))
     (cond
       (cte
-       (values `(,(intern (symbol-name table-name))) (cte-projection cte)))
+       (if (equal (symbol-name table-name) (fset:lookup ctx :left-rec-cte))
+           (%annotated-error table-name "Left-recursion not supported")
+           (progn
+             (dolist (cb (fset:lookup ctx :on-cte-access))
+               (funcall cb (symbol-name table-name)))
+             (values `(,(intern (symbol-name table-name))) (cte-projection cte)))))
       ((equal "BASE TABLE" table-type)
        (values (make-base-table :name (symbol-name table-name)
                                 :temporal temporal
@@ -593,7 +598,7 @@
       args
     (multiple-value-bind (lhs-src projection)
         (ast->cl ctx lhs)
-      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-union ,lhs-src ,(ast->cl ctx rhs))
+      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-union ,lhs-src ,(ast->cl (fset:less ctx :left-rec-cte) rhs))
                                              (%resolve-order-by order-by projection) limit offset)
               projection))))
 
@@ -602,7 +607,7 @@
       args
     (multiple-value-bind (lhs-src projection)
         (ast->cl ctx lhs)
-      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-union-all ,lhs-src ,(ast->cl ctx rhs))
+      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-union-all ,lhs-src ,(ast->cl (fset:less ctx :left-rec-cte) rhs))
                                              (%resolve-order-by order-by projection) limit offset)
               projection))))
 
@@ -611,7 +616,7 @@
       args
     (multiple-value-bind (lhs-src projection)
         (ast->cl ctx lhs)
-      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-except ,lhs-src ,(ast->cl ctx rhs))
+      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-except ,lhs-src ,(ast->cl (fset:less ctx :left-rec-cte) rhs))
                                              (%resolve-order-by order-by projection) limit offset)
               projection))))
 
@@ -620,7 +625,7 @@
       args
     (multiple-value-bind (lhs-src projection)
         (ast->cl ctx lhs)
-      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-intersect ,lhs-src ,(ast->cl ctx rhs))
+      (values (%wrap-with-order-by-and-limit `(endb/sql/expr:sql-intersect ,lhs-src ,(ast->cl (fset:less ctx :left-rec-cte) rhs))
                                              (%resolve-order-by order-by projection) limit offset)
               projection))))
 
@@ -1008,7 +1013,16 @@
                                     for cte = (fset:lookup new-ctes (symbol-name cte-name))
                                     collect `(,(intern (symbol-name cte-name)) ()
                                               ,(multiple-value-bind (src projection)
-                                                   (ast->cl ctx (cte-ast cte))
+                                                   (let* ((cte-accessed)
+                                                          (cte-ctx (fset:map (:left-rec-cte (symbol-name cte-name))
+                                                                             (:on-cte-access
+                                                                              (cons (lambda (k)
+                                                                                      (when (equal k (symbol-name cte-name))
+                                                                                        (if cte-accessed
+                                                                                            (%annotated-error cte-name "Non-linear recursion not supported")
+                                                                                            (setf cte-accessed t))))
+                                                                                    (fset:lookup ctx :on-cte-access))))))
+                                                     (ast->cl (fset:map-union ctx cte-ctx) (cte-ast cte)))
                                                  (unless (= (length projection) (length (cte-projection cte)))
                                                    (%annotated-error cte-name "Number of column names does not match projection"))
                                                  (let ((acc-sym (gensym))
