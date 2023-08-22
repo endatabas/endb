@@ -827,10 +827,16 @@
       (is (equal '("foo" "bar") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT y.* FROM (VALUES (['a', 'b', 'c'])) AS x(foo), UNNEST(x.foo WITH ORDINALITY) AS y(foo, bar)")
+        (execute-sql db "SELECT y.* FROM (VALUES (['a', 'b', 'c'])) AS x(foo), UNNEST(x.foo) WITH ORDINALITY AS y(foo, bar)")
       (is (equal '(("a" 0) ("b" 1) ("c" 2))
                  result))
       (is (equal '("foo" "bar") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT y.* FROM (VALUES (['a', 'b', 'c'], ['d', 'e'])) AS x(foo, baz), UNNEST(x.foo, x.baz) WITH ORDINALITY AS y(foo, baz, pos)")
+      (is (equal '(("a" "d" 0) ("b" "e" 1) ("c" :null 2))
+                 result))
+      (is (equal '("foo" "baz" "pos") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT {}")

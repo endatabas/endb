@@ -104,21 +104,26 @@ where
             kw("UNNEST")
                 .ignore_then(
                     expr.clone()
-                        .then(
-                            kw("WITH")
-                                .ignore_then(kw("ORDINALITY"))
-                                .to(WithOrdinality)
-                                .map(KW)
-                                .or_not(),
-                        )
+                        .separated_by(pad(','))
+                        .at_least(1)
+                        .collect()
+                        .map(List)
                         .delimited_by(pad('('), pad(')')),
                 )
-                .map(|(expr, ordinality)| {
-                    let mut acc = vec![KW(Unnest), expr];
+                .then(
+                    kw("WITH")
+                        .ignore_then(kw("ORDINALITY"))
+                        .to(WithOrdinality)
+                        .map(KW)
+                        .or_not(),
+                )
+                .map(|(exprs, ordinality)| {
+                    let mut acc = vec![KW(Unnest), exprs];
                     add_clause(&mut acc, WithOrdinality, ordinality);
                     (List(acc), None)
                 })
-                .then(table_alias.clone().map(Some)),
+                .then(table_alias.clone().map(Some))
+                .boxed(),
             choice((
                 information_schema_table_name,
                 id.clone()
@@ -2936,15 +2941,16 @@ mod tests {
                 - List:
                     - List:
                         - KW: Unnest
-                        - Id:
-                            start: 26
-                            end: 33
+                        - List:
+                            - Id:
+                                start: 26
+                                end: 33
                     - Id:
                         start: 38
                         end: 41
         "###);
 
-        assert_yaml_snapshot!(parse("SELECT * FROM foo, UNNEST(foo.bar WITH ORDINALITY) AS bar(x, y)"), @r###"
+        assert_yaml_snapshot!(parse("SELECT * FROM foo, UNNEST(foo.bar, foo.baz) WITH ORDINALITY AS bar(x, y)"), @r###"
         ---
         Ok:
           List:
@@ -2961,21 +2967,25 @@ mod tests {
                 - List:
                     - List:
                         - KW: Unnest
-                        - Id:
-                            start: 26
-                            end: 33
+                        - List:
+                            - Id:
+                                start: 26
+                                end: 33
+                            - Id:
+                                start: 35
+                                end: 42
                         - KW: WithOrdinality
                         - KW: WithOrdinality
                     - Id:
-                        start: 54
-                        end: 57
+                        start: 63
+                        end: 66
                     - List:
                         - Id:
-                            start: 58
-                            end: 59
+                            start: 67
+                            end: 68
                         - Id:
-                            start: 61
-                            end: 62
+                            start: 70
+                            end: 71
         "###);
     }
 }

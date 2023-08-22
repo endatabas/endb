@@ -559,12 +559,12 @@
                         ,src)))))))))
 
 (defmethod sql->cl (ctx (type (eql :unnest)) &rest args)
-  (destructuring-bind (expr &key with-ordinality)
+  (destructuring-bind (exprs &key with-ordinality)
       args
-    (values `(endb/sql/expr:sql-unnest ,(ast->cl ctx expr) :with-ordinality ,with-ordinality)
+    (values `(endb/sql/expr:sql-unnest ,(ast->cl ctx exprs) :with-ordinality ,with-ordinality)
             (%values-projection (if with-ordinality
-                                    2
-                                    1)))))
+                                    (1+ (length exprs))
+                                    (length exprs))))))
 
 (defmethod sql->cl (ctx (type (eql :union)) &rest args)
   (destructuring-bind (lhs rhs &key order-by limit offset)

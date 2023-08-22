@@ -1016,15 +1016,21 @@
       :null
       (caar rows)))
 
-(defun sql-unnest (array &key with-ordinality)
-  (when (fset:seq? array)
-    (let ((array (fset:convert 'list array)))
+(defun sql-unnest (arrays &key with-ordinality)
+  (when (every #'fset:seq? arrays)
+    (let ((len (apply #'max (mapcar #'fset:size arrays))))
       (reverse (if (eq :with-ordinality with-ordinality)
-                   (loop for x in array
-                         for idx from 0
-                         collect (list x idx))
-                   (loop for x in array
-                         collect (list x)))))))
+                   (loop for idx below len
+                         collect (append (loop for a in arrays
+                                               collect (if (< idx (fset:size a))
+                                                           (fset:lookup a idx)
+                                                           :null))
+                                         (list idx)))
+                   (loop for idx below len
+                         collect (loop for a in arrays
+                                       collect (if (< idx (fset:size a))
+                                                   (fset:lookup a idx)
+                                                   :null))))))))
 
 (defun sql-current-date (db)
   (sql-cast (sql-current-timestamp db) :date))
