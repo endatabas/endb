@@ -84,11 +84,21 @@
                   src)))
     src))
 
-(defun %resolve-order-by (order-by projection)
-  (loop for (col direction) in order-by
-        collect (list (if (symbolp col)
-                          (1+ (position (symbol-name col) projection :test 'equal))
-                          col)
+(defun %resolve-order-by (order-by projection &key allow-expr-p)
+  (loop with expr-idx = (length projection)
+        for (expr direction) in order-by
+        for projected-idx = (when (symbolp expr)
+                              (position (symbol-name expr) projection :test 'equal))
+        collect (list (cond
+                        ((numberp expr)
+                         (if (<= 1 expr (length projection))
+                             expr
+                             (error 'endb/sql/expr:sql-runtime-error :message (format nil "ORDER BY index not in range: ~A" expr))))
+                        (projected-idx (1+ projected-idx))
+                        (allow-expr-p (incf expr-idx))
+                        (t (if (symbolp expr)
+                               (error 'endb/sql/expr:sql-runtime-error :message (format nil "Cannot resolve ORDER BY column: ~A" expr))
+                               (error 'endb/sql/expr:sql-runtime-error :message (format nil "Invalid ORDER BY expression")))))
                       (or direction :asc))))
 
 (defun %and-clauses (expr)
@@ -460,6 +470,14 @@
                                                               (loop for p in (gethash (symbol-name (second expr)) table-by-alias)
                                                                     collect (ast->cl ctx (make-symbol p))))
                                                              (t (list (ast->cl ctx expr))))))
+                                (select-star-projection (mapcar #'%unqualified-column-name full-projection))
+                                (select-projection (%select-projection select-list select-star-projection table-by-alias))
+                                (order-by-selected-src (loop for (expr) in order-by
+                                                             for projected-idx = (when (symbolp expr)
+                                                                                   (position (symbol-name expr) select-projection :test 'equal))
+                                                             unless (or projected-idx (numberp expr))
+                                                               collect (ast->cl ctx expr)))
+                                (selected-src (append selected-src order-by-selected-src))
                                 (where-clauses (loop for clause in (append (%from-where-clauses from)
                                                                            (%and-clauses where))
                                                      collect (multiple-value-bind (src projection free-vars)
@@ -510,8 +528,15 @@
                           src))
                  (select-star-projection (mapcar #'%unqualified-column-name full-projection))
                  (select-projection (%select-projection select-list select-star-projection table-by-alias))
-                 (src (%wrap-with-order-by-and-limit src (%resolve-order-by order-by select-projection) limit offset)))
-            (values src select-projection)))))))
+                 (resolved-order-by (%resolve-order-by order-by select-projection :allow-expr-p t))
+                 (src (%wrap-with-order-by-and-limit src resolved-order-by limit offset))
+                 (row-sym (gensym)))
+            (values (if (loop for (idx) in resolved-order-by
+                              thereis (> idx (length select-projection)))
+                        `(loop for ,row-sym in ,src
+                               collect (subseq ,row-sym 0 ,(length select-projection)))
+                        src)
+                    select-projection)))))))
 
 (defun %values-projection (arity)
   (loop for idx from 1 upto arity
@@ -1153,7 +1178,7 @@
             (ast->cl ctx ast)
           (log:debug src)
           (let* ((src (if projection
-                          `(values ,src ,(list 'quote projection))
+                          `(values ,src ',projection)
                           src))
                  (src `(lambda (,db-sym &optional ,param-sym)
                          (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))

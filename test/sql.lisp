@@ -1547,7 +1547,29 @@
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT UNHEX('ab CD', ' ')")
       (is (equalp '((#(171 205))) result))
-      (is (equal '("column1") columns)))))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT x AS y FROM (VALUES (1), (2)) AS foo(x) ORDER BY -foo.x")
+      (is (equalp '((2) (1)) result))
+      (is (equal '("y") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT x FROM (VALUES ('foo'), ('bar'), ('food')) AS foo(x) ORDER BY LENGTH(x), x DESC")
+      (is (equalp '(("foo") ("bar") ("food")) result))
+      (is (equal '("x") columns)))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "SELECT x AS y FROM (VALUES (1), (2)) AS foo(x) ORDER BY -y"))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "VALUES (1), (2) ORDER BY -y"))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "VALUES (1), (2) ORDER BY column2"))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "VALUES (1), (2) ORDER BY 2"))))
 
 (test interpret-sql-literal
   (is (equal "foo" (interpret-sql-literal "'foo'")))

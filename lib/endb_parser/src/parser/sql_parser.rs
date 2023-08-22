@@ -47,21 +47,22 @@ where
         .map(Integer)
         .then_ignore(text::whitespace());
 
-    let order_by_list = choice((id.clone(), positive_integer))
-        .then(
-            choice((kw("ASC").to(Asc), kw("DESC").to(Desc)))
-                .or_not()
-                .map(|dir| KW(dir.unwrap_or(Asc))),
-        )
-        .map(|(var, dir)| List(vec![var, dir]))
-        .separated_by(pad(','))
-        .at_least(1)
-        .collect()
-        .map(List);
-
     let select_stmt = recursive(|query| {
         let expr = expr_ast_parser(query.clone());
         let subquery = query.delimited_by(pad('('), pad(')'));
+
+        let order_by_list = expr
+            .clone()
+            .then(
+                choice((kw("ASC").to(Asc), kw("DESC").to(Desc)))
+                    .or_not()
+                    .map(|dir| KW(dir.unwrap_or(Asc))),
+            )
+            .map(|(var, dir)| List(vec![var, dir]))
+            .separated_by(pad(','))
+            .at_least(1)
+            .collect()
+            .map(List);
 
         let information_schema_table_name = kw_no_pad("INFORMATION_SCHEMA")
             .then(just('.'))
@@ -477,13 +478,19 @@ where
             List(acc)
         });
 
+    let order_by_list = id
+        .clone()
+        .then(choice((kw("ASC"), kw("DESC"))).or_not())
+        .separated_by(pad(','))
+        .at_least(1);
+
     let create_index_stmt = kw("CREATE")
         .ignore_then(kw("UNIQUE").or_not())
         .ignore_then(kw("INDEX"))
         .ignore_then(id.clone())
         .then_ignore(kw("ON"))
         .then(id.clone())
-        .then_ignore(order_by_list.clone().delimited_by(pad('('), pad(')')))
+        .then_ignore(order_by_list.delimited_by(pad('('), pad(')')))
         .map(|(index, table)| List(vec![KW(CreateIndex), index, table]));
 
     let create_view_stmt = kw("CREATE")
@@ -1416,6 +1423,32 @@ mod tests {
                         end: 83
                     - KW: Asc
         "###);
+        assert_yaml_snapshot!(parse("SELECT 1 FROM x ORDER BY x.a + 1"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Integer: 1
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 14
+                        end: 15
+            - KW: OrderBy
+            - List:
+                - List:
+                    - List:
+                        - KW: Plus
+                        - Id:
+                            start: 25
+                            end: 28
+                        - Integer: 1
+                    - KW: Asc
+        "###);
+
         assert_yaml_snapshot!(parse("SELECT 1 FROM x CROSS JOIN y"), @r###"
         ---
         Ok:
