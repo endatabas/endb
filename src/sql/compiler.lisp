@@ -119,7 +119,7 @@
 
 (defstruct aggregate src init-src var where-src)
 
-(defstruct cte src projection)
+(defstruct cte src projection ast)
 
 (defun %binary-predicate-p (x)
   (and (listp x)
@@ -986,29 +986,66 @@
       ,(eq :recursive recursive))))
 
 (defmethod sql->cl (ctx (type (eql :with)) &rest args)
-  (destructuring-bind (ctes query)
+  (destructuring-bind (ctes query &key recursive)
       args
-    (let* ((new-ctes (reduce
-                      (lambda (acc cte)
-                        (destructuring-bind (cte-name cte-ast &optional cte-columns)
-                            cte
-                          (multiple-value-bind (src projection)
-                              (ast->cl (fset:with ctx :ctes (fset:map-union (or (fset:lookup ctx :ctes) (fset:empty-map)) acc)) cte-ast)
-                            (when (and cte-columns (not (= (length projection) (length cte-columns))))
-                              (%annotated-error cte-name "Number of column names does not match projection"))
-                            (let ((cte (make-cte :src src
-                                                 :projection (or (mapcar #'symbol-name cte-columns) projection))))
-                              (fset:with acc (symbol-name cte-name) cte)))))
-                      ctes
-                      :initial-value (fset:empty-map)))
-           (ctx (fset:with ctx :ctes (fset:map-union (or (fset:lookup ctx :ctes) (fset:empty-map)) new-ctes))))
-      (multiple-value-bind (src projection)
-          (ast->cl ctx query)
-        (values `(flet ,(loop for (cte-name) in ctes
-                              for cte = (fset:lookup new-ctes (symbol-name cte-name))
-                              collect `(,(intern (symbol-name cte-name)) () ,(cte-src cte)))
-                   ,src)
-                projection)))))
+    (if recursive
+        (let* ((new-ctes (reduce
+                          (lambda (acc cte)
+                            (destructuring-bind (cte-name cte-ast &optional cte-columns)
+                                cte
+                              (unless cte-columns
+                                (%annotated-error cte-name "WITH RECURSIVE requires named columns"))
+                              (let ((cte (make-cte :src nil
+                                                   :ast cte-ast
+                                                   :projection (mapcar #'symbol-name cte-columns))))
+                                (fset:with acc (symbol-name cte-name) cte))))
+                          ctes
+                          :initial-value (fset:empty-map)))
+               (ctx (fset:with ctx :ctes (fset:map-union (or (fset:lookup ctx :ctes) (fset:empty-map)) new-ctes))))
+          (multiple-value-bind (src projection)
+              (ast->cl ctx query)
+            (values `(labels ,(loop for (cte-name) in ctes
+                                    for cte = (fset:lookup new-ctes (symbol-name cte-name))
+                                    collect `(,(intern (symbol-name cte-name)) ()
+                                              ,(multiple-value-bind (src projection)
+                                                   (ast->cl ctx (cte-ast cte))
+                                                 (unless (= (length projection) (length (cte-projection cte)))
+                                                   (%annotated-error cte-name "Number of column names does not match projection"))
+                                                 (let ((acc-sym (gensym))
+                                                       (last-acc-sym (gensym))
+                                                       (cte-sym (gensym)))
+                                                   `(block ,cte-sym
+                                                      (let ((,acc-sym)
+                                                            (,last-acc-sym))
+                                                        (labels ((,(intern (symbol-name cte-name)) () ,acc-sym))
+                                                          (loop
+                                                            (setf ,last-acc-sym (endb/sql/expr::%sql-distinct ,src :distinct))
+                                                            (if (= (length ,acc-sym) (length ,last-acc-sym))
+                                                                (return-from ,cte-sym ,acc-sym)
+                                                                (setf ,acc-sym ,last-acc-sym))))))))))
+                       ,src)
+                    projection)))
+        (let* ((new-ctes (reduce
+                          (lambda (acc cte)
+                            (destructuring-bind (cte-name cte-ast &optional cte-columns)
+                                cte
+                              (multiple-value-bind (src projection)
+                                  (ast->cl (fset:with ctx :ctes (fset:map-union (or (fset:lookup ctx :ctes) (fset:empty-map)) acc)) cte-ast)
+                                (when (and cte-columns (not (= (length projection) (length cte-columns))))
+                                  (%annotated-error cte-name "Number of column names does not match projection"))
+                                (let ((cte (make-cte :src src
+                                                     :projection (or (mapcar #'symbol-name cte-columns) projection))))
+                                  (fset:with acc (symbol-name cte-name) cte)))))
+                          ctes
+                          :initial-value (fset:empty-map)))
+               (ctx (fset:with ctx :ctes (fset:map-union (or (fset:lookup ctx :ctes) (fset:empty-map)) new-ctes))))
+          (multiple-value-bind (src projection)
+              (ast->cl ctx query)
+            (values `(flet ,(loop for (cte-name) in ctes
+                                  for cte = (fset:lookup new-ctes (symbol-name cte-name))
+                                  collect `(,(intern (symbol-name cte-name)) () ,(cte-src cte)))
+                       ,src)
+                    projection))))))
 
 (defun %find-sql-expr-symbol (fn)
   (find-symbol (string-upcase (concatenate 'string "sql-" (symbol-name fn))) :endb/sql/expr))

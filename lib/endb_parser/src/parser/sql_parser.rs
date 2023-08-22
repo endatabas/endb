@@ -372,17 +372,23 @@ where
 
         kw("WITH")
             .ignore_then(
-                with_element
-                    .separated_by(pad(','))
-                    .at_least(1)
-                    .collect()
-                    .map(List),
+                kw("RECURSIVE").to(Recursive).map(KW).or_not().then(
+                    with_element
+                        .separated_by(pad(','))
+                        .at_least(1)
+                        .collect()
+                        .map(List),
+                ),
             )
             .or_not()
             .then(full_select)
             .map(|(with_list, full_select)| match with_list {
                 None => full_select,
-                Some(with_list) => List(vec![KW(With), with_list, full_select]),
+                Some((recursive, with_list)) => {
+                    let mut acc = vec![KW(With), with_list, full_select];
+                    add_clause(&mut acc, Recursive, recursive);
+                    List(acc)
+                }
             })
     });
 
@@ -2058,6 +2064,39 @@ mod tests {
                         - Id:
                             start: 70
                             end: 73
+        "###);
+        assert_yaml_snapshot!(parse("WITH RECURSIVE foo(a) AS (SELECT 1) SELECT * FROM foo"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: With
+            - List:
+                - List:
+                    - Id:
+                        start: 15
+                        end: 18
+                    - List:
+                        - KW: Select
+                        - List:
+                            - List:
+                                - Integer: 1
+                    - List:
+                        - Id:
+                            start: 19
+                            end: 20
+            - List:
+                - KW: Select
+                - List:
+                    - List:
+                        - KW: Mul
+                - KW: From
+                - List:
+                    - List:
+                        - Id:
+                            start: 50
+                            end: 53
+            - KW: Recursive
+            - KW: Recursive
         "###);
     }
 

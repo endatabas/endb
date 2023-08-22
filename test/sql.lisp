@@ -338,7 +338,17 @@
     (multiple-value-bind (result columns)
         (execute-sql db "WITH foo AS (SELECT 1) SELECT * FROM foo")
       (is (equal '((1)) result))
-      (is (equal '("column1") columns)))))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "WITH RECURSIVE t(n) AS (VALUES (1) UNION ALL SELECT n+1 FROM t WHERE n < 100) SELECT sum(n) FROM t")
+      (is (equal '((5050)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "WITH RECURSIVE cnt(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM cnt WHERE x<5) SELECT x FROM cnt ORDER BY x")
+      (is (equal '((1) (2) (3) (4) (5)) result))
+      (is (equal '("x") columns)))))
 
 (test parameters
   (let* ((db (make-db)))
