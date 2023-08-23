@@ -117,6 +117,8 @@ typedef enum Keyword {
   Interval,
   OnConflict,
   Blob,
+  Glob,
+  Regexp,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;

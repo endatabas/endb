@@ -631,6 +631,8 @@ where
                                 .map(|(lhs, rhs)| List(vec![KW(And), lhs, rhs])),
                         ),
                         kw("LIKE").to(Some(Like)).then(comp.clone()),
+                        kw("GLOB").to(Some(Glob)).then(comp.clone()),
+                        kw("REGEXP").to(Some(Regexp)).then(comp.clone()),
                         kw("IN").ignore_then(choice((
                             subquery.clone().map(|query| (Some(InQuery), query)),
                             id.clone().map(|id| (Some(InQuery), id)),

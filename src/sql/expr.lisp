@@ -16,7 +16,7 @@
            #:sql-access #:sql-access-finish #:sql-between #:sql-in #:sql-exists #:sql-coalesce
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery #:sql-unnest
            #:sql-concat #:sql-cardinality #:sql-char_length #:sql-character_length #:sql-octet_length #:sql-length #:sql-trim #:sql-ltrim #:sql-rtrim #:sql-lower #:sql-upper
-           #:sql-replace #:sql-unhex #:sql-hex #:sql-instr #:sql-min #:sql-max #:sql-char #:sql-unicode #:sql-random #:sql-glob #:sql-randomblob #:sql-zeroblob #:sql-iif
+           #:sql-replace #:sql-unhex #:sql-hex #:sql-instr #:sql-min #:sql-max #:sql-char #:sql-unicode #:sql-random #:sql-glob #:sql-regexp #:sql-randomblob #:sql-zeroblob #:sql-iif
            #:sql-round #:sql-sin #:sql-cos #:sql-tan #:sql-sinh #:sql-cosh #:sql-tanh #:sql-asin #:sqn-acos #:sql-atan #:sql-asinh #:sqn-acosh #:sql-atanh #:sql-atan2
            #:sql-floor #:sql-ceiling #:sql-ceil
            #:sql-sign #:sql-sqrt #:sql-exp #:sql-power #:sql-pow #:sql-log #:sql-log2 #:sql-log10 #:sql-ln #:sql-degrees #:sql-radians #:sql-pi
@@ -1081,7 +1081,7 @@
   :null)
 
 (defmethod sql-like ((x string) (pattern string))
-  (let ((regex (concatenate 'string "^" (ppcre:regex-replace-all "%" pattern ".*") "$")))
+  (let ((regex (concatenate 'string "^" (ppcre:regex-replace-all "_" (ppcre:regex-replace-all "%" pattern ".*") ".") "$")))
     (integerp (ppcre:scan regex x))))
 
 (defmethod sql-glob ((x (eql :null)) y)
@@ -1093,6 +1093,15 @@
 (defmethod sql-glob ((x string) (y string))
   (let ((regex (concatenate 'string "^" (ppcre:regex-replace-all "\\?" (ppcre:regex-replace-all "\\*" x ".*") ".") "$")))
     (integerp (ppcre:scan regex y))))
+
+(defmethod sql-regexp ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-regexp (x (y (eql :null)))
+  :null)
+
+(defmethod sql-regexp ((x string) (y string))
+  (integerp (ppcre:scan x y)))
 
 (defmethod sql-strftime ((format (eql :null)) x)
   :null)

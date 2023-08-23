@@ -871,6 +871,23 @@ mod tests {
                                 start: 16
                                 end: 17
         "###);
+        assert_yaml_snapshot!(parse("SELECT x REGEXP '.*y'"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Regexp
+                        - Id:
+                            start: 7
+                            end: 8
+                        - String:
+                            start: 17
+                            end: 20
+        "###);
+
         assert_yaml_snapshot!(parse("SELECT x IS y"), @r###"
         ---
         Ok:

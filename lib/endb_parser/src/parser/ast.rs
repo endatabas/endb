@@ -116,6 +116,8 @@ pub enum Keyword {
     Interval,
     OnConflict,
     Blob,
+    Glob,
+    Regexp,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

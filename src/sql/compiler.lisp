@@ -918,6 +918,16 @@
       args
     (endb/sql/expr:sql-unhex x)))
 
+(defmethod sql->cl (ctx (type (eql :glob)) &rest args)
+  (destructuring-bind (x y)
+      args
+    (endb/sql/expr:sql-glob y x)))
+
+(defmethod sql->cl (ctx (type (eql :regexp)) &rest args)
+  (destructuring-bind (x y)
+      args
+    (endb/sql/expr:sql-regexp y x)))
+
 (defmethod sql->cl (ctx (type (eql :array)) &rest args)
   (destructuring-bind (args)
       args

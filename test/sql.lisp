@@ -1691,6 +1691,11 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 'barfoo' REGEXP '.*fo'")
+      (is (equalp `((t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT x AS y FROM (VALUES (1), (2)) AS foo(x) ORDER BY -foo.x")
       (is (equalp '((2) (1)) result))
       (is (equal '("y") columns)))
@@ -2002,6 +2007,7 @@ SELECT s FROM x WHERE ind=0")
 
   (is-valid (expr "'foo' LIKE '%fo'"))
   (is-valid (expr "'foo' LIKE 'fo%'"))
+  (is-valid (expr "'foo' LIKE 'f_o'"))
   (is-valid (expr "'foo' LIKE 'bar'"))
   (is-valid (expr "NULL LIKE 'bar'"))
   (is-valid (expr "'foo' LIKE NULL"))
@@ -2068,7 +2074,7 @@ SELECT s FROM x WHERE ind=0")
   (is-valid (expr "CHAR(NULL, 102)"))
 
   (is-valid (expr "GLOB('*foo', 'barfoo')"))
-  (is-valid (expr "GLOB('*fo', 'barfoo')"))
+  (is-valid (expr "'barfoo' GLOB '*fo'"))
   (is-valid (expr "GLOB('?arfoo', 'barfoo')"))
   (is-valid (expr "GLOB('?rfoo', 'barfoo')"))
 

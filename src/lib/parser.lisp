@@ -120,7 +120,9 @@
   :second
   :interval
   :on-conflict
-  :blob)
+  :blob
+  :glob
+  :regexp)
 
 (cffi:defcenum Ast_Tag
   :List
