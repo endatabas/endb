@@ -171,7 +171,7 @@
   (if (fset:map? patch)
       (fset:reduce
        (lambda (target k v)
-         (if (eq 'null v)
+         (if (or (eq 'null v) (eq :null v))
              (fset:less target k)
              (let ((target-v (fset:lookup target k)))
                (fset:with target k (json-merge-patch target-v v)))))

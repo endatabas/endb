@@ -1676,6 +1676,11 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT PATCH({a: 'b', c: {d: 'e', f: 'g'}}, {a: 'z', c: {f: NULL}})")
+      (is (equalp `((,(fset:map ("a" "z") ("c" (fset:map ("d" "e")))))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT x AS y FROM (VALUES (1), (2)) AS foo(x) ORDER BY -foo.x")
       (is (equalp '((2) (1)) result))
       (is (equal '("y") columns)))

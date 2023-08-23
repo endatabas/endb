@@ -6,6 +6,7 @@
   (:import-from :periods)
   (:import-from :endb/lib/parser)
   (:import-from :endb/arrow)
+  (:import-from :endb/json)
   (:import-from :endb/storage/buffer-pool)
   (:import-from :cl-bloom)
   (:import-from :fset)
@@ -609,6 +610,15 @@
                              (loop for x across (path-seq-acc x)
                                    for z = (sql-access x y recursivep)
                                    collect (%flatten-path-acc z)))))
+
+(defmethod sql-patch ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-patch (x (y (eql :null)))
+  :null)
+
+(defmethod sql-patch ((x fset:map) (y fset:map))
+  (endb/json:json-merge-patch x y))
 
 (defun sql-in (item xs)
   (block in
