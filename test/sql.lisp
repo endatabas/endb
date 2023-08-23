@@ -1671,6 +1671,11 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT RANDOMBLOB(8)")
+      (is (typep (caar result) '(vector (unsigned-byte 8))))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT x AS y FROM (VALUES (1), (2)) AS foo(x) ORDER BY -foo.x")
       (is (equalp '((2) (1)) result))
       (is (equal '("y") columns)))
@@ -1774,7 +1779,7 @@ SELECT s FROM x WHERE ind=0")
 (defun is-valid (result)
   (destructuring-bind (endb-result sqlite-result expr)
       result
-    (is (equal (endb->sqlite endb-result) sqlite-result)
+    (is (equalp (endb->sqlite endb-result) sqlite-result)
         "~2&~S~2% evaluated to ~2&~S~2% which is not ~2&~S~2% to ~2&~S~2%"
         expr endb-result 'equal sqlite-result)))
 
@@ -2036,4 +2041,16 @@ SELECT s FROM x WHERE ind=0")
 
   (is-valid (expr "CHAR(102, 111, 111)"))
   (is-valid (expr "CHAR()"))
-  (is-valid (expr "CHAR(NULL, 102)")))
+  (is-valid (expr "CHAR(NULL, 102)"))
+
+  (is-valid (expr "GLOB('*foo', 'barfoo')"))
+  (is-valid (expr "GLOB('*fo', 'barfoo')"))
+  (is-valid (expr "GLOB('?arfoo', 'barfoo')"))
+  (is-valid (expr "GLOB('?rfoo', 'barfoo')"))
+
+  (is-valid (expr "ZEROBLOB(8)"))
+
+  (is-valid (expr "IIF(FALSE, 1, 2)"))
+  (is-valid (expr "IIF(TRUE, 1, 2)"))
+  (is-valid (expr "IIF(NULL, 1, 2)"))
+  (is-valid (expr "IIF('foo', 1, 2)")))

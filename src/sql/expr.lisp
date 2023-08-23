@@ -15,7 +15,7 @@
            #:sql-access #:sql-access-finish #:sql-between #:sql-in #:sql-exists #:sql-coalesce
            #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery #:sql-unnest
            #:sql-concat #:sql-cardinality #:sql-char_length #:sql-character_length #:sql-octet_length #:sql-length #:sql-trim #:sql-ltrim #:sql-rtrim #:sql-lower #:sql-upper
-           #:sql-replace #:sql-unhex #:sql-hex #:sql-instr #:sql-min #:sql-max #:sql-char #:sql-unicode #:sql-random
+           #:sql-replace #:sql-unhex #:sql-hex #:sql-instr #:sql-min #:sql-max #:sql-char #:sql-unicode #:sql-random #:sql-glob #:sql-randomblob #:sql-zeroblob #:sql-iif
            #:sql-round #:sql-sin #:sql-cos #:sql-tan #:sql-sinh #:sql-cosh #:sql-tanh #:sql-asin #:sqn-acos #:sql-atan #:sql-floor #:sql-ceiling #:sql-ceil
            #:sql-sign #:sql-sqrt #:sql-exp #:sql-power #:sql-power #:sql-log #:sql-log10 #:sql-ln
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-timestamp #:sql-duration #:sql-interval #:sql-like #:sql-substr #:sql-substring #:sql-strftime
@@ -167,6 +167,11 @@
        (if (eq :null ,x-sym)
            (or ,y :null)
            (or ,x-sym ,y)))))
+
+(defmacro sql-iif (x y z)
+  `(if (eq t ,x)
+       ,y
+       ,z))
 
 (defun sql-coalesce (x y &rest args)
   (let ((tail (member-if-not (lambda (x)
@@ -984,6 +989,16 @@
   (let ((regex (concatenate 'string "^" (ppcre:regex-replace-all "%" pattern ".*") "$")))
     (integerp (ppcre:scan regex x))))
 
+(defmethod sql-glob ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-glob (x (y (eql :null)))
+  :null)
+
+(defmethod sql-glob ((x string) (y string))
+  (let ((regex (concatenate 'string "^" (ppcre:regex-replace-all "\\?" (ppcre:regex-replace-all "\\*" x ".*") ".") "$")))
+    (integerp (ppcre:scan regex y))))
+
 (defmethod sql-strftime ((format (eql :null)) x)
   :null)
 
@@ -1063,6 +1078,20 @@
 (defun sql-random ()
   (let ((x (random (ash 1 64))))
     (- x (ash 1 63))))
+
+(defmethod sql-randomblob ((x (eql :null)))
+  :null)
+
+(defmethod sql-randomblob ((x number))
+  (make-array x :element-type '(unsigned-byte 8)
+                :initial-contents (loop for n below x
+                                        collect (random 255))))
+
+(defmethod sql-zeroblob ((x (eql :null)))
+  :null)
+
+(defmethod sql-zeroblob ((x number))
+  (make-array x :element-type '(unsigned-byte 8)))
 
 (defun sql-scalar-subquery (rows)
   (when (> 1 (length rows))
