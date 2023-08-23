@@ -805,12 +805,12 @@ SELECT s FROM x WHERE ind=0")
 
 (test system-time
   (let* ((db (make-db))
-         (system-time-as-of-empty (endb/sql/expr:sql-current-timestamp db)))
+         (system-time-as-of-empty (endb/sql/expr:sql-current_timestamp db)))
 
     (sleep 0.01)
 
     (let* ((write-db (begin-write-tx db))
-           (system-time-as-of-insert (endb/sql/expr:sql-current-timestamp write-db)))
+           (system-time-as-of-insert (endb/sql/expr:sql-current_timestamp write-db)))
 
       (is (not (equalp system-time-as-of-empty system-time-as-of-insert)))
 
@@ -828,7 +828,7 @@ SELECT s FROM x WHERE ind=0")
       (sleep 0.01)
 
       (let* ((write-db (begin-write-tx db))
-             (system-time-as-of-update (endb/sql/expr:sql-current-timestamp write-db)))
+             (system-time-as-of-update (endb/sql/expr:sql-current_timestamp write-db)))
         (is (not (equalp system-time-as-of-insert system-time-as-of-update)))
 
         (multiple-value-bind (result result-code)
@@ -1676,6 +1676,16 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT UNIXEPOCH('2001-01-01')")
+      (is (equalp '((9.783072d8)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT UNIXEPOCH('1970-01-01T00:00:00Z')")
+      (is (equalp '((0.0d0)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT PATCH({a: 'b', c: {d: 'e', f: 'g'}}, {a: 'z', c: {f: NULL}})")
       (is (equalp `((,(fset:map ("a" "z") ("c" (fset:map ("d" "e")))))) result))
       (is (equal '("column1") columns)))
@@ -1907,6 +1917,9 @@ SELECT s FROM x WHERE ind=0")
   (is-valid (expr "time(NULL)"))
   (is-valid (expr "datetime('2023-05-16T14:43:39')"))
   (is-valid (expr "datetime(NULL)"))
+
+  (is-valid (expr "julianday('2023-08-23T07:40:00Z')"))
+  (is-valid (expr "julianday('2001-01-01')"))
 
   (is-valid (expr "date('2001-01-01') = date('2001-01-01')"))
   (is-valid (expr "date('2001-01-01') < date('2002-01-01')"))

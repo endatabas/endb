@@ -21,7 +21,7 @@
            #:sql-floor #:sql-ceiling #:sql-ceil
            #:sql-sign #:sql-sqrt #:sql-exp #:sql-power #:sql-pow #:sql-log #:sql-log2 #:sql-log10 #:sql-ln #:sql-degrees #:sql-radians #:sql-pi
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-timestamp #:sql-duration #:sql-interval #:sql-like #:sql-substr #:sql-substring #:sql-strftime
-           #:sql-current-date #:sql-current-time #:sql-current-timestamp #:sql-typeof
+           #:sql-current_date #:sql-current_time #:sql-current_timestamp #:sql-typeof #:sql-unixepoch #:sql-julianday
            #:sql-contains #:sql-overlaps #:sql-precedes #:sql-succedes #:sql-immediately-precedes #:sql-immediately-succedes
            #:make-sql-agg #:sql-agg-accumulate #:sql-agg-finish
            #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-insert-objects #:sql-delete
@@ -1010,6 +1010,37 @@
 (defun sql-timestamp (x)
   (sql-datetime x))
 
+(defmethod sql-unixepoch ((x (eql :null)))
+  :null)
+
+(defmethod sql-unixepoch ((x string))
+  (sql-unixepoch (sql-datetime x)))
+
+(defmethod sql-unixepoch ((x endb/arrow:arrow-date-millis))
+  (/ (endb/arrow:arrow-date-millis-ms x) 1000.0d0))
+
+(defmethod sql-unixepoch ((x endb/arrow:arrow-timestamp-micros))
+  (/ (endb/arrow:arrow-timestamp-micros-us x) 1000000.0d0))
+
+(defmethod sql-julianday ((x (eql :null)))
+  :null)
+
+(defmethod sql-julianday ((x string))
+  (sql-julianday (sql-datetime x)))
+
+(defmethod sql-julianday ((x endb/arrow:arrow-date-millis))
+  (sql-julianday (sql-cast x :timestamp)))
+
+(defmethod sql-julianday ((x endb/arrow:arrow-timestamp-micros))
+  (let ((noon-offset 0.5d0)
+        (unix-day-offset 11017.0d0))
+    (- (/ (endb/arrow:arrow-timestamp-micros-us x)
+          1000000.0d0
+          local-time:+seconds-per-day+)
+       local-time::+astronomical-julian-date-offset+
+       noon-offset
+       unix-day-offset)))
+
 (defmethod sql-duration ((x string))
   (let ((duration (endb/arrow:parse-arrow-interval-month-day-nanos x)))
     (if duration
@@ -1180,13 +1211,13 @@
                                                    (fset:lookup a idx)
                                                    :null))))))))
 
-(defun sql-current-date (db)
-  (sql-cast (sql-current-timestamp db) :date))
+(defun sql-current_date (db)
+  (sql-cast (sql-current_timestamp db) :date))
 
-(defun sql-current-time (db)
-  (sql-cast (sql-current-timestamp db) :time))
+(defun sql-current_time (db)
+  (sql-cast (sql-current_timestamp db) :time))
 
-(defun sql-current-timestamp (db)
+(defun sql-current_timestamp (db)
   (or (db-current-timestamp db)
       (endb/arrow:local-time-to-arrow-timestamp-micros (local-time:now))))
 
