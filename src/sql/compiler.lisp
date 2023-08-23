@@ -926,12 +926,17 @@
 (defmethod sql->cl (ctx (type (eql :glob)) &rest args)
   (destructuring-bind (x y)
       args
-    (endb/sql/expr:sql-glob y x)))
+    `(endb/sql/expr:sql-glob ,(ast->cl ctx y) ,(ast->cl ctx x))))
 
 (defmethod sql->cl (ctx (type (eql :regexp)) &rest args)
   (destructuring-bind (x y)
       args
-    (endb/sql/expr:sql-regexp y x)))
+    `(endb/sql/expr:sql-regexp ,(ast->cl ctx y) ,(ast->cl ctx x))))
+
+(defmethod sql->cl (ctx (type (eql :match)) &rest args)
+  (destructuring-bind (x y)
+      args
+    `(endb/sql/expr:sql-match ,(ast->cl ctx y) ,(ast->cl ctx x))))
 
 (defmethod sql->cl (ctx (type (eql :array)) &rest args)
   (destructuring-bind (args)

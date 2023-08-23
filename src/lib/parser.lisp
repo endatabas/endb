@@ -123,7 +123,8 @@
   :blob
   :glob
   :regexp
-  :patch)
+  :patch
+  :match)
 
 (cffi:defcenum Ast_Tag
   :List

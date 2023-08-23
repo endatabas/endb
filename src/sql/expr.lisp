@@ -18,7 +18,7 @@
            #:sql-concat #:sql-cardinality #:sql-char_length #:sql-character_length #:sql-octet_length #:sql-length #:sql-trim #:sql-ltrim #:sql-rtrim #:sql-lower #:sql-upper
            #:sql-replace #:sql-unhex #:sql-hex #:sql-instr #:sql-min #:sql-max #:sql-char #:sql-unicode #:sql-random #:sql-glob #:sql-regexp #:sql-randomblob #:sql-zeroblob #:sql-iif
            #:sql-round #:sql-sin #:sql-cos #:sql-tan #:sql-sinh #:sql-cosh #:sql-tanh #:sql-asin #:sqn-acos #:sql-atan #:sql-asinh #:sqn-acosh #:sql-atanh #:sql-atan2
-           #:sql-floor #:sql-ceiling #:sql-ceil #:sql-patch
+           #:sql-floor #:sql-ceiling #:sql-ceil #:sql-patch #:sql-match
            #:sql-sign #:sql-sqrt #:sql-exp #:sql-power #:sql-pow #:sql-log #:sql-log2 #:sql-log10 #:sql-ln #:sql-degrees #:sql-radians #:sql-pi
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-timestamp #:sql-duration #:sql-interval #:sql-like #:sql-substr #:sql-substring #:sql-strftime
            #:sql-current_date #:sql-current_time #:sql-current_timestamp #:sql-typeof #:sql-unixepoch #:sql-julianday
@@ -622,6 +622,26 @@
   (if (fset:empty? y)
       x
       (endb/json:json-merge-patch x y)))
+
+(defmethod sql-match (x y)
+  (sql-is x y))
+
+(defmethod sql-match ((x fset:seq) (y fset:seq))
+  (fset:do-seq (a x :value t)
+    (unless (fset:do-seq (b y :value nil)
+              (when (if (fset:map? b)
+                        (sql-match a b)
+                        (sql-is a b))
+                (return t)))
+      (return nil))))
+
+(defmethod sql-match (x (y fset:seq))
+  (numberp (fset:position x y)))
+
+(defmethod sql-match ((x fset:map) (y fset:map))
+  (fset:do-map (k v x t)
+    (unless (sql-match v (fset:lookup y k))
+      (return nil))))
 
 (defun sql-in (item xs)
   (block in

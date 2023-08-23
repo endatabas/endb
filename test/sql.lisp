@@ -1059,6 +1059,81 @@ SELECT s FROM x WHERE ind=0")
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT { a: 1, ...[2, 3], ...\"f\" }")
       (is (equalp `((,(fset:map ("a" 1) ("1" 3) ("0" "f")))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 'foo' MATCH 'foo'")
+      (is (equalp '((t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [1, 2, 3] MATCH [1, 3]")
+      (is (equalp '((t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [1, 2, 3] MATCH [3, 1]")
+      (is (equalp '((t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [1, 2, 3] MATCH [1, 2, 2]")
+      (is (equalp '((t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {user: 'foo', age: 42} MATCH {age: 42}")
+      (is (equalp '((t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {user: {name: ['foo', 'bar']}, age: 42} MATCH {user: {name: 'bar'}}")
+      (is (equalp '((t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [1, 2, [1, 3]] MATCH [1, 3]")
+      (is (equalp '((nil)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [1, 2, [1, 3]] MATCH [[1, 3]]")
+      (is (equalp '((t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {foo: {bar: 'baz'}} MATCH {bar: 'baz'}")
+      (is (equalp '((nil)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {foo: {bar: 'baz'}} MATCH {foo: {}}")
+      (is (equalp '((t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT ['foo', 'bar'] MATCH 'bar'")
+      (is (equalp '((t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {a: [1, 2, {c: 3, x: 4}], c: 'b'} MATCH {a: [{c: 3}]}")
+      (is (equalp '((t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {a: [1, 2, {c: 3, x: 4}], c: 'b'} MATCH {a: [{x: 4}]}")
+      (is (equalp '((t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {a: [1, 2, {c: 3, x: 4}], c: 'b'} MATCH {a: [{x: 4}, 3]}")
+      (is (equalp '((nil)) result))
+      (is (equal '("column1") columns)))
+
+        (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {a: [1, 2, {c: 3, x: 4}], c: 'b'} MATCH {a: [{x: 4}, 1]}")
+      (is (equalp '((t)) result))
       (is (equal '("column1") columns)))))
 
 (test semi-structured-access

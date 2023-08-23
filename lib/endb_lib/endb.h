@@ -120,6 +120,7 @@ typedef enum Keyword {
   Glob,
   Regexp,
   Patch,
+  Match,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;
