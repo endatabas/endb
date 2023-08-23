@@ -1117,7 +1117,7 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT {foo: {bar: 'baz'}} MATCH {bar: 'baz'}")
+        (execute-sql db "SELECT {foo: {bar: 'baz'}} @> {bar: 'baz'}")
       (is (equalp '((nil)) result))
       (is (equal '("column1") columns)))
 
