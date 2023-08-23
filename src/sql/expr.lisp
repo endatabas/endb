@@ -14,7 +14,7 @@
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-unary+ #:sql-unary-
            #:sql-access #:sql-access-finish #:sql-between #:sql-in #:sql-exists #:sql-coalesce
-           #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery #:sql-unnest
+           #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery #:sql-unnest #:sql-object_keys #:sql-object_keys
            #:sql-concat #:sql-cardinality #:sql-char_length #:sql-character_length #:sql-octet_length #:sql-length #:sql-trim #:sql-ltrim #:sql-rtrim #:sql-lower #:sql-upper
            #:sql-replace #:sql-unhex #:sql-hex #:sql-instr #:sql-min #:sql-max #:sql-char #:sql-unicode #:sql-random #:sql-glob #:sql-regexp #:sql-randomblob #:sql-zeroblob #:sql-iif
            #:sql-round #:sql-sin #:sql-cos #:sql-tan #:sql-sinh #:sql-cosh #:sql-tanh #:sql-asin #:sqn-acos #:sql-atan #:sql-asinh #:sqn-acosh #:sql-atanh #:sql-atan2
@@ -1236,20 +1236,43 @@
       (caar rows)))
 
 (defun sql-unnest (arrays &key with-ordinality)
-  (when (every #'fset:seq? arrays)
-    (let ((len (apply #'max (mapcar #'fset:size arrays))))
-      (reverse (if (eq :with-ordinality with-ordinality)
-                   (loop for idx below len
-                         collect (append (loop for a in arrays
-                                               collect (if (< idx (fset:size a))
-                                                           (fset:lookup a idx)
-                                                           :null))
-                                         (list idx)))
-                   (loop for idx below len
-                         collect (loop for a in arrays
-                                       collect (if (< idx (fset:size a))
-                                                   (fset:lookup a idx)
-                                                   :null))))))))
+  (let ((arrays (loop for a in arrays
+                      collect (if (fset:map? a)
+                                  (fset:convert 'fset:seq
+                                                (loop for (k . v) in (fset:convert 'list a)
+                                                      collect (fset:map ("key" k) ("value" v))))
+                                  a))))
+    (when (every #'fset:seq? arrays)
+      (let ((len (apply #'max (mapcar #'fset:size arrays))))
+        (reverse (if (eq :with-ordinality with-ordinality)
+                     (loop for idx below len
+                           collect (append (loop for a in arrays
+                                                 collect (if (< idx (fset:size a))
+                                                             (fset:lookup a idx)
+                                                             :null))
+                                           (list idx)))
+                     (loop for idx below len
+                           collect (loop for a in arrays
+                                         collect (if (< idx (fset:size a))
+                                                     (fset:lookup a idx)
+                                                     :null)))))))))
+
+(defmethod sql-object_keys ((x (eql :null)))
+  :null)
+
+(defmethod sql-object_keys ((x fset:map))
+  (fset:convert 'fset:seq (fset:domain x)))
+
+(defmethod sql-object_values ((x (eql :null)))
+  :null)
+
+(defmethod sql-object_values ((x fset:map))
+  (fset:reduce
+   (lambda (acc k v)
+     (declare (ignore k))
+     (fset:with-last acc v))
+   x
+   :initial-value (fset:empty-seq)))
 
 (defun sql-current_date (db)
   (sql-cast (sql-current_timestamp db) :date))

@@ -960,6 +960,21 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("bar") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM UNNEST({a: 1, b: 2, c: 3}) AS foo(bar)")
+      (is (equalp `((,(fset:map ("key" "a") ("value" 1))) (,(fset:map ("key" "b") ("value" 2))) (,(fset:map ("key" "c") ("value" 3)))) result))
+      (is (equal '("bar") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT OBJECT_KEYS({a: 1, b: 2, c: 3})")
+      (is (equalp `((,(fset:seq "a" "b" "c"))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT OBJECT_VALUES({a: 1, b: 2, c: 3})")
+      (is (equalp `((,(fset:seq 1 2 3))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT x.column1 AS foo, y.column1 AS bar FROM (VALUES ('foo', [1, 2, 3]), ('bar', [5, 6]), ('baz', 2), ('boz', [])) AS x, UNNEST(x.column2) AS y ORDER BY foo")
       (is (equal '(("bar" 5) ("bar" 6) ("foo" 1) ("foo" 2) ("foo" 3))
                  result))
