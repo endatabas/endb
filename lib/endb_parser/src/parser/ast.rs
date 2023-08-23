@@ -118,6 +118,7 @@ pub enum Keyword {
     Blob,
     Glob,
     Regexp,
+    Patch,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

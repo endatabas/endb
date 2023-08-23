@@ -406,10 +406,16 @@ where
         )
         .or_not()
         .then(kw("UNSET").ignore_then(id_list.clone()).or_not())
+        .then(
+            kw("PATCH")
+                .ignore_then(object_ast_parser(expr.clone()))
+                .or_not(),
+        )
         .then(kw("WHERE").ignore_then(expr.clone()).or_not())
-        .map(|((updates, unsets), expr)| {
+        .map(|(((updates, unsets), patch), expr)| {
             let mut acc = vec![updates.unwrap_or_else(|| List(vec![]))];
             add_clause(&mut acc, Unset, unsets);
+            add_clause(&mut acc, Patch, patch);
             add_clause(&mut acc, Where, expr);
             List(acc)
         });
@@ -1885,6 +1891,27 @@ mod tests {
                 - Id:
                     start: 37
                     end: 38
+            - KW: Where
+            - KW: "False"
+        "###);
+        assert_yaml_snapshot!(parse("UPDATE foo PATCH { z: 2 } WHERE FALSE"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Update
+            - Id:
+                start: 7
+                end: 10
+            - List: []
+            - KW: Patch
+            - List:
+                - KW: Object
+                - List:
+                    - List:
+                        - Id:
+                            start: 19
+                            end: 20
+                        - Integer: 2
             - KW: Where
             - KW: "False"
         "###);

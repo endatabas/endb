@@ -122,7 +122,8 @@
   :on-conflict
   :blob
   :glob
-  :regexp)
+  :regexp
+  :patch)
 
 (cffi:defcenum Ast_Tag
   :List

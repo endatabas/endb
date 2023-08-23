@@ -694,7 +694,7 @@
                                                                                                      t))))
 
 (defun %insert-on-conflict (ctx table-name on-conflict update &key (values nil upsertp) column-names)
-  (destructuring-bind (update-cols &key (where :true) unset)
+  (destructuring-bind (update-cols &key (where :true) unset patch)
       (or update '(nil))
     (multiple-value-bind (from-src projection)
         (%base-table-or-view->cl ctx table-name :errorp (not upsertp))
@@ -751,15 +751,19 @@
                (key-sym (gensym))
                (insertp-sym (gensym))
                (update-src (when update
-                             `((push (reduce
-                                      #'fset:less
-                                      ',unset-columns
-                                      :initial-value (fset:map-union (endb/arrow:arrow-get ,batch-sym ,scan-row-id-sym)
-                                                                     (fset:convert 'fset:map (list ,@update-select-list))))
+                             `((push (endb/sql/expr:sql-patch
+                                      (reduce
+                                       #'fset:less
+                                       ',unset-columns
+                                       :initial-value (fset:map-union (endb/arrow:arrow-get ,batch-sym ,scan-row-id-sym)
+                                                                      (fset:convert 'fset:map (list ,@update-select-list))))
+                                      ,(if patch
+                                           (ast->cl ctx patch)
+                                           (fset:empty-map)))
                                      ,updated-rows-sym)
                                (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym)))))
-          (when (and update (null updated-columns))
-            (%annotated-error table-name "Update requires at least one set or unset column"))
+          (when (and update (null updated-columns) (null patch))
+            (%annotated-error table-name "Update requires at least one set or unset column or patch"))
           (when (and upsertp (intersection on-conflict updated-columns :test 'equal))
             (%annotated-error table-name "Cannot update the on conflict columns"))
           `(let ((,updated-rows-sym)
@@ -795,8 +799,9 @@
                            (when ,insertp-sym
                              (push ,object-sym ,updated-rows-sym)))
                   (%table-scan->cl ctx vars projection from-src where-clauses `(do ,@update-src)))
+             (endb/sql/expr:sql-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,updated-rows-sym)
              (endb/sql/expr:sql-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)
-             (endb/sql/expr:sql-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,updated-rows-sym)))))))
+             (values nil (length ,updated-rows-sym))))))))
 
 (defmethod sql->cl (ctx (type (eql :insert)) &rest args)
   (destructuring-bind (table-name values &key column-names on-conflict update)
@@ -848,9 +853,9 @@
              (endb/sql/expr:sql-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)))))))
 
 (defmethod sql->cl (ctx (type (eql :update)) &rest args)
-  (destructuring-bind (table-name update-cols &key (where :true) unset)
+  (destructuring-bind (table-name update-cols &key (where :true) unset patch)
       args
-    (%insert-on-conflict ctx table-name nil (list update-cols :where where :unset unset))))
+    (%insert-on-conflict ctx table-name nil (list update-cols :where where :unset unset :patch patch))))
 
 (defmethod sql->cl (ctx (type (eql :in-query)) &rest args)
   (destructuring-bind (expr query)

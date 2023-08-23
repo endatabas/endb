@@ -293,6 +293,19 @@
       (is (equal '((:null 3 5) (4 5 7)) result))
       (is (equal '("a" "b" "c") columns)))
 
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "UPDATE t3 PATCH { a: 2 + t3.b, b: NULL } WHERE b = 3")
+      (is (null result))
+      (is (= 1 result-code)))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql write-db "UPDATE t3 PATCH { a: NULL, b: NULL, c: NULL } WHERE a = 5"))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT * FROM t3 ORDER BY c")
+      (is (equal '((5 :null 5) (4 5 7)) result))
+      (is (equal '("a" "b" "c") columns)))
+
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql write-db "INSERT INTO users {}"))
 
