@@ -299,7 +299,7 @@
       (is (= 1 result-code)))
 
     (signals endb/sql/expr:sql-runtime-error
-      (execute-sql write-db "UPDATE t3 PATCH { a: NULL, b: NULL, c: NULL } WHERE a = 5"))
+      (execute-sql write-db "UPDATE t3 { a: NULL, b: NULL, c: NULL } WHERE a = 5"))
 
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM t3 ORDER BY c")

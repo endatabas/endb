@@ -408,6 +408,7 @@ where
         .then(kw("UNSET").ignore_then(id_list.clone()).or_not())
         .then(
             kw("PATCH")
+                .or_not()
                 .ignore_then(object_ast_parser(expr.clone()))
                 .or_not(),
         )
