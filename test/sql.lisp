@@ -1635,7 +1635,7 @@ SELECT s FROM x WHERE ind=0")
       (is (equalp `((,(fset:seq :null 1 2))) result))
       (is (equal '("column1") columns)))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals type-error
       (execute-sql db "SELECT SQRT(-1)"))
 
     (multiple-value-bind (result columns)
@@ -2014,14 +2014,20 @@ SELECT s FROM x WHERE ind=0")
 
     (is-valid (expr "SIN(2.4)"))
     (is-valid (expr "ATAN(2)"))
+    (is-valid (expr "ATAN2(2, 4)"))
     (is-valid (expr "COS(NULL)"))
+    (is-valid (expr "ACOSH(4)"))
     (is-valid (expr "SQRT(2)"))
     (is-valid (expr "POWER(2, 2)"))
     (is-valid (expr "POWER(2, NULL)"))
     (is-valid (expr "LN(4.2)"))
     (is-valid (expr "LOG10(2)"))
     (is-valid (expr "LOG(2, 64)"))
-    (is-valid (expr "SIGN(-2.4)")))
+    (is-valid (expr "SIGN(-2.4)"))
+
+    (is-valid (expr "PI()"))
+    (is-valid (expr "DEGREES(1.0)"))
+    (is-valid (expr "RADIANS(1.0)")))
 
   (is-valid (expr "TYPEOF('foo')"))
   (is-valid (expr "TYPEOF(2)"))
