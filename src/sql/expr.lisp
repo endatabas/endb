@@ -711,6 +711,9 @@
 (defmethod sql-cast ((x vector) (type (eql :blob)))
   x)
 
+(defmethod sql-cast (x (type (eql :varbinary)))
+  (sql-cast x :blob))
+
 (defmethod sql-cast ((x (eql t)) (type (eql :integer)))
   1)
 
@@ -725,6 +728,9 @@
 
 (defmethod sql-cast ((x real) (type (eql :integer)))
   (round x))
+
+(defmethod sql-cast (x (type (eql :bigint)))
+  (sql-cast x :integer))
 
 (defmethod sql-cast ((x endb/arrow:arrow-date-millis) (type (eql :integer)))
   (local-time:timestamp-year (endb/arrow:arrow-date-millis-to-local-time x)))
@@ -791,6 +797,9 @@
 
 (defmethod sql-cast ((x number) (type (eql :real)))
   (coerce x 'double-float))
+
+(defmethod sql-cast (x (type (eql :double)))
+  (sql-cast x :real))
 
 (defmethod sql-cast (x (type (eql :date)))
   (sql-date x))
