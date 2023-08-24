@@ -1160,8 +1160,8 @@
                        ,src)
                     projection))))))
 
-(defun %find-sql-expr-symbol (fn)
-  (find-symbol (string-upcase (concatenate 'string "sql-" (symbol-name fn))) :endb/sql/expr))
+(defun %find-expr-symbol (fn prefix)
+  (find-symbol (string-upcase (concatenate 'string prefix (symbol-name fn))) :endb/sql/expr))
 
 (defun %valid-sql-fn-call-p (fn-sym fn args)
   (handler-case
@@ -1195,7 +1195,7 @@
 (defmethod sql->cl (ctx (type (eql :function)) &rest args)
   (destructuring-bind (fn args)
       args
-    (let ((fn-sym (%find-sql-expr-symbol fn)))
+    (let ((fn-sym (%find-expr-symbol fn "sql-")))
       (unless (and fn-sym (%valid-sql-fn-call-p fn-sym fn args))
         (error 'endb/sql/expr:sql-runtime-error :message (format nil "Unknown built-in function: ~A" fn)))
       `(,fn-sym ,@(loop for ast in args
@@ -1212,23 +1212,38 @@
             (error 'endb/sql/expr:sql-runtime-error :message (format nil "Cannot nest aggregate functions: ~A" fn)))
           (when (fset:lookup ctx :recursive-select)
             (error 'endb/sql/expr:sql-runtime-error :message (format nil "Cannot use aggregate functions in recursion: ~A" fn)))
-          (let* ((aggregate-table (fset:lookup ctx :aggregate-table))
-                 (ctx (fset:with ctx :aggregate t))
-                 (fn-sym (%find-sql-expr-symbol fn))
-                 (aggregate-sym (gensym))
-                 (init-src (if order-by
-                               `(endb/sql/expr:make-agg ,fn :order-by ',(mapcar #'second order-by))
-                               `(endb/sql/expr:make-agg ,fn :distinct ,distinct)))
-                 (src (loop for ast in (append (if (null args)
-                                                   (list :null)
-                                                   args)
-                                               (mapcar #'first order-by))
-                            collect (ast->cl ctx ast)))
-                 (where-src (ast->cl ctx where))
-                 (agg (make-aggregate :src src :init-src init-src :var aggregate-sym :where-src where-src)))
-            (assert fn-sym nil (format nil "Unknown aggregate function: ~A" fn))
-            (setf (gethash aggregate-sym aggregate-table) agg)
-            `(endb/sql/expr:agg-finish ,aggregate-sym))))))
+          (let ((min-args (if (eq :object_agg fn)
+                              2
+                              1))
+                (max-args (if (member fn '(:group_concat :object_agg))
+                              2
+                              1))
+                (args (if (eq :count-star fn)
+                          (list :null)
+                          args)))
+            (unless (<= min-args (length args) max-args)
+              (error 'endb/sql/expr:sql-runtime-error
+                     :message (format nil "Invalid number of arguments: ~A to: ~A min: ~A max: ~A"
+                                      (length args)
+                                      (string-upcase (symbol-name fn))
+                                      min-args
+                                      max-args)))
+            (let* ((aggregate-table (fset:lookup ctx :aggregate-table))
+                   (ctx (fset:with ctx :aggregate t))
+                   (fn-sym (%find-expr-symbol fn "agg-"))
+                   (aggregate-sym (gensym))
+                   (init-src (if order-by
+                                 `(endb/sql/expr:make-agg ,fn :order-by ',(loop for (nil dir) in order-by
+                                                                                for idx from (1+ (length args))
+                                                                                collect (list idx dir)))
+                                 `(endb/sql/expr:make-agg ,fn :distinct ,distinct)))
+                   (src (loop for ast in (append args (mapcar #'first order-by))
+                              collect (ast->cl ctx ast)))
+                   (where-src (ast->cl ctx where))
+                   (agg (make-aggregate :src src :init-src init-src :var aggregate-sym :where-src where-src)))
+              (assert fn-sym nil (format nil "Unknown aggregate function: ~A" fn))
+              (setf (gethash aggregate-sym aggregate-table) agg)
+              `(endb/sql/expr:agg-finish ,aggregate-sym)))))))
 
 (defmethod sql->cl (ctx (type (eql :case)) &rest args)
   (destructuring-bind (cases-or-expr &optional cases)

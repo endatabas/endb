@@ -1836,7 +1836,10 @@ SELECT s FROM x WHERE ind=0")
       (execute-sql db "SELECT LIKE('foo', 'bar', 'baz')"))
 
     (signals endb/sql/expr:sql-runtime-error
-      (execute-sql db "SELECT LIKE(2, '')"))))
+      (execute-sql db "SELECT LIKE(2, '')"))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "SELECT AVG(2, 1)"))))
 
 (test interpret-sql-literal
   (is (equal "foo" (interpret-sql-literal "'foo'")))
