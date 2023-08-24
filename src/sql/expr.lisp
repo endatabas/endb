@@ -28,7 +28,7 @@
            #:syn-access #:syn-access-finish
 
            #:ra-distinct #:ra-unnest #:ra-union-all #:ra-union #:ra-except #:ra-intersect
-           #:ra-scalar-subquery #:ra-in  #:ra-exists
+           #:ra-scalar-subquery #:ra-in  #:ra-exists #:ra-limit #:ra-order-by
 
            #:make-agg #:agg-accumulate #:agg-finish
            #:ddl-create-table #:ddl-drop-table #:ddl-create-view #:ddl-drop-view #:ddl-create-index #:ddl-drop-index #:dml-insert #:dml-insert-objects #:dml-delete
@@ -1420,6 +1420,33 @@
                                                      (fset:lookup a idx)
                                                      :null)))))))))
 
+(defun ra-limit (rows limit offset)
+  (subseq rows (or offset 0) (min (length rows)
+                                  (if offset
+                                      (+ offset limit)
+                                      limit))))
+
+(defun ra-order-by (rows order-by)
+  (labels ((asc (x y)
+             (cond
+               ((eq :null x) t)
+               ((eq :null y) nil)
+               (t (sql-< x y))))
+           (desc (x y)
+             (cond
+               ((eq :null y) t)
+               ((eq :null x) nil)
+               (t (sql-> x y)))))
+    (sort rows (lambda (x y)
+                 (loop for (idx direction) in order-by
+                       for cmp = (ecase direction
+                                   ((nil :asc) #'asc)
+                                   (:desc #'desc))
+                       for xv = (nth (1- idx) x)
+                       for yv = (nth (1- idx) y)
+                       thereis (funcall cmp xv yv)
+                       until (funcall cmp yv xv))))))
+
 ;; Aggregates
 
 (defgeneric make-agg (type &rest args))
@@ -1621,7 +1648,7 @@
 (defmethod agg-finish ((agg sql-array_agg))
   (with-slots (acc order-by) agg
     (fset:convert 'fset:seq (mapcar #'car (if order-by
-                                              (%sql-order-by acc order-by)
+                                              (ra-order-by acc order-by)
                                               (reverse acc))))))
 
 (defstruct sql-object_agg (acc (make-hash-table :test 'equal)))
@@ -1644,35 +1671,6 @@
 (defmethod agg-finish ((agg sql-object_agg))
   (with-slots (acc) agg
     (fset:convert 'fset:map acc)))
-
-;; Internals
-
-(defun %sql-limit (rows limit offset)
-  (subseq rows (or offset 0) (min (length rows)
-                                  (if offset
-                                      (+ offset limit)
-                                      limit))))
-
-(defun %sql-order-by (rows order-by)
-  (labels ((asc (x y)
-             (cond
-               ((eq :null x) t)
-               ((eq :null y) nil)
-               (t (sql-< x y))))
-           (desc (x y)
-             (cond
-               ((eq :null y) t)
-               ((eq :null x) nil)
-               (t (sql-> x y)))))
-    (sort rows (lambda (x y)
-                 (loop for (idx direction) in order-by
-                       for cmp = (ecase direction
-                                   ((nil :asc) #'asc)
-                                   (:desc #'desc))
-                       for xv = (nth (1- idx) x)
-                       for yv = (nth (1- idx) y)
-                       thereis (funcall cmp xv yv)
-                       until (funcall cmp yv xv))))))
 
 ;; DML/DDL
 
@@ -1743,11 +1741,11 @@
      '("table_catalog" "table_schema" "table_name" "table_type"))
     ((equal "information_schema.views" table-name)
      '("table_catalog" "table_schema" "table_name" "view_definition"))
-    (t (mapcar #'second (%sql-order-by (loop with rows = (base-table-visible-rows db "information_schema.columns")
-                                             for (nil nil table c idx) in rows
-                                             when (equal table-name table)
-                                               collect (list idx c))
-                                       (list (list 1 :asc) (list 2 :asc)))))))
+    (t (mapcar #'second (ra-order-by (loop with rows = (base-table-visible-rows db "information_schema.columns")
+                                           for (nil nil table c idx) in rows
+                                           when (equal table-name table)
+                                             collect (list idx c))
+                                     (list (list 1 :asc) (list 2 :asc)))))))
 
 (defun base-table-created-p (db table-name)
   (or (%information-schema-table-p table-name)

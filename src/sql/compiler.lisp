@@ -77,10 +77,10 @@
 
 (defun %wrap-with-order-by-and-limit (src order-by limit offset)
   (let* ((src (if order-by
-                  `(endb/sql/expr::%sql-order-by ,src ',order-by)
+                  `(endb/sql/expr:ra-order-by ,src ',order-by)
                   src))
          (src (if (and order-by limit)
-                  `(endb/sql/expr::%sql-limit ,src ',limit ',offset)
+                  `(endb/sql/expr:ra-limit ,src ',limit ',offset)
                   src)))
     src))
 
@@ -570,9 +570,9 @@
     `(endb/sql/expr:ra-exists ,(ast->cl ctx (append query '(:limit 1))))))
 
 (defmethod sql->cl (ctx (type (eql :in)) &rest args)
-  (destructuring-bind (item query)
+  (destructuring-bind (expr query)
       args
-    `(endb/sql/expr:ra-in ,(ast->cl ctx item) ,(ast->cl ctx query))))
+    `(endb/sql/expr:ra-in ,(ast->cl ctx expr) ,(ast->cl ctx query))))
 
 (defmethod sql->cl (ctx (type (eql :left-join)) &rest args)
   (destructuring-bind (table on)
