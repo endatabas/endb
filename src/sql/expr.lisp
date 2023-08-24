@@ -1042,8 +1042,10 @@
   (let ((local-time:*default-timezone* local-time:+utc-zone+))
     (periods:strftime (endb/arrow:arrow-timestamp-micros-to-local-time x) :format format)))
 
-(defun sql-substr (&rest args)
-  (apply #'sql-substring args))
+(defun sql-substr (x y &optional (z nil zp))
+  (if zp
+      (sql-substring x y z)
+      (sql-substring x y)))
 
 (defmethod sql-substring ((x (eql :null)) y &optional z)
   (declare (ignore z))

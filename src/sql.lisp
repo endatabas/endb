@@ -141,9 +141,21 @@
           finally (return (values final-result final-result-code)))))
 
 (defun execute-sql (db sql &optional (parameters (fset:empty-seq)) manyp)
-  (if *query-timing*
-      (time (%execute-sql db sql parameters manyp))
-      (%execute-sql db sql parameters manyp)))
+  (handler-case
+      (if *query-timing*
+          (time (%execute-sql db sql parameters manyp))
+          (%execute-sql db sql parameters manyp))
+    #+sbcl (sb-pcl::effective-method-condition (e)
+             (error 'endb/sql/expr:sql-runtime-error
+                    :message (format nil "Invalid argument types: ~A(~{~A~^, ~})"
+                                     (ppcre:regex-replace "^SQL-(UNARY)?"
+                                                          (symbol-name (sb-pcl::generic-function-name
+                                                                        (sb-pcl::effective-method-condition-generic-function e)))
+                                                          "")
+                                     (loop for arg in (sb-pcl::effective-method-condition-args e)
+                                           collect (if (stringp arg)
+                                                       (prin1-to-string arg)
+                                                       (endb/sql/expr:sql-cast arg :varchar))))))))
 
 (defun %interpret-sql-literal (ast)
   (cond

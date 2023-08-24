@@ -1163,14 +1163,40 @@
 (defun %find-sql-expr-symbol (fn)
   (find-symbol (string-upcase (concatenate 'string "sql-" (symbol-name fn))) :endb/sql/expr))
 
+(defun %valid-sql-fn-call-p (fn-sym fn args)
+  (handler-case
+      (let ((sql-fn (symbol-function fn-sym)))
+        #+sbcl (let* ((arg-list (if (typep sql-fn 'standard-generic-function)
+                                    (sb-pcl::generic-function-pretty-arglist sql-fn)
+                                    (sb-impl::%fun-lambda-list sql-fn)))
+                      (optional-idx (position '&optional arg-list))
+                      (rest-idx (position '&rest arg-list))
+                      (optional-args (if optional-idx
+                                         (- (or rest-idx (length arg-list)) optional-idx)
+                                         0))
+                      (rest-idx (if (and optional-idx rest-idx)
+                                    (1- rest-idx)
+                                    rest-idx))
+                      (min-args (or optional-idx rest-idx (length arg-list)))
+                      (max-args (if rest-idx
+                                    (max (+ min-args optional-args) (length args))
+                                    (+ min-args optional-args))))
+                 (unless (<= min-args (length args) max-args)
+                   (error 'endb/sql/expr:sql-runtime-error
+                          :message (format nil "Invalid number of arguments: ~A to: ~A min: ~A max: ~A"
+                                           (length args)
+                                           (string-upcase (symbol-name fn))
+                                           min-args
+                                           max-args))))
+        t)
+    (undefined-function (e)
+      (declare (ignore e)))))
+
 (defmethod sql->cl (ctx (type (eql :function)) &rest args)
   (destructuring-bind (fn args)
       args
     (let ((fn-sym (%find-sql-expr-symbol fn)))
-      (unless (and fn-sym (handler-case
-                              (symbol-function fn-sym)
-                            (undefined-function (e)
-                              (declare (ignore e)))))
+      (unless (and fn-sym (%valid-sql-fn-call-p fn-sym fn args))
         (error 'endb/sql/expr:sql-runtime-error :message (format nil "Unknown built-in function: ~A" fn)))
       `(,fn-sym ,@(loop for ast in args
                         collect (ast->cl ctx ast))))))
