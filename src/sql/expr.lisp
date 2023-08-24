@@ -4,7 +4,6 @@
   (:import-from :cl-ppcre)
   (:import-from :local-time)
   (:import-from :periods)
-  (:import-from :endb/lib/parser)
   (:import-from :endb/arrow)
   (:import-from :endb/json)
   (:import-from :endb/storage/buffer-pool)
@@ -564,10 +563,10 @@
 (defmethod sql-cast ((x (eql :null)) type)
   :null)
 
-(defmethod sql-cast (x (type (eql :text)))
-  (sql-cast x :varchar))
-
 (defmethod sql-cast (x (type (eql :varchar)))
+  (princ-to-string x))
+
+(defmethod sql-cast ((x integer) (type (eql :varchar)))
   (princ-to-string x))
 
 (defmethod sql-cast ((x fset:seq) (type (eql :varchar)))
@@ -603,9 +602,6 @@
 (defmethod sql-cast ((x (eql nil)) (type (eql :varchar)))
   "0")
 
-(defmethod sql-cast ((x integer) (type (eql :varchar)))
-  (princ-to-string x))
-
 (defmethod sql-cast ((x string) (type (eql :varchar)))
   x)
 
@@ -614,6 +610,12 @@
 
 (defmethod sql-cast ((x vector) (type (eql :varchar)))
   (trivial-utf-8:utf-8-bytes-to-string x))
+
+(defmethod sql-cast (x (type (eql :text)))
+  (sql-cast x :varchar))
+
+(defmethod sql-cast (x (type (eql :blob)))
+  (sql-cast (sql-cast x :varchar) :blob))
 
 (defmethod sql-cast ((x string) (type (eql :blob)))
   (trivial-utf-8:string-to-utf-8-bytes x))
@@ -631,19 +633,66 @@
   0)
 
 (defmethod sql-cast ((x string) (type (eql :integer)))
-  (if (ppcre:scan "^-?\\d+$" x)
-      (let ((*read-eval* nil))
-        (read-from-string x))
-      0))
+  (multiple-value-bind (start end)
+      (ppcre:scan "^-?\\d+" x)
+    (if start
+        (let ((*read-eval* nil))
+          (read-from-string (subseq x 0 end)))
+        0)))
 
 (defmethod sql-cast ((x real) (type (eql :integer)))
   (round x))
 
+(defmethod sql-cast ((x integer) (type (eql :integer)))
+  x)
+
 (defmethod sql-cast (x (type (eql :bigint)))
   (sql-cast x :integer))
 
-(defmethod sql-cast ((x endb/arrow:arrow-date-millis) (type (eql :integer)))
-  (local-time:timestamp-year (endb/arrow:arrow-date-millis-to-local-time x)))
+(defmethod sql-cast (x (type (eql :integer)))
+  (sql-cast (sql-cast x :varchar) :integer))
+
+(defmethod sql-cast (x (type (eql :decimal)))
+  (sql-cast x :real))
+
+(defmethod sql-cast ((x (eql t)) (type (eql :decimal)))
+  1)
+
+(defmethod sql-cast ((x (eql nil)) (type (eql :decimal)))
+  0)
+
+(defmethod sql-cast ((x string) (type (eql :decimal)))
+  (multiple-value-bind (start end)
+      (ppcre:scan "^-?\\d+(\\.\\d+)?([eE][-+]?\\d+)?" x)
+    (if start
+        (let ((*read-eval* nil)
+              (*read-default-float-format* 'double-float))
+          (read-from-string (subseq x 0 end)))
+        0)))
+
+(defmethod sql-cast ((x number) (type (eql :decimal)))
+  x)
+
+(defmethod sql-cast (x (type (eql :signed)))
+  (sql-cast x :decimal))
+
+(defmethod sql-cast ((x (eql t)) (type (eql :real)))
+  1.0d0)
+
+(defmethod sql-cast ((x (eql nil)) (type (eql :real)))
+  0.0d0)
+
+(defmethod sql-cast ((x string) (type (eql :real)))
+  (coerce (sql-cast x :decimal) 'double-float))
+
+(defmethod sql-cast ((x number) (type (eql :real)))
+  (coerce x 'double-float))
+
+(defmethod sql-cast (x (type (eql :real)))
+  (sql-cast (sql-cast x :varchar) :real))
+
+(defmethod sql-cast (x (type (eql :double)))
+  (sql-cast x :real))
 
 (defmethod sql-cast ((x endb/arrow:arrow-date-millis) (type (eql :timestamp)))
   (endb/arrow:local-time-to-arrow-timestamp-micros (endb/arrow:arrow-date-millis-to-local-time x)))
@@ -654,65 +703,17 @@
 (defmethod sql-cast ((x endb/arrow:arrow-timestamp-micros) (type (eql :time)))
   (endb/arrow:local-time-to-arrow-time-micros (endb/arrow:arrow-timestamp-micros-to-local-time x)))
 
-(defmethod sql-cast ((x number) (type (eql :signed)))
-  (coerce x 'integer))
-
-(defmethod sql-cast ((x (eql t)) (type (eql :signed)))
-  1)
-
-(defmethod sql-cast ((x (eql nil)) (type (eql :signed)))
-  0)
-
-(defun %try-parse-number (x)
-  (handler-case
-      (let ((x (caaadr (endb/lib/parser:parse-sql (concatenate 'string "SELECT " x)))))
-        (cond
-          ((numberp x) x)
-          ((and (listp x)
-                (= 2 (length x))
-                (eq :- (first x))
-                (numberp (second x)))
-           (- (second x)))
-          (t 0)))
-    (endb/lib/parser:sql-parse-error (e)
-      (declare (ignore e))
-      0)))
-
-(defmethod sql-cast ((x string) (type (eql :signed)))
-  (%try-parse-number x))
-
-(defmethod sql-cast ((x number) (type (eql :signed)))
-  x)
-
-(defmethod sql-cast ((x (eql t)) (type (eql :decimal)))
-  1)
-
-(defmethod sql-cast ((x (eql nil)) (type (eql :decimal)))
-  0)
-
-(defmethod sql-cast ((x string) (type (eql :decimal)))
-  (%try-parse-number x))
-
-(defmethod sql-cast ((x number) (type (eql :decimal)))
-  (coerce x 'number))
-
-(defmethod sql-cast ((x (eql t)) (type (eql :real)))
-  1.0d0)
-
-(defmethod sql-cast ((x (eql nil)) (type (eql :real)))
-  0.0d0)
-
-(defmethod sql-cast ((x string) (type (eql :real)))
-  (coerce (%try-parse-number x) 'double-float))
-
-(defmethod sql-cast ((x number) (type (eql :real)))
-  (coerce x 'double-float))
-
-(defmethod sql-cast (x (type (eql :double)))
-  (sql-cast x :real))
+(defmethod sql-cast (x (type (eql :timestamp)))
+  (sql-timestamp x))
 
 (defmethod sql-cast (x (type (eql :date)))
   (sql-date x))
+
+(defmethod sql-cast (x (type (eql :time)))
+  (sql-time x))
+
+(defmethod sql-cast (x (type (eql :interval)))
+  (sql-duration x))
 
 (defun sql-nullif (x y)
   (if (eq t (sql-= x y))
@@ -922,17 +923,26 @@
 (defmethod sql-date ((x string))
   (endb/arrow:parse-arrow-date-millis x))
 
+(defmethod sql-date ((x endb/arrow:arrow-date-millis))
+  x)
+
 (defmethod sql-time ((x (eql :null)))
   :null)
 
 (defmethod sql-time ((x string))
   (endb/arrow:parse-arrow-time-micros x))
 
+(defmethod sql-time ((x endb/arrow:arrow-time-micros))
+  x)
+
 (defmethod sql-datetime ((x (eql :null)))
   :null)
 
 (defmethod sql-datetime ((x string))
   (endb/arrow:parse-arrow-timestamp-micros x))
+
+(defmethod sql-datetime ((x endb/arrow:arrow-timestamp-micros))
+  x)
 
 (defun sql-timestamp (x)
   (sql-datetime x))
