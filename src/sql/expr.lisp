@@ -22,7 +22,7 @@
            #:sql-sign #:sql-sqrt #:sql-exp #:sql-power #:sql-pow #:sql-log #:sql-log2 #:sql-log10 #:sql-ln #:sql-degrees #:sql-radians #:sql-pi
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-timestamp #:sql-duration #:sql-interval #:sql-like #:sql-substr #:sql-substring #:sql-strftime
            #:sql-typeof #:sql-unixepoch #:sql-julianday
-           #:sql-contains #:sql-overlaps #:sql-precedes #:sql-succedes #:sql-immediately-precedes #:sql-immediately-succedes
+           #:sql-contains #:sql-overlaps #:sql-precedes #:sql-succedes #:sql-immediately_precedes #:sql-immediately_succedes
 
            #:syn-current_date #:syn-current_time #:syn-current_timestamp
            #:syn-access #:syn-access-finish
@@ -1259,11 +1259,11 @@
   (sql->= (%period-field x "start")
           (%period-field y "end")))
 
-(defun sql-immediately-precedes (x y)
+(defun sql-immediately_precedes (x y)
   (sql-= (%period-field x "end")
          (%period-field y "start")))
 
-(defun sql-immediately-succedes (x y)
+(defun sql-immediately_succedes (x y)
   (sql-= (%period-field x "start")
          (%period-field y "end")))
 

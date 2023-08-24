@@ -110,8 +110,8 @@
   :contains
   :precedes
   :succedes
-  :immediately-precedes
-  :immediately-succedes
+  :immediately_precedes
+  :immediately_succedes
   :year
   :month
   :day
