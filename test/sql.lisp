@@ -821,12 +821,12 @@ SELECT s FROM x WHERE ind=0")
 
 (test system-time
   (let* ((db (make-db))
-         (system-time-as-of-empty (endb/sql/expr:sql-current_timestamp db)))
+         (system-time-as-of-empty (endb/sql/expr:syn-current_timestamp db)))
 
     (sleep 0.01)
 
     (let* ((write-db (begin-write-tx db))
-           (system-time-as-of-insert (endb/sql/expr:sql-current_timestamp write-db)))
+           (system-time-as-of-insert (endb/sql/expr:syn-current_timestamp write-db)))
 
       (is (not (equalp system-time-as-of-empty system-time-as-of-insert)))
 
@@ -844,7 +844,7 @@ SELECT s FROM x WHERE ind=0")
       (sleep 0.01)
 
       (let* ((write-db (begin-write-tx db))
-             (system-time-as-of-update (endb/sql/expr:sql-current_timestamp write-db)))
+             (system-time-as-of-update (endb/sql/expr:syn-current_timestamp write-db)))
         (is (not (equalp system-time-as-of-insert system-time-as-of-update)))
 
         (multiple-value-bind (result result-code)

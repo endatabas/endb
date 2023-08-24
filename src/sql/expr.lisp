@@ -13,18 +13,26 @@
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-unary+ #:sql-unary-
-           #:sql-access #:sql-access-finish #:sql-between #:sql-in #:sql-exists #:sql-coalesce
-           #:sql-union-all #:sql-union #:sql-except #:sql-intersect #:sql-scalar-subquery #:sql-unnest #:sql-object_keys #:sql-object_keys
+           #:sql-between #:sql-coalesce
+           #:sql-object_keys #:sql-object_keys
            #:sql-concat #:sql-cardinality #:sql-char_length #:sql-character_length #:sql-octet_length #:sql-length #:sql-trim #:sql-ltrim #:sql-rtrim #:sql-lower #:sql-upper
            #:sql-replace #:sql-unhex #:sql-hex #:sql-instr #:sql-min #:sql-max #:sql-char #:sql-unicode #:sql-random #:sql-glob #:sql-regexp #:sql-randomblob #:sql-zeroblob #:sql-iif
            #:sql-round #:sql-sin #:sql-cos #:sql-tan #:sql-sinh #:sql-cosh #:sql-tanh #:sql-asin #:sqn-acos #:sql-atan #:sql-asinh #:sqn-acosh #:sql-atanh #:sql-atan2
            #:sql-floor #:sql-ceiling #:sql-ceil #:sql-patch #:sql-match
            #:sql-sign #:sql-sqrt #:sql-exp #:sql-power #:sql-pow #:sql-log #:sql-log2 #:sql-log10 #:sql-ln #:sql-degrees #:sql-radians #:sql-pi
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-timestamp #:sql-duration #:sql-interval #:sql-like #:sql-substr #:sql-substring #:sql-strftime
-           #:sql-current_date #:sql-current_time #:sql-current_timestamp #:sql-typeof #:sql-unixepoch #:sql-julianday
+           #:sql-typeof #:sql-unixepoch #:sql-julianday
            #:sql-contains #:sql-overlaps #:sql-precedes #:sql-succedes #:sql-immediately-precedes #:sql-immediately-succedes
-           #:make-sql-agg #:sql-agg-accumulate #:sql-agg-finish
-           #:sql-create-table #:sql-drop-table #:sql-create-view #:sql-drop-view #:sql-create-index #:sql-drop-index #:sql-insert #:sql-insert-objects #:sql-delete
+
+           #:syn-current_date #:syn-current_time #:syn-current_timestamp
+           #:syn-access #:syn-access-finish
+
+           #:ra-distinct #:ra-unnest #:ra-union-all #:ra-union #:ra-except #:ra-intersect
+           #:ra-scalar-subquery #:ra-in  #:ra-exists
+
+           #:make-agg #:agg-accumulate #:agg-finish
+           #:ddl-create-table #:ddl-drop-table #:ddl-create-view #:ddl-drop-view #:ddl-create-index #:ddl-drop-index #:dml-insert #:dml-insert-objects #:dml-delete
+
            #:make-db #:copy-db #:db-buffer-pool #:db-wal #:db-object-store #:db-meta-data #:db-current-timestamp
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
@@ -40,11 +48,6 @@
   ((message :initarg :message :reader sql-runtime-error-message))
   (:report (lambda (condition stream)
              (write (sql-runtime-error-message condition) :stream stream))))
-
-(defun %sql-distinct (rows &optional (distinct :distinct))
-  (if (eq :distinct distinct)
-      (delete-duplicates rows :test 'equal)
-      rows))
 
 (defmethod sql-= ((x (eql :null)) y)
   :null)
@@ -524,94 +527,6 @@
 (defmethod sql-hex ((x (eql :null)))
   :null)
 
-(defstruct path-seq acc)
-
-(defun %flatten-path-acc (x)
-  (if (typep x 'path-seq)
-      (path-seq-acc x)
-      (vector x)))
-
-(defun %recursive-path-access (x y)
-  (make-path-seq :acc (concatenate 'vector
-                                   (%flatten-path-acc (sql-access x y nil))
-                                   (path-seq-acc (sql-access (sql-access x :* nil) y t)))))
-
-(defun sql-access-finish (x y recursivep)
-  (let ((x (sql-access x y recursivep)))
-    (if (typep x 'path-seq)
-        (if (path-seq-acc x)
-            (fset:convert 'fset:seq (path-seq-acc x))
-            :null)
-        x)))
-
-(defmethod sql-access (x y recursivep)
-  (make-path-seq))
-
-(defmethod sql-access (x y (recursivep (eql t)))
-  (make-path-seq :acc #()))
-
-(defmethod sql-access (x (y (eql 0)) recursivep)
-  x)
-
-(defmethod sql-access (x (y (eql :*)) recursivep)
-  (make-path-seq :acc #()))
-
-(defmethod sql-access ((x vector) (y number) (recursivep (eql nil)))
-  (let ((y (if (minusp y)
-               (+ (length x) y)
-               y)))
-    (if (and (>= y 0)
-             (< y (length x)))
-        (aref x y)
-        (make-path-seq))))
-
-(defmethod sql-access ((x vector) (y string) recursivep)
-  (sql-access (make-path-seq :acc x) y recursivep))
-
-(defmethod sql-access ((x vector) y (recursivep (eql t)))
-  (%recursive-path-access x y))
-
-(defmethod sql-access ((x vector) (y (eql :*)) (recursivep (eql nil)))
-  (make-path-seq :acc x))
-
-(defmethod sql-access ((x fset:seq) (y number) (recursivep (eql nil)))
-  (let ((y (if (minusp y)
-               (+ (fset:size x) y)
-               y)))
-    (if (and (>= y 0)
-             (< y (fset:size x)))
-        (fset:lookup x y)
-        (make-path-seq))))
-
-(defmethod sql-access ((x fset:seq) (y string) recursivep)
-  (sql-access (make-path-seq :acc (fset:convert 'vector x)) y recursivep))
-
-(defmethod sql-access ((x fset:seq) y (recursivep (eql t)))
-  (%recursive-path-access x y))
-
-(defmethod sql-access ((x fset:seq) (y (eql :*)) (recursivep (eql nil)))
-  (make-path-seq :acc (fset:convert 'vector x)))
-
-(defmethod sql-access ((x fset:map) (y string) (recursivep (eql nil)))
-  (multiple-value-bind (v vp)
-      (fset:lookup x y)
-    (if vp
-        v
-        (make-path-seq))))
-
-(defmethod sql-access ((x fset:map) (y (eql :*)) (recursivep (eql nil)))
-  (make-path-seq :acc (%fset-values x)))
-
-(defmethod sql-access ((x fset:map) y (recursivep (eql t)))
-  (%recursive-path-access x y))
-
-(defmethod sql-access ((x path-seq) y recursivep)
-  (make-path-seq :acc (apply #'concatenate
-                             'vector
-                             (loop for x across (path-seq-acc x)
-                                   for z = (sql-access x y recursivep)
-                                   collect (%flatten-path-acc z)))))
-
 (defmethod sql-patch ((x (eql :null)) y)
   :null)
 
@@ -643,33 +558,8 @@
     (unless (sql-match v (fset:lookup y k))
       (return nil))))
 
-(defun sql-in (item xs)
-  (block in
-    (reduce (lambda (x y)
-              (let ((result (sql-= y item)))
-                (if (eq t result)
-                    (return-from in result)
-                    (sql-or x result))))
-            xs
-            :initial-value nil)))
-
 (defun sql-between (expr lhs rhs)
   (sql-and (sql->= expr lhs) (sql-<= expr rhs)))
-
-(defun sql-exists (rows)
-  (not (null rows)))
-
-(defun sql-union (lhs rhs)
-  (%sql-distinct (nunion lhs rhs :test 'equal)))
-
-(defun sql-union-all (lhs rhs)
-  (nconc lhs rhs))
-
-(defun sql-except (lhs rhs)
-  (%sql-distinct (nset-difference lhs rhs :test 'equal)))
-
-(defun sql-intersect (lhs rhs)
-  (%sql-distinct (nintersection lhs rhs :test 'equal)))
 
 (defmethod sql-cast ((x (eql :null)) type)
   :null)
@@ -1228,35 +1118,6 @@
 (defmethod sql-zeroblob ((x number))
   (make-array x :element-type '(unsigned-byte 8)))
 
-(defun sql-scalar-subquery (rows)
-  (when (> 1 (length rows))
-    (error 'sql-runtime-error :message "Scalar subquery must return max one row"))
-  (if (null rows)
-      :null
-      (caar rows)))
-
-(defun sql-unnest (arrays &key with-ordinality)
-  (let ((arrays (loop for a in arrays
-                      collect (if (fset:map? a)
-                                  (fset:convert 'fset:seq
-                                                (loop for (k . v) in (fset:convert 'list a)
-                                                      collect (fset:map ("key" k) ("value" v))))
-                                  a))))
-    (when (every #'fset:seq? arrays)
-      (let ((len (apply #'max (mapcar #'fset:size arrays))))
-        (reverse (if (eq :with-ordinality with-ordinality)
-                     (loop for idx below len
-                           collect (append (loop for a in arrays
-                                                 collect (if (< idx (fset:size a))
-                                                             (fset:lookup a idx)
-                                                             :null))
-                                           (list idx)))
-                     (loop for idx below len
-                           collect (loop for a in arrays
-                                         collect (if (< idx (fset:size a))
-                                                     (fset:lookup a idx)
-                                                     :null)))))))))
-
 (defmethod sql-object_keys ((x (eql :null)))
   :null)
 
@@ -1273,16 +1134,6 @@
      (fset:with-last acc v))
    x
    :initial-value (fset:empty-seq)))
-
-(defun sql-current_date (db)
-  (sql-cast (sql-current_timestamp db) :date))
-
-(defun sql-current_time (db)
-  (sql-cast (sql-current_timestamp db) :time))
-
-(defun sql-current_timestamp (db)
-  (or (db-current-timestamp db)
-      (endb/arrow:local-time-to-arrow-timestamp-micros (local-time:now))))
 
 (defconstant +random-uuid-part-max+ (ash 1 64))
 (defconstant +random-uuid-version+ 4)
@@ -1351,15 +1202,15 @@
   "object")
 
 (defun sql-min (x y &rest args)
-  (sql-agg-finish (reduce #'sql-agg-accumulate (cons x (cons y args)) :initial-value (make-sql-agg :min))))
+  (agg-finish (reduce #'agg-accumulate (cons x (cons y args)) :initial-value (make-agg :min))))
 
 (defun sql-max (x y &rest args)
-  (sql-agg-finish (reduce #'sql-agg-accumulate (cons x (cons y args)) :initial-value (make-sql-agg :max))))
+  (agg-finish (reduce #'agg-accumulate (cons x (cons y args)) :initial-value (make-agg :max))))
 
 ;; Period predicates
 
 (defmethod %period-field ((x fset:map) field)
-  (sql-access-finish x field nil))
+  (syn-access-finish x field nil))
 
 (defmethod %period-field ((x fset:seq) (field (eql "start")))
   (if (= 2 (fset:size x))
@@ -1408,37 +1259,198 @@
   (sql-= (%period-field x "start")
          (%period-field y "end")))
 
+;; Syntax
+
+(defstruct path-seq acc)
+
+(defun %flatten-path-acc (x)
+  (if (typep x 'path-seq)
+      (path-seq-acc x)
+      (vector x)))
+
+(defun %recursive-path-access (x y)
+  (make-path-seq :acc (concatenate 'vector
+                                   (%flatten-path-acc (syn-access x y nil))
+                                   (path-seq-acc (syn-access (syn-access x :* nil) y t)))))
+
+(defun syn-access-finish (x y recursivep)
+  (let ((x (syn-access x y recursivep)))
+    (if (typep x 'path-seq)
+        (if (path-seq-acc x)
+            (fset:convert 'fset:seq (path-seq-acc x))
+            :null)
+        x)))
+
+(defmethod syn-access (x y recursivep)
+  (make-path-seq))
+
+(defmethod syn-access (x y (recursivep (eql t)))
+  (make-path-seq :acc #()))
+
+(defmethod syn-access (x (y (eql 0)) recursivep)
+  x)
+
+(defmethod syn-access (x (y (eql :*)) recursivep)
+  (make-path-seq :acc #()))
+
+(defmethod syn-access ((x vector) (y number) (recursivep (eql nil)))
+  (let ((y (if (minusp y)
+               (+ (length x) y)
+               y)))
+    (if (and (>= y 0)
+             (< y (length x)))
+        (aref x y)
+        (make-path-seq))))
+
+(defmethod syn-access ((x vector) (y string) recursivep)
+  (syn-access (make-path-seq :acc x) y recursivep))
+
+(defmethod syn-access ((x vector) y (recursivep (eql t)))
+  (%recursive-path-access x y))
+
+(defmethod syn-access ((x vector) (y (eql :*)) (recursivep (eql nil)))
+  (make-path-seq :acc x))
+
+(defmethod syn-access ((x fset:seq) (y number) (recursivep (eql nil)))
+  (let ((y (if (minusp y)
+               (+ (fset:size x) y)
+               y)))
+    (if (and (>= y 0)
+             (< y (fset:size x)))
+        (fset:lookup x y)
+        (make-path-seq))))
+
+(defmethod syn-access ((x fset:seq) (y string) recursivep)
+  (syn-access (make-path-seq :acc (fset:convert 'vector x)) y recursivep))
+
+(defmethod syn-access ((x fset:seq) y (recursivep (eql t)))
+  (%recursive-path-access x y))
+
+(defmethod syn-access ((x fset:seq) (y (eql :*)) (recursivep (eql nil)))
+  (make-path-seq :acc (fset:convert 'vector x)))
+
+(defmethod syn-access ((x fset:map) (y string) (recursivep (eql nil)))
+  (multiple-value-bind (v vp)
+      (fset:lookup x y)
+    (if vp
+        v
+        (make-path-seq))))
+
+(defmethod syn-access ((x fset:map) (y (eql :*)) (recursivep (eql nil)))
+  (make-path-seq :acc (%fset-values x)))
+
+(defmethod syn-access ((x fset:map) y (recursivep (eql t)))
+  (%recursive-path-access x y))
+
+(defmethod syn-access ((x path-seq) y recursivep)
+  (make-path-seq :acc (apply #'concatenate
+                             'vector
+                             (loop for x across (path-seq-acc x)
+                                   for z = (syn-access x y recursivep)
+                                   collect (%flatten-path-acc z)))))
+
+(defun syn-current_date (db)
+  (sql-cast (syn-current_timestamp db) :date))
+
+(defun syn-current_time (db)
+  (sql-cast (syn-current_timestamp db) :time))
+
+(defun syn-current_timestamp (db)
+  (or (db-current-timestamp db)
+      (endb/arrow:local-time-to-arrow-timestamp-micros (local-time:now))))
+
+;; RA
+
+(defun ra-distinct (rows &optional (distinct :distinct))
+  (if (eq :distinct distinct)
+      (delete-duplicates rows :test 'equal)
+      rows))
+
+(defun ra-in (item xs)
+  (block in
+    (reduce (lambda (x y)
+              (let ((result (sql-= y item)))
+                (if (eq t result)
+                    (return-from in result)
+                    (sql-or x result))))
+            xs
+            :initial-value nil)))
+
+(defun ra-exists (rows)
+  (not (null rows)))
+
+(defun ra-union (lhs rhs)
+  (ra-distinct (nunion lhs rhs :test 'equal)))
+
+(defun ra-union-all (lhs rhs)
+  (nconc lhs rhs))
+
+(defun ra-except (lhs rhs)
+  (ra-distinct (nset-difference lhs rhs :test 'equal)))
+
+(defun ra-intersect (lhs rhs)
+  (ra-distinct (nintersection lhs rhs :test 'equal)))
+
+(defun ra-scalar-subquery (rows)
+  (when (> 1 (length rows))
+    (error 'sql-runtime-error :message "Scalar subquery must return max one row"))
+  (if (null rows)
+      :null
+      (caar rows)))
+
+(defun ra-unnest (arrays &key with-ordinality)
+  (let ((arrays (loop for a in arrays
+                      collect (if (fset:map? a)
+                                  (fset:convert 'fset:seq
+                                                (loop for (k . v) in (fset:convert 'list a)
+                                                      collect (fset:map ("key" k) ("value" v))))
+                                  a))))
+    (when (every #'fset:seq? arrays)
+      (let ((len (apply #'max (mapcar #'fset:size arrays))))
+        (reverse (if (eq :with-ordinality with-ordinality)
+                     (loop for idx below len
+                           collect (append (loop for a in arrays
+                                                 collect (if (< idx (fset:size a))
+                                                             (fset:lookup a idx)
+                                                             :null))
+                                           (list idx)))
+                     (loop for idx below len
+                           collect (loop for a in arrays
+                                         collect (if (< idx (fset:size a))
+                                                     (fset:lookup a idx)
+                                                     :null)))))))))
+
 ;; Aggregates
 
-(defgeneric make-sql-agg (type &rest args))
+(defgeneric make-agg (type &rest args))
 
-(defgeneric sql-agg-accumulate (agg x &rest args))
-(defgeneric sql-agg-finish (agg))
+(defgeneric agg-accumulate (agg x &rest args))
+(defgeneric agg-finish (agg))
 
 (defstruct sql-distinct (acc ()) agg)
 
-(defmethod sql-agg-accumulate ((agg sql-distinct) x &rest args)
+(defmethod agg-accumulate ((agg sql-distinct) x &rest args)
   (declare (ignore args))
   (with-slots (acc) agg
     (push x acc)
     agg))
 
-(defmethod sql-agg-finish ((agg sql-distinct))
+(defmethod agg-finish ((agg sql-distinct))
   (with-slots (acc (inner-agg agg)) agg
-    (sql-agg-finish (reduce #'sql-agg-accumulate (%sql-distinct acc :distinct)
-                            :initial-value inner-agg))))
+    (agg-finish (reduce #'agg-accumulate (ra-distinct acc :distinct)
+                        :initial-value inner-agg))))
 
-(defun %make-distinct-sql-agg (agg &optional (distinct :distinct))
+(defun %make-distinct-agg (agg &optional (distinct :distinct))
   (if (eq :distinct distinct)
       (make-sql-distinct :agg agg)
       agg))
 
 (defstruct sql-sum sum has-value-p)
 
-(defmethod make-sql-agg ((type (eql :sum)) &key distinct)
-  (%make-distinct-sql-agg (make-sql-sum) distinct))
+(defmethod make-agg ((type (eql :sum)) &key distinct)
+  (%make-distinct-agg (make-sql-sum) distinct))
 
-(defmethod sql-agg-accumulate ((agg sql-sum) x &rest args)
+(defmethod agg-accumulate ((agg sql-sum) x &rest args)
   (declare (ignore args))
   (with-slots (sum has-value-p) agg
     (if has-value-p
@@ -1446,11 +1458,11 @@
         (setf sum x has-value-p t))
     agg))
 
-(defmethod sql-agg-accumulate ((agg sql-sum) (x (eql :null)) &rest args)
+(defmethod agg-accumulate ((agg sql-sum) (x (eql :null)) &rest args)
   (declare (ignore args))
   agg)
 
-(defmethod sql-agg-finish ((agg sql-sum))
+(defmethod agg-finish ((agg sql-sum))
   (with-slots (sum has-value-p) agg
     (if has-value-p
         sum
@@ -1458,10 +1470,10 @@
 
 (defstruct (sql-total (:include sql-sum)))
 
-(defmethod make-sql-agg ((type (eql :total)) &key distinct)
-  (%make-distinct-sql-agg (make-sql-total) distinct))
+(defmethod make-agg ((type (eql :total)) &key distinct)
+  (%make-distinct-agg (make-sql-total) distinct))
 
-(defmethod sql-agg-finish ((agg sql-total))
+(defmethod agg-finish ((agg sql-total))
   (with-slots (sum has-value-p) agg
     (if has-value-p
         sum
@@ -1469,50 +1481,50 @@
 
 (defstruct sql-count (count 0 :type integer))
 
-(defmethod make-sql-agg ((type (eql :count)) &key distinct)
-  (%make-distinct-sql-agg (make-sql-count) distinct))
+(defmethod make-agg ((type (eql :count)) &key distinct)
+  (%make-distinct-agg (make-sql-count) distinct))
 
-(defmethod sql-agg-accumulate ((agg sql-count) x &rest args)
+(defmethod agg-accumulate ((agg sql-count) x &rest args)
   (declare (ignore args))
   (incf (sql-count-count agg))
   agg)
 
-(defmethod sql-agg-accumulate ((agg sql-count) (x (eql :null)) &rest args)
+(defmethod agg-accumulate ((agg sql-count) (x (eql :null)) &rest args)
   (declare (ignore args))
   agg)
 
-(defmethod sql-agg-finish ((agg sql-count))
+(defmethod agg-finish ((agg sql-count))
   (sql-count-count agg))
 
 (defstruct (sql-count-star (:include sql-count)))
 
-(defmethod make-sql-agg ((type (eql :count-star)) &key distinct)
+(defmethod make-agg ((type (eql :count-star)) &key distinct)
   (when distinct
     (error 'sql-runtime-error :message "COUNT(*) does not support DISTINCT"))
   (make-sql-count-star))
 
-(defmethod sql-agg-accumulate ((agg sql-count-star) x &rest args)
+(defmethod agg-accumulate ((agg sql-count-star) x &rest args)
   (declare (ignore args))
   (incf (sql-count-star-count agg))
   agg)
 
 (defstruct sql-avg sum (count 0 :type integer))
 
-(defmethod make-sql-agg ((type (eql :avg)) &key distinct)
-  (%make-distinct-sql-agg (make-sql-avg) distinct))
+(defmethod make-agg ((type (eql :avg)) &key distinct)
+  (%make-distinct-agg (make-sql-avg) distinct))
 
-(defmethod sql-agg-accumulate ((agg sql-avg) x &rest args)
+(defmethod agg-accumulate ((agg sql-avg) x &rest args)
   (declare (ignore args))
   (with-slots (sum count) agg
     (setf sum (sql-+ sum x))
     (incf count)
     agg))
 
-(defmethod sql-agg-accumulate ((agg sql-avg) (x (eql :null)) &rest args)
+(defmethod agg-accumulate ((agg sql-avg) (x (eql :null)) &rest args)
   (declare (ignore args))
   agg)
 
-(defmethod sql-agg-finish ((agg sql-avg))
+(defmethod agg-finish ((agg sql-avg))
   (with-slots (sum count) agg
     (if (zerop count)
         :null
@@ -1520,10 +1532,10 @@
 
 (defstruct sql-min min has-value-p)
 
-(defmethod make-sql-agg ((type (eql :min)) &key distinct)
-  (%make-distinct-sql-agg (make-sql-min) distinct))
+(defmethod make-agg ((type (eql :min)) &key distinct)
+  (%make-distinct-agg (make-sql-min) distinct))
 
-(defmethod sql-agg-accumulate ((agg sql-min) x &rest args)
+(defmethod agg-accumulate ((agg sql-min) x &rest args)
   (declare (ignore args))
   (with-slots (min has-value-p) agg
     (if has-value-p
@@ -1533,11 +1545,11 @@
         (setf min x has-value-p t))
     agg))
 
-(defmethod sql-agg-accumulate ((agg sql-min) (x (eql :null)) &rest args)
+(defmethod agg-accumulate ((agg sql-min) (x (eql :null)) &rest args)
   (declare (ignore args))
   agg)
 
-(defmethod sql-agg-finish ((agg sql-min))
+(defmethod agg-finish ((agg sql-min))
   (with-slots (min has-value-p) agg
     (if has-value-p
         min
@@ -1545,10 +1557,10 @@
 
 (defstruct sql-max max has-value-p)
 
-(defmethod make-sql-agg ((type (eql :max)) &key distinct)
-  (%make-distinct-sql-agg (make-sql-max) distinct))
+(defmethod make-agg ((type (eql :max)) &key distinct)
+  (%make-distinct-agg (make-sql-max) distinct))
 
-(defmethod sql-agg-accumulate ((agg sql-max) x &rest args)
+(defmethod agg-accumulate ((agg sql-max) x &rest args)
   (declare (ignore args))
   (with-slots (max has-value-p) agg
     (if has-value-p
@@ -1558,11 +1570,11 @@
         (setf max x has-value-p t))
     agg))
 
-(defmethod sql-agg-accumulate ((agg sql-max) (x (eql :null)) &rest args)
+(defmethod agg-accumulate ((agg sql-max) (x (eql :null)) &rest args)
   (declare (ignore args))
   agg)
 
-(defmethod sql-agg-finish ((agg sql-max))
+(defmethod agg-finish ((agg sql-max))
   (with-slots (max has-value-p) agg
     (if has-value-p
         max
@@ -1570,10 +1582,10 @@
 
 (defstruct sql-group_concat (acc nil :type (or null string)) seen distinct)
 
-(defmethod make-sql-agg ((type (eql :group_concat)) &key distinct)
+(defmethod make-agg ((type (eql :group_concat)) &key distinct)
   (make-sql-group_concat :seen nil :distinct distinct))
 
-(defmethod sql-agg-accumulate ((agg sql-group_concat) x &rest args)
+(defmethod agg-accumulate ((agg sql-group_concat) x &rest args)
   (with-slots (acc seen distinct) agg
     (when (and (eq :distinct distinct) args)
       (error 'sql-runtime-error :message "GROUP_CONCAT with argument doesn't support DISTINCT"))
@@ -1587,26 +1599,26 @@
                         (sql-cast x :varchar)))
           agg))))
 
-(defmethod sql-agg-accumulate ((agg sql-group_concat) (x (eql :null)) &rest args)
+(defmethod agg-accumulate ((agg sql-group_concat) (x (eql :null)) &rest args)
   (declare (ignore args))
   agg)
 
-(defmethod sql-agg-finish ((agg sql-group_concat))
+(defmethod agg-finish ((agg sql-group_concat))
   (or (sql-group_concat-acc agg) :null))
 
 (defstruct sql-array_agg acc order-by)
 
-(defmethod make-sql-agg ((type (eql :array_agg)) &key order-by)
+(defmethod make-agg ((type (eql :array_agg)) &key order-by)
   (make-sql-array_agg :order-by (loop for dir in order-by
                                       for idx from 2
                                       collect (list idx dir))))
 
-(defmethod sql-agg-accumulate ((agg sql-array_agg) x &rest args)
+(defmethod agg-accumulate ((agg sql-array_agg) x &rest args)
   (with-slots (acc order-by) agg
     (push (cons x args) acc)
     agg))
 
-(defmethod sql-agg-finish ((agg sql-array_agg))
+(defmethod agg-finish ((agg sql-array_agg))
   (with-slots (acc order-by) agg
     (fset:convert 'fset:seq (mapcar #'car (if order-by
                                               (%sql-order-by acc order-by)
@@ -1614,22 +1626,22 @@
 
 (defstruct sql-object_agg (acc (make-hash-table :test 'equal)))
 
-(defmethod make-sql-agg ((type (eql :object_agg)) &key distinct)
+(defmethod make-agg ((type (eql :object_agg)) &key distinct)
   (declare (ignore distinct))
   (make-sql-object_agg))
 
-(defmethod sql-agg-accumulate ((agg sql-object_agg) (x string) &rest args)
+(defmethod agg-accumulate ((agg sql-object_agg) (x string) &rest args)
   (unless (eq 1 (length args))
     (error 'sql-runtime-error :message "OBJECT_AGG requires both key and value argument"))
   (with-slots (acc) agg
     (setf (gethash x acc) (first args))
     agg))
 
-(defmethod sql-agg-accumulate ((agg sql-object_agg) x &rest args)
+(defmethod agg-accumulate ((agg sql-object_agg) x &rest args)
   (declare (ignore args))
   (error 'sql-runtime-error :message (format nil "OBJECT_AGG requires string key argument: ~A" x)))
 
-(defmethod sql-agg-finish ((agg sql-object_agg))
+(defmethod agg-finish ((agg sql-object_agg))
   (with-slots (acc) agg
     (fset:convert 'fset:map acc)))
 
@@ -1768,20 +1780,20 @@
         when (funcall predicate row)
           do (return arrow-file-idx-row-id)))
 
-(defun sql-create-table (db table-name columns)
+(defun ddl-create-table (db table-name columns)
   (unless *sqlite-mode*
     (error 'sql-runtime-error :message "CREATE TABLE not supported"))
   (unless (%find-arrow-file-idx-row-id db
                                        "information_schema.tables"
                                        (lambda (row)
                                          (equal table-name (nth 2 row))))
-    (sql-insert db "information_schema.tables" (list (list :null *default-schema* table-name "BASE TABLE")))
-    (sql-insert db "information_schema.columns" (loop for c in columns
+    (dml-insert db "information_schema.tables" (list (list :null *default-schema* table-name "BASE TABLE")))
+    (dml-insert db "information_schema.columns" (loop for c in columns
                                                       for idx from 1
                                                       collect  (list :null *default-schema* table-name c idx)))
     (values nil t)))
 
-(defun sql-drop-table (db table-name &key if-exists)
+(defun ddl-drop-table (db table-name &key if-exists)
   (unless *sqlite-mode*
     (error 'sql-runtime-error :message "DROP TABLE not supported"))
   (with-slots (meta-data) db
@@ -1790,8 +1802,8 @@
                                                            (lambda (row)
                                                              (and (equal table-name (nth 2 row)) (equal "BASE TABLE" (nth 3 row)))))))
       (when batch-file-row-id
-        (sql-delete db "information_schema.tables" (list batch-file-row-id))
-        (sql-delete db "information_schema.columns" (loop for c in (table-columns db table-name)
+        (dml-delete db "information_schema.tables" (list batch-file-row-id))
+        (dml-delete db "information_schema.columns" (loop for c in (table-columns db table-name)
                                                           collect (%find-arrow-file-idx-row-id db
                                                                                                "information_schema.columns"
                                                                                                (lambda (row)
@@ -1802,27 +1814,27 @@
       (when (or batch-file-row-id if-exists)
         (values nil t)))))
 
-(defun sql-create-view (db view-name query columns)
+(defun ddl-create-view (db view-name query columns)
   (unless (%find-arrow-file-idx-row-id db
                                        "information_schema.tables"
                                        (lambda (row)
                                          (equal view-name (nth 2 row))))
-    (sql-insert db "information_schema.tables" (list (list :null *default-schema* view-name "VIEW")))
-    (sql-insert db "information_schema.views" (list (list :null *default-schema* view-name (let ((*print-case* :upcase))
+    (dml-insert db "information_schema.tables" (list (list :null *default-schema* view-name "VIEW")))
+    (dml-insert db "information_schema.views" (list (list :null *default-schema* view-name (let ((*print-case* :upcase))
                                                                                              (prin1-to-string query)))))
-    (sql-insert db "information_schema.columns" (loop for c in columns
+    (dml-insert db "information_schema.columns" (loop for c in columns
                                                       for idx from 1
                                                       collect  (list :null *default-schema* view-name c idx)))
     (values nil t)))
 
-(defun sql-drop-view (db view-name &key if-exists)
+(defun ddl-drop-view (db view-name &key if-exists)
   (let* ((batch-file-row-id (%find-arrow-file-idx-row-id db
                                                          "information_schema.tables"
                                                          (lambda (row)
                                                            (and (equal view-name (nth 2 row)) (equal "VIEW" (nth 3 row)))))))
     (when batch-file-row-id
-      (sql-delete db "information_schema.tables" (list batch-file-row-id))
-      (sql-delete db "information_schema.columns" (loop for c in (table-columns db view-name)
+      (dml-delete db "information_schema.tables" (list batch-file-row-id))
+      (dml-delete db "information_schema.columns" (loop for c in (table-columns db view-name)
                                                         collect (%find-arrow-file-idx-row-id db
                                                                                              "information_schema.columns"
                                                                                              (lambda (row)
@@ -1831,27 +1843,27 @@
                                                              "information_schema.views"
                                                              (lambda (row)
                                                                (equal view-name (nth 2 row))))))
-        (sql-delete db "information_schema.views" (list batch-file-row-id))))
+        (dml-delete db "information_schema.views" (list batch-file-row-id))))
     (when (or batch-file-row-id if-exists)
       (values nil t))))
 
-(defun sql-create-index (db)
+(defun ddl-create-index (db)
   (declare (ignore db))
   (unless *sqlite-mode*
     (error 'sql-runtime-error :message "CREATE INDEX not supported"))
   (values nil t))
 
-(defun sql-drop-index (db)
+(defun ddl-drop-index (db)
   (declare (ignore db))
   (unless *sqlite-mode*
     (error 'sql-runtime-error :message "DROP INDEX not supported")))
 
-(defmethod sql-agg-accumulate ((agg cl-bloom::bloom-filter) x &rest args)
+(defmethod agg-accumulate ((agg cl-bloom::bloom-filter) x &rest args)
   (declare (ignore args))
   (cl-bloom:add agg x)
   agg)
 
-(defmethod sql-agg-finish ((agg cl-bloom::bloom-filter))
+(defmethod agg-finish ((agg cl-bloom::bloom-filter))
   (cffi:with-pointer-to-vector-data (ptr (cl-bloom::filter-array agg))
     (endb/lib/arrow:buffer-to-vector ptr (endb/lib/arrow:vector-byte-size (cl-bloom::filter-array agg)))))
 
@@ -1859,16 +1871,16 @@
   (let* ((total-length (reduce #'+ (mapcar #'endb/arrow:arrow-length arrays)))
          (bloom-order (* 8 (endb/lib/arrow:vector-byte-size #* (cl-bloom::opt-order total-length)))))
     (labels ((make-col-stats ()
-               (fset:map ("count_star" (make-sql-agg :count-star))
-                         ("count" (make-sql-agg :count))
-                         ("min" (make-sql-agg :min))
-                         ("max" (make-sql-agg :max))
+               (fset:map ("count_star" (make-agg :count-star))
+                         ("count" (make-agg :count))
+                         ("min" (make-agg :min))
+                         ("max" (make-agg :max))
                          ("bloom" (make-instance 'cl-bloom::bloom-filter :order bloom-order))))
              (calculate-col-stats (stats k v)
                (let ((col-stats (or (fset:lookup stats k) (make-col-stats))))
                  (fset:with stats k (fset:image
                                      (lambda (agg-k agg-v)
-                                       (values agg-k (sql-agg-accumulate agg-v v)))
+                                       (values agg-k (agg-accumulate agg-v v)))
                                      col-stats)))))
       (let ((stats (reduce
                     (lambda (stats array)
@@ -1885,11 +1897,11 @@
          (lambda (k v)
            (values k (fset:image
                       (lambda (k v)
-                        (values k (sql-agg-finish v)))
+                        (values k (agg-finish v)))
                       v)))
          stats)))))
 
-(defun sql-insert (db table-name values &key column-names)
+(defun dml-insert (db table-name values &key column-names)
   (with-slots (buffer-pool meta-data current-timestamp) db
     (let* ((created-p (base-table-created-p db table-name))
            (columns (table-columns db table-name))
@@ -1906,7 +1918,7 @@
         (error 'sql-runtime-error
                :message (format nil "Cannot insert into table: ~A without all values containing same number of columns: ~A" table-name number-of-columns)))
       (when new-columns
-        (sql-insert db "information_schema.columns" (loop for c in new-columns
+        (dml-insert db "information_schema.columns" (loop for c in new-columns
                                                           collect (list :null *default-schema* table-name c 0))))
       (if columns
           (let* ((values (if (and created-p column-names)
@@ -1947,20 +1959,20 @@
 
             (values nil (length values)))
           (unless (table-type db table-name)
-            (sql-insert db "information_schema.tables" (list (list :null *default-schema* table-name "BASE TABLE")))
-            (sql-insert db table-name values :column-names column-names))))))
+            (dml-insert db "information_schema.tables" (list (list :null *default-schema* table-name "BASE TABLE")))
+            (dml-insert db table-name values :column-names column-names))))))
 
-(defun sql-insert-objects (db table-name objects)
+(defun dml-insert-objects (db table-name objects)
   (loop for object in objects
         if (fset:empty? object)
           do (error 'sql-runtime-error :message "Cannot insert empty object")
         else
-          do (sql-insert db table-name
+          do (dml-insert db table-name
                          (list (coerce (%fset-values object) 'list))
                          :column-names (fset:convert 'list (fset:domain object))))
   (values nil (length objects)))
 
-(defun sql-delete (db table-name new-batch-file-idx-deleted-row-ids)
+(defun dml-delete (db table-name new-batch-file-idx-deleted-row-ids)
   (with-slots (meta-data current-timestamp) db
     (let* ((table-md (reduce
                       (lambda (acc batch-file-idx-row-id)

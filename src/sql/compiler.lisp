@@ -369,7 +369,7 @@
                                            ,group-sym
                                          ,@(loop for v being the hash-value of aggregate-table
                                                  collect `(when (eq t ,(aggregate-where-src v))
-                                                            (endb/sql/expr:sql-agg-accumulate ,(aggregate-var v) ,@(aggregate-src v))))))))
+                                                            (endb/sql/expr:agg-accumulate ,(aggregate-var v) ,@(aggregate-src v))))))))
          (empty-group-key-form `(list ,@(loop repeat (length group-by-projection) collect :null)))
          (group-by-src `(let ((,group-acc-sym (make-hash-table :test 'equal)))
                           ,(%from->cl ctx from-tables where-clauses group-by-selected-src correlated-vars)
@@ -535,7 +535,7 @@
                            ,src
                            ,acc-sym)))
                  (src (if (eq :distinct distinct)
-                          `(endb/sql/expr::%sql-distinct ,src)
+                          `(endb/sql/expr:ra-distinct ,src)
                           src))
                  (select-star-projection (mapcar #'%unqualified-column-name full-projection))
                  (select-projection (%select-projection select-list select-star-projection table-by-alias))
@@ -567,7 +567,12 @@
 (defmethod sql->cl (ctx (type (eql :exists)) &rest args)
   (destructuring-bind (query)
       args
-    `(endb/sql/expr:sql-exists ,(ast->cl ctx (append query '(:limit 1))))))
+    `(endb/sql/expr:ra-exists ,(ast->cl ctx (append query '(:limit 1))))))
+
+(defmethod sql->cl (ctx (type (eql :in)) &rest args)
+  (destructuring-bind (item query)
+      args
+    `(endb/sql/expr:ra-in ,(ast->cl ctx item) ,(ast->cl ctx query))))
 
 (defmethod sql->cl (ctx (type (eql :left-join)) &rest args)
   (destructuring-bind (table on)
@@ -589,7 +594,7 @@
              (index-key-sym (gensym))
              (index-key-form `(list ',(gensym) ,@free-vars)))
         `(let* ((,index-key-sym ,index-key-form))
-           (endb/sql/expr:sql-scalar-subquery
+           (endb/sql/expr:ra-scalar-subquery
             (multiple-value-bind (result resultp)
                 (gethash ,index-key-sym ,index-sym)
               (if resultp
@@ -600,7 +605,7 @@
 (defmethod sql->cl (ctx (type (eql :unnest)) &rest args)
   (destructuring-bind (exprs &key with-ordinality)
       args
-    (values `(endb/sql/expr:sql-unnest ,(ast->cl ctx exprs) :with-ordinality ,with-ordinality)
+    (values `(endb/sql/expr:ra-unnest ,(ast->cl ctx exprs) :with-ordinality ,with-ordinality)
             (%values-projection (if with-ordinality
                                     (1+ (length exprs))
                                     (length exprs))))))
@@ -624,16 +629,16 @@
                 lhs-projection)))))
 
 (defmethod sql->cl (ctx (type (eql :union)) &rest args)
-  (%compound-select->cl ctx "UNION" 'endb/sql/expr:sql-union args))
+  (%compound-select->cl ctx "UNION" 'endb/sql/expr:ra-union args))
 
 (defmethod sql->cl (ctx (type (eql :union-all)) &rest args)
-  (%compound-select->cl ctx "UNION ALL" 'endb/sql/expr:sql-union-all args))
+  (%compound-select->cl ctx "UNION ALL" 'endb/sql/expr:ra-union-all args))
 
 (defmethod sql->cl (ctx (type (eql :except)) &rest args)
-  (%compound-select->cl ctx "EXCEPT" 'endb/sql/expr:sql-except args))
+  (%compound-select->cl ctx "EXCEPT" 'endb/sql/expr:ra-except args))
 
 (defmethod sql->cl (ctx (type (eql :intersect)) &rest args)
-  (%compound-select->cl ctx "INTERSECT" 'endb/sql/expr:sql-intersect args))
+  (%compound-select->cl ctx "INTERSECT" 'endb/sql/expr:ra-intersect args))
 
 (defmethod sql->cl (ctx (type (eql :+)) &rest args)
   (destructuring-bind (lhs &optional (rhs nil rhsp))
@@ -656,20 +661,20 @@
 (defmethod sql->cl (ctx (type (eql :create-table)) &rest args)
   (destructuring-bind (table-name column-names)
       args
-    `(endb/sql/expr:sql-create-table ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ',(mapcar #'symbol-name column-names))))
+    `(endb/sql/expr:ddl-create-table ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ',(mapcar #'symbol-name column-names))))
 
 (defmethod sql->cl (ctx (type (eql :create-index)) &rest args)
   (declare (ignore args))
-  `(endb/sql/expr:sql-create-index ,(fset:lookup ctx :db-sym)))
+  `(endb/sql/expr:ddl-create-index ,(fset:lookup ctx :db-sym)))
 
 (defmethod sql->cl (ctx (type (eql :drop-index)) &rest args)
   (declare (ignore args))
-  `(endb/sql/expr:sql-drop-index ,(fset:lookup ctx :db-sym)))
+  `(endb/sql/expr:ddl-drop-index ,(fset:lookup ctx :db-sym)))
 
 (defmethod sql->cl (ctx (type (eql :drop-table)) &rest args)
   (destructuring-bind (table-name &key if-exists)
       args
-    `(endb/sql/expr:sql-drop-table ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) :if-exists ,(when if-exists
+    `(endb/sql/expr:ddl-drop-table ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) :if-exists ,(when if-exists
                                                                                                       t))))
 
 (defmethod sql->cl (ctx (type (eql :create-view)) &rest args)
@@ -680,12 +685,12 @@
       (declare (ignore ast))
       (when (and column-names (not (= (length projection) (length column-names))))
         (%annotated-error table-name "Number of column names does not match projection"))
-      `(endb/sql/expr:sql-create-view ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ',query ',(or (mapcar #'symbol-name column-names) projection)))))
+      `(endb/sql/expr:ddl-create-view ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ',query ',(or (mapcar #'symbol-name column-names) projection)))))
 
 (defmethod sql->cl (ctx (type (eql :drop-view)) &rest args)
   (destructuring-bind (view-name &key if-exists)
       args
-    `(endb/sql/expr:sql-drop-view ,(fset:lookup ctx :db-sym) ,(symbol-name view-name)  :if-exists ,(when if-exists
+    `(endb/sql/expr:ddl-drop-view ,(fset:lookup ctx :db-sym) ,(symbol-name view-name)  :if-exists ,(when if-exists
                                                                                                      t))))
 
 (defun %insert-on-conflict (ctx table-name on-conflict update &key (values nil upsertp) column-names)
@@ -774,13 +779,13 @@
                                                                   :test 'equal
                                                                   :key (lambda (,object-sym)
                                                                          (loop for ,key-sym in ',on-conflict
-                                                                               collect (endb/sql/expr:sql-access-finish ,object-sym ,key-sym nil))))))
+                                                                               collect (endb/sql/expr:syn-access-finish ,object-sym ,key-sym nil))))))
                                                 (%annotated-error ',table-name "Inserted values cannot contain duplicated on conflict columns"))
                                               ,object-sym)
                          for ,(loop for v in excluded-projection
                                     collect (fset:lookup excluded-env-extension v))
                            = (loop for ,key-sym in ',excluded-projection
-                                   collect (endb/sql/expr:sql-access-finish ,object-sym ,key-sym nil))
+                                   collect (endb/sql/expr:syn-access-finish ,object-sym ,key-sym nil))
                          for ,insertp-sym = t
                          do
                          ,@(when from-src
@@ -794,8 +799,8 @@
                            (when ,insertp-sym
                              (push ,object-sym ,updated-rows-sym)))
                   (%table-scan->cl ctx vars projection from-src where-clauses `(do ,@update-src)))
-             (endb/sql/expr:sql-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,updated-rows-sym)
-             (endb/sql/expr:sql-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)
+             (endb/sql/expr:dml-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,updated-rows-sym)
+             (endb/sql/expr:dml-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)
              (values nil (length ,updated-rows-sym))))))))
 
 (defmethod sql->cl (ctx (type (eql :insert)) &rest args)
@@ -812,7 +817,7 @@
                               projection)))
         (if on-conflict
             (%insert-on-conflict ctx table-name on-conflict update :values values :column-names column-names)
-            `(endb/sql/expr:sql-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,src
+            `(endb/sql/expr:dml-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,src
                                        :column-names ',column-names))))))
 
 (defmethod sql->cl (ctx (type (eql :insert-objects)) &rest args)
@@ -820,7 +825,7 @@
       args
     (if on-conflict
         (%insert-on-conflict ctx table-name on-conflict update :values values)
-        `(endb/sql/expr:sql-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx values)))))
+        `(endb/sql/expr:dml-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx values)))))
 
 (defmethod sql->cl (ctx (type (eql :delete)) &rest args)
   (destructuring-bind (table-name &key (where :true))
@@ -845,7 +850,7 @@
           `(let ((,deleted-row-ids-sym))
              ,(%table-scan->cl ctx vars projection from-src where-clauses
                                `(do (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym)))
-             (endb/sql/expr:sql-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)))))))
+             (endb/sql/expr:dml-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)))))))
 
 (defmethod sql->cl (ctx (type (eql :update)) &rest args)
   (destructuring-bind (table-name update-cols &key (where :true) unset patch)
@@ -1007,8 +1012,8 @@
   (destructuring-bind (base path &key recursive)
       args
     `(,(if (eq :seq (fset:lookup ctx :access))
-           'endb/sql/expr:sql-access
-           'endb/sql/expr:sql-access-finish)
+           'endb/sql/expr:syn-access
+           'endb/sql/expr:syn-access-finish)
       ,(ast->cl (fset:with ctx :access :seq) base)
       ,(cond
          ((eq :* path) path)
@@ -1101,7 +1106,7 @@
                                                             (distinct (when (eq :union init-operator)
                                                                         :distinct)))
                                                         `(block ,cte-sym
-                                                           (let* ((,last-acc-sym (endb/sql/expr::%sql-distinct ,init-src ,distinct))
+                                                           (let* ((,last-acc-sym (endb/sql/expr:ra-distinct ,init-src ,distinct))
                                                                   (,acc-sym ,last-acc-sym))
                                                              (flet ((,(intern (symbol-name cte-name)) ()
                                                                       (incf ,(first (cte-free-vars cte)))
@@ -1109,9 +1114,9 @@
                                                                (loop
                                                                  (if ,last-acc-sym
                                                                      (progn
-                                                                       (setf ,last-acc-sym (endb/sql/expr::%sql-distinct ,src ,distinct))
+                                                                       (setf ,last-acc-sym (endb/sql/expr:ra-distinct ,src ,distinct))
                                                                        (setf ,acc-sym (append ,acc-sym ,last-acc-sym)))
-                                                                     (return-from ,cte-sym (endb/sql/expr::%sql-distinct ,acc-sym ,distinct))))))))))
+                                                                     (return-from ,cte-sym (endb/sql/expr:ra-distinct ,acc-sym ,distinct))))))))))
                                                   (multiple-value-bind (src projection)
                                                       (let* ((ctx (fset:with
                                                                    ctx
@@ -1162,7 +1167,10 @@
   (destructuring-bind (fn args)
       args
     (let ((fn-sym (%find-sql-expr-symbol fn)))
-      (unless fn-sym
+      (unless (and fn-sym (handler-case
+                              (symbol-function fn-sym)
+                            (undefined-function (e)
+                              (declare (ignore e)))))
         (error 'endb/sql/expr:sql-runtime-error :message (format nil "Unknown built-in function: ~A" fn)))
       `(,fn-sym ,@(loop for ast in args
                         collect (ast->cl ctx ast))))))
@@ -1183,8 +1191,8 @@
                  (fn-sym (%find-sql-expr-symbol fn))
                  (aggregate-sym (gensym))
                  (init-src (if order-by
-                               `(endb/sql/expr:make-sql-agg ,fn :order-by ',(mapcar #'second order-by))
-                               `(endb/sql/expr:make-sql-agg ,fn :distinct ,distinct)))
+                               `(endb/sql/expr:make-agg ,fn :order-by ',(mapcar #'second order-by))
+                               `(endb/sql/expr:make-agg ,fn :distinct ,distinct)))
                  (src (loop for ast in (append (if (null args)
                                                    (list :null)
                                                    args)
@@ -1194,7 +1202,7 @@
                  (agg (make-aggregate :src src :init-src init-src :var aggregate-sym :where-src where-src)))
             (assert fn-sym nil (format nil "Unknown aggregate function: ~A" fn))
             (setf (gethash aggregate-sym aggregate-table) agg)
-            `(endb/sql/expr:sql-agg-finish ,aggregate-sym))))))
+            `(endb/sql/expr:agg-finish ,aggregate-sym))))))
 
 (defmethod sql->cl (ctx (type (eql :case)) &rest args)
   (destructuring-bind (cases-or-expr &optional cases)
@@ -1232,11 +1240,11 @@
     ((eq :true ast) t)
     ((eq :false ast) nil)
     ((eq :current_date ast)
-     `(endb/sql/expr:sql-current_date ,(fset:lookup ctx :db-sym)))
+     `(endb/sql/expr:syn-current_date ,(fset:lookup ctx :db-sym)))
     ((eq :current_time ast)
-     `(endb/sql/expr:sql-current_time ,(fset:lookup ctx :db-sym)))
+     `(endb/sql/expr:syn-current_time ,(fset:lookup ctx :db-sym)))
     ((eq :current_timestamp ast)
-     `(endb/sql/expr:sql-current_timestamp ,(fset:lookup ctx :db-sym)))
+     `(endb/sql/expr:syn-current_timestamp ,(fset:lookup ctx :db-sym)))
     ((%ast-function-call-p ast)
      (apply #'sql->cl ctx ast))
     ((listp ast)

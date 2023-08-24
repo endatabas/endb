@@ -69,14 +69,14 @@
   (is (eq :null (sql-between :null 1 2))))
 
 (test three-valued-logic-in
-  (is (eq :null (sql-not (sql-in 1 '(:null)))))
-  (is (eq t (sql-not (sql-in 1 '(0)))))
-  (is (eq :null (sql-not (sql-in 1 '(:null 2)))))
-  (is (eq nil (sql-not (sql-in 1 '(:null 1)))))
+  (is (eq :null (sql-not (ra-in 1 '(:null)))))
+  (is (eq t (sql-not (ra-in 1 '(0)))))
+  (is (eq :null (sql-not (ra-in 1 '(:null 2)))))
+  (is (eq nil (sql-not (ra-in 1 '(:null 1)))))
 
-  (is (eq t (sql-exists '(1))))
-  (is (eq t (sql-exists '(:null))))
-  (is (eq nil (sql-exists '()))))
+  (is (eq t (ra-exists '(1))))
+  (is (eq t (ra-exists '(:null))))
+  (is (eq nil (ra-exists '()))))
 
 (test three-valued-logic-coalesce
   (is (eq :null (sql-coalesce :null :null)))
@@ -121,7 +121,7 @@
   (is (equal "foo" (sql-substring "foo" 1 5))))
 
 (defun %aggregate (type xs &key distinct)
-  (sql-agg-finish (reduce #'sql-agg-accumulate xs :initial-value (make-sql-agg type :distinct distinct))))
+  (agg-finish (reduce #'agg-accumulate xs :initial-value (make-agg type :distinct distinct))))
 
 (test aggregates
   (is (= 6 (%aggregate :sum '(1 2 3))))
@@ -145,15 +145,15 @@
   (is (eq :null (%aggregate :max '(:null))))
 
   (is (equal "1,0" (%aggregate :group_concat '(1 0 :null) :distinct t)))
-  (is (equal "1:0" (sql-agg-finish (reduce (lambda (acc x)
-                                             (sql-agg-accumulate acc x ":"))
+  (is (equal "1:0" (agg-finish (reduce (lambda (acc x)
+                                             (agg-accumulate acc x ":"))
                                            '(1 0 :null)
-                                           :initial-value (make-sql-agg :group_concat)))))
+                                           :initial-value (make-agg :group_concat)))))
   (signals endb/sql/expr:sql-runtime-error
-    (sql-agg-finish (reduce (lambda (acc x)
-                              (sql-agg-accumulate acc x ":"))
+    (agg-finish (reduce (lambda (acc x)
+                              (agg-accumulate acc x ":"))
                             '(1 0 :null)
-                            :initial-value (make-sql-agg :group_concat :distinct :distinct)))))
+                            :initial-value (make-agg :group_concat :distinct :distinct)))))
 
 (test random-uuid
   (let ((uuid (endb/sql/expr::%random-uuid #+sbcl (sb-ext:seed-random-state 0)

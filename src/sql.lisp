@@ -61,7 +61,7 @@
   (let* ((bp (endb/storage/buffer-pool:make-writeable-buffer-pool :parent-pool (endb/sql/expr:db-buffer-pool db)))
          (write-db (endb/sql/expr:copy-db db)))
     (setf (endb/sql/expr:db-buffer-pool write-db) bp)
-    (setf (endb/sql/expr:db-current-timestamp write-db) (endb/sql/expr:sql-current_timestamp db))
+    (setf (endb/sql/expr:db-current-timestamp write-db) (endb/sql/expr:syn-current_timestamp db))
     write-db))
 
 (defun %log-filename (tx-id)
