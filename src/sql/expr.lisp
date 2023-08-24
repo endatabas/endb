@@ -719,6 +719,12 @@
       :null
       x))
 
+(defun %handle-complex (fn x)
+  (if (complexp x)
+      (error 'endb/sql/expr:sql-runtime-error
+             :message (format nil "Complex number as result: ~A to: ~A" x fn))
+      x))
+
 (defmethod sql-abs ((x (eql :null)))
   :null)
 
@@ -771,7 +777,7 @@
   :null)
 
 (defmethod sql-asin ((x number))
-  (coerce (asin (coerce x 'double-float)) 'double-float))
+  (%handle-complex "ASIN" (asin (coerce x 'double-float))))
 
 (defmethod sql-asinh ((x (eql :null)))
   :null)
@@ -789,14 +795,13 @@
   :null)
 
 (defmethod sql-acosh ((x number))
-  (coerce (acosh (coerce x 'double-float)) 'double-float))
+  (%handle-complex "ACOSH" (acosh (coerce x 'double-float))))
 
 (defmethod sql-atan ((x (eql :null)))
   :null)
 
 (defmethod sql-atan ((x number))
   (atan (coerce x 'double-float)))
-
 
 (defmethod sql-atan2 ((x (eql :null)) y)
   :null)
@@ -811,7 +816,7 @@
   :null)
 
 (defmethod sql-atanh ((x number))
-  (coerce (atanh (coerce x 'double-float)) 'double-float))
+  (%handle-complex "ATANH" (atanh (coerce x 'double-float))))
 
 (defmethod sql-floor ((x (eql :null)))
   :null)
@@ -844,7 +849,7 @@
   :null)
 
 (defmethod sql-sqrt ((x number))
-  (coerce (sqrt (coerce x 'double-float)) 'double-float))
+  (%handle-complex "SQRT" (sqrt (coerce x 'double-float))))
 
 (defmethod sql-degrees ((x (eql :null)))
   :null)
@@ -887,28 +892,29 @@
   :null)
 
 (defmethod sql-log ((x number) &optional (y nil yp))
-  (cond
-    ((eq :null y) :null)
-    (yp (coerce (log y (coerce x 'double-float)) 'double-float))
-    (t (coerce (log x 10.0d0) 'double-float))))
+  (%handle-complex "LOG"
+                   (cond
+                     ((eq :null y) :null)
+                     (yp (log y (coerce x 'double-float)))
+                     (t (log x 10.0d0)))))
 
 (defmethod sql-log10 ((x (eql :null)))
   :null)
 
 (defmethod sql-log10 ((x number))
-  (coerce (log (coerce x 'double-float) 10) 'double-float))
+  (%handle-complex "LOG10" (log (coerce x 'double-float) 10)))
 
 (defmethod sql-log2 ((x (eql :null)))
   :null)
 
 (defmethod sql-log2 ((x number))
-  (coerce (log (coerce x 'double-float) 2) 'double-float))
+  (%handle-complex "LOG2" (log (coerce x 'double-float) 2)))
 
 (defmethod sql-ln ((x (eql :null)))
   :null)
 
 (defmethod sql-ln ((x number))
-  (coerce (log (coerce x 'double-float)) 'double-float))
+  (%handle-complex "LN" (log (coerce x 'double-float))))
 
 (defmethod sql-date ((x (eql :null)))
   :null)

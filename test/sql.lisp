@@ -1741,9 +1741,6 @@ SELECT s FROM x WHERE ind=0")
       (is (equalp `((,(fset:seq :null 1 2))) result))
       (is (equal '("column1") columns)))
 
-    (signals type-error
-      (execute-sql db "SELECT SQRT(-1)"))
-
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT UUID()")
       (is (endb/sql/expr::%random-uuid-p (caar result)))
@@ -1825,6 +1822,9 @@ SELECT s FROM x WHERE ind=0")
 
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql db "VALUES (1, 2) UNION VALUES (1)"))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "SELECT SQRT(-1)"))
 
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql db "VALUES (1, 2), (1)"))
