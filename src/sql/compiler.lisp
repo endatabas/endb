@@ -556,7 +556,10 @@
 (defmethod sql->cl (ctx (type (eql :values)) &rest args)
   (destructuring-bind (values-list &key order-by limit offset)
       args
-    (let ((projection (%values-projection (length (first values-list)))))
+    (let* ((arity (length (first values-list)))
+           (projection (%values-projection arity)))
+      (unless (apply #'= (mapcar #'length values-list))
+        (error 'endb/sql/expr:sql-runtime-error :message (format nil "All VALUES must have the same number of columns: ~A" arity)))
       (values (%wrap-with-order-by-and-limit (ast->cl ctx values-list)
                                              (%resolve-order-by order-by projection) limit offset)
               projection))))

@@ -1824,7 +1824,10 @@ SELECT s FROM x WHERE ind=0")
       (execute-sql db "VALUES (1), (2) ORDER BY 2"))
 
     (signals endb/sql/expr:sql-runtime-error
-      (execute-sql db "VALUES (1, 2) UNION VALUES (1)"))))
+      (execute-sql db "VALUES (1, 2) UNION VALUES (1)"))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "VALUES (1, 2), (1)"))))
 
 (test interpret-sql-literal
   (is (equal "foo" (interpret-sql-literal "'foo'")))
