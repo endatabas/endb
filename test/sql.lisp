@@ -310,6 +310,9 @@
       (execute-sql write-db "INSERT INTO users {}"))
 
     (signals endb/sql/expr:sql-runtime-error
+      (execute-sql write-db "INSERT INTO users {'!foo': 2}"))
+
+    (signals endb/sql/expr:sql-runtime-error
       (execute-sql write-db "INSERT INTO foo { ...:a } ON CONFLICT (name) DO NOTHING" (fset:map ("a" (fset:map ("b" 1))))))
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql write-db "INSERT INTO foo { :a } ON CONFLICT (a) DO NOTHING" (fset:map ("a" 1))))
@@ -1042,12 +1045,46 @@ SELECT s FROM x WHERE ind=0")
                     result))
         (is (equal '("user") columns))))
 
+    (let ((write-db (begin-write-tx (make-db))))
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "INSERT INTO users2 {address: {street: 'Street', number: 42}, friends: [1, 2]}, {boss: TRUE, address: {street: 'Street', number: 43}, friends: [3, 1]}")
+        (is (null result))
+        (is (= 2 result-code)))
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "SELECT users2.* FROM users2")
+        (is (equalp `((,(fset:map ("street" "Street") ("number" 43))
+                       t
+                       ,(fset:seq 3 1))
+                      (,(fset:map ("street" "Street") ("number" 42))
+                       :null
+                       ,(fset:seq 1 2)))
+                    result))
+        (is (equal '("address" "boss" "friends") columns)))
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "SELECT { users2.* } FROM users2")
+        (is (equalp `((,(fset:map ("address" (fset:map ("street" "Street") ("number" 43)))
+                                  ("boss" t)
+                                  ("friends" (fset:seq 3 1))))
+                      (,(fset:map ("address" (fset:map ("street" "Street") ("number" 42)))
+                                  ("friends" (fset:seq 1 2)))))
+                    result))
+        (is (equal '("users2") columns))))
+
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT { foo: 2, bar, [2 + 2]: 5, ...baz } FROM (VALUES (1, [6, 7]), (2, {boz: 7, foo: 1})) AS foo(bar, baz)")
       (is (equalp `((,(fset:map ("bar" 2) ("4" 5) ("boz" 7) ("foo" 1)))
                     (,(fset:map ("foo" 2) ("bar" 1) ("4" 5) ("0" 6) ("1" 7))))
                   result))
       (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT { foo.* } FROM (VALUES (1, [6, 7]), (2, {boz: 7, foo: 1})) AS foo(bar, baz) ORDER BY bar")
+      (is (equalp `((,(fset:map ("bar" 1) ("baz" (fset:seq 6 7))))
+                    (,(fset:map ("bar" 2) ("baz" (fset:map ("boz" 7) ("foo" 1))))))
+                  result))
+      (is (equal '("foo") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [1, 2, ...[3, 4], 5]")

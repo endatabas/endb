@@ -1915,6 +1915,8 @@
                       v)))
          stats)))))
 
+(defparameter +ident-scanner+ (ppcre:create-scanner "^[a-zA-Z_][a-zA-Z0-9_]*$"))
+
 (defun dml-insert (db table-name values &key column-names)
   (with-slots (buffer-pool meta-data current-timestamp) db
     (let* ((created-p (base-table-created-p db table-name))
@@ -1925,6 +1927,10 @@
            (number-of-columns (length (or column-names columns))))
       (when (member "system_time" column-names :test 'equalp)
         (error 'sql-runtime-error :message "Cannot insert value into SYSTEM_TIME column"))
+      (loop for c in column-names
+            do (unless (ppcre:scan +ident-scanner+ c)
+                 (error 'sql-runtime-error
+                        :message (format nil "Cannot insert into table: ~A invalid column name: ~A" table-name c))))
       (when (and created-p column-names (not (fset:equal? column-names-set columns-set)))
         (error 'sql-runtime-error
                :message (format nil "Cannot insert into table: ~A named columns: ~A doesn't match stored: ~A" table-name column-names columns)))
@@ -1934,6 +1940,7 @@
       (when new-columns
         (dml-insert db "information_schema.columns" (loop for c in new-columns
                                                           collect (list :null *default-schema* table-name c 0))))
+
       (if columns
           (let* ((values (if (and created-p column-names)
                              (loop with idxs = (loop for column in columns

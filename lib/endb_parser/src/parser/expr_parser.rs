@@ -286,7 +286,7 @@ where
     let col_ref = col_ref_ast_parser_no_pad().padded();
     let named_parameter = named_parameter_ast_parser_no_pad().padded();
 
-    let kw_pair = choice((id, string))
+    let kw_pair = choice((id.clone(), string))
         .clone()
         .then_ignore(one_of(":=").padded())
         .then(expr.clone())
@@ -307,9 +307,16 @@ where
         .then(expr.clone())
         .map(|(expr, v)| List(vec![KW(ComputedProperty), expr, v]));
 
+    let row_property = id
+        .clone()
+        .then_ignore(pad('.'))
+        .then_ignore(pad('*'))
+        .map(|id| List(vec![KW(Mul), id]));
+
     let kws = choice((
         spread_property,
         computed_property,
+        row_property,
         kw_pair,
         shorthand_property,
     ))

@@ -2811,7 +2811,7 @@ mod tests {
                                         - Integer: 2
         "###);
 
-        assert_yaml_snapshot!(parse("SELECT { :baz, foo, ...bar, ['baz' || 'boz']: 42 }"), @r###"
+        assert_yaml_snapshot!(parse("SELECT { :baz, foo, ...bar, ['baz' || 'boz']: 42, fob.* }"), @r###"
         ---
         Ok:
           List:
@@ -2849,6 +2849,11 @@ mod tests {
                                         start: 39
                                         end: 42
                                 - Integer: 42
+                            - List:
+                                - KW: Mul
+                                - Id:
+                                    start: 50
+                                    end: 53
         "###);
         assert_yaml_snapshot!(parse("SELECT [ 1, 2, ... bar, 4 ]"), @r###"
         ---

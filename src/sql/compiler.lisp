@@ -45,6 +45,11 @@
                        (symbolp (second expr)))
                   (list (%unqualified-column-name (symbol-name (second expr)))))
                  ((and (listp expr)
+                       (eq :object (first expr))
+                       (= 1 (length (second expr)))
+                       (eq :* (first (first (second expr)))))
+                  (list (%unqualified-column-name (symbol-name (second (first (second expr)))))))
+                 ((and (listp expr)
                        (eq :access (first expr))
                        (not (eq :* (nth 2 expr)))
                        (or (stringp (nth 2 expr))
@@ -227,7 +232,8 @@
                                                   `(endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',projection)
                                                   `(append (endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',(remove "system_time" projection :test 'equal))
                                                            (list (fset:map ("start" (endb/arrow:arrow-get ,temporal-sym ,scan-row-id-sym))
-                                                                           ("end" (endb/sql/expr:batch-row-system-time-end ,raw-deleted-row-ids-sym ,scan-row-id-sym))))))
+                                                                           ("end" (endb/sql/expr:batch-row-system-time-end ,raw-deleted-row-ids-sym ,scan-row-id-sym)))
+                                                                 (endb/arrow:arrow-get ,batch-sym ,scan-row-id-sym))))
                                 when (and ,(if temporal-type-p
                                                `(eq t (,(case temporal-type
                                                           (:as-of 'endb/sql/expr:sql-<=)
@@ -444,7 +450,7 @@
                                                       collect (%qualified-column-name table-alias column)))
                           (projection (append projection (when (and (base-table-p table-src)
                                                                     (not endb/sql/expr:*sqlite-mode*))
-                                                           (list "system_time"))))
+                                                           (list "system_time" "!doc"))))
                           (env-extension (%env-extension table-alias projection))
                           (ctx (fset:map-union ctx env-extension))
                           (ctx (if (%recursive-select-p ctx table-or-subquery)
@@ -986,6 +992,14 @@
                                 (:computed-property
                                  `(list (cons (endb/sql/expr:sql-cast ,(ast->cl ctx (second kv)) :varchar)
                                               ,(ast->cl ctx (nth 2 kv)))))
+                                (:*
+                                 (let* ((k (second kv))
+                                        (doc (fset:lookup ctx (%qualified-column-name (symbol-name k) "!doc"))))
+                                   (if doc
+                                       `(fset:convert 'list ,doc)
+                                       `(list ,@(loop for p in (fset:lookup (fset:lookup ctx :table-projections) (symbol-name k))
+                                                      collect `(cons ,(%unqualified-column-name p)
+                                                                     ,(ast->cl ctx (make-symbol p))))))))
                                 (:spread-property
                                  (let ((spread-sym (gensym))
                                        (idx-sym (gensym)))
