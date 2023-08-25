@@ -994,12 +994,14 @@
                                               ,(ast->cl ctx (nth 2 kv)))))
                                 (:*
                                  (let* ((k (second kv))
-                                        (doc (fset:lookup ctx (%qualified-column-name (symbol-name k) "!doc"))))
-                                   (if doc
-                                       `(fset:convert 'list ,doc)
-                                       `(list ,@(loop for p in (fset:lookup (fset:lookup ctx :table-projections) (symbol-name k))
-                                                      collect `(cons ,(%unqualified-column-name p)
-                                                                     ,(ast->cl ctx (make-symbol p))))))))
+                                        (doc (fset:lookup ctx (%qualified-column-name (symbol-name k) "!doc")))
+                                        (projection (fset:lookup (fset:lookup ctx :table-projections) (symbol-name k))))
+                                   (cond
+                                     (doc `(fset:convert 'list ,doc))
+                                     (projection `(list ,@(loop for p in projection
+                                                                collect `(cons ,(%unqualified-column-name p)
+                                                                               ,(ast->cl ctx (make-symbol p))))))
+                                     (t (%annotated-error k "Unknown table")))))
                                 (:spread-property
                                  (let ((spread-sym (gensym))
                                        (idx-sym (gensym)))
