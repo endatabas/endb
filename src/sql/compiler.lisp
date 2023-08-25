@@ -36,7 +36,10 @@
                  (alias (list (symbol-name alias)))
                  ((symbolp expr) (list (%unqualified-column-name (symbol-name expr))))
                  ((%qualified-asterisk-p expr)
-                  (mapcar #'%unqualified-column-name (gethash (symbol-name (second expr)) table-by-alias)))
+                  (let ((projection (gethash (symbol-name (second expr)) table-by-alias)))
+                    (if projection
+                        (mapcar #'%unqualified-column-name projection)
+                        (%annotated-error (second expr) "Unknown table"))))
                  ((and (listp expr)
                        (eq :parameter (first expr))
                        (symbolp (second expr)))

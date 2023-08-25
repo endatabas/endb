@@ -1149,7 +1149,7 @@ SELECT s FROM x WHERE ind=0")
       (is (equalp '((nil)) result))
       (is (equal '("column1") columns)))
 
-        (multiple-value-bind (result columns)
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT {a: [1, 2, {c: 3, x: 4}], c: 'b'} MATCH {a: [{x: 4}, 1]}")
       (is (equalp '((t)) result))
       (is (equal '("column1") columns)))))
@@ -1839,7 +1839,10 @@ SELECT s FROM x WHERE ind=0")
       (execute-sql db "SELECT LIKE(2, '')"))
 
     (signals endb/sql/expr:sql-runtime-error
-      (execute-sql db "SELECT AVG(2, 1)"))))
+      (execute-sql db "SELECT AVG(2, 1)"))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "SELECT y.* FROM (VALUES (['a', 'b', 'c'])) AS x"))))
 
 (test interpret-sql-literal
   (is (equal "foo" (interpret-sql-literal "'foo'")))
