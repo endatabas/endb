@@ -462,6 +462,9 @@
 (defmethod sql-% (x y)
   :null)
 
+(defun sql-array (&rest xs)
+  (fset:convert 'fset:seq xs))
+
 (defmethod sql-concat ((x string) (y string))
   (concatenate 'string x y))
 
@@ -570,7 +573,10 @@
         :null)))
 
 (defmethod sql-hex ((x number))
-  (sql-hex (trivial-utf-8:string-to-utf-8-bytes (format nil "~A" x))))
+  (sql-hex (format nil "~A" x)))
+
+(defmethod sql-hex ((x string))
+  (sql-hex (trivial-utf-8:string-to-utf-8-bytes x)))
 
 (defmethod sql-hex ((x vector))
   (format nil "~{~X~}" (coerce x 'list)))

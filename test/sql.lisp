@@ -903,6 +903,11 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT ARRAY(1, 2)")
+      (is (equalp `((,(fset:seq 1 2))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT ARRAY (VALUES (1), (2))")
       (is (equalp `((,(fset:seq 1 2))) result))
       (is (equal '("column1") columns)))
@@ -1191,7 +1196,7 @@ SELECT s FROM x WHERE ind=0")
 
     (multiple-value-bind (result columns)
         (execute-sql db "OBJECTS {a: 1}, {b: 2}")
-      (is (equalp `((1 :null ,(fset:map ("a" 1))) (:null 2 ,(fset:map ("b" 2)))) result))
+      (is (equalp '((1 :null) (:null 2)) result))
       (is (equal '("a" "b") columns)))
 
     (multiple-value-bind (result columns)
@@ -2236,6 +2241,7 @@ SELECT s FROM x WHERE ind=0")
 
   (is-valid (expr "HEX(12345678)"))
   (is-valid (expr "HEX(x'ABCD')"))
+  (is-valid (expr "HEX('ABCD')"))
 
   (is-valid (expr "REPLACE('foobar', 'oo', 'aa')"))
 

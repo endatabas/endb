@@ -434,9 +434,13 @@
                (destructuring-bind (table-or-subquery &optional table-alias column-names temporal)
                    (first from-ast)
                  (multiple-value-bind (table-src projection free-vars)
-                     (if (symbolp table-or-subquery)
-                         (%base-table-or-view->cl ctx table-or-subquery :temporal temporal)
-                         (%ast->cl-with-free-vars ctx table-or-subquery))
+                     (cond
+                       ((symbolp table-or-subquery)
+                        (%base-table-or-view->cl ctx table-or-subquery :temporal temporal))
+                       ((and (listp table-or-subquery)
+                             (eq :objects (first table-or-subquery)))
+                        (%ast->cl-with-free-vars (fset:with ctx :inside-from-p t) table-or-subquery))
+                       (t (%ast->cl-with-free-vars ctx table-or-subquery)))
                    (when (and column-names (not (= (length projection) (length column-names))))
                      (if (symbolp table-or-subquery)
                          (%annotated-error table-or-subquery "Number of column names does not match projection")
@@ -597,10 +601,11 @@
            (object-sym (gensym))
            (key-sym (gensym)))
       (values (%wrap-with-order-by-and-limit
-               `(loop for ,object-sym in ,(ast->cl ctx objects-list)
+               `(loop for ,object-sym in ,(ast->cl (fset:less ctx :inside-from-p) objects-list)
                       collect (append (loop for ,key-sym in ',projection
                                             collect (endb/sql/expr:syn-access-finish ,object-sym ,key-sym nil))
-                                      (list ,object-sym)))
+                                      ,(when (fset:lookup ctx :inside-from-p)
+                                         `(list ,object-sym))))
                (%resolve-order-by order-by projection) limit offset)
               projection))))
 
