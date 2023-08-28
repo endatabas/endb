@@ -654,9 +654,19 @@ where
                         kw("BETWEEN").to(Some(Between)).then(
                             comp.clone()
                                 .then(kw("AND").ignore_then(comp.clone()))
-                                .map(|(lhs, rhs)| List(vec![KW(And), lhs, rhs])),
+                                .map(|(lhs, rhs)| List(vec![lhs, rhs])),
                         ),
-                        kw("LIKE").to(Some(Like)).then(comp.clone()),
+                        kw("LIKE").to(Some(Like)).then(
+                            comp.clone()
+                                .then(kw("ESCAPE").ignore_then(comp.clone()).or_not())
+                                .map(|(lhs, rhs)| {
+                                    if let Some(rhs) = rhs {
+                                        List(vec![lhs, rhs])
+                                    } else {
+                                        List(vec![lhs])
+                                    }
+                                }),
+                        ),
                         kw("GLOB").to(Some(Glob)).then(comp.clone()),
                         kw("REGEXP").to(Some(Regexp)).then(comp.clone()),
                         choice((kw("MATCH").to(Some(Match)), pad("@>").to(Some(Match))))
@@ -672,12 +682,13 @@ where
                 ))
                 .repeated(),
                 |lhs, (op_1, (op_2, rhs))| match (op_1, op_2) {
-                    (not, Some(Between)) => {
-                        let mut acc = vec![KW(Between), lhs];
+                    (not, Some(op @ Between | op @ Like)) => {
+                        let mut acc = vec![KW(op), lhs];
                         if let List(mut rhs) = rhs {
                             let rhs_rhs = rhs.pop().unwrap();
-                            let rhs_lhs = rhs.pop().unwrap();
-                            acc.push(rhs_lhs);
+                            if let Some(rhs_lhs) = rhs.pop() {
+                                acc.push(rhs_lhs);
+                            }
                             acc.push(rhs_rhs);
                         };
                         let acc = List(acc);

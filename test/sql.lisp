@@ -1938,10 +1938,13 @@ SELECT s FROM x WHERE ind=0")
       (execute-sql db "SELECT LIKE('foo')"))
 
     (signals endb/sql/expr:sql-runtime-error
-      (execute-sql db "SELECT LIKE('foo', 'bar', 'baz')"))
+      (execute-sql db "SELECT MATCH('foo', 'bar', 'baz')"))
 
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql db "SELECT LIKE(2, '')"))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "SELECT '' LIKE '' ESCAPE 'foo'"))
 
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql db "SELECT AVG(2, 1)"))
@@ -2246,6 +2249,8 @@ SELECT s FROM x WHERE ind=0")
   (is-valid (expr "'foo' LIKE 'bar'"))
   (is-valid (expr "NULL LIKE 'bar'"))
   (is-valid (expr "'foo' LIKE NULL"))
+
+  (is-valid (expr "'fo%' LIKE 'foX%' ESCAPE 'X'"))
 
   (is-valid (expr "'foo' || 'bar'"))
   (is-valid (expr "1 || 2"))

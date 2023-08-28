@@ -1102,14 +1102,31 @@
                         collect s)))
       (sql-duration (apply #'concatenate 'string "P" strs)))))
 
-(defmethod sql-like ((x (eql :null)) y)
+(defmethod sql-like ((x (eql :null)) y &optional z)
+  (declare (ignore z))
   :null)
 
-(defmethod sql-like (x (y (eql :null)))
+(defmethod sql-like (x (y (eql :null)) &optional z)
+  (declare (ignore z))
   :null)
 
-(defmethod sql-like ((x string) (pattern string))
-  (let ((regex (concatenate 'string "^" (ppcre:regex-replace-all "_" (ppcre:regex-replace-all "%" pattern ".*") ".") "$")))
+(defmethod sql-like ((x string) (y string) &optional (z nil zp))
+  (when (and zp (not (= 1 (length z))))
+    (error 'sql-runtime-error :message (format nil "Invalid escape character: ~A" z)))
+  (let* ((regex (ppcre:regex-replace-all (if zp
+                                             (format nil "(?<![~A])%" z)
+                                             "%")
+                                         y
+                                         ".*"))
+         (regex (ppcre:regex-replace-all (if zp
+                                             (format nil "(?<![~A])_" z)
+                                             "_")
+                                         regex
+                                         "."))
+         (regex (if zp
+                    (ppcre:regex-replace-all (format nil "~A([_%])" z) regex "\\1")
+                    regex))
+         (regex (concatenate 'string "^" regex "$")))
     (integerp (ppcre:scan regex x))))
 
 (defmethod sql-glob ((x (eql :null)) y)

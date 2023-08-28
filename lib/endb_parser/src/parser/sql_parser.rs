@@ -931,6 +931,26 @@ mod tests {
                                 start: 16
                                 end: 17
         "###);
+        assert_yaml_snapshot!(parse("SELECT x LIKE '%y' ESCAPE 'foo'"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Like
+                        - Id:
+                            start: 7
+                            end: 8
+                        - String:
+                            start: 15
+                            end: 17
+                        - String:
+                            start: 27
+                            end: 30
+        "###);
+
         assert_yaml_snapshot!(parse("SELECT x REGEXP '.*y'"), @r###"
         ---
         Ok:
