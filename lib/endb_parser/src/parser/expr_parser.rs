@@ -229,6 +229,14 @@ where
         })
         .boxed();
 
+    let hex =
+        just("0x").ignore_then(text::digits(16).map_slice(|s: &str| {
+            match i128::from_str_radix(s, 16) {
+                Ok(x) => Integer(x),
+                Err(_) => Float(f64::NAN),
+            }
+        }));
+
     let binary = one_of("Xx").ignore_then(
         text::digits(16)
             .map_with_span(|_, span: SimpleSpan<_>| kw_literal(Blob, &span))
@@ -261,6 +269,7 @@ where
         date,
         time,
         interval,
+        hex,
         number,
         binary,
         string,

@@ -2329,4 +2329,6 @@ SELECT s FROM x WHERE ind=0")
   (is-valid (expr "'foo' | 2"))
 
   (is-valid (expr "2 != 2"))
-  (is-valid (expr "2 == 2")))
+  (is-valid (expr "2 == 2"))
+
+  (is-valid (expr "0xcaFE")))

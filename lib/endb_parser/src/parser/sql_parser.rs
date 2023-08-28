@@ -724,6 +724,16 @@ mod tests {
                 - List:
                     - Integer: 2
         "###);
+        assert_yaml_snapshot!(parse("SELECT 0xcaFE"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Integer: 51966
+        "###);
+
         assert_yaml_snapshot!(parse("SELECT 2.2e2"), @r###"
         ---
         Ok:
