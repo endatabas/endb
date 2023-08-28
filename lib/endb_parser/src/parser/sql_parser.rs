@@ -313,7 +313,16 @@ where
                 .map(|values| List(vec![KW(Values), List(values)])),
         );
 
-        let select_core = choice((select_stmt, values_stmt));
+        let objects_stmt = kw("OBJECTS")
+            .ignore_then(
+                object_ast_parser(expr.clone())
+                    .separated_by(pad(','))
+                    .at_least(1)
+                    .collect(),
+            )
+            .map(|objects| List(vec![KW(Objects), List(objects)]));
+
+        let select_core = choice((select_stmt, values_stmt, objects_stmt));
 
         let compound_select_stmt = select_core.clone().foldl(
             choice((
@@ -442,7 +451,9 @@ where
                         .collect()
                         .map(List),
                 )
-                .map(|(id, object_list)| List(vec![KW(InsertObjects), id, object_list])),
+                .map(|(id, object_list)| {
+                    List(vec![KW(Insert), id, List(vec![KW(Objects), object_list])])
+                }),
         )))
         .then(
             kw("ON")
@@ -1576,6 +1587,29 @@ mod tests {
                 - List:
                     - Integer: 3
                     - Integer: 4
+        "###);
+        assert_yaml_snapshot!(parse("OBJECTS {a: 2}, {a: 4}"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Objects
+            - List:
+                - List:
+                    - KW: Object
+                    - List:
+                        - List:
+                            - Id:
+                                start: 9
+                                end: 10
+                            - Integer: 2
+                - List:
+                    - KW: Object
+                    - List:
+                        - List:
+                            - Id:
+                                start: 17
+                                end: 18
+                            - Integer: 4
         "###);
 
         assert_yaml_snapshot!(parse("SELECT * FROM (VALUES (1, 2), (3, 4)) AS foo(a, b)"), @r###"
@@ -2879,53 +2913,57 @@ mod tests {
         ---
         Ok:
           List:
-            - KW: InsertObjects
+            - KW: Insert
             - Id:
                 start: 12
                 end: 17
             - List:
+                - KW: Objects
                 - List:
-                    - KW: Object
                     - List:
+                        - KW: Object
                         - List:
-                            - Id:
-                                start: 19
-                                end: 22
-                            - Integer: 2
-                        - List:
-                            - Id:
-                                start: 27
-                                end: 30
-                            - String:
-                                start: 33
-                                end: 36
-                - List:
-                    - KW: Object
+                            - List:
+                                - Id:
+                                    start: 19
+                                    end: 22
+                                - Integer: 2
+                            - List:
+                                - Id:
+                                    start: 27
+                                    end: 30
+                                - String:
+                                    start: 33
+                                    end: 36
                     - List:
+                        - KW: Object
                         - List:
-                            - Id:
-                                start: 41
-                                end: 44
-                            - Integer: 3
+                            - List:
+                                - Id:
+                                    start: 41
+                                    end: 44
+                                - Integer: 3
         "###);
 
         assert_yaml_snapshot!(parse("INSERT INTO users OBJECTS {foo: 3}"), @r###"
         ---
         Ok:
           List:
-            - KW: InsertObjects
+            - KW: Insert
             - Id:
                 start: 12
                 end: 17
             - List:
+                - KW: Objects
                 - List:
-                    - KW: Object
                     - List:
+                        - KW: Object
                         - List:
-                            - Id:
-                                start: 27
-                                end: 30
-                            - Integer: 3
+                            - List:
+                                - Id:
+                                    start: 27
+                                    end: 30
+                                - Integer: 3
         "###);
     }
 

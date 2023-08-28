@@ -315,8 +315,6 @@
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql write-db "INSERT INTO foo { ...:a } ON CONFLICT (name) DO NOTHING" (fset:map ("a" (fset:map ("b" 1))))))
     (signals endb/sql/expr:sql-runtime-error
-      (execute-sql write-db "INSERT INTO foo { :a } ON CONFLICT (a) DO NOTHING" (fset:map ("a" 1))))
-    (signals endb/sql/expr:sql-runtime-error
       (execute-sql write-db "INSERT INTO foo { [1 + 1]: 2 } ON CONFLICT (name) DO NOTHING"))))
 
 (test multiple-statments
@@ -1189,7 +1187,22 @@ SELECT s FROM x WHERE ind=0")
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT {a: [1, 2, {c: 3, x: 4}], c: 'b'} MATCH {a: [{x: 4}, 1]}")
       (is (equalp '((t)) result))
-      (is (equal '("column1") columns)))))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "OBJECTS {a: 1}, {b: 2}")
+      (is (equalp `((1 :null ,(fset:map ("a" 1))) (:null 2 ,(fset:map ("b" 2)))) result))
+      (is (equal '("a" "b") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT x.* FROM (OBJECTS {a: 1}, {a: 3,  b: 2}) AS x ORDER BY a")
+      (is (equalp `((1 :null) (3 2)) result))
+      (is (equal '("a" "b") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT { x.* } FROM (OBJECTS {a: 1}, {a: 3,  b: 2}) AS x ORDER BY x.a")
+      (is (equalp `((,(fset:map ("a" 1))) (,(fset:map ("a" 3) ("b" 2)))) result))
+      (is (equal '("x") columns)))))
 
 (test semi-structured-access
   (let* ((db (make-db)))

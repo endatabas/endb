@@ -90,7 +90,7 @@ typedef enum Keyword {
   ArrayQuery,
   Unnest,
   WithOrdinality,
-  InsertObjects,
+  Objects,
   Parameter,
   Concat,
   ShorthandProperty,

@@ -94,7 +94,7 @@
   :array-query
   :unnest
   :with-ordinality
-  :insert-objects
+  :objects
   :parameter
   :concat
   :shorthand-property

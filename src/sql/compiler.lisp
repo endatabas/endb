@@ -231,9 +231,9 @@
                                 for ,vars = ,(if  endb/sql/expr:*sqlite-mode*
                                                   `(endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',projection)
                                                   `(append (endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',(remove "system_time" projection :test 'equal))
-                                                           (list (fset:map ("start" (endb/arrow:arrow-get ,temporal-sym ,scan-row-id-sym))
-                                                                           ("end" (endb/sql/expr:batch-row-system-time-end ,raw-deleted-row-ids-sym ,scan-row-id-sym)))
-                                                                 (endb/arrow:arrow-get ,batch-sym ,scan-row-id-sym))))
+                                                           (list (endb/arrow:arrow-get ,batch-sym ,scan-row-id-sym)
+                                                                 (fset:map ("start" (endb/arrow:arrow-get ,temporal-sym ,scan-row-id-sym))
+                                                                           ("end" (endb/sql/expr:batch-row-system-time-end ,raw-deleted-row-ids-sym ,scan-row-id-sym))))))
                                 when (and ,(if temporal-type-p
                                                `(eq t (,(case temporal-type
                                                           (:as-of 'endb/sql/expr:sql-<=)
@@ -450,7 +450,11 @@
                                                       collect (%qualified-column-name table-alias column)))
                           (projection (append projection (when (and (base-table-p table-src)
                                                                     (not endb/sql/expr:*sqlite-mode*))
-                                                           (list "system_time" "!doc"))))
+                                                           (list "!doc" "system_time"))))
+                          (projection (append projection (when (and (listp table-or-subquery)
+                                                                    (eq :objects (first table-or-subquery))
+                                                                    (not endb/sql/expr:*sqlite-mode*))
+                                                           (list "!doc"))))
                           (env-extension (%env-extension table-alias projection))
                           (ctx (fset:map-union ctx env-extension))
                           (ctx (if (%recursive-select-p ctx table-or-subquery)
@@ -567,6 +571,37 @@
         (error 'endb/sql/expr:sql-runtime-error :message (format nil "All VALUES must have the same number of columns: ~A" arity)))
       (values (%wrap-with-order-by-and-limit (ast->cl ctx values-list)
                                              (%resolve-order-by order-by projection) limit offset)
+              projection))))
+
+(defun %object-ast-keys (object &key (require-literal-p t))
+  (loop for (k v) in (second object)
+        for x = (cond
+                  ((and (symbolp k)
+                        (not (keywordp k)))
+                   (symbol-name k))
+                  ((eq :shorthand-property k)
+                   (symbol-name (second v)))
+                  ((stringp k) k)
+                  (require-literal-p
+                   (error 'endb/sql/expr:sql-runtime-error :message "All OBJECTS must have literal keys")))
+        when x
+          collect x))
+
+(defmethod sql->cl (ctx (type (eql :objects)) &rest args)
+  (destructuring-bind (objects-list &key order-by limit offset)
+      args
+    (let* ((projection (sort (delete-duplicates
+                              (mapcan #'%object-ast-keys objects-list)
+                              :test 'equal)
+                             #'string<))
+           (object-sym (gensym))
+           (key-sym (gensym)))
+      (values (%wrap-with-order-by-and-limit
+               `(loop for ,object-sym in ,(ast->cl ctx objects-list)
+                      collect (append (loop for ,key-sym in ',projection
+                                            collect (endb/sql/expr:syn-access-finish ,object-sym ,key-sym nil))
+                                      (list ,object-sym)))
+               (%resolve-order-by order-by projection) limit offset)
               projection))))
 
 (defmethod sql->cl (ctx (type (eql :exists)) &rest args)
@@ -715,18 +750,19 @@
                                               column-names
                                               (%annotated-error table-name "Column names needs to contain the on conflict columns"))
                                           (sort (delete-duplicates (loop for object in values
-                                                                         for keys = (loop for (k nil) in (second object)
-                                                                                          when (and (symbolp k)
-                                                                                                    (not (keywordp k)))
-                                                                                            collect (symbol-name k))
+                                                                         for keys = (%object-ast-keys object :require-literal-p nil)
                                                                          unless (subsetp on-conflict keys :test 'equal)
                                                                            do (%annotated-error table-name "All inserted values needs to provide the on conflict columns")
                                                                          append keys)
                                                                    :test 'equal)
                                                 #'string<))))
-               (projection (delete-duplicates (append projection excluded-projection) :test 'equal))
+               (table-projection (delete-duplicates (append projection excluded-projection) :test 'equal))
+               (projection (append table-projection (unless endb/sql/expr:*sqlite-mode*
+                                                      (list "!doc" "system_time"))))
                (env-extension (%env-extension (symbol-name table-name) projection))
                (excluded-env-extension (%env-extension "excluded" excluded-projection))
+               (object-sym (gensym))
+               (excluded-env-extension (fset:with excluded-env-extension "excluded.!doc" object-sym))
                (ctx (fset:map-union (fset:map-union ctx (fset:map-union excluded-env-extension env-extension))
                                     (fset:map (:scan-row-id-sym scan-row-id-sym)
                                               (:scan-arrow-file-sym scan-arrow-file-sym)
@@ -752,7 +788,6 @@
                (updated-rows-sym (gensym))
                (deleted-row-ids-sym (gensym))
                (value-sym (gensym))
-               (object-sym (gensym))
                (key-sym (gensym))
                (insertp-sym (gensym))
                (update-src (when update
@@ -794,7 +829,7 @@
                          for ,insertp-sym = t
                          do
                          ,@(when from-src
-                             (list (%table-scan->cl ctx vars projection from-src where-clauses
+                             (list (%table-scan->cl ctx vars table-projection from-src where-clauses
                                                     `(if (and ,@(loop for clause in (%and-clauses where)
                                                                       collect `(eq t ,(ast->cl ctx clause))))
                                                          do (setf ,insertp-sym nil)
@@ -815,22 +850,20 @@
       (%annotated-error table-name "Insert on conflict not supported in SQLite mode"))
     (when (and (not endb/sql/expr:*sqlite-mode*) (null column-names) (eq :values (first values)))
       (%annotated-error table-name "Column names are required for values"))
-    (multiple-value-bind (src projection)
-        (ast->cl ctx values)
-      (let ((column-names (if (or column-names endb/sql/expr:*sqlite-mode*)
-                              (mapcar #'symbol-name column-names)
-                              projection)))
-        (if on-conflict
-            (%insert-on-conflict ctx table-name on-conflict update :values values :column-names column-names)
-            `(endb/sql/expr:dml-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,src
-                                       :column-names ',column-names))))))
-
-(defmethod sql->cl (ctx (type (eql :insert-objects)) &rest args)
-  (destructuring-bind (table-name values &key on-conflict update)
-      args
-    (if on-conflict
-        (%insert-on-conflict ctx table-name on-conflict update :values values)
-        `(endb/sql/expr:dml-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx values)))))
+    (if (eq :objects (first values))
+        (let ((objects (second values)))
+          (if on-conflict
+              (%insert-on-conflict ctx table-name on-conflict update :values objects)
+              `(endb/sql/expr:dml-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx objects))))
+        (multiple-value-bind (src projection)
+            (ast->cl ctx values)
+          (let ((column-names (if (or column-names endb/sql/expr:*sqlite-mode*)
+                                  (mapcar #'symbol-name column-names)
+                                  projection)))
+            (if on-conflict
+                (%insert-on-conflict ctx table-name on-conflict update :values values :column-names column-names)
+                `(endb/sql/expr:dml-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,src
+                                           :column-names ',column-names)))))))
 
 (defmethod sql->cl (ctx (type (eql :delete)) &rest args)
   (destructuring-bind (table-name &key (where :true))
@@ -1356,8 +1389,8 @@
 (defun %interpretp (ast)
   (when (listp ast)
     (case (first ast)
-      ((:create-table :create-index :drop-table :drop-view :insert-objects) t)
-      (:insert (eq :values (first (third ast))))
+      ((:create-table :create-index :drop-table :drop-view) t)
+      (:insert (member (first (third ast)) '(:values :objects)))
       (:select (let ((from (cdr (getf ast :from))))
                  (or (> (length from)
                         *interpreter-from-limit*)
