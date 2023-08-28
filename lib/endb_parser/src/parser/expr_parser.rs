@@ -567,7 +567,7 @@ where
             )
             .boxed();
 
-        let unary = choice((pad('+').to(Plus), pad('-').to(Minus)))
+        let unary = choice((pad('+').to(Plus), pad('-').to(Minus), pad('~').to(BitNot)))
             .repeated()
             .foldr(access, unary_op);
 
@@ -589,12 +589,20 @@ where
             bin_op,
         );
 
-        let shift = add.clone().foldl(
-            choice((pad("<<").to(Lsh), pad(">>").to(Rsh)))
+        let shift = add
+            .clone()
+            .foldl(
+                choice((
+                    pad("<<").to(Lsh),
+                    pad(">>").to(Rsh),
+                    pad("&").to(BitAnd),
+                    pad("|").to(BitOr),
+                ))
                 .then(add)
                 .repeated(),
-            bin_op,
-        );
+                bin_op,
+            )
+            .boxed();
 
         let comp = shift.clone().foldl(
             choice((
@@ -613,8 +621,10 @@ where
             .foldl(
                 choice((
                     choice((
+                        pad("==").to(Some(Eq)),
                         pad('=').to(Some(Eq)),
                         pad("<>").to(Some(Ne)),
+                        pad("!=").to(Some(Ne)),
                         kw("OVERLAPS").to(Some(Overlaps)),
                         kw("EQUALS").to(Some(Eq)),
                         kw("CONTAINS").to(Some(Contains)),

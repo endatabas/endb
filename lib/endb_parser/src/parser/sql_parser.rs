@@ -839,6 +839,38 @@ mod tests {
                             start: 10
                             end: 11
         "###);
+        assert_yaml_snapshot!(parse("SELECT x!=y"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Ne
+                        - Id:
+                            start: 7
+                            end: 8
+                        - Id:
+                            start: 10
+                            end: 11
+        "###);
+        assert_yaml_snapshot!(parse("SELECT x == y"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Eq
+                        - Id:
+                            start: 7
+                            end: 8
+                        - Id:
+                            start: 12
+                            end: 13
+        "###);
         assert_yaml_snapshot!(parse("SELECT x AND y"), @r###"
         ---
         Ok:
@@ -1216,7 +1248,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT group_concat(DISTINCT y, ':'"), @r###"
         ---
         Err:
-          - "found '(' expected '.', '[', '|', '*', '/', '%', '+', '-', '<', '>', '=', '@', or ','"
+          - "found '(' expected '.', '[', '|', '*', '/', '%', '+', '-', '<', '>', '&', '=', '!', '@', or ','"
         "###);
         assert_yaml_snapshot!(parse("SELECT count(*)"), @r###"
         ---
@@ -1303,7 +1335,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT x 2"), @r###"
         ---
         Err:
-          - "found '2' expected '.', '[', '|', '*', '/', '%', '+', '-', '<', '>', '=', '@', or ','"
+          - "found '2' expected '.', '[', '|', '*', '/', '%', '+', '-', '<', '>', '&', '=', '!', '@', or ','"
         "###);
     }
 
@@ -1550,7 +1582,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT 1 FROM x LEFT JOIN y ON TRUE)"), @r###"
         ---
         Err:
-          - "found ')' expected '.', '[', '|', '*', '/', '%', '+', '-', '<', '>', '=', '@', or ','"
+          - "found ')' expected '.', '[', '|', '*', '/', '%', '+', '-', '<', '>', '&', '=', '!', '@', or ','"
         "###);
         assert_yaml_snapshot!(parse("SELECT 1 INTERSECT SELECT 2 UNION SELECT 3"), @r###"
         ---
@@ -2071,7 +2103,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT 1; SELECT 1"), @r###"
         ---
         Err:
-          - "found end of input expected '.', '[', '|', '*', '/', '%', '+', '-', '<', '>', '=', '@', ',', or ';'"
+          - "found end of input expected '.', '[', '|', '*', '/', '%', '+', '-', '<', '>', '&', '=', '!', '@', ',', or ';'"
         "###);
     }
 
@@ -2452,7 +2484,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT 2001-01"), @r###"
         ---
         Err:
-          - "found '1' expected '.', '[', '|', '*', '/', '%', '+', '-', '<', '>', '=', '@', or ','"
+          - "found '1' expected '.', '[', '|', '*', '/', '%', '+', '-', '<', '>', '&', '=', '!', '@', or ','"
         "###);
         assert_yaml_snapshot!(parse("SELECT DATE '2001-01-01'"), @r###"
         ---
@@ -2484,7 +2516,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT 12:"), @r###"
         ---
         Err:
-          - "found ':' expected '.', '[', '|', '*', '/', '%', '+', '-', '<', '>', '=', '@', or ','"
+          - "found ':' expected '.', '[', '|', '*', '/', '%', '+', '-', '<', '>', '&', '=', '!', '@', or ','"
         "###);
         assert_yaml_snapshot!(parse("SELECT TIME '12:01:20'"), @r###"
         ---

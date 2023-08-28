@@ -690,9 +690,7 @@
       args
     (if rhsp
         `(endb/sql/expr:sql-+ ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))
-        (if (numberp lhs)
-            lhs
-            `(endb/sql/expr:sql-unary+ ,(ast->cl ctx lhs))))))
+        (ast->cl ctx lhs))))
 
 (defmethod sql->cl (ctx (type (eql :-)) &rest args)
   (destructuring-bind (lhs &optional (rhs nil rhsp))
@@ -701,7 +699,7 @@
         `(endb/sql/expr:sql-- ,(ast->cl ctx lhs) ,(ast->cl ctx rhs))
         (if (numberp lhs)
             (- lhs)
-            `(endb/sql/expr:sql-unary- ,(ast->cl ctx lhs))))))
+            `(endb/sql/expr:sql-- 0 ,(ast->cl ctx lhs))))))
 
 (defmethod sql->cl (ctx (type (eql :create-table)) &rest args)
   (destructuring-bind (table-name column-names)

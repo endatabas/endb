@@ -11,10 +11,10 @@
   (:import-from :fset)
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
-           #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-unary+ #:sql-unary-
+           #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-~ #:sql-& #:sql-\|
            #:sql-between #:sql-coalesce
            #:sql-object_keys #:sql-object_values
-           #:sql-concat #:sql-cardinality #:sql-char_length #:sql-character_length #:sql-octet_length #:sql-length #:sql-trim #:sql-ltrim #:sql-rtrim #:sql-lower #:sql-upper
+           #:sql-\|\| #:sql-cardinality #:sql-char_length #:sql-character_length #:sql-octet_length #:sql-length #:sql-trim #:sql-ltrim #:sql-rtrim #:sql-lower #:sql-upper
            #:sql-replace #:sql-unhex #:sql-hex #:sql-instr #:sql-min #:sql-max #:sql-char #:sql-unicode #:sql-random #:sql-glob #:sql-regexp #:sql-randomblob #:sql-zeroblob #:sql-iif
            #:sql-round #:sql-sin #:sql-cos #:sql-tan #:sql-sinh #:sql-cosh #:sql-tanh #:sql-asin #:sqn-acos #:sql-atan #:sql-asinh #:sqn-acosh #:sql-atanh #:sql-atan2
            #:sql-floor #:sql-ceiling #:sql-ceil #:sql-patch #:sql-match
@@ -237,12 +237,6 @@
         (first tail)
         :null)))
 
-(defmethod sql-unary+ ((x (eql :null)))
-  :null)
-
-(defmethod sql-unary+ (x)
-  x)
-
 (defmethod sql-+ ((x (eql :null)) (y number))
   :null)
 
@@ -297,15 +291,6 @@
   (endb/arrow:periods-duration-to-arrow-interval-month-day-nanos
    (periods:add-duration (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration x)
                          (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y))))
-
-(defmethod sql-unary- ((x (eql :null)))
-  :null)
-
-(defmethod sql-unary- (x)
-  0)
-
-(defmethod sql-unary- ((x number))
-  (- x))
 
 (defmethod sql-- ((x (eql :null)) (y number))
   :null)
@@ -462,41 +447,89 @@
 (defmethod sql-% (x y)
   :null)
 
+(defmethod sql-& ((x (eql :null)) (y number))
+  :null)
+
+(defmethod sql-& ((x number) (y (eql :null)))
+  :null)
+
+(defmethod sql-& ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-& (x (y (eql :null)))
+  :null)
+
+(defmethod sql-& ((x number) (y number))
+  (logand (floor x) (floor y)))
+
+(defmethod sql-& (x (y number))
+  (floor y))
+
+(defmethod sql-& ((x number) y)
+  (floor x))
+
+(defmethod sql-\| ((x (eql :null)) (y number))
+  :null)
+
+(defmethod sql-\| ((x number) (y (eql :null)))
+  :null)
+
+(defmethod sql-\| ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-\| (x (y (eql :null)))
+  :null)
+
+(defmethod sql-\| ((x number) (y number))
+  (logior (floor x) (floor y)))
+
+(defmethod sql-\| (x (y number))
+  (floor y))
+
+(defmethod sql-\| ((x number) y)
+  (floor x))
+
+(defmethod sql-~ (x)
+  :null)
+
+(defmethod sql-~ ((x number))
+  (lognot (floor x)))
+
 (defun sql-array (&rest xs)
   (fset:convert 'fset:seq xs))
 
-(defmethod sql-concat ((x string) (y string))
+(defmethod sql-\|\| ((x string) (y string))
   (concatenate 'string x y))
 
-(defmethod sql-concat ((x vector) (y vector))
+(defmethod sql-\|\| ((x vector) (y vector))
   (concatenate 'vector x y))
 
-(defmethod sql-concat ((x fset:seq) (y fset:seq))
+(defmethod sql-\|\| ((x fset:seq) (y fset:seq))
   (fset:concat x y))
 
-(defmethod sql-concat (x (y fset:seq))
+(defmethod sql-\|\| (x (y fset:seq))
   (fset:with-first y x))
 
-(defmethod sql-concat ((x fset:seq) y)
+(defmethod sql-\|\| ((x fset:seq) y)
   (fset:with-last x y))
 
-(defmethod sql-concat ((x (eql :null)) (y fset:seq))
+(defmethod sql-\|\| ((x (eql :null)) (y fset:seq))
   (fset:with-first y x))
 
-(defmethod sql-concat ((x fset:seq) (y (eql :null)))
+(defmethod sql-\|\| ((x fset:seq) (y (eql :null)))
   (fset:with-last x y))
 
-(defmethod sql-concat ((x fset:map) (y fset:map))
+(defmethod sql-\|\| ((x fset:map) (y fset:map))
   (fset:map-union x y))
 
-(defmethod sql-concat ((x (eql :null)) y)
+(defmethod sql-\|\| ((x (eql :null)) y)
   :null)
 
-(defmethod sql-concat (x (y (eql :null)))
+(defmethod sql-\|\| (x (y (eql :null)))
   :null)
 
-(defmethod sql-concat (x y)
-  (sql-concat (sql-cast x :varchar) (sql-cast y :varchar)))
+(defmethod sql-\|\| (x y)
+  (sql-\|\| (sql-cast x :varchar) (sql-cast y :varchar)))
 
 (defmethod sql-cardinality ((x vector))
   (length x))

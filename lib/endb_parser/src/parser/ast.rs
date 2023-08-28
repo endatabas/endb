@@ -120,6 +120,9 @@ pub enum Keyword {
     Regexp,
     Patch,
     Match,
+    BitNot,
+    BitAnd,
+    BitOr,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

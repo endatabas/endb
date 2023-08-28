@@ -96,7 +96,7 @@
   :with-ordinality
   :objects
   :parameter
-  :concat
+  :\|\|
   :shorthand-property
   :spread-property
   :computed-property
@@ -124,7 +124,10 @@
   :glob
   :regexp
   :patch
-  :match)
+  :match
+  :~
+  :&
+  :\|)
 
 (cffi:defcenum Ast_Tag
   :List

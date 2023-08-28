@@ -121,6 +121,9 @@ typedef enum Keyword {
   Regexp,
   Patch,
   Match,
+  BitNot,
+  BitAnd,
+  BitOr,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;

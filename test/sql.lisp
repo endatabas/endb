@@ -2319,4 +2319,14 @@ SELECT s FROM x WHERE ind=0")
   (is-valid (expr "IIF(FALSE, 1, 2)"))
   (is-valid (expr "IIF(TRUE, 1, 2)"))
   (is-valid (expr "IIF(NULL, 1, 2)"))
-  (is-valid (expr "IIF('foo', 1, 2)")))
+  (is-valid (expr "IIF('foo', 1, 2)"))
+
+  (is-valid (expr "~1"))
+  (is-valid (expr "1 | 2"))
+  (is-valid (expr "1 & 2"))
+
+  (is-valid (expr "1 & NULL"))
+  (is-valid (expr "'foo' | 2"))
+
+  (is-valid (expr "2 != 2"))
+  (is-valid (expr "2 == 2")))
