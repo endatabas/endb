@@ -71,6 +71,16 @@
     (:less t)
     (:unequal :null)))
 
+(defmethod sql-< ((x vector) (y vector))
+  (case (fset:compare-lexicographically x y)
+    (:less t)
+    (:unequal :null)))
+
+(defmethod sql-< ((x fset:seq) (y fset:seq))
+  (case (fset:compare-lexicographically x y)
+    (:less t)
+    (:unequal :null)))
+
 (defmethod sql-< ((x (eql :null)) y)
   :null)
 
@@ -85,6 +95,16 @@
 
 (defmethod sql-<= (x y)
   (case (fset:compare x y)
+    ((:less :equal) t)
+    (:unequal :null)))
+
+(defmethod sql-<= ((x vector) (y vector))
+  (case (fset:compare-lexicographically x y)
+    ((:less :equal) t)
+    (:unequal :null)))
+
+(defmethod sql-<= ((x fset:seq) (y fset:seq))
+  (case (fset:compare-lexicographically x y)
     ((:less :equal) t)
     (:unequal :null)))
 
@@ -105,6 +125,16 @@
     (:greater t)
     (:unequal :null)))
 
+(defmethod sql-> ((x vector) (y vector))
+  (case (fset:compare-lexicographically x y)
+    (:greater t)
+    (:unequal :null)))
+
+(defmethod sql-> ((x fset:seq) (y fset:seq))
+  (case (fset:compare-lexicographically x y)
+    (:greater t)
+    (:unequal :null)))
+
 (defmethod sql-> ((x (eql :null)) y)
   :null)
 
@@ -119,6 +149,16 @@
 
 (defmethod sql->= (x y)
   (case (fset:compare x y)
+    ((:greater :equal) t)
+    (:unequal :null)))
+
+(defmethod sql->= ((x vector) (y vector))
+  (case (fset:compare-lexicographically x y)
+    ((:greater :equal) t)
+    (:unequal :null)))
+
+(defmethod sql->= ((x fset:seq) (y fset:seq))
+  (case (fset:compare-lexicographically x y)
     ((:greater :equal) t)
     (:unequal :null)))
 
