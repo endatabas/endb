@@ -1854,6 +1854,56 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [1, 2] < [2, 2]")
+      (is (equalp '((t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [2, 2] < [2]")
+      (is (equalp '((nil)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [3] > [2, 2]")
+      (is (equalp '((t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [1, 2] <= [1, 2]")
+      (is (equalp `((t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [1, 2] >= [2, 2]")
+      (is (equalp '((nil)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [2, 2, 3] > [2, 2, 1]")
+      (is (equalp '((t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [2, 2, 3] >= [2, 2, 3]")
+      (is (equalp '((t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [2, 2, 3] < [2, 2, 3]")
+      (is (equalp '((nil)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [2, 2, NULL] < [2, 2, 3]")
+      (is (equalp '((:null)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [2, NULL] >= [2]")
+      (is (equalp '((t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT x AS y FROM (VALUES (1), (2)) AS foo(x) ORDER BY -foo.x")
       (is (equalp '((2) (1)) result))
       (is (equal '("y") columns)))

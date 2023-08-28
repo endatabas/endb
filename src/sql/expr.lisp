@@ -66,6 +66,14 @@
 (defun sql-is (x y)
   (fset:equal? x y))
 
+(defun %fset-deep-less-than (x y)
+  (block compare
+    (dotimes (n (min (fset:size x) (fset:size y)) (sql-< (fset:size x) (fset:size y)))
+      (let ((x (fset:lookup x n))
+            (y (fset:lookup y n)))
+        (when (null (sql-is x y))
+          (return-from compare (sql-< x y)))))))
+
 (defmethod sql-< (x y)
   (case (fset:compare x y)
     (:less t)
@@ -77,9 +85,7 @@
     (:unequal :null)))
 
 (defmethod sql-< ((x fset:seq) (y fset:seq))
-  (case (fset:compare-lexicographically x y)
-    (:less t)
-    (:unequal :null)))
+  (%fset-deep-less-than x y))
 
 (defmethod sql-< ((x fset:map) (y fset:map))
   (sql-< (fset:convert 'fset:seq x) (fset:convert 'fset:seq y)))
@@ -107,9 +113,7 @@
     (:unequal :null)))
 
 (defmethod sql-<= ((x fset:seq) (y fset:seq))
-  (case (fset:compare-lexicographically x y)
-    ((:less :equal) t)
-    (:unequal :null)))
+  (sql-not (sql-> x y)))
 
 (defmethod sql-<= ((x fset:map) (y fset:map))
   (sql-<= (fset:convert 'fset:seq x) (fset:convert 'fset:seq y)))
@@ -137,9 +141,7 @@
     (:unequal :null)))
 
 (defmethod sql-> ((x fset:seq) (y fset:seq))
-  (case (fset:compare-lexicographically x y)
-    (:greater t)
-    (:unequal :null)))
+  (%fset-deep-less-than y x))
 
 (defmethod sql-> ((x fset:map) (y fset:map))
   (sql-> (fset:convert 'fset:seq x) (fset:convert 'fset:seq y)))
@@ -167,9 +169,7 @@
     (:unequal :null)))
 
 (defmethod sql->= ((x fset:seq) (y fset:seq))
-  (case (fset:compare-lexicographically x y)
-    ((:greater :equal) t)
-    (:unequal :null)))
+  (sql-not (sql-< x y)))
 
 (defmethod sql->= ((x fset:map) (y fset:map))
   (sql->= (fset:convert 'fset:seq x) (fset:convert 'fset:seq y)))
