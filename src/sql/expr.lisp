@@ -81,6 +81,9 @@
     (:less t)
     (:unequal :null)))
 
+(defmethod sql-< ((x fset:map) (y fset:map))
+  (sql-< (fset:convert 'fset:seq x) (fset:convert 'fset:seq y)))
+
 (defmethod sql-< ((x (eql :null)) y)
   :null)
 
@@ -107,6 +110,9 @@
   (case (fset:compare-lexicographically x y)
     ((:less :equal) t)
     (:unequal :null)))
+
+(defmethod sql-<= ((x fset:map) (y fset:map))
+  (sql-<= (fset:convert 'fset:seq x) (fset:convert 'fset:seq y)))
 
 (defmethod sql-<= ((x (eql :null)) y)
   :null)
@@ -135,6 +141,9 @@
     (:greater t)
     (:unequal :null)))
 
+(defmethod sql-> ((x fset:map) (y fset:map))
+  (sql-> (fset:convert 'fset:seq x) (fset:convert 'fset:seq y)))
+
 (defmethod sql-> ((x (eql :null)) y)
   :null)
 
@@ -161,6 +170,9 @@
   (case (fset:compare-lexicographically x y)
     ((:greater :equal) t)
     (:unequal :null)))
+
+(defmethod sql->= ((x fset:map) (y fset:map))
+  (sql->= (fset:convert 'fset:seq x) (fset:convert 'fset:seq y)))
 
 (defmethod sql->= ((x (eql :null)) y)
   :null)
