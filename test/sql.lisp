@@ -1392,7 +1392,32 @@ SELECT s FROM x WHERE ind=0")
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT 1..a")
       (is (equalp `((,(fset:seq))) result))
-      (is (equal '("a") columns)))))
+      (is (equal '("a") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [1][#]")
+      (is (equalp `((:null)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [1][# - 1]")
+      (is (equalp `((1)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [1][# - 2]")
+      (is (equalp `((:null)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT [1][# - 'a']")
+      (is (equalp `((1)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT {'0': 'a'}[# - 1]")
+      (is (equalp `((:null)) result))
+      (is (equal '("column1") columns)))))
 
 (test directory-db
   (let* ((endb/sql/expr:*sqlite-mode* t)

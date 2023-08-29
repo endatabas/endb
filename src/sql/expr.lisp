@@ -1419,6 +1419,9 @@
 (defmethod syn-access (x (y (eql :*)) recursivep)
   (make-path-seq :acc #()))
 
+(defmethod syn-access ((x vector) (y (eql :#)) (recursivep (eql nil)))
+  (syn-access x (length x) nil))
+
 (defmethod syn-access ((x vector) (y number) (recursivep (eql nil)))
   (let ((y (if (minusp y)
                (+ (length x) y)
@@ -1436,6 +1439,9 @@
 
 (defmethod syn-access ((x vector) (y (eql :*)) (recursivep (eql nil)))
   (make-path-seq :acc x))
+
+(defmethod syn-access ((x fset:seq) (y (eql :#)) (recursivep (eql nil)))
+  (syn-access x (fset:size x) nil))
 
 (defmethod syn-access ((x fset:seq) (y number) (recursivep (eql nil)))
   (let ((y (if (minusp y)

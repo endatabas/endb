@@ -123,6 +123,7 @@ pub enum Keyword {
     BitNot,
     BitAnd,
     BitOr,
+    Hash,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

@@ -52,7 +52,7 @@
                   (list (%unqualified-column-name (symbol-name (second (first (second expr)))))))
                  ((and (listp expr)
                        (eq :access (first expr))
-                       (not (eq :* (nth 2 expr)))
+                       (not (member (nth 2 expr) '(:* :#)))
                        (or (stringp (nth 2 expr))
                            (symbolp (nth 2 expr)))) (list (format nil "~A" (nth 2 expr))))
                  (t (list (%anonymous-column-name idx))))))
@@ -1060,7 +1060,7 @@
            'endb/sql/expr:syn-access-finish)
       ,(ast->cl (fset:with ctx :access :seq) base)
       ,(cond
-         ((eq :* path) path)
+         ((member path '(:* :#)) path)
          ((symbolp path) (symbol-name path))
          (t (ast->cl (fset:less ctx :access) path)))
       ,(eq :recursive recursive))))

@@ -3177,6 +3177,37 @@ mod tests {
                         - KW: Recursive
         "###);
 
+        assert_yaml_snapshot!(parse("SELECT [][#]"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Access
+                        - List:
+                            - KW: Array
+                            - List: []
+                        - KW: Hash
+        "###);
+        assert_yaml_snapshot!(parse("SELECT [][# - 1]"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Access
+                        - List:
+                            - KW: Array
+                            - List: []
+                        - List:
+                            - KW: Minus
+                            - Integer: 1
+        "###);
+
         assert_yaml_snapshot!(parse("SELECT * FROM foo, UNNEST(foo.bar)"), @r###"
         ---
         Err:

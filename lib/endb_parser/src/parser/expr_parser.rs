@@ -553,8 +553,20 @@ where
         ))
         .boxed();
 
-        let bracketed_path =
-            choice((pad('*').to(Mul).map(KW), expr.clone())).delimited_by(pad('['), pad(']'));
+        let bracketed_path = choice((
+            pad('*').to(Mul).map(KW),
+            pad('#')
+                .ignore_then(pad('-').ignore_then(expr.clone()).or_not())
+                .map(|expr| {
+                    if let Some(expr) = expr {
+                        List(vec![KW(Minus), expr])
+                    } else {
+                        KW(Hash)
+                    }
+                }),
+            expr.clone(),
+        ))
+        .delimited_by(pad('['), pad(']'));
 
         let access = atom
             .foldl(
