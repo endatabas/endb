@@ -737,32 +737,39 @@
                                                                                                      t))))
 
 (defun %insert-on-conflict (ctx table-name on-conflict update &key (values nil upsertp) column-names)
+  (when upsertp
+    (assert (or (and (eq :objects (first values)) (null column-names))
+                column-names)
+            nil))
   (destructuring-bind (update-cols &key (where :true) unset patch)
       (or update '(nil))
     (multiple-value-bind (from-src projection)
         (%base-table-or-view->cl ctx table-name :errorp (not upsertp))
       (when (or (base-table-p from-src) (null from-src))
-        (let* ((scan-row-id-sym (gensym))
+        (let* ((objectsp (eq :objects (first values)))
+               (scan-row-id-sym (gensym))
                (scan-batch-idx-sym (gensym))
                (scan-arrow-file-sym (gensym))
                (batch-sym (gensym))
                (on-conflict (delete-duplicates (mapcar #'symbol-name on-conflict) :test 'equal))
                (excluded-projection (when upsertp
-                                      (if column-names
-                                          (if (subsetp on-conflict column-names :test 'equal)
-                                              column-names
-                                              (%annotated-error table-name "Column names needs to contain the on conflict columns"))
-                                          (sort (delete-duplicates (loop for object in values
+                                      (if objectsp
+                                          (sort (delete-duplicates (loop for object in (second values)
                                                                          for keys = (%object-ast-keys object :require-literal-p nil)
                                                                          unless (subsetp on-conflict keys :test 'equal)
                                                                            do (%annotated-error table-name "All inserted values needs to provide the on conflict columns")
                                                                          append keys)
                                                                    :test 'equal)
-                                                #'string<))))
-               (table-projection (delete-duplicates (append projection excluded-projection) :test 'equal))
-               (projection (append table-projection (unless endb/sql/expr:*sqlite-mode*
-                                                      (list "!doc" "system_time"))))
+                                                #'string<)
+                                          (if (subsetp on-conflict column-names :test 'equal)
+                                              column-names
+                                              (%annotated-error table-name "Column names needs to contain the on conflict columns")))))
+               (projection (append (delete-duplicates (append projection on-conflict) :test 'equal)
+                                   (unless endb/sql/expr:*sqlite-mode*
+                                     (list "!doc" "system_time"))))
                (env-extension (%env-extension (symbol-name table-name) projection))
+               (vars (loop for p in projection
+                           collect (fset:lookup env-extension p)))
                (excluded-env-extension (%env-extension "excluded" excluded-projection))
                (object-sym (gensym))
                (excluded-env-extension (fset:with excluded-env-extension "excluded.!doc" object-sym))
@@ -771,8 +778,6 @@
                                               (:scan-arrow-file-sym scan-arrow-file-sym)
                                               (:scan-batch-idx-sym scan-batch-idx-sym)
                                               (:batch-sym batch-sym))))
-               (vars (loop for p in projection
-                           collect (fset:lookup env-extension p)))
                (conflict-clauses (when upsertp
                                    (loop for v in on-conflict
                                          collect (list :is
@@ -812,10 +817,10 @@
           `(let ((,updated-rows-sym)
                  (,deleted-row-ids-sym))
              ,(if upsertp
-                  `(loop for ,object-sym in (let ((,object-sym ,(if column-names
+                  `(loop for ,object-sym in (let ((,object-sym ,(if objectsp
+                                                                    (ast->cl ctx (second values))
                                                                     `(loop for ,value-sym in ,(ast->cl ctx values)
-                                                                           collect (fset:convert 'fset:map (pairlis ',excluded-projection ,value-sym)))
-                                                                    (ast->cl ctx values))))
+                                                                           collect (fset:convert 'fset:map (pairlis ',excluded-projection ,value-sym))))))
                                               (unless (= (length ,object-sym)
                                                          (length (delete-duplicates
                                                                   ,object-sym
@@ -832,7 +837,7 @@
                          for ,insertp-sym = t
                          do
                          ,@(when from-src
-                             (list (%table-scan->cl ctx vars table-projection from-src where-clauses
+                             (list (%table-scan->cl ctx vars projection from-src where-clauses
                                                     `(if (and ,@(loop for clause in (%and-clauses where)
                                                                       collect `(eq t ,(ast->cl ctx clause))))
                                                          do (setf ,insertp-sym nil)
@@ -854,10 +859,9 @@
     (when (and (not endb/sql/expr:*sqlite-mode*) (null column-names) (eq :values (first values)))
       (%annotated-error table-name "Column names are required for values"))
     (if (eq :objects (first values))
-        (let ((objects (second values)))
-          (if on-conflict
-              (%insert-on-conflict ctx table-name on-conflict update :values objects)
-              `(endb/sql/expr:dml-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx objects))))
+        (if on-conflict
+            (%insert-on-conflict ctx table-name on-conflict update :values values)
+            `(endb/sql/expr:dml-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx (second values))))
         (multiple-value-bind (src projection)
             (ast->cl ctx values)
           (let ((column-names (if (or column-names endb/sql/expr:*sqlite-mode*)

@@ -10,4 +10,5 @@
   (:import-from :endb/core))
 (in-package :endb-test/core)
 
-(setf fiveam:*run-test-when-defined* t)
+(setf fiveam:*run-test-when-defined* t
+      fiveam:*on-error* :debug)
