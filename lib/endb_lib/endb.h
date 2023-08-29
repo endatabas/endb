@@ -125,7 +125,7 @@ typedef enum Keyword {
   BitAnd,
   BitOr,
   Hash,
-  Dollar,
+  Path,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;

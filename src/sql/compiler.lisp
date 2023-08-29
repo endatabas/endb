@@ -1235,27 +1235,26 @@
     (undefined-function (e)
       (declare (ignore e)))))
 
+(defmethod sql->cl (ctx (type (eql :path)) &rest args)
+  (destructuring-bind (args)
+      args
+    `(fset:seq ,@(loop for ast in args
+                       collect (cond
+                                 ((and (symbolp ast)
+                                       (not (keywordp ast)))
+                                  (symbol-name ast))
+                                 ((eq :# ast)
+                                  (symbol-name ast))
+                                 (t (ast->cl ctx ast)))))))
+
 (defmethod sql->cl (ctx (type (eql :function)) &rest args)
   (destructuring-bind (fn args)
       args
     (let ((fn-sym (%find-expr-symbol fn "sql-")))
       (unless (and fn-sym (%valid-sql-fn-call-p fn-sym fn args))
         (error 'endb/sql/expr:sql-runtime-error :message (format nil "Unknown built-in function: ~A" fn)))
-      (cond
-        ((equal "path_remove" (symbol-name fn))
-         `(,fn-sym ,(ast->cl ctx (first args)) ,@(loop for ast in (rest args)
-                                                       collect `',(remove :access (alexandria:flatten ast)))))
-        ((member (symbol-name fn)
-                 '("path_insert" "path_replace" "path_set")
-                 :test 'equal)
-         `(,fn-sym ,(ast->cl ctx (first args)) ,@(let ((args (rest args)))
-                                                   (unless (evenp (length args))
-                                                     (error 'endb/sql/expr:sql-runtime-error :message "Path edits needs even path/argument pairs"))
-                                                   (loop for idx below (length args) by 2
-                                                         collect `(list ',(remove :access (alexandria:flatten (nth idx args)))
-                                                                        ,(ast->cl ctx (nth (1+ idx) args)))))))
-        (t `(,fn-sym ,@(loop for ast in args
-                             collect (ast->cl ctx ast))))))))
+      `(,fn-sym ,@(loop for ast in args
+                        collect (ast->cl ctx ast))))))
 
 (defmethod sql->cl (ctx (type (eql :aggregate-function)) &rest args)
   (destructuring-bind (fn args &key distinct (where :true) order-by)
@@ -1336,8 +1335,6 @@
   (cond
     ((eq :true ast) t)
     ((eq :false ast) nil)
-    ((eq :$ ast)
-     (error 'endb/sql/expr:sql-runtime-error :message "Cannot use $ outside the path functions"))
     ((eq :current_date ast)
      `(endb/sql/expr:syn-current_date ,(fset:lookup ctx :db-sym)))
     ((eq :current_time ast)

@@ -1267,48 +1267,44 @@
 (defun sql-path_remove (x &rest paths)
   (reduce
    (lambda (acc path)
-     (labels ((walk (acc path)
-                (if (fset:collection? acc)
-                    (let* ((x (first path))
-                           (path (rest path))
-                           (z (cond
-                                  ((eq :- x)
-                                   (sql-- (fset:size acc) (first path)))
-                                  ((eq :# x)
-                                   (fset:size acc))
-                                  ((symbolp x)
-                                   (symbol-name x))
-                                  (t x)))
-                           (path (if (eq :- x)
-                                     (rest path)
-                                     path)))
-                      (if path
-                          (cond
-                            ((and (numberp z) (fset:seq? acc) (<= 0 z (1- (fset:size acc))))
-                             (fset:with acc z (walk (fset:lookup acc z) path)))
-                            ((and (stringp z) (fset:map? acc))
-                             (multiple-value-bind (child childp)
-                                 (fset:lookup acc z)
-                               (if childp
-                                   (fset:with acc z (walk child path))
-                                   acc)))
-                            (t acc))
-                          (cond
-                            ((and (numberp z) (fset:seq? acc) (<= 0 z (1- (fset:size acc))))
-                             (fset:less acc z))
-                            ((and (stringp z) (fset:map? acc))
-                             (fset:less acc z))
-                            (t acc))))
-                    acc)))
-       (unless (eq :$ (first path))
-         (error 'sql-runtime-error :message "Paths needs to start with $"))
-       (if (rest path)
-           (walk acc (rest path))
-           :null)))
+     (let ((path (fset:convert 'list path)))
+       (labels ((walk (acc path)
+                  (if (fset:collection? acc)
+                      (let* ((x (first path))
+                             (path (rest path))
+                             (z (cond
+                                    ((equal "#" x)
+                                     (fset:size acc))
+                                    ((and (numberp x) (minusp x))
+                                     (+ (fset:size acc) x))
+                                    (t x))))
+                        (if path
+                            (cond
+                              ((and (numberp z) (fset:seq? acc) (<= 0 z (1- (fset:size acc))))
+                               (fset:with acc z (walk (fset:lookup acc z) path)))
+                              ((and (stringp z) (fset:map? acc))
+                               (multiple-value-bind (child childp)
+                                   (fset:lookup acc z)
+                                 (if childp
+                                     (fset:with acc z (walk child path))
+                                     acc)))
+                              (t acc))
+                            (cond
+                              ((and (numberp z) (fset:seq? acc) (<= 0 z (1- (fset:size acc))))
+                               (fset:less acc z))
+                              ((and (stringp z) (fset:map? acc))
+                               (fset:less acc z))
+                              (t acc))))
+                      acc)))
+         (if path
+             (walk acc path)
+             :null))))
    paths
    :initial-value x))
 
 (defun sql-path_insert (x &rest paths)
+  (unless (evenp (length paths))
+    (error 'endb/sql/expr:sql-runtime-error :message "Path insert needs even path/argument pairs"))
   (reduce
    (lambda (acc path-and-arg)
      (destructuring-bind (path arg)
@@ -1318,16 +1314,11 @@
                       (let* ((x (first path))
                              (path (rest path))
                              (z (cond
-                                  ((eq :- x)
-                                   (sql-- (fset:size acc) (first path)))
-                                  ((eq :# x)
+                                  ((equal "#" x)
                                    (fset:size acc))
-                                  ((symbolp x)
-                                   (symbol-name x))
-                                  (t x)))
-                             (path (if (eq :- x)
-                                       (rest path)
-                                       path)))
+                                  ((and (numberp x) (minusp x))
+                                   (+ (fset:size acc) x))
+                                  (t x))))
                         (if path
                             (cond
                               ((and (numberp z) (fset:seq? acc) (<= 0 z (1- (fset:size acc))))
@@ -1355,15 +1346,16 @@
                                      (fset:with acc z arg))))
                               (t acc))))
                       acc)))
-         (unless (eq :$ (first path))
-           (error 'sql-runtime-error :message "Paths needs to start with $"))
-         (if (rest path)
-             (walk acc (rest path))
+         (if (fset:seq? path)
+             (walk acc (fset:convert 'list path))
              :null))))
-   paths
+   (loop for idx below (length paths) by 2
+         collect (list (nth idx paths) (nth (1+ idx) paths)))
    :initial-value x))
 
 (defun sql-path_replace (x &rest paths)
+  (unless (evenp (length paths))
+    (error 'endb/sql/expr:sql-runtime-error :message "Path replace needs even path/argument pairs"))
   (reduce
    (lambda (acc path-and-arg)
      (destructuring-bind (path arg)
@@ -1373,16 +1365,11 @@
                       (let* ((x (first path))
                              (path (rest path))
                              (z (cond
-                                  ((eq :- x)
-                                   (sql-- (fset:size acc) (first path)))
-                                  ((eq :# x)
+                                  ((equal "#" x)
                                    (fset:size acc))
-                                  ((symbolp x)
-                                   (symbol-name x))
-                                  (t x)))
-                             (path (if (eq :- x)
-                                       (rest path)
-                                       path)))
+                                  ((and (numberp x) (minusp x))
+                                   (+ (fset:size acc) x))
+                                  (t x))))
                         (if path
                             (cond
                               ((and (numberp z) (fset:seq? acc) (<= 0 z (1- (fset:size acc))))
@@ -1406,15 +1393,16 @@
                                      acc)))
                               (t acc))))
                       acc)))
-         (unless (eq :$ (first path))
-           (error 'sql-runtime-error :message "Paths needs to start with $"))
-         (if (rest path)
-             (walk acc (rest path))
+         (if (fset:seq? path)
+             (walk acc (fset:convert 'list path))
              :null))))
-   paths
+   (loop for idx below (length paths) by 2
+         collect (list (nth idx paths) (nth (1+ idx) paths)))
    :initial-value x))
 
 (defun sql-path_set (x &rest paths)
+  (unless (evenp (length paths))
+    (error 'endb/sql/expr:sql-runtime-error :message "Path set needs even path/argument pairs"))
   (reduce
    (lambda (acc path-and-arg)
      (destructuring-bind (path arg)
@@ -1424,16 +1412,11 @@
                       (let* ((x (first path))
                              (path (rest path))
                              (z (cond
-                                  ((eq :- x)
-                                   (sql-- (fset:size acc) (first path)))
-                                  ((eq :# x)
+                                  ((equal "#" x)
                                    (fset:size acc))
-                                  ((symbolp x)
-                                   (symbol-name x))
-                                  (t x)))
-                             (path (if (eq :- x)
-                                       (rest path)
-                                       path)))
+                                  ((and (numberp x) (minusp x))
+                                   (+ (fset:size acc) x))
+                                  (t x))))
                         (if path
                             (cond
                               ((and (numberp z) (fset:seq? acc) (<= 0 z (1- (fset:size acc))))
@@ -1456,12 +1439,11 @@
                                (fset:with acc z arg))
                               (t acc))))
                       acc)))
-         (unless (eq :$ (first path))
-           (error 'sql-runtime-error :message "Paths needs to start with $"))
-         (if (rest path)
-             (walk acc (rest path))
+         (if (fset:seq? path)
+             (walk acc (fset:convert 'list path))
              :null))))
-   paths
+   (loop for idx below (length paths) by 2
+         collect (list (nth idx paths) (nth (1+ idx) paths)))
    :initial-value x))
 
 (defconstant +random-uuid-part-max+ (ash 1 64))

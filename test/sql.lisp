@@ -1395,31 +1395,6 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("a") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT [1][#]")
-      (is (equalp `((:null)) result))
-      (is (equal '("column1") columns)))
-
-    (multiple-value-bind (result columns)
-        (execute-sql db "SELECT [1][# - 1]")
-      (is (equalp `((1)) result))
-      (is (equal '("column1") columns)))
-
-    (multiple-value-bind (result columns)
-        (execute-sql db "SELECT [1][# - 2]")
-      (is (equalp `((:null)) result))
-      (is (equal '("column1") columns)))
-
-    (multiple-value-bind (result columns)
-        (execute-sql db "SELECT [1][# - 'a']")
-      (is (equalp `((1)) result))
-      (is (equal '("column1") columns)))
-
-    (multiple-value-bind (result columns)
-        (execute-sql db "SELECT {'0': 'a'}[# - 1]")
-      (is (equalp `((:null)) result))
-      (is (equal '("column1") columns)))
-
-    (multiple-value-bind (result columns)
         (execute-sql db "SELECT path_remove([0,1,2,3,4], $[2])")
       (is (equalp `((,(fset:seq 0 1 3 4))) result))
       (is (equal '("column1") columns)))

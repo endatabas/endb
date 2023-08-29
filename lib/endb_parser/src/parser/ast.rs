@@ -124,7 +124,7 @@ pub enum Keyword {
     BitAnd,
     BitOr,
     Hash,
-    Dollar,
+    Path,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

@@ -537,6 +537,29 @@ where
         ))
         .boxed();
 
+        let path = pad('$').ignore_then(
+            choice((
+                pad('.').ignore_then(id.clone()),
+                choice((
+                    expr.clone(),
+                    pad('#')
+                        .ignore_then(pad('-').ignore_then(expr.clone()).or_not())
+                        .map(|expr| {
+                            if let Some(expr) = expr {
+                                List(vec![KW(Minus), expr])
+                            } else {
+                                KW(Hash)
+                            }
+                        }),
+                ))
+                .delimited_by(pad('['), pad(']')),
+            ))
+            .repeated()
+            .collect()
+            .map(List)
+            .map(|path_elements| List(vec![KW(Path), path_elements])),
+        );
+
         let atom = choice((
             count_star,
             array_agg,
@@ -546,6 +569,7 @@ where
             exists,
             array,
             object_ast_parser(expr.clone()),
+            path,
             function,
             scalar_subquery,
             atom_ast_parser(),
@@ -553,22 +577,10 @@ where
         ))
         .boxed();
 
-        let bracketed_path = choice((
-            pad('*').to(Mul).map(KW),
-            pad('#')
-                .ignore_then(pad('-').ignore_then(expr.clone()).or_not())
-                .map(|expr| {
-                    if let Some(expr) = expr {
-                        List(vec![KW(Minus), expr])
-                    } else {
-                        KW(Hash)
-                    }
-                }),
-            expr.clone(),
-        ))
-        .delimited_by(pad('['), pad(']'));
+        let bracketed_path =
+            choice((pad('*').to(Mul).map(KW), expr.clone())).delimited_by(pad('['), pad(']'));
 
-        let access = choice((atom, pad('$').to(Dollar).map(KW)))
+        let access = atom
             .foldl(
                 choice((
                     pad("..")

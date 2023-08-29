@@ -3177,7 +3177,7 @@ mod tests {
                         - KW: Recursive
         "###);
 
-        assert_yaml_snapshot!(parse("SELECT $.bar..baz"), @r###"
+        assert_yaml_snapshot!(parse("SELECT $.bar.baz"), @r###"
         ---
         Ok:
           List:
@@ -3185,21 +3185,17 @@ mod tests {
             - List:
                 - List:
                     - List:
-                        - KW: Access
+                        - KW: Path
                         - List:
-                            - KW: Access
-                            - KW: Dollar
                             - Id:
                                 start: 9
                                 end: 12
-                        - Id:
-                            start: 14
-                            end: 17
-                        - KW: Recursive
-                        - KW: Recursive
+                            - Id:
+                                start: 13
+                                end: 16
         "###);
 
-        assert_yaml_snapshot!(parse("SELECT [][#]"), @r###"
+        assert_yaml_snapshot!(parse("SELECT $[#]"), @r###"
         ---
         Ok:
           List:
@@ -3207,13 +3203,11 @@ mod tests {
             - List:
                 - List:
                     - List:
-                        - KW: Access
+                        - KW: Path
                         - List:
-                            - KW: Array
-                            - List: []
-                        - KW: Hash
+                            - KW: Hash
         "###);
-        assert_yaml_snapshot!(parse("SELECT [][# - 1]"), @r###"
+        assert_yaml_snapshot!(parse("SELECT $[# - 1]"), @r###"
         ---
         Ok:
           List:
@@ -3221,13 +3215,11 @@ mod tests {
             - List:
                 - List:
                     - List:
-                        - KW: Access
+                        - KW: Path
                         - List:
-                            - KW: Array
-                            - List: []
-                        - List:
-                            - KW: Minus
-                            - Integer: 1
+                            - List:
+                                - KW: Minus
+                                - Integer: 1
         "###);
 
         assert_yaml_snapshot!(parse("SELECT * FROM foo, UNNEST(foo.bar)"), @r###"
