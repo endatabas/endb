@@ -1264,187 +1264,89 @@
    x
    :initial-value (fset:empty-seq)))
 
-(defun sql-path_remove (x &rest paths)
+(defun %path-edit (x paths &key overwritep createp)
   (reduce
-   (lambda (acc path)
-     (let ((path (fset:convert 'list path)))
+   (lambda (acc path-and-arg)
+     (destructuring-bind (path &optional (arg nil argp))
+         path-and-arg
        (labels ((walk (acc path)
                   (if (fset:collection? acc)
                       (let* ((x (first path))
                              (path (rest path))
                              (z (cond
-                                    ((equal "#" x)
-                                     (fset:size acc))
-                                    ((and (numberp x) (minusp x))
-                                     (+ (fset:size acc) x))
-                                    (t x))))
+                                  ((equal "#" x)
+                                   (fset:size acc))
+                                  ((and (numberp x) (minusp x))
+                                   (+ (fset:size acc) x))
+                                  (t x))))
                         (if path
                             (cond
                               ((and (numberp z) (fset:seq? acc) (<= 0 z (1- (fset:size acc))))
                                (fset:with acc z (walk (fset:lookup acc z) path)))
+                              ((and (numberp z) (fset:seq? acc) (= z (fset:size acc)))
+                               (if createp
+                                   (fset:with-last acc (walk (fset:lookup acc z) path))
+                                   acc))
                               ((and (stringp z) (fset:map? acc))
                                (multiple-value-bind (child childp)
                                    (fset:lookup acc z)
-                                 (if childp
-                                     (fset:with acc z (walk child path))
-                                     acc)))
+                                 (cond
+                                   (childp (fset:with acc z (walk child path)))
+                                   (createp (fset:with acc z (walk (fset:empty-map) path)))
+                                   (t acc))))
                               (t acc))
                             (cond
                               ((and (numberp z) (fset:seq? acc) (<= 0 z (1- (fset:size acc))))
-                               (fset:less acc z))
+                               (cond
+                                 ((not argp)  (fset:less acc z))
+                                 (overwritep (fset:with acc z arg))
+                                 (t acc)))
+                              ((and (numberp z) (fset:seq? acc) (= z (fset:size acc)))
+                               (if createp
+                                   (fset:with-last acc arg)
+                                   acc))
                               ((and (stringp z) (fset:map? acc))
-                               (fset:less acc z))
+                               (multiple-value-bind (child childp)
+                                   (fset:lookup acc z)
+                                 (declare (ignore child))
+                                 (cond
+                                   ((not argp) (fset:less acc z))
+                                   ((and overwritep childp)
+                                    (fset:with acc z arg))
+                                   ((and createp (not childp))
+                                    (fset:with acc z arg))
+                                   (t acc))))
                               (t acc))))
                       acc)))
-         (if path
-             (walk acc path)
+         (if (and (fset:seq? path)
+                  (not (fset:empty? path)))
+             (walk acc (fset:convert 'list path))
              :null))))
    paths
    :initial-value x))
 
+(defun sql-path_remove (x &rest paths)
+  (%path-edit x (loop for path in paths
+                      collect (list path))))
+
+(defun %path-pairs (paths)
+  (loop for idx below (length paths) by 2
+        collect (list (nth idx paths) (nth (1+ idx) paths))))
+
 (defun sql-path_insert (x &rest paths)
   (unless (evenp (length paths))
     (error 'endb/sql/expr:sql-runtime-error :message "Path insert needs even path/argument pairs"))
-  (reduce
-   (lambda (acc path-and-arg)
-     (destructuring-bind (path arg)
-         path-and-arg
-       (labels ((walk (acc path)
-                  (if (fset:collection? acc)
-                      (let* ((x (first path))
-                             (path (rest path))
-                             (z (cond
-                                  ((equal "#" x)
-                                   (fset:size acc))
-                                  ((and (numberp x) (minusp x))
-                                   (+ (fset:size acc) x))
-                                  (t x))))
-                        (if path
-                            (cond
-                              ((and (numberp z) (fset:seq? acc) (<= 0 z (1- (fset:size acc))))
-                               (fset:with acc z (walk (fset:lookup acc z) path)))
-                              ((and (numberp z) (fset:seq? acc) (= z (fset:size acc)))
-                               (fset:with-last acc (walk (fset:lookup acc z) path)))
-                              ((and (stringp z) (fset:map? acc))
-                               (multiple-value-bind (child childp)
-                                   (fset:lookup acc z)
-                                 (if childp
-                                     (fset:with acc z (walk child path))
-                                     (fset:with acc z (walk (fset:empty-map) path)))))
-                              (t acc))
-                            (cond
-                              ((and (numberp z) (fset:seq? acc) (<= 0 z (1- (fset:size acc))))
-                               acc)
-                              ((and (numberp z) (fset:seq? acc) (= z (fset:size acc)))
-                               (fset:with-last acc arg))
-                              ((and (stringp z) (fset:map? acc))
-                               (multiple-value-bind (child childp)
-                                   (fset:lookup acc z)
-                                 (declare (ignore child))
-                                 (if childp
-                                     acc
-                                     (fset:with acc z arg))))
-                              (t acc))))
-                      acc)))
-         (if (fset:seq? path)
-             (walk acc (fset:convert 'list path))
-             :null))))
-   (loop for idx below (length paths) by 2
-         collect (list (nth idx paths) (nth (1+ idx) paths)))
-   :initial-value x))
+  (%path-edit x (%path-pairs paths) :createp t))
 
 (defun sql-path_replace (x &rest paths)
   (unless (evenp (length paths))
     (error 'endb/sql/expr:sql-runtime-error :message "Path replace needs even path/argument pairs"))
-  (reduce
-   (lambda (acc path-and-arg)
-     (destructuring-bind (path arg)
-         path-and-arg
-       (labels ((walk (acc path)
-                  (if (fset:collection? acc)
-                      (let* ((x (first path))
-                             (path (rest path))
-                             (z (cond
-                                  ((equal "#" x)
-                                   (fset:size acc))
-                                  ((and (numberp x) (minusp x))
-                                   (+ (fset:size acc) x))
-                                  (t x))))
-                        (if path
-                            (cond
-                              ((and (numberp z) (fset:seq? acc) (<= 0 z (1- (fset:size acc))))
-                               (fset:with acc z (walk (fset:lookup acc z) path)))
-                              ((and (stringp z) (fset:map? acc))
-                               (multiple-value-bind (child childp)
-                                   (fset:lookup acc z)
-                                 (if childp
-                                     (fset:with acc z (walk child path))
-                                     acc)))
-                              (t acc))
-                            (cond
-                              ((and (numberp z) (fset:seq? acc) (<= 0 z (1- (fset:size acc))))
-                               (fset:with acc z arg))
-                              ((and (stringp z) (fset:map? acc))
-                               (multiple-value-bind (child childp)
-                                   (fset:lookup acc z)
-                                 (declare (ignore child))
-                                 (if childp
-                                     (fset:with acc z arg)
-                                     acc)))
-                              (t acc))))
-                      acc)))
-         (if (fset:seq? path)
-             (walk acc (fset:convert 'list path))
-             :null))))
-   (loop for idx below (length paths) by 2
-         collect (list (nth idx paths) (nth (1+ idx) paths)))
-   :initial-value x))
+  (%path-edit x (%path-pairs paths) :overwritep t))
 
 (defun sql-path_set (x &rest paths)
   (unless (evenp (length paths))
     (error 'endb/sql/expr:sql-runtime-error :message "Path set needs even path/argument pairs"))
-  (reduce
-   (lambda (acc path-and-arg)
-     (destructuring-bind (path arg)
-         path-and-arg
-       (labels ((walk (acc path)
-                  (if (fset:collection? acc)
-                      (let* ((x (first path))
-                             (path (rest path))
-                             (z (cond
-                                  ((equal "#" x)
-                                   (fset:size acc))
-                                  ((and (numberp x) (minusp x))
-                                   (+ (fset:size acc) x))
-                                  (t x))))
-                        (if path
-                            (cond
-                              ((and (numberp z) (fset:seq? acc) (<= 0 z (1- (fset:size acc))))
-                               (fset:with acc z (walk (fset:lookup acc z) path)))
-                              ((and (numberp z) (fset:seq? acc) (= z (fset:size acc)))
-                               (fset:with-last acc (walk (fset:lookup acc z) path)))
-                              ((and (stringp z) (fset:map? acc))
-                               (multiple-value-bind (child childp)
-                                   (fset:lookup acc z)
-                                 (if childp
-                                     (fset:with acc z (walk child path))
-                                     (fset:with acc z (walk (fset:empty-map) path)))))
-                              (t acc))
-                            (cond
-                              ((and (numberp z) (fset:seq? acc) (<= 0 z (1- (fset:size acc))))
-                               (fset:with acc z arg))
-                              ((and (numberp z) (fset:seq? acc) (= z (fset:size acc)))
-                               (fset:with-last acc arg))
-                              ((and (stringp z) (fset:map? acc))
-                               (fset:with acc z arg))
-                              (t acc))))
-                      acc)))
-         (if (fset:seq? path)
-             (walk acc (fset:convert 'list path))
-             :null))))
-   (loop for idx below (length paths) by 2
-         collect (list (nth idx paths) (nth (1+ idx) paths)))
-   :initial-value x))
+  (%path-edit x (%path-pairs paths) :createp t :overwritep t))
 
 (defconstant +random-uuid-part-max+ (ash 1 64))
 (defconstant +random-uuid-version+ 4)
