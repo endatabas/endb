@@ -20,7 +20,7 @@
            #:sql-floor #:sql-ceiling #:sql-ceil #:sql-patch #:sql-match
            #:sql-sign #:sql-sqrt #:sql-exp #:sql-power #:sql-pow #:sql-log #:sql-log2 #:sql-log10 #:sql-ln #:sql-degrees #:sql-radians #:sql-pi
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-timestamp #:sql-duration #:sql-interval #:sql-like #:sql-substr #:sql-substring #:sql-strftime
-           #:sql-typeof #:sql-unixepoch #:sql-julianday
+           #:sql-typeof #:sql-unixepoch #:sql-julianday #:sql-path_remove #:sql-path_insert #:sql-path_replace #:sql-path_set
            #:sql-contains #:sql-overlaps #:sql-precedes #:sql-succedes #:sql-immediately_precedes #:sql-immediately_succedes
 
            #:syn-current_date #:syn-current_time #:syn-current_timestamp
