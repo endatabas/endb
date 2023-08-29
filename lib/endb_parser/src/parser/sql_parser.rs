@@ -3177,6 +3177,28 @@ mod tests {
                         - KW: Recursive
         "###);
 
+        assert_yaml_snapshot!(parse("SELECT $.bar..baz"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Access
+                        - List:
+                            - KW: Access
+                            - KW: Dollar
+                            - Id:
+                                start: 9
+                                end: 12
+                        - Id:
+                            start: 14
+                            end: 17
+                        - KW: Recursive
+                        - KW: Recursive
+        "###);
+
         assert_yaml_snapshot!(parse("SELECT [][#]"), @r###"
         ---
         Ok:

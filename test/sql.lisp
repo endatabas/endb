@@ -1417,6 +1417,91 @@ SELECT s FROM x WHERE ind=0")
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT {'0': 'a'}[# - 1]")
       (is (equalp `((:null)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_remove([0,1,2,3,4], $[2])")
+      (is (equalp `((,(fset:seq 0 1 3 4))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_remove([0,1,2,3,4], $[2], $[0])")
+      (is (equalp `((,(fset:seq 1 3 4))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_remove([0,1,2,3,4], $[0], $[2])")
+      (is (equalp `((,(fset:seq 1 2 4))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_remove([0,1,2,3,4], $[#-1], $[0])")
+      (is (equalp `((,(fset:seq 1 2 3))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_remove({x: 25, y: 42})")
+      (is (equalp `((,(fset:map ("x" 25) ("y" 42)))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_remove({x: 25, y: 42}, $.z)")
+      (is (equalp `((,(fset:map ("x" 25) ("y" 42)))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_remove({x: 25, y: 42}, $.y)")
+      (is (equalp `((,(fset:map ("x" 25)))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_remove({x: 25, y: 42}, $)")
+      (is (equalp `((:null)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_insert([1,2,3,4], $[#], 99)")
+      (is (equalp `((,(fset:seq 1 2 3 4 99))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_insert([1,[2,3],4], $[1][#], 99)")
+      (is (equalp `((,(fset:seq 1 (fset:seq 2 3 99) 4))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_insert({a: 2, c: 4}, $.a, 99)")
+      (is (equalp `((,(fset:map ("a" 2) ("c" 4)))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_insert({a: 2, c: 4}, $.e, 99)")
+      (is (equalp `((,(fset:map ("a" 2) ("c" 4) ("e" 99)))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_replace({a: 2, c: 4}, $.a, 99)")
+      (is (equalp `((,(fset:map ("a" 99) ("c" 4)))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_replace({a: 2, c: 4}, $.e, 99)")
+      (is (equalp `((,(fset:map ("a" 2) ("c" 4)))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_set({a: 2, c: 4}, $.a, 99)")
+      (is (equalp `((,(fset:map ("a" 99) ("c" 4)))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_set({a: 2, c: 4}, $.e, 99)")
+      (is (equalp `((,(fset:map ("a" 2) ("c" 4) ("e" 99)))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_set({a: 2, c: 4}, $.c, [97,96])")
+      (is (equalp `((,(fset:map ("a" 2) ("c" (fset:seq 97 96))))) result))
       (is (equal '("column1") columns)))))
 
 (test directory-db

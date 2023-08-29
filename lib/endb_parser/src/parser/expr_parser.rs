@@ -568,7 +568,7 @@ where
         ))
         .delimited_by(pad('['), pad(']'));
 
-        let access = atom
+        let access = choice((atom, pad('$').to(Dollar).map(KW)))
             .foldl(
                 choice((
                     pad("..")

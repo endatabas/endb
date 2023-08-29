@@ -128,7 +128,8 @@
   :~
   :&
   :\|
-  :#)
+  :#
+  :$)
 
 (cffi:defcenum Ast_Tag
   :List
