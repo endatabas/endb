@@ -1477,6 +1477,56 @@ SELECT s FROM x WHERE ind=0")
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT path_set({a: 2, c: 4}, $.c, [97,96])")
       (is (equalp `((,(fset:map ("a" 2) ("c" (fset:seq 97 96))))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_extract({a: 2, c: [4, 5, {f: 7}]}, $)")
+      (is (equalp `((,(fset:map ("a" 2) ("c" (fset:seq 4 5 (fset:map ("f" 7))))))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_extract({a: 2, c: [4, 5, {f: 7}]}, $.c)")
+      (is (equalp `((,(fset:seq 4 5 (fset:map ("f" 7))))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_extract({a: 2, c: [4, 5, {f: 7}]}, $.c[2])")
+      (is (equalp `((,(fset:map ("f" 7)))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_extract({a: 2, c: [4, 5, {f: 7}]}, $.c[2].f)")
+      (is (equalp '((7)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_extract({a: 2, c: [4, 5], f: 7}, $.c, $.a)")
+      (is (equalp `((,(fset:seq (fset:seq 4 5) 2))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_extract({a: 2, c: [4, 5], f: 7}, $.c[#-1])")
+      (is (equalp '((5)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_extract({a: 2, c: [4, 5], f: 7}, $.x)")
+      (is (equalp '((:null)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_extract({a: 2, c: [4, 5], f: 7}, $.x, $.a)")
+      (is (equalp `((,(fset:seq :null 2))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_extract({a: 'xyz'}, $.a)")
+      (is (equalp '(("xyz")) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_extract({a: NULL}, $.a)")
+      (is (equalp '((:null)) result))
       (is (equal '("column1") columns)))))
 
 (test directory-db

@@ -20,7 +20,7 @@
            #:sql-floor #:sql-ceiling #:sql-ceil #:sql-patch #:sql-match
            #:sql-sign #:sql-sqrt #:sql-exp #:sql-power #:sql-pow #:sql-log #:sql-log2 #:sql-log10 #:sql-ln #:sql-degrees #:sql-radians #:sql-pi
            #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-timestamp #:sql-duration #:sql-interval #:sql-like #:sql-substr #:sql-substring #:sql-strftime
-           #:sql-typeof #:sql-unixepoch #:sql-julianday #:sql-path_remove #:sql-path_insert #:sql-path_replace #:sql-path_set
+           #:sql-typeof #:sql-unixepoch #:sql-julianday #:sql-path_remove #:sql-path_insert #:sql-path_replace #:sql-path_set #:sql-path_extract
            #:sql-contains #:sql-overlaps #:sql-precedes #:sql-succedes #:sql-immediately_precedes #:sql-immediately_succedes
 
            #:syn-current_date #:syn-current_time #:syn-current_timestamp
@@ -1264,66 +1264,89 @@
    x
    :initial-value (fset:empty-seq)))
 
-(defun %path-edit (x paths &key overwritep createp)
-  (reduce
-   (lambda (acc path-and-arg)
-     (destructuring-bind (path &optional (arg nil argp))
-         path-and-arg
-       (labels ((walk (acc path)
-                  (if (fset:collection? acc)
-                      (let* ((x (first path))
-                             (path (rest path))
-                             (z (cond
-                                  ((equal "#" x)
-                                   (fset:size acc))
-                                  ((and (numberp x) (minusp x))
-                                   (+ (fset:size acc) x))
-                                  (t x))))
-                        (if path
-                            (cond
-                              ((and (numberp z) (fset:seq? acc) (<= 0 z (1- (fset:size acc))))
-                               (fset:with acc z (walk (fset:lookup acc z) path)))
-                              ((and (numberp z) (fset:seq? acc) (= z (fset:size acc)))
-                               (if createp
-                                   (fset:with-last acc (walk (fset:lookup acc z) path))
-                                   acc))
-                              ((and (stringp z) (fset:map? acc))
-                               (multiple-value-bind (child childp)
-                                   (fset:lookup acc z)
+(defun %path-edit (x paths &key overwritep createp extractp)
+  (block extract
+    (reduce
+     (lambda (acc path-and-arg)
+       (destructuring-bind (path &optional (arg nil argp))
+           path-and-arg
+         (labels ((walk (acc path)
+                    (if (fset:collection? acc)
+                        (let* ((x (first path))
+                               (path (rest path))
+                               (z (cond
+                                    ((equal "#" x)
+                                     (fset:size acc))
+                                    ((and (numberp x) (minusp x))
+                                     (+ (fset:size acc) x))
+                                    (t x))))
+                          (if path
+                              (cond
+                                ((and (numberp z) (fset:seq? acc) (<= 0 z (1- (fset:size acc))))
+                                 (fset:with acc z (walk (fset:lookup acc z) path)))
+                                ((and (numberp z) (fset:seq? acc) (= z (fset:size acc)))
+                                 (if createp
+                                     (fset:with-last acc (walk (fset:lookup acc z) path))
+                                     acc))
+                                ((and (stringp z) (fset:map? acc))
+                                 (multiple-value-bind (child childp)
+                                     (fset:lookup acc z)
+                                   (cond
+                                     (childp (fset:with acc z (walk child path)))
+                                     (createp (fset:with acc z (walk (fset:empty-map) path)))
+                                     (t acc))))
+                                (t acc))
+                              (cond
+                                (extractp
+                                 (multiple-value-bind (child childp)
+                                     (fset:lookup acc z)
+                                   (return-from extract (if childp
+                                                            child
+                                                            :null))))
+                                ((and (numberp z) (fset:seq? acc) (<= 0 z (1- (fset:size acc))))
                                  (cond
-                                   (childp (fset:with acc z (walk child path)))
-                                   (createp (fset:with acc z (walk (fset:empty-map) path)))
-                                   (t acc))))
-                              (t acc))
-                            (cond
-                              ((and (numberp z) (fset:seq? acc) (<= 0 z (1- (fset:size acc))))
-                               (cond
-                                 ((not argp)  (fset:less acc z))
-                                 (overwritep (fset:with acc z arg))
-                                 (t acc)))
-                              ((and (numberp z) (fset:seq? acc) (= z (fset:size acc)))
-                               (if createp
-                                   (fset:with-last acc arg)
-                                   acc))
-                              ((and (stringp z) (fset:map? acc))
-                               (multiple-value-bind (child childp)
-                                   (fset:lookup acc z)
-                                 (declare (ignore child))
-                                 (cond
-                                   ((not argp) (fset:less acc z))
-                                   ((and overwritep childp)
-                                    (fset:with acc z arg))
-                                   ((and createp (not childp))
-                                    (fset:with acc z arg))
-                                   (t acc))))
-                              (t acc))))
-                      acc)))
-         (if (and (fset:seq? path)
-                  (not (fset:empty? path)))
-             (walk acc (fset:convert 'list path))
-             :null))))
-   paths
-   :initial-value x))
+                                   ((not argp)  (fset:less acc z))
+                                   (overwritep (fset:with acc z arg))
+                                   (t acc)))
+                                ((and (numberp z) (fset:seq? acc) (= z (fset:size acc)))
+                                 (if createp
+                                     (fset:with-last acc arg)
+                                     acc))
+                                ((and (stringp z) (fset:map? acc))
+                                 (multiple-value-bind (child childp)
+                                     (fset:lookup acc z)
+                                   (declare (ignore child))
+                                   (cond
+                                     ((not argp) (fset:less acc z))
+                                     ((and overwritep childp)
+                                      (fset:with acc z arg))
+                                     ((and createp (not childp))
+                                      (fset:with acc z arg))
+                                     (t acc))))
+                                (t acc))))
+                        acc)))
+           (cond
+             ((and (fset:seq? path)
+                   (not (fset:empty? path)))
+              (walk acc (fset:convert 'list path)))
+             (extractp acc)
+             (t :null)))))
+     paths
+     :initial-value x)))
+
+(defmethod sql-path_extract ((x (eql :null)) y &rest paths)
+  (declare (ignore y paths))
+  :null)
+
+(defmethod sql-path_extract (x (y (eql :null)) &rest paths)
+  (declare (ignore x paths))
+  :null)
+
+(defmethod sql-path_extract (x (y fset:seq) &rest paths)
+  (if paths
+      (fset:convert 'fset:seq (loop for path in (cons y paths)
+                                    collect (%path-edit x (list (list path)) :extractp t)))
+      (%path-edit x (list (list y)) :extractp t)))
 
 (defun sql-path_remove (x &rest paths)
   (%path-edit x (loop for path in paths
