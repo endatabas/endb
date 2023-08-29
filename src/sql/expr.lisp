@@ -30,10 +30,11 @@
            #:ra-scalar-subquery #:ra-in  #:ra-exists #:ra-limit #:ra-order-by
 
            #:make-agg #:agg-accumulate #:agg-finish
-           #:ddl-create-table #:ddl-drop-table #:ddl-create-view #:ddl-drop-view #:ddl-create-index #:ddl-drop-index #:dml-insert #:dml-insert-objects #:dml-delete
+           #:ddl-create-table #:ddl-drop-table #:ddl-create-view #:ddl-drop-view #:ddl-create-index #:ddl-drop-index #:ddl-create-assertion #:ddl-drop-assertion
+           #:dml-insert #:dml-insert-objects #:dml-delete
 
            #:make-db #:copy-db #:db-buffer-pool #:db-wal #:db-object-store #:db-meta-data #:db-current-timestamp
-           #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns
+           #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
            #:view-definition #:calculate-stats
            #:sql-runtime-error #:*sqlite-mode* #:+end-of-time+))
@@ -1951,7 +1952,12 @@
                "system_time_end"))
 
 (defun %information-schema-table-p (table-name)
-  (member table-name '("information_schema.columns" "information_schema.tables" "information_schema.views") :test 'equal))
+  (member table-name
+          '("information_schema.columns"
+            "information_schema.tables"
+            "information_schema.views"
+            "information_schema.check_constraints")
+          :test 'equal))
 
 (defun table-type (db table-name)
   (if (%information-schema-table-p table-name)
@@ -1969,6 +1975,14 @@
          (*read-default-float-format* 'double-float))
     (read-from-string (nth 3 view-row))))
 
+(defun constraint-definitions (db)
+  (let ((*read-eval* nil)
+        (*read-default-float-format* 'double-float))
+    (fset:convert 'fset:map
+                  (loop for constraint-row in (base-table-visible-rows db "information_schema.check_constraints")
+                        collect (cons (nth 2 constraint-row)
+                                      (read-from-string (nth 3 constraint-row)))))))
+
 (defun table-columns (db table-name)
   (cond
     ((equal "information_schema.columns" table-name)
@@ -1977,6 +1991,8 @@
      '("table_catalog" "table_schema" "table_name" "table_type"))
     ((equal "information_schema.views" table-name)
      '("table_catalog" "table_schema" "table_name" "view_definition"))
+    ((equal "information_schema.check_constraints" table-name)
+     '("constraint_catalog" "constraint_schema" "constraint_name" "check_clause"))
     (t (mapcar #'second (ra-order-by (loop with rows = (base-table-visible-rows db "information_schema.columns")
                                            for (nil nil table c idx) in rows
                                            when (equal table-name table)
@@ -2078,6 +2094,26 @@
                                                              (lambda (row)
                                                                (equal view-name (nth 2 row))))))
         (dml-delete db "information_schema.views" (list batch-file-row-id))))
+    (when (or batch-file-row-id if-exists)
+      (values nil t))))
+
+(defun ddl-create-assertion (db constraint-name check-clause)
+  (unless (%find-arrow-file-idx-row-id db
+                                       "information_schema.check_constraints"
+                                       (lambda (row)
+                                         (equal constraint-name (nth 2 row))))
+    (dml-insert db "information_schema.check_constraints"
+                (list (list :null *default-schema* constraint-name (let ((*print-case* :upcase))
+                                                                     (prin1-to-string check-clause)))))
+    (values nil t)))
+
+(defun ddl-drop-assertion (db constraint-name &key if-exists)
+  (let* ((batch-file-row-id (%find-arrow-file-idx-row-id db
+                                                         "information_schema.check_constraints"
+                                                         (lambda (row)
+                                                           (equal constraint-name (nth 2 row))))))
+    (when batch-file-row-id
+      (dml-delete db "information_schema.check_constraints" (list batch-file-row-id)))
     (when (or batch-file-row-id if-exists)
       (values nil t))))
 

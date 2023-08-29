@@ -78,24 +78,32 @@
           do (endb/storage/object-store:object-store-put os k buffer)
              (endb/storage/wal:wal-append-entry wal k buffer))))
 
+(defun %execute-constraints (db)
+  (let ((ctx (fset:map (:db db))))
+    (fset:do-map (k v (endb/sql/expr:constraint-definitions db))
+      (when (equal '((nil)) (funcall (endb/sql/compiler:compile-sql ctx `(:select ((,v)))) db (fset:empty-seq)))
+        (error 'endb/sql/expr:sql-runtime-error :message (format nil "Constraint failed: ~A" k))))))
+
 (defun commit-write-tx (current-db write-db &key (fsyncp t))
   (let ((current-md (endb/sql/expr:db-meta-data current-db))
         (tx-md (endb/sql/expr:db-meta-data write-db)))
     (if (eq current-md tx-md)
         current-db
-        (let* ((tx-id (1+ (or (fset:lookup tx-md "_last_tx") 0)))
-               (tx-md (fset:with tx-md "_last_tx" tx-id))
-               (md-diff (endb/json:json-diff current-md tx-md))
-               (md-diff-bytes (trivial-utf-8:string-to-utf-8-bytes (endb/json:json-stringify md-diff)))
-               (wal (endb/sql/expr:db-wal write-db)))
-          (%write-new-buffers write-db)
-          (endb/storage/wal:wal-append-entry wal (%log-filename tx-id) md-diff-bytes)
-          (when fsyncp
-            (endb/storage/wal:wal-fsync wal))
-          (let ((new-db (endb/sql/expr:copy-db current-db))
-                (new-md (endb/json:json-merge-patch current-md md-diff)))
-            (setf (endb/sql/expr:db-meta-data new-db) new-md)
-            new-db)))))
+        (progn
+          (%execute-constraints write-db)
+          (let* ((tx-id (1+ (or (fset:lookup tx-md "_last_tx") 0)))
+                 (tx-md (fset:with tx-md "_last_tx" tx-id))
+                 (md-diff (endb/json:json-diff current-md tx-md))
+                 (md-diff-bytes (trivial-utf-8:string-to-utf-8-bytes (endb/json:json-stringify md-diff)))
+                 (wal (endb/sql/expr:db-wal write-db)))
+            (%write-new-buffers write-db)
+            (endb/storage/wal:wal-append-entry wal (%log-filename tx-id) md-diff-bytes)
+            (when fsyncp
+              (endb/storage/wal:wal-fsync wal))
+            (let ((new-db (endb/sql/expr:copy-db current-db))
+                  (new-md (endb/json:json-merge-patch current-md md-diff)))
+              (setf (endb/sql/expr:db-meta-data new-db) new-md)
+              new-db))))))
 
 (defun %execute-sql (db sql parameters manyp)
   (when (and manyp (not (fset:seq? parameters)))
@@ -118,16 +126,18 @@
                        (if (= 1 (length asts))
                            (endb/sql/compiler:compile-sql ctx (first asts))
                            (lambda (db parameters)
-                             (if (or (plusp (fset:size parameters)) manyp)
-                                 (error 'endb/sql/expr:sql-runtime-error :message "Multiple statements does not support parameters")
-                                 (loop with end-idx = (length asts)
-                                       for ast in asts
-                                       for idx from 1
-                                       for sql-fn = (endb/sql/compiler:compile-sql ctx ast)
-                                       if (= end-idx idx)
-                                         do (return (funcall sql-fn db parameters))
-                                       else
-                                         do (funcall sql-fn db parameters))))))
+                             (let* ((no-parameters "Multiple statements do not support parameters")
+                                    (ctx (fset:with ctx :no-parameters no-parameters)))
+                               (if (or (plusp (fset:size parameters)) manyp)
+                                   (error 'endb/sql/expr:sql-runtime-error :message no-parameters)
+                                   (loop with end-idx = (length asts)
+                                         for ast in asts
+                                         for idx from 1
+                                         for sql-fn = (endb/sql/compiler:compile-sql ctx ast)
+                                         if (= end-idx idx)
+                                           do (return (funcall sql-fn db parameters))
+                                         else
+                                           do (funcall sql-fn db parameters)))))))
                      (endb/sql/compiler:compile-sql ctx ast))))
     (loop with final-result = nil
           with final-result-code = nil

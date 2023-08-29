@@ -565,12 +565,20 @@ where
         )
         .map(|(id, columns)| List(vec![KW(CreateTable), id, columns]));
 
+    let create_assertion_stmt = kw("CREATE")
+        .ignore_then(kw("ASSERTION"))
+        .ignore_then(id.clone())
+        .then_ignore(kw("CHECK"))
+        .then(expr.clone().delimited_by(pad('('), pad(')')))
+        .map(|(id, expr)| List(vec![KW(CreateAssertion), id, expr]));
+
     let ddl_drop_stmt = kw("DROP")
         .ignore_then(
             choice((
                 kw("INDEX").to(DropIndex),
                 kw("VIEW").to(DropView),
                 kw("TABLE").to(DropTable),
+                kw("ASSERTION").to(DropAssertion),
             ))
             .map(KW),
         )
@@ -596,6 +604,7 @@ where
         create_index_stmt,
         create_view_stmt,
         create_table_stmt,
+        create_assertion_stmt,
         ddl_drop_stmt,
     ));
 
@@ -2108,6 +2117,28 @@ mod tests {
             - Id:
                 start: 11
                 end: 14
+        "###);
+        assert_yaml_snapshot!(parse("CREATE ASSERTION foo CHECK (1 == 1)"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: CreateAssertion
+            - Id:
+                start: 17
+                end: 20
+            - List:
+                - KW: Eq
+                - Integer: 1
+                - Integer: 1
+        "###);
+        assert_yaml_snapshot!(parse("DROP ASSERTION foo"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: DropAssertion
+            - Id:
+                start: 15
+                end: 18
         "###);
     }
 

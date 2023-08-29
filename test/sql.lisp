@@ -317,6 +317,58 @@
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql write-db "INSERT INTO foo { [1 + 1]: 2 } ON CONFLICT (name) DO NOTHING"))))
 
+(test constraints
+  (let* ((db (make-db)))
+
+    (let ((write-db (begin-write-tx db)))
+
+      (signals endb/sql/expr:sql-runtime-error
+        (execute-sql write-db "CREATE ASSERTION foo CHECK (1 = ?)"))
+
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "INSERT INTO users {email: 'joe@example.com'}, {email: 'bob@example.com'}")
+        (is (null result))
+        (is (= 2 result-code)))
+
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "CREATE ASSERTION unique_email CHECK (1 >= (SELECT MAX(c.cnt) FROM (SELECT COUNT(*) AS cnt FROM users GROUP BY email) AS c))")
+        (is (null result))
+        (is (eq t result-code)))
+
+      (setf db (commit-write-tx db write-db)))
+
+    (let ((write-db (begin-write-tx db)))
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "INSERT INTO users {email: 'rob@example.com'}")
+        (is (null result))
+        (is (= 1 result-code)))
+
+      (setf db (commit-write-tx db write-db)))
+
+    (let ((write-db (begin-write-tx db)))
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "INSERT INTO users {email: 'joe@example.com'}")
+        (is (null result))
+        (is (= 1 result-code)))
+
+      (signals endb/sql/expr:sql-runtime-error
+        (commit-write-tx db write-db)))
+
+    (let ((write-db (begin-write-tx db)))
+
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "CREATE ASSERTION string_email CHECK (NOT EXISTS (SELECT * FROM users WHERE TYPEOF(email) != 'text'))")
+        (is (null result))
+        (is (eq t result-code)))
+
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "INSERT INTO users {email: x'fab'}")
+        (is (null result))
+        (is (= 1 result-code)))
+
+      (signals endb/sql/expr:sql-runtime-error
+        (commit-write-tx db write-db)))))
+
 (test multiple-statments
   (let* ((db (make-db)))
 
@@ -669,7 +721,25 @@ SELECT s FROM x WHERE ind=0")
 
     (is (null (execute-sql write-db "SELECT * FROM information_schema.tables WHERE table_type = 'VIEW'")))
     (is (null (execute-sql write-db "SELECT * FROM information_schema.views")))
-    (is (null (execute-sql write-db "SELECT * FROM information_schema.columns WHERE table_name = 'foo' ORDER BY ordinal_position")))))
+    (is (null (execute-sql write-db "SELECT * FROM information_schema.columns WHERE table_name = 'foo' ORDER BY ordinal_position")))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "CREATE ASSERTION bar CHECK (1 = 1)")
+      (is (null result))
+      (is (eq t result-code)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT * FROM information_schema.check_constraints")
+      (is (equal '((:null "main" "bar" "(:= 1 1)")) result))
+      (is (equal '("constraint_catalog" "constraint_schema" "constraint_name" "check_clause")
+                 columns)))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "DROP ASSERTION bar")
+      (is (null result))
+      (is (eq t result-code)))
+
+    (is (null (execute-sql write-db "SELECT * FROM information_schema.check_constraints")))))
 
 (test temporal-scalars
   (let* ((db (make-db)))

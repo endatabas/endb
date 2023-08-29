@@ -129,7 +129,9 @@
   :&
   :\|
   :#
-  :path)
+  :path
+  :create-assertion
+  :drop-assertion)
 
 (cffi:defcenum Ast_Tag
   :List

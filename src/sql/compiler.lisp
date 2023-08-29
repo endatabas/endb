@@ -698,11 +698,6 @@
             (- lhs)
             `(endb/sql/expr:sql-- 0 ,(ast->cl ctx lhs))))))
 
-(defmethod sql->cl (ctx (type (eql :create-table)) &rest args)
-  (destructuring-bind (table-name column-names)
-      args
-    `(endb/sql/expr:ddl-create-table ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ',(mapcar #'symbol-name column-names))))
-
 (defmethod sql->cl (ctx (type (eql :create-index)) &rest args)
   (declare (ignore args))
   `(endb/sql/expr:ddl-create-index ,(fset:lookup ctx :db-sym)))
@@ -711,18 +706,36 @@
   (declare (ignore args))
   `(endb/sql/expr:ddl-drop-index ,(fset:lookup ctx :db-sym)))
 
+(defmethod sql->cl (ctx (type (eql :create-table)) &rest args)
+  (destructuring-bind (table-name column-names)
+      args
+    `(endb/sql/expr:ddl-create-table ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ',(mapcar #'symbol-name column-names))))
+
 (defmethod sql->cl (ctx (type (eql :drop-table)) &rest args)
   (destructuring-bind (table-name &key if-exists)
       args
     `(endb/sql/expr:ddl-drop-table ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) :if-exists ,(when if-exists
                                                                                                       t))))
 
+(defmethod sql->cl (ctx (type (eql :create-assertion)) &rest args)
+  (destructuring-bind (constraint-name check-clause)
+      args
+    (ast->cl (fset:with ctx :no-parameters "Assertions do not support parameters")
+             `(:select ((,check-clause))))
+    `(endb/sql/expr:ddl-create-assertion ,(fset:lookup ctx :db-sym) ,(symbol-name constraint-name) ',check-clause)))
+
+(defmethod sql->cl (ctx (type (eql :drop-assertion)) &rest args)
+  (destructuring-bind (constraint-name &key if-exists)
+      args
+    `(endb/sql/expr:ddl-drop-assertion ,(fset:lookup ctx :db-sym) ,(symbol-name constraint-name) :if-exists ,(when if-exists
+                                                                                                                t))))
+
 (defmethod sql->cl (ctx (type (eql :create-view)) &rest args)
   (destructuring-bind (table-name query &key column-names)
       args
-    (multiple-value-bind (ast projection)
+    (multiple-value-bind (view-src projection)
         (ast->cl ctx query)
-      (declare (ignore ast))
+      (declare (ignore view-src))
       (when (and column-names (not (= (length projection) (length column-names))))
         (%annotated-error table-name "Number of column names does not match projection"))
       `(endb/sql/expr:ddl-create-view ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ',query ',(or (mapcar #'symbol-name column-names) projection)))))
@@ -1316,6 +1329,8 @@
                      (list (list t :null))))))))
 
 (defmethod sql->cl (ctx (type (eql :parameter)) &rest args)
+  (when (fset:lookup ctx :no-parameters)
+    (error 'endb/sql/expr:sql-runtime-error :message (fset:lookup ctx :no-parameters)))
   (destructuring-bind (parameter)
       args
     `(fset:lookup ,(fset:lookup ctx :param-sym)
@@ -1396,7 +1411,7 @@
 (defun %interpretp (ast)
   (when (listp ast)
     (case (first ast)
-      ((:create-table :create-index :drop-table :drop-view) t)
+      ((:create-table :create-index :drop-table :drop-view :create-assertion :drop-assertion) t)
       (:insert (member (first (third ast)) '(:values :objects)))
       (:select (let ((from (cdr (getf ast :from))))
                  (or (> (length from)
