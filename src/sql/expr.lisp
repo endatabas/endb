@@ -211,14 +211,14 @@
   (not x))
 
 (defmacro sql-and (x y)
-  (let ((x-sym (gensym)))
+  (alexandria:with-gensyms (x-sym)
     `(let ((,x-sym ,x))
        (if (eq :null ,x-sym)
            (and ,y :null)
            (and ,x-sym ,y)))))
 
 (defmacro sql-or (x y)
-  (let ((x-sym (gensym)))
+  (alexandria:with-gensyms (x-sym)
     `(let ((,x-sym ,x))
        (if (eq :null ,x-sym)
            (or ,y :null)
