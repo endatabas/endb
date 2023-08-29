@@ -1854,6 +1854,16 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT x'3135' = UNHEX('3135')")
+      (is (equalp '((t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT x'3135' = UNHEX(3135)")
+      (is (equalp '((t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT RANDOMBLOB(8)")
       (is (typep (caar result) '(vector (unsigned-byte 8))))
       (is (equal '("column1") columns)))
@@ -2322,6 +2332,8 @@ SELECT s FROM x WHERE ind=0")
   (is-valid (expr "HEX(12345678)"))
   (is-valid (expr "HEX(x'ABCD')"))
   (is-valid (expr "HEX('ABCD')"))
+  (is-valid (expr "HEX(15) = HEX('15')"))
+  (is-valid (expr "HEX(NULL)"))
 
   (is-valid (expr "REPLACE('foobar', 'oo', 'aa')"))
 

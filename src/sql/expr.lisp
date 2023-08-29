@@ -588,6 +588,9 @@
   (declare (ignore y))
   :null)
 
+(defmethod sql-unhex (x &optional (y ""))
+  (sql-unhex (sql-cast x :varchar) y))
+
 (defparameter +hex-scanner+ (ppcre:create-scanner "^(?i:[0-9a-f]{2})+$"))
 
 (defmethod sql-unhex ((x string) &optional (y ""))
@@ -605,8 +608,8 @@
               finally (return acc))
         :null)))
 
-(defmethod sql-hex ((x number))
-  (sql-hex (format nil "~A" x)))
+(defmethod sql-hex (x)
+  (sql-hex (sql-cast x :varchar)))
 
 (defmethod sql-hex ((x string))
   (sql-hex (trivial-utf-8:string-to-utf-8-bytes x)))
@@ -615,7 +618,7 @@
   (format nil "~{~X~}" (coerce x 'list)))
 
 (defmethod sql-hex ((x (eql :null)))
-  :null)
+  "")
 
 (defmethod sql-patch ((x (eql :null)) y)
   :null)
