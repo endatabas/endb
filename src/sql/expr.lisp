@@ -14,7 +14,7 @@
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-~ #:sql-& #:sql-\|
            #:sql-between #:sql-coalesce
-           #:sql-object_keys #:sql-object_values
+           #:sql-object_keys #:sql-object_values #:sql-object_entries #:sql-object_from_entries
            #:sql-\|\| #:sql-cardinality #:sql-char_length #:sql-character_length #:sql-octet_length #:sql-length #:sql-trim #:sql-ltrim #:sql-rtrim #:sql-lower #:sql-upper
            #:sql-replace #:sql-unhex #:sql-hex #:sql-instr #:sql-min #:sql-max #:sql-char #:sql-unicode #:sql-random #:sql-glob #:sql-regexp #:sql-randomblob #:sql-zeroblob #:sql-iif
            #:sql-round #:sql-sin #:sql-cos #:sql-tan #:sql-sinh #:sql-cosh #:sql-tanh #:sql-asin #:sqn-acos #:sql-atan #:sql-asinh #:sqn-acosh #:sql-atanh #:sql-atan2
@@ -1223,7 +1223,7 @@
               'string)
       ""))
 
-(defmethod sql-unicode ((x (eql  :null)))
+(defmethod sql-unicode ((x (eql :null)))
   :null)
 
 (defmethod sql-unicode ((x string))
@@ -1265,6 +1265,28 @@
      (fset:with-last acc v))
    x
    :initial-value (fset:empty-seq)))
+
+(defmethod sql-object_entries ((x (eql :null)))
+  :null)
+
+(defmethod sql-object_entries ((x fset:map))
+  (fset:reduce
+   (lambda (acc k v)
+     (fset:with-last acc (fset:seq k v)))
+   x
+   :initial-value (fset:empty-seq)))
+
+(defmethod sql-object_from_entries ((x (eql :null)))
+  :null)
+
+(defmethod sql-object_from_entries ((x fset:seq))
+  (fset:convert 'fset:map
+                (loop for x in (fset:convert 'list x)
+                      if (and (fset:seq? x) (= 2 (fset:size x)))
+                        collect (cons (sql-cast (fset:lookup x 0) :varchar)
+                                      (fset:lookup x 1))
+                      else
+                        do (error 'endb/sql/expr:sql-runtime-error :message "Object entries needs to be two element arrays"))))
 
 (defun %path-edit (x paths &key overwritep createp extractp)
   (reduce
@@ -1652,9 +1674,7 @@
 (defun ra-unnest (arrays &key with-ordinality)
   (let ((arrays (loop for a in arrays
                       collect (if (fset:map? a)
-                                  (fset:convert 'fset:seq
-                                                (loop for (k . v) in (fset:convert 'list a)
-                                                      collect (fset:map ("key" k) ("value" v))))
+                                  (sql-object_entries a)
                                   a))))
     (when (every #'fset:seq? arrays)
       (let ((len (apply #'max (mapcar #'fset:size arrays))))

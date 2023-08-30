@@ -1050,7 +1050,7 @@ SELECT s FROM x WHERE ind=0")
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT * FROM UNNEST({a: 1, b: 2, c: 3}) AS foo(bar)")
-      (is (equalp `((,(fset:map ("key" "a") ("value" 1))) (,(fset:map ("key" "b") ("value" 2))) (,(fset:map ("key" "c") ("value" 3)))) result))
+      (is (equalp `((,(fset:seq "a" 1)) (,(fset:seq "b" 2)) (,(fset:seq "c" 3))) result))
       (is (equal '("bar") columns)))
 
     (multiple-value-bind (result columns)
@@ -1061,6 +1061,16 @@ SELECT s FROM x WHERE ind=0")
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT OBJECT_VALUES({a: 1, b: 2, c: 3})")
       (is (equalp `((,(fset:seq 1 2 3))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT OBJECT_ENTRIES({a: 1, b: 2, c: 3})")
+      (is (equalp `((,(fset:seq (fset:seq "a" 1) (fset:seq "b" 2) (fset:seq "c" 3)))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT OBJECT_FROM_ENTRIES([['a', 1], ['b', 2], ['c', 3]])")
+      (is (equalp `((,(fset:map ("a" 1) ("b" 2) ("c" 3)))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
