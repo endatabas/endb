@@ -126,6 +126,8 @@ typedef enum Keyword {
   BitOr,
   Hash,
   Path,
+  CreateAssertion,
+  DropAssertion,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;
