@@ -377,7 +377,21 @@
         (is (= 1 result-code)))
 
       (signals endb/sql/expr:sql-runtime-error
-        (commit-write-tx db write-db)))))
+        (commit-write-tx db write-db)))
+
+    (let ((write-db (begin-write-tx db))
+          (log-level (log4cl:logger-log-level log4cl:*root-logger*)))
+      (unwind-protect
+           (progn
+             (setf (log4cl:logger-log-level log4cl:*root-logger*) :error)
+
+             (multiple-value-bind (result result-code)
+                 (execute-sql write-db "CREATE ASSERTION invalid_assertion CHECK (SQRT(-1))")
+               (is (null result))
+               (is (eq t result-code)))
+
+             (commit-write-tx db write-db))
+        (setf (log4cl:logger-log-level log4cl:*root-logger*) log-level)))))
 
 (test multiple-statments
   (let* ((db (make-db)))
