@@ -420,7 +420,7 @@
 
     (let ((write-db (begin-write-tx db)))
       (multiple-value-bind (result result-code)
-          (execute-sql write-db "CREATE ASSERTION assertion_one CHECK ('foo;bar' < 2); CREATE VIEW view_two AS SELECT \"b;az\" > 4;")
+          (execute-sql write-db "CREATE ASSERTION assertion_one CHECK ('foo;bar' < 2); CREATE VIEW view_two AS SELECT \"b;a\\\"z\" > 4;")
         (is (null result))
         (is (eq t result-code)))
 
@@ -433,7 +433,7 @@
 
       (multiple-value-bind (result columns)
           (execute-sql write-db "SELECT * FROM information_schema.views")
-        (is (equal '((:null "main" "view_two" "SELECT \"b;az\" > 4"))
+        (is (equal '((:null "main" "view_two" "SELECT \"b;a\\\"z\" > 4"))
                    result))
         (is (equal '("table_catalog" "table_schema" "table_name" "view_definition")
                    columns))))))
