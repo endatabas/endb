@@ -420,16 +420,22 @@
 
     (let ((write-db (begin-write-tx db)))
       (multiple-value-bind (result result-code)
-          (execute-sql write-db "CREATE ASSERTION assertion_one CHECK (1 < 2); CREATE ASSERTION assertion_two CHECK (3 > 4);")
+          (execute-sql write-db "CREATE ASSERTION assertion_one CHECK ('foo;bar' < 2); CREATE VIEW view_two AS SELECT \"b;az\" > 4;")
         (is (null result))
         (is (eq t result-code)))
 
       (multiple-value-bind (result columns)
-          (execute-sql write-db "SELECT * FROM information_schema.check_constraints ORDER BY constraint_name")
-        (is (equal '((:null "main" "assertion_one" "(1 < 2)")
-                     (:null "main" "assertion_two" "(3 > 4)"))
+          (execute-sql write-db "SELECT * FROM information_schema.check_constraints")
+        (is (equal '((:null "main" "assertion_one" "('foo;bar' < 2)"))
                    result))
         (is (equal '("constraint_catalog" "constraint_schema" "constraint_name" "check_clause")
+                   columns)))
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "SELECT * FROM information_schema.views")
+        (is (equal '((:null "main" "view_two" "SELECT \"b;az\" > 4"))
+                   result))
+        (is (equal '("table_catalog" "table_schema" "table_name" "view_definition")
                    columns))))))
 
 (test with
