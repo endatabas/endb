@@ -2237,7 +2237,10 @@ SELECT s FROM x WHERE ind=0")
       (execute-sql db "SELECT y.* FROM (VALUES (['a', 'b', 'c'])) AS x"))
 
     (signals endb/sql/expr:sql-runtime-error
-      (execute-sql db "SELECT { y.* } FROM (VALUES (['a', 'b', 'c'])) AS x"))))
+      (execute-sql db "SELECT { y.* } FROM (VALUES (['a', 'b', 'c'])) AS x"))
+
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql db "SELECT AVG(x), foo.* FROM (VALUES (1, 2)) AS foo(x, y) GROUP BY y"))))
 
 (test interpret-sql-literal
   (is (equal "foo" (interpret-sql-literal "'foo'")))

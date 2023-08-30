@@ -360,7 +360,7 @@
                              (append scan-clauses pushdown-clauses)
                              nested-src))))))
 
-(defun %group-by->cl (ctx from-tables where-clauses selected-src limit offset group-by having-src correlated-vars)
+(defun %group-by->cl (ctx from-tables where-clauses selected-src limit offset group-by having-src correlated-vars selected-vars)
   (alexandria:with-gensyms (group-acc-sym group-key-sym group-sym)
     (let* ((aggregate-table (fset:lookup ctx :aggregate-table))
            (group-by-projection (loop for g in group-by
@@ -386,7 +386,14 @@
                             (when (zerop (hash-table-count ,group-acc-sym))
                               (setf (gethash ,empty-group-key-form ,group-acc-sym)
                                     (list ,@init-srcs)))
-                            ,group-acc-sym)))
+                            ,group-acc-sym))
+           (non-group-selected-vars (loop for v in selected-vars
+                                          unless (find (fset:lookup ctx v) group-by-projection)
+                                            collect v)))
+      (when non-group-selected-vars
+        (error 'endb/sql/expr:sql-runtime-error :message (format nil "Selecting columns: ~A that does not match group by: ~A"
+                                                                 non-group-selected-vars
+                                                                 group-by)))
       (append `(loop for ,(%unique-vars group-by-projection) being the hash-key
                        using (hash-value ,group-by-exprs-projection)
                          of ,group-by-src
@@ -488,22 +495,31 @@
                                 (full-projection (loop for from-table in from-tables-acc
                                                        append (from-table-projection from-table)))
                                 (table-projections (fset:lookup ctx :table-projections))
+                                (selected-vars ())
+                                (selected-ctx (fset:with
+                                               ctx
+                                               :on-var-access
+                                               (cons (lambda (inner-ctx k v)
+                                                       (when (and (eq v (fset:lookup ctx k))
+                                                                  (not (fset:lookup inner-ctx :aggregate)))
+                                                         (pushnew k selected-vars)))
+                                                     (fset:lookup ctx :on-var-access))))
                                 (selected-src (loop for (expr) in select-list
                                                     append (cond
                                                              ((eq :* expr)
                                                               (loop for p in full-projection
-                                                                    collect (ast->cl ctx (make-symbol p))))
+                                                                    collect (ast->cl selected-ctx (make-symbol p))))
                                                              ((%qualified-asterisk-p expr)
                                                               (loop for p in (fset:lookup table-projections (symbol-name (second expr)))
-                                                                    collect (ast->cl ctx (make-symbol p))))
-                                                             (t (list (ast->cl ctx expr))))))
+                                                                    collect (ast->cl selected-ctx (make-symbol p))))
+                                                             (t (list (ast->cl selected-ctx expr))))))
                                 (select-star-projection (mapcar #'%unqualified-column-name full-projection))
                                 (select-projection (%select-projection select-list select-star-projection table-projections))
                                 (order-by-selected-src (loop for (expr) in order-by
                                                              for projected-idx = (when (symbolp expr)
                                                                                    (position (symbol-name expr) select-projection :test 'equal))
                                                              unless (or projected-idx (numberp expr))
-                                                               collect (ast->cl ctx expr)))
+                                                               collect (ast->cl selected-ctx expr)))
                                 (selected-src (append selected-src order-by-selected-src))
                                 (where-clauses (loop for clause in (append (%from-where-clauses from)
                                                                            (%and-clauses where))
@@ -519,7 +535,7 @@
                                                         (1+ (loop for clause in where-clauses
                                                                   when (subsetp (where-clause-free-vars clause) (from-table-vars x))
                                                                     sum (%where-clause-selectivity-factor clause)))))))
-                                (having-src (ast->cl ctx having))
+                                (having-src (ast->cl selected-ctx having))
                                 (limit (unless order-by
                                          limit))
                                 (offset (unless order-by
@@ -533,7 +549,7 @@
                                                                append (cte-free-vars cte)))))
                            (values
                             (if group-by-needed-p
-                                (%group-by->cl ctx from-tables where-clauses selected-src limit offset group-by having-src correlated-vars)
+                                (%group-by->cl ctx from-tables where-clauses selected-src limit offset group-by having-src correlated-vars selected-vars)
                                 (%from->cl ctx from-tables where-clauses (%selection-with-limit-offset->cl ctx selected-src limit offset) correlated-vars))
                             select-projection))))))))
       (alexandria:with-gensyms (block-sym acc-sym rows-sym row-sym)
@@ -1406,7 +1422,7 @@
        (if v
            (progn
              (dolist (cb (fset:lookup ctx :on-var-access))
-               (funcall cb k v))
+               (funcall cb ctx k v))
              v)
            (let* ((idx (position #\. k)))
              (if idx
@@ -1423,7 +1439,8 @@
          (ctx (fset:with
                ctx
                :on-var-access
-               (cons (lambda (k v)
+               (cons (lambda (inner-ctx k v)
+                       (declare (ignore inner-ctx))
                        (when (eq v (fset:lookup ctx k))
                          (pushnew v vars)))
                      (fset:lookup ctx :on-var-access)))))
