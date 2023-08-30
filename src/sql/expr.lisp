@@ -90,7 +90,7 @@
   (%fset-deep-less-than x y))
 
 (defmethod sql-< ((x fset:map) (y fset:map))
-  (sql-< (fset:convert 'fset:seq x) (fset:convert 'fset:seq y)))
+  (sql-< (sql-object_entries x) (sql-object_entries y)))
 
 (defmethod sql-< ((x (eql :null)) y)
   :null)
@@ -118,7 +118,7 @@
   (sql-not (sql-> x y)))
 
 (defmethod sql-<= ((x fset:map) (y fset:map))
-  (sql-<= (fset:convert 'fset:seq x) (fset:convert 'fset:seq y)))
+  (sql-<= (sql-object_entries x) (sql-object_entries y)))
 
 (defmethod sql-<= ((x (eql :null)) y)
   :null)
@@ -146,7 +146,7 @@
   (%fset-deep-less-than y x))
 
 (defmethod sql-> ((x fset:map) (y fset:map))
-  (sql-> (fset:convert 'fset:seq x) (fset:convert 'fset:seq y)))
+  (sql-> (sql-object_entries x) (sql-object_entries y)))
 
 (defmethod sql-> ((x (eql :null)) y)
   :null)
@@ -174,7 +174,7 @@
   (sql-not (sql-< x y)))
 
 (defmethod sql->= ((x fset:map) (y fset:map))
-  (sql->= (fset:convert 'fset:seq x) (fset:convert 'fset:seq y)))
+  (sql->= (sql-object_entries x) (sql-object_entries y)))
 
 (defmethod sql->= ((x (eql :null)) y)
   :null)
