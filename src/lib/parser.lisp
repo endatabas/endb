@@ -214,6 +214,7 @@
                              finally (return acc)))
 
 (defparameter +double-single-quote-scanner+ (ppcre:create-scanner "''"))
+(defparameter +backslash-escape-scanner+ (ppcre:create-scanner "\\\\."))
 
 (defun visit-ast (input builder ast)
   (loop with input-bytes = (trivial-utf-8:string-to-utf-8-bytes input)
@@ -249,7 +250,20 @@
                        (let* ((s (trivial-utf-8:utf-8-bytes-to-string input-bytes :start start :end end))
                               (s (if (= (char-code #\') (aref input-bytes (1- start)))
                                      (ppcre:regex-replace-all +double-single-quote-scanner+ s "'")
-                                     s)))
+                                     s))
+                              (s (ppcre:regex-replace-all +backslash-escape-scanner+
+                                                          s
+                                                          (lambda (target-string start end match-start match-end reg-starts reg-ends)
+                                                            (declare (ignore start end match-end reg-starts reg-ends))
+                                                            (string
+                                                             (case (char target-string (1+ match-start))
+                                                               (#\" #\")
+                                                               (#\\ #\\)
+                                                               (#\t #\Tab)
+                                                               (#\n #\Newline)
+                                                               (#\r #\Return)
+                                                               (#\f #\Page)
+                                                               (#\b #\Backspace)))))))
                          (push s (first acc)))))))))))
 
 (defun strip-ansi-escape-codes (s)
