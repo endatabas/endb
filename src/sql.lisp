@@ -81,7 +81,7 @@
 (defun %execute-constraints (db)
   (let ((ctx (fset:map (:db db))))
     (fset:do-map (k v (endb/sql/expr:constraint-definitions db))
-      (when (equal '((nil)) (funcall (endb/sql/compiler:compile-sql ctx `(:select ((,v)))) db (fset:empty-seq)))
+      (when (equal '((nil)) (funcall (endb/sql/compiler:compile-sql ctx v) db (fset:empty-seq)))
         (error 'endb/sql/expr:sql-runtime-error :message (format nil "Constraint failed: ~A" k))))))
 
 (defun commit-write-tx (current-db write-db &key (fsyncp t))
@@ -109,7 +109,7 @@
   (when (and manyp (not (fset:seq? parameters)))
     (error 'endb/sql/expr:sql-runtime-error :message "Many parameters must be a seq"))
   (let* ((ast (endb/lib/parser:parse-sql sql))
-         (ctx (fset:map (:db db)))
+         (ctx (fset:map (:db db) (:sql sql)))
          (all-parameters (if manyp
                              (fset:convert 'list parameters)
                              (list parameters)))

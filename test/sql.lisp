@@ -697,7 +697,7 @@ SELECT s FROM x WHERE ind=0")
 
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM information_schema.views")
-      (is (equal '((:null "main" "foo" "(:SELECT ((1) (2)))")) result))
+      (is (equal '((:null "main" "foo" "SELECT 1, 2")) result))
       (is (equal '("table_catalog" "table_schema" "table_name" "view_definition")
                  columns)))
 
@@ -730,7 +730,7 @@ SELECT s FROM x WHERE ind=0")
 
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM information_schema.check_constraints")
-      (is (equal '((:null "main" "bar" "(:= 1 1)")) result))
+      (is (equal '((:null "main" "bar" "1 = 1")) result))
       (is (equal '("constraint_catalog" "constraint_schema" "constraint_name" "check_clause")
                  columns)))
 

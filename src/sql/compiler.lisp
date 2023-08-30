@@ -717,18 +717,25 @@
     `(endb/sql/expr:ddl-drop-table ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) :if-exists ,(when if-exists
                                                                                                       t))))
 
+(defparameter +create-assertion-scanner+ "\\s*CREATE.+?ASSERTION.+?\\s+CHECK\\s+\\((.+)\\)\\s*")
+
 (defmethod sql->cl (ctx (type (eql :create-assertion)) &rest args)
   (destructuring-bind (constraint-name check-clause)
       args
     (ast->cl (fset:with ctx :no-parameters "Assertions do not support parameters")
              `(:select ((,check-clause))))
-    `(endb/sql/expr:ddl-create-assertion ,(fset:lookup ctx :db-sym) ,(symbol-name constraint-name) ',check-clause)))
+    (let ((assertion-matches (nth-value 1 (ppcre:scan-to-strings +create-assertion-scanner+ (fset:lookup ctx :sql)))))
+      (unless (and (vectorp assertion-matches) (= 1 (length assertion-matches)))
+        (%annotated-error constraint-name "Invalid assertion definition"))
+      `(endb/sql/expr:ddl-create-assertion ,(fset:lookup ctx :db-sym) ,(symbol-name constraint-name) ,(aref assertion-matches 0)))))
 
 (defmethod sql->cl (ctx (type (eql :drop-assertion)) &rest args)
   (destructuring-bind (constraint-name &key if-exists)
       args
     `(endb/sql/expr:ddl-drop-assertion ,(fset:lookup ctx :db-sym) ,(symbol-name constraint-name) :if-exists ,(when if-exists
                                                                                                                 t))))
+
+(defparameter +create-view-scanner+ "\\s*CREATE.+?VIEW.+?\\s+AS\\s+(.+)\\s*")
 
 (defmethod sql->cl (ctx (type (eql :create-view)) &rest args)
   (destructuring-bind (table-name query &key column-names)
@@ -738,7 +745,10 @@
       (declare (ignore view-src))
       (when (and column-names (not (= (length projection) (length column-names))))
         (%annotated-error table-name "Number of column names does not match projection"))
-      `(endb/sql/expr:ddl-create-view ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ',query ',(or (mapcar #'symbol-name column-names) projection)))))
+      (let ((query-matches (nth-value 1 (ppcre:scan-to-strings +create-view-scanner+ (fset:lookup ctx :sql)))))
+        (unless (and (vectorp query-matches) (= 1 (length query-matches)))
+          (%annotated-error table-name "Invalid view definition"))
+        `(endb/sql/expr:ddl-create-view ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(aref query-matches 0) ',(or (mapcar #'symbol-name column-names) projection))))))
 
 (defmethod sql->cl (ctx (type (eql :drop-view)) &rest args)
   (destructuring-bind (view-name &key if-exists)

@@ -6,6 +6,7 @@
   (:import-from :periods)
   (:import-from :endb/arrow)
   (:import-from :endb/json)
+  (:import-from :endb/lib/parser)
   (:import-from :endb/storage/buffer-pool)
   (:import-from :cl-bloom)
   (:import-from :fset)
@@ -1970,10 +1971,8 @@
 (defun view-definition (db view-name)
   (let* ((view-row (find-if (lambda (row)
                               (equal view-name (nth 2 row)))
-                            (base-table-visible-rows db "information_schema.views")))
-         (*read-eval* nil)
-         (*read-default-float-format* 'double-float))
-    (read-from-string (nth 3 view-row))))
+                            (base-table-visible-rows db "information_schema.views"))))
+    (endb/lib/parser:parse-sql (nth 3 view-row))))
 
 (defun constraint-definitions (db)
   (let ((*read-eval* nil)
@@ -1981,7 +1980,7 @@
     (fset:convert 'fset:map
                   (loop for constraint-row in (base-table-visible-rows db "information_schema.check_constraints")
                         collect (cons (nth 2 constraint-row)
-                                      (read-from-string (nth 3 constraint-row)))))))
+                                      (endb/lib/parser:parse-sql (format nil "SELECT ~A" (nth 3 constraint-row))))))))
 
 (defun table-columns (db table-name)
   (cond
@@ -2070,8 +2069,7 @@
                                        (lambda (row)
                                          (equal view-name (nth 2 row))))
     (dml-insert db "information_schema.tables" (list (list :null *default-schema* view-name "VIEW")))
-    (dml-insert db "information_schema.views" (list (list :null *default-schema* view-name (let ((*print-case* :upcase))
-                                                                                             (prin1-to-string query)))))
+    (dml-insert db "information_schema.views" (list (list :null *default-schema* view-name query)))
     (dml-insert db "information_schema.columns" (loop for c in columns
                                                       for idx from 1
                                                       collect  (list :null *default-schema* view-name c idx)))
@@ -2103,8 +2101,7 @@
                                        (lambda (row)
                                          (equal constraint-name (nth 2 row))))
     (dml-insert db "information_schema.check_constraints"
-                (list (list :null *default-schema* constraint-name (let ((*print-case* :upcase))
-                                                                     (prin1-to-string check-clause)))))
+                (list (list :null *default-schema* constraint-name check-clause)))
     (values nil t)))
 
 (defun ddl-drop-assertion (db constraint-name &key if-exists)
