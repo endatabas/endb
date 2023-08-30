@@ -426,6 +426,11 @@
       (is (equal '((1) (2) (3) (4) (5)) result))
       (is (equal '("x") columns)))
 
+    (multiple-value-bind (result columns)
+        (execute-sql db "WITH RECURSIVE cnt(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM cnt AS c1 WHERE (SELECT c1.x FROM cnt AS c2)<5) SELECT x FROM cnt ORDER BY x")
+      (is (equal '((1) (2) (3) (4) (5)) result))
+      (is (equal '("x") columns)))
+
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql db "WITH RECURSIVE cnt(x) AS (SELECT x+1 FROM cnt WHERE x<5) SELECT x FROM cnt ORDER BY x"))
 
