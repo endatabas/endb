@@ -108,11 +108,48 @@
               (setf (endb/sql/expr:db-meta-data new-db) new-md)
               new-db))))))
 
+(defun %resolve-parameters (ast)
+  (let ((idx 0)
+        (parameters))
+    (labels ((walk (x)
+               (cond
+                 ((and (listp x)
+                       (eq :parameter (first x)))
+                  (if (second x)
+                      (progn
+                        (pushnew (symbol-name (second x)) parameters)
+                        x)
+                      (let ((src `(:parameter ,idx)))
+                        (push idx parameters)
+                        (incf idx)
+                        src)))
+                 ((listp x)
+                  (mapcar #'walk x))
+                 (t x))))
+      (values (walk ast) parameters))))
+
 (defun %execute-sql (db sql parameters manyp)
   (when (and manyp (not (fset:seq? parameters)))
     (error 'endb/sql/expr:sql-runtime-error :message "Many parameters must be a seq"))
   (let* ((ast (endb/lib/parser:parse-sql sql))
          (ctx (fset:map (:db db) (:sql sql)))
+         (*print-length* 16)
+         (sql-fn (multiple-value-bind (ast expected-parameters)
+                     (%resolve-parameters ast)
+                   (if (eq :multiple-statments (first ast))
+                       (let ((asts (second ast)))
+                         (if (= 1 (length asts))
+                             (endb/sql/compiler:compile-sql ctx (first asts) expected-parameters)
+                             (lambda (db parameters)
+                               (loop with end-idx = (length asts)
+                                     for ast in asts
+                                     for idx from 1
+                                     for sql-fn = (endb/sql/compiler:compile-sql ctx ast expected-parameters)
+                                     if (= end-idx idx)
+                                       do (return (funcall sql-fn db parameters))
+                                     else
+                                       do (funcall sql-fn db parameters)))))
+                       (endb/sql/compiler:compile-sql ctx ast expected-parameters))))
          (all-parameters (if manyp
                              (fset:convert 'list parameters)
                              (list parameters)))
@@ -122,26 +159,7 @@
                                          (fset:seq (fset:convert 'fset:map (loop for x in (fset:convert 'list parameters)
                                                                                  for idx from 0
                                                                                  collect (cons idx x))))
-                                         (t (error 'endb/sql/expr:sql-runtime-error :message "Parameters must be seq or a map")))))
-         (*print-length* 16)
-         (sql-fn (if (eq :multiple-statments (first ast))
-                     (let ((asts (second ast)))
-                       (if (= 1 (length asts))
-                           (endb/sql/compiler:compile-sql ctx (first asts))
-                           (lambda (db parameters)
-                             (let* ((no-parameters "Multiple statements do not support parameters")
-                                    (ctx (fset:with ctx :no-parameters no-parameters)))
-                               (if (or (plusp (fset:size parameters)) manyp)
-                                   (error 'endb/sql/expr:sql-runtime-error :message no-parameters)
-                                   (loop with end-idx = (length asts)
-                                         for ast in asts
-                                         for idx from 1
-                                         for sql-fn = (endb/sql/compiler:compile-sql ctx ast)
-                                         if (= end-idx idx)
-                                           do (return (funcall sql-fn db parameters))
-                                         else
-                                           do (funcall sql-fn db parameters)))))))
-                     (endb/sql/compiler:compile-sql ctx ast))))
+                                         (t (error 'endb/sql/expr:sql-runtime-error :message "Parameters must be seq or a map"))))))
     (loop with final-result = nil
           with final-result-code = nil
           for parameters in all-parameters

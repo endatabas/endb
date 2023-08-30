@@ -406,8 +406,11 @@
       (is (equal '((2)) result))
       (is (equal '("b") columns)))
 
-    (signals endb/sql/expr:sql-runtime-error
-      (execute-sql db "SELECT 1 AS a; SELECT ? AS b;" (fset:seq 2)))
+    (let ((write-db (begin-write-tx db)))
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "INSERT INTO foo(a) VALUES (?); SELECT ? + foo.a AS b FROM foo;" (fset:seq 1 2))
+        (is (equal '((3)) result))
+        (is (equal '("b") columns))))
 
     (let* ((write-db (begin-write-tx db)))
       (multiple-value-bind (result columns)

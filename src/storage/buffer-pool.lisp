@@ -19,6 +19,9 @@
                 (when buffer
                   (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer buffer)))))))
 
+(defmethod buffer-pool-put ((bp buffer-pool) path arrays)
+  (error "DML not allowed in read only transaction"))
+
 (defmethod buffer-pool-close ((bp buffer-pool))
   (clrhash (buffer-pool-pool bp)))
 
