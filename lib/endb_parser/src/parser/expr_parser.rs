@@ -48,7 +48,7 @@ where
 {
     use super::ast::Ast::*;
 
-    let string = none_of('\'')
+    let string = choice((just('\'').ignore_then(just('\'')), none_of('\'')))
         .repeated()
         .map_with_span(|_, span: SimpleSpan<_>| String {
             start: span.start() as i32,

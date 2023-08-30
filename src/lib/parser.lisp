@@ -213,6 +213,8 @@
                              do (setf (aref acc k) v)
                              finally (return acc)))
 
+(defparameter +double-single-quote-scanner+ (ppcre:create-scanner "''"))
+
 (defun visit-ast (input builder ast)
   (loop with input-bytes = (trivial-utf-8:string-to-utf-8-bytes input)
         with queue = (list ast)
@@ -244,7 +246,11 @@
                          (setf (get s :start) start (get s :end) end (get s :input) input)
                          (push s (first acc)))))
                   (5 (cffi:with-foreign-slots ((start end) value (:struct String_Union))
-                       (push (trivial-utf-8:utf-8-bytes-to-string input-bytes :start start :end end) (first acc))))))))))
+                       (let* ((s (trivial-utf-8:utf-8-bytes-to-string input-bytes :start start :end end))
+                              (s (if (= (char-code #\') (aref input-bytes (1- start)))
+                                     (ppcre:regex-replace-all +double-single-quote-scanner+ s "'")
+                                     s)))
+                         (push s (first acc)))))))))))
 
 (defun strip-ansi-escape-codes (s)
   (ppcre:regex-replace-all "\\[3\\d(?:;\\d+;\\d+)?m(.+?)\\[0m" s "\\1"))
