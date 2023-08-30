@@ -718,7 +718,7 @@
     `(endb/sql/expr:ddl-drop-table ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) :if-exists ,(when if-exists
                                                                                                       t))))
 
-(defparameter +create-assertion-scanner+ (ppcre:create-scanner "(?is).+?\\s+CHECK\\s*(.+?)(?=(?:;|$))"))
+(defparameter +create-assertion-scanner+ (ppcre:create-scanner "(?is).+?\\s+CHECK\\s*(.+?)(?=;|$)"))
 
 (defmethod sql->cl (ctx (type (eql :create-assertion)) &rest args)
   (destructuring-bind (constraint-name check-clause)
@@ -738,7 +738,7 @@
     `(endb/sql/expr:ddl-drop-assertion ,(fset:lookup ctx :db-sym) ,(symbol-name constraint-name) :if-exists ,(when if-exists
                                                                                                                 t))))
 
-(defparameter +create-view-scanner+ (ppcre:create-scanner "(?is).+?\\s+AS\\s*(.+?)(?=(?:;|$))"))
+(defparameter +create-view-scanner+ (ppcre:create-scanner "(?is).+?\\s+AS\\s*(.+?)(?=;|$)"))
 
 (defmethod sql->cl (ctx (type (eql :create-view)) &rest args)
   (destructuring-bind (table-name query &key column-names)
