@@ -717,7 +717,6 @@
     `(endb/sql/expr:ddl-drop-table ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) :if-exists ,(when if-exists
                                                                                                       t))))
 
-
 (defparameter +create-assertion-scanner+ (ppcre:create-scanner "(?is)^\\s*CREATE.+?ASSERTION.+?\\s+CHECK\\s+\\((.+)\\)\\s*$"))
 
 (defmethod sql->cl (ctx (type (eql :create-assertion)) &rest args)
@@ -814,18 +813,28 @@
                                                         (%and-clauses where))
                                       collect (make-where-clause :src (ast->cl ctx clause)
                                                                  :ast clause)))
-                 (update-select-list (loop for (update-col expr) in update-cols
-                                           collect `(cons ,(symbol-name update-col) ,(ast->cl ctx expr))))
-                 (unset-columns (mapcar #'symbol-name unset))
-                 (updated-columns (loop for update-col in (append (mapcar #'car update-cols) unset)
-                                        collect (symbol-name update-col)))
+                 (update-paths (loop for (update-col expr) in update-cols
+                                     append (list (if (symbolp update-col)
+                                                      `(fset:seq ,(symbol-name update-col))
+                                                      (ast->cl ctx update-col))
+                                                  (ast->cl ctx expr))))
+                 (unset-paths (loop for unset-col in unset
+                                    collect (if (symbolp unset-col)
+                                                `(fset:seq ,(symbol-name unset-col))
+                                                (ast->cl ctx unset-col))))
+                 (updated-columns (delete-duplicates
+                                   (append (loop for col in (append (mapcar #'car update-cols) unset)
+                                                 collect (if (symbolp col)
+                                                             (symbol-name col)
+                                                             (second col))))
+                                   :test 'equal))
                  (update-src (when update
                                `((push (endb/sql/expr:sql-patch
-                                        (reduce
-                                         #'fset:less
-                                         ',unset-columns
-                                         :initial-value (fset:map-union (endb/arrow:arrow-get ,batch-sym ,scan-row-id-sym)
-                                                                        (fset:convert 'fset:map (list ,@update-select-list))))
+                                        (endb/sql/expr:sql-path_remove
+                                         (endb/sql/expr:sql-path_set
+                                          (endb/arrow:arrow-get ,batch-sym ,scan-row-id-sym)
+                                          ,@update-paths)
+                                         ,@unset-paths)
                                         ,(if patch
                                              (ast->cl ctx patch)
                                              (fset:empty-map)))

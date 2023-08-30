@@ -402,10 +402,18 @@ where
     });
 
     let expr = expr_ast_parser(select_stmt.clone());
+    let path = path_ast_parser(expr.clone());
+
+    let id_or_path_list = choice((id.clone(), path.clone()))
+        .clone()
+        .separated_by(pad(','))
+        .at_least(1)
+        .collect()
+        .map(List);
 
     let update_body = kw("SET")
         .ignore_then(
-            id.clone()
+            choice((id.clone(), path.clone()))
                 .then_ignore(pad('='))
                 .then(expr.clone())
                 .map(|(id, expr)| List(vec![id, expr]))
@@ -416,7 +424,7 @@ where
         .or_not()
         .then(
             choice((kw("UNSET"), kw("REMOVE")))
-                .ignore_then(id_list.clone())
+                .ignore_then(id_or_path_list)
                 .or_not(),
         )
         .then(
@@ -2022,6 +2030,27 @@ mod tests {
                             start: 19
                             end: 20
                         - Integer: 2
+            - KW: Where
+            - KW: "False"
+        "###);
+        assert_yaml_snapshot!(parse("UPDATE foo SET $.a[0] = 1 WHERE FALSE"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Update
+            - Id:
+                start: 7
+                end: 10
+            - List:
+                - List:
+                    - List:
+                        - KW: Path
+                        - List:
+                            - Id:
+                                start: 17
+                                end: 18
+                            - Integer: 0
+                    - Integer: 1
             - KW: Where
             - KW: "False"
         "###);

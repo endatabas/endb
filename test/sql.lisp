@@ -241,7 +241,7 @@
       (execute-sql write-db "INSERT INTO t2(a) VALUES (1) ON CONFLICT (b) DO NOTHING"))
 
     (multiple-value-bind (result result-code)
-        (execute-sql write-db "UPDATE t2 SET c = 5 UNSET a WHERE b = 3")
+        (execute-sql write-db "UPDATE t2 SET c = 5 UNSET $.a WHERE b = 3")
       (is (null result))
       (is (= 1 result-code)))
 
@@ -272,7 +272,7 @@
       (is (equal '("a" "b" "c" "d" "e") columns)))
 
     (multiple-value-bind (result result-code)
-        (execute-sql write-db "INSERT INTO t2 {a: 4, e: 5} ON CONFLICT (e) DO UPDATE SET a = excluded.a")
+        (execute-sql write-db "INSERT INTO t2 {a: 4, e: 5} ON CONFLICT (e) DO UPDATE SET $.a = excluded.a")
       (is (null result))
       (is (= 1 result-code)))
 
@@ -305,6 +305,16 @@
         (execute-sql write-db "SELECT * FROM t3 ORDER BY c")
       (is (equal '((5 :null 5) (4 5 7)) result))
       (is (equal '("a" "b" "c") columns)))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "UPDATE t3 SET $.d.c[0] = 1 WHERE b = 5")
+      (is (null result))
+      (is (= 1 result-code)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT * FROM t3 ORDER BY c")
+      (is (equalp `((5 :null 5 :null) (4 5 7 ,(fset:map ("c" (fset:seq 1))))) result))
+      (is (equal '("a" "b" "c" "d") columns)))
 
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql write-db "INSERT INTO users {}"))
@@ -1547,6 +1557,16 @@ SELECT s FROM x WHERE ind=0")
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT path_set({a: 2, c: 4}, $.c, [97,96])")
       (is (equalp `((,(fset:map ("a" 2) ("c" (fset:seq 97 96))))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_set({a: 2, c: 4}, $.d.e[0][0], 97)")
+      (is (equalp `((,(fset:map ("a" 2) ("c" 4) ("d" (fset:map ("e" (fset:seq (fset:seq 97)))))))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT path_set({a: 2, c: 4}, $.d[#], 97)")
+      (is (equalp `((,(fset:map ("a" 2) ("c" 4)))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)

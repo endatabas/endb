@@ -342,6 +342,39 @@ where
     .boxed()
 }
 
+pub fn path_ast_parser<'input, E>(
+    expr: impl Parser<'input, &'input str, Ast, E> + Clone + 'input,
+) -> impl Parser<'input, &'input str, Ast, E> + Clone
+where
+    E: ParserExtra<'input, &'input str>,
+{
+    use super::ast::{Ast::*, Keyword::*};
+
+    let id = id_ast_parser_no_pad().padded();
+    pad('$').ignore_then(
+        choice((
+            pad('.').ignore_then(id.clone()),
+            choice((
+                expr.clone(),
+                pad('#')
+                    .ignore_then(pad('-').ignore_then(expr.clone()).or_not())
+                    .map(|expr| {
+                        if let Some(expr) = expr {
+                            List(vec![KW(Minus), expr])
+                        } else {
+                            KW(Hash)
+                        }
+                    }),
+            ))
+            .delimited_by(pad('['), pad(']')),
+        ))
+        .repeated()
+        .collect()
+        .map(List)
+        .map(|path_elements| List(vec![KW(Path), path_elements])),
+    )
+}
+
 pub fn expr_ast_parser<'input, E>(
     query: impl Parser<'input, &'input str, Ast, E> + Clone + 'input,
 ) -> impl Parser<'input, &'input str, Ast, E> + Clone
@@ -537,29 +570,6 @@ where
         ))
         .boxed();
 
-        let path = pad('$').ignore_then(
-            choice((
-                pad('.').ignore_then(id.clone()),
-                choice((
-                    expr.clone(),
-                    pad('#')
-                        .ignore_then(pad('-').ignore_then(expr.clone()).or_not())
-                        .map(|expr| {
-                            if let Some(expr) = expr {
-                                List(vec![KW(Minus), expr])
-                            } else {
-                                KW(Hash)
-                            }
-                        }),
-                ))
-                .delimited_by(pad('['), pad(']')),
-            ))
-            .repeated()
-            .collect()
-            .map(List)
-            .map(|path_elements| List(vec![KW(Path), path_elements])),
-        );
-
         let atom = choice((
             count_star,
             array_agg,
@@ -569,7 +579,7 @@ where
             exists,
             array,
             object_ast_parser(expr.clone()),
-            path,
+            path_ast_parser(expr.clone()),
             function,
             scalar_subquery,
             atom_ast_parser(),
