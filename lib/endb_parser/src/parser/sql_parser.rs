@@ -414,7 +414,11 @@ where
                 .map(List),
         )
         .or_not()
-        .then(kw("UNSET").ignore_then(id_list.clone()).or_not())
+        .then(
+            choice((kw("UNSET"), kw("REMOVE")))
+                .ignore_then(id_list.clone())
+                .or_not(),
+        )
         .then(
             kw("PATCH")
                 .or_not()
@@ -1970,7 +1974,7 @@ mod tests {
             - KW: Where
             - KW: "False"
         "###);
-        assert_yaml_snapshot!(parse("UPDATE foo SET x = 1, y = 2 UNSET z, w WHERE FALSE"), @r###"
+        assert_yaml_snapshot!(parse("UPDATE foo SET x = 1, y = 2 REMOVE z, w WHERE FALSE"), @r###"
         ---
         Ok:
           List:
@@ -1992,11 +1996,11 @@ mod tests {
             - KW: Unset
             - List:
                 - Id:
-                    start: 34
-                    end: 35
+                    start: 35
+                    end: 36
                 - Id:
-                    start: 37
-                    end: 38
+                    start: 38
+                    end: 39
             - KW: Where
             - KW: "False"
         "###);

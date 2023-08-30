@@ -257,7 +257,7 @@
       (execute-sql write-db "INSERT INTO t2 {c: 4, e: 5} ON CONFLICT (c, e) DO UPDATE SET c = 1"))
 
     (signals endb/sql/expr:sql-runtime-error
-      (execute-sql write-db "INSERT INTO t2 {c: 4, e: 5} ON CONFLICT (c, e) DO UPDATE UNSET c"))
+      (execute-sql write-db "INSERT INTO t2 {c: 4, e: 5} ON CONFLICT (c, e) DO UPDATE REMOVE c"))
 
     (multiple-value-bind (result result-code)
         (execute-sql write-db "INSERT INTO t2 {c: 4, e: 5} ON CONFLICT (c, e) DO UPDATE SET f = 1")
