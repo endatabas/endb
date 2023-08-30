@@ -412,11 +412,25 @@
         (is (equal '((3)) result))
         (is (equal '("b") columns))))
 
-    (let* ((write-db (begin-write-tx db)))
+    (let ((write-db (begin-write-tx db)))
       (multiple-value-bind (result columns)
           (execute-sql write-db "INSERT INTO t1(a, b) VALUES(103, 104); INSERT INTO t1(b, c) VALUES(105, FALSE); SELECT * FROM t1 ORDER BY b;")
         (is (equal '((103 104 :null) (:null 105 nil)) result))
-        (is (equal '("a" "b" "c") columns))))))
+        (is (equal '("a" "b" "c") columns))))
+
+    (let ((write-db (begin-write-tx db)))
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "CREATE ASSERTION assertion_one CHECK (1 < 2); CREATE ASSERTION assertion_two CHECK (3 > 4);")
+        (is (null result))
+        (is (eq t result-code)))
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "SELECT * FROM information_schema.check_constraints ORDER BY constraint_name")
+        (is (equal '((:null "main" "assertion_one" "(1 < 2)")
+                     (:null "main" "assertion_two" "(3 > 4)"))
+                   result))
+        (is (equal '("constraint_catalog" "constraint_schema" "constraint_name" "check_clause")
+                   columns))))))
 
 (test with
   (let* ((db (make-db)))
@@ -765,7 +779,7 @@ SELECT s FROM x WHERE ind=0")
 
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM information_schema.check_constraints")
-      (is (equal '((:null "main" "bar" "1 = 1")) result))
+      (is (equal '((:null "main" "bar" "(1 = 1)")) result))
       (is (equal '("constraint_catalog" "constraint_schema" "constraint_name" "check_clause")
                  columns)))
 
