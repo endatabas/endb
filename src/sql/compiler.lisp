@@ -484,6 +484,7 @@
                          (select->cl ctx (rest from-ast) from-tables-acc)
                          (let* ((aggregate-table (make-hash-table))
                                 (ctx (fset:with ctx :aggregate-table aggregate-table))
+                                (ctx (fset:less ctx :on-cte-access))
                                 (full-projection (loop for from-table in from-tables-acc
                                                        append (from-table-projection from-table)))
                                 (table-projections (fset:lookup ctx :table-projections))
