@@ -704,6 +704,9 @@ SELECT s FROM x WHERE ind=0")
     (signals endb/sql/expr:sql-runtime-error
       (execute-sql write-db "CREATE VIEW bar(a, b) AS SELECT 1"))
 
+    (signals endb/sql/expr:sql-runtime-error
+      (execute-sql write-db "CREATE VIEW bar(a) AS SELECT ?"))
+
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM information_schema.tables WHERE table_type = 'VIEW'")
       (is (equal '((:null "main" "foo" "VIEW")) result))

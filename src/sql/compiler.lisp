@@ -742,7 +742,7 @@
   (destructuring-bind (table-name query &key column-names)
       args
     (multiple-value-bind (view-src projection)
-        (ast->cl ctx query)
+        (ast->cl (fset:with ctx :no-parameters "Views do not support parameters") query)
       (declare (ignore view-src))
       (when (and column-names (not (= (length projection) (length column-names))))
         (%annotated-error table-name "Number of column names does not match projection"))
