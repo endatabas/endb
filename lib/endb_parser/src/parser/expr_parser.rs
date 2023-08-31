@@ -306,7 +306,7 @@ where
         parameter,
         col_ref_ast_parser_no_pad(),
     ))
-    .then_ignore(text::whitespace())
+    .then_ignore(ws())
     .boxed()
 }
 
@@ -318,14 +318,15 @@ where
 {
     use super::ast::{Ast::*, Keyword::*};
 
-    let id = id_ast_parser_no_pad().padded();
-    let string = string_ast_parser_no_pad().padded();
-    let col_ref = col_ref_ast_parser_no_pad().padded();
-    let named_parameter = named_parameter_ast_parser_no_pad().padded();
+    let ws = ws();
+    let id = id_ast_parser_no_pad().padded_by(ws.clone());
+    let string = string_ast_parser_no_pad().padded_by(ws.clone());
+    let col_ref = col_ref_ast_parser_no_pad().padded_by(ws.clone());
+    let named_parameter = named_parameter_ast_parser_no_pad().padded_by(ws.clone());
 
     let kw_pair = choice((id.clone(), string))
         .clone()
-        .then_ignore(one_of(":=").padded())
+        .then_ignore(one_of(":=").padded_by(ws.clone()))
         .then(expr.clone())
         .map(|(k, v)| List(vec![k, v]));
 
@@ -340,7 +341,7 @@ where
     let computed_property = expr
         .clone()
         .delimited_by(pad('['), pad(']'))
-        .then_ignore(one_of(":=").padded())
+        .then_ignore(one_of(":=").padded_by(ws.clone()))
         .then(expr.clone())
         .map(|(expr, v)| List(vec![KW(ComputedProperty), expr, v]));
 
@@ -378,7 +379,7 @@ where
 {
     use super::ast::{Ast::*, Keyword::*};
 
-    let id = id_ast_parser_no_pad().padded();
+    let id = id_ast_parser_no_pad().padded_by(ws());
     pad('$').ignore_then(
         choice((
             pad('.').ignore_then(id.clone()),
@@ -417,7 +418,7 @@ where
 
         let subquery = query.delimited_by(pad('('), pad(')'));
 
-        let id = id_ast_parser_no_pad().then_ignore(text::whitespace());
+        let id = id_ast_parser_no_pad().then_ignore(ws());
 
         let opt_expr_list = expr.clone().separated_by(pad(',')).collect().map(List);
 

@@ -15,7 +15,8 @@ where
 {
     use super::ast::{Ast::*, Keyword::*};
 
-    let id = id_ast_parser_no_pad().then_ignore(text::whitespace());
+    let ws = ws();
+    let id = id_ast_parser_no_pad().then_ignore(ws.clone());
 
     let id_list = id
         .clone()
@@ -26,7 +27,7 @@ where
 
     let id_list_parens = id_list.clone().delimited_by(pad('('), pad(')'));
 
-    let col_ref = col_ref_ast_parser_no_pad().then_ignore(text::whitespace());
+    let col_ref = col_ref_ast_parser_no_pad().then_ignore(ws.clone());
 
     let col_ref_list = col_ref
         .clone()
@@ -38,14 +39,14 @@ where
     let positive_integer = just('0')
         .not()
         .ignore_then(text::int(10).slice().from_str().unwrapped().map(Integer))
-        .then_ignore(text::whitespace());
+        .then_ignore(ws.clone());
 
     let non_negative_integer = text::int(10)
         .slice()
         .from_str()
         .unwrapped()
         .map(Integer)
-        .then_ignore(text::whitespace());
+        .then_ignore(ws.clone());
 
     let select_stmt = recursive(|query| {
         let expr = expr_ast_parser(query.clone());
@@ -71,7 +72,7 @@ where
                 start: span.start() as i32,
                 end: span.end() as i32,
             })
-            .then_ignore(text::whitespace());
+            .then_ignore(ws.clone());
 
         let table_alias = choice((
             kw("AS").ignore_then(id.clone()),
@@ -331,7 +332,7 @@ where
                 kw("UNION").then_ignore(kw("ALL")).to(UnionAll),
                 kw("UNION").to(Union),
             ))
-            .padded()
+            .padded_by(ws.clone())
             .then(select_core)
             .repeated(),
             |lhs, (op, rhs)| List(vec![KW(op), lhs, rhs]),
@@ -343,7 +344,7 @@ where
             .or_not();
 
         let limit_clause = kw("LIMIT")
-            .ignore_then(non_negative_integer)
+            .ignore_then(non_negative_integer.clone())
             .then(
                 choice((kw("OFFSET").ignored(), pad(',')))
                     .ignore_then(non_negative_integer)
@@ -629,7 +630,7 @@ where
         .map(|stmts| List(vec![KW(MultipleStatements), List(stmts)]));
 
     choice((multiple_stmts, sql_stmt))
-        .padded()
+        .padded_by(ws.clone())
         .then_ignore(end())
 }
 
@@ -731,6 +732,40 @@ mod tests {
                         - Id:
                             start: 8
                             end: 12
+        "###);
+    }
+
+    #[test]
+    fn comments() {
+        assert_yaml_snapshot!(parse("SELECT 1 -- a comment"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Integer: 1
+        "###);
+        assert_yaml_snapshot!(parse("-- a comment\nSELECT 1"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - Integer: 1
+        "###);
+        assert_yaml_snapshot!(parse("SELECT 1 + -- a comment\n 2"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Plus
+                        - Integer: 1
+                        - Integer: 2
         "###);
     }
 
@@ -1321,7 +1356,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT group_concat(DISTINCT y, ':'"), @r###"
         ---
         Err:
-          - "found '(' expected '.', '[', '|', '*', '/', '%', '+', '-', '<', '>', '&', '=', '!', '@', or ','"
+          - "found '(' expected something else"
         "###);
         assert_yaml_snapshot!(parse("SELECT count(*)"), @r###"
         ---
@@ -1408,7 +1443,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT x 2"), @r###"
         ---
         Err:
-          - "found '2' expected '.', '[', '|', '*', '/', '%', '+', '-', '<', '>', '&', '=', '!', '@', or ','"
+          - "found '2' expected something else"
         "###);
     }
 
@@ -1514,7 +1549,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT 1 from"), @r###"
         ---
         Err:
-          - found end of input expected something else
+          - "found 'f' expected something else"
         "###);
     }
 
@@ -1655,7 +1690,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT 1 FROM x LEFT JOIN y ON TRUE)"), @r###"
         ---
         Err:
-          - "found ')' expected '.', '[', '|', '*', '/', '%', '+', '-', '<', '>', '&', '=', '!', '@', or ','"
+          - "found ')' expected something else"
         "###);
         assert_yaml_snapshot!(parse("SELECT 1 INTERSECT SELECT 2 UNION SELECT 3"), @r###"
         ---
@@ -2219,7 +2254,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT 1; SELECT 1"), @r###"
         ---
         Err:
-          - "found end of input expected '.', '[', '|', '*', '/', '%', '+', '-', '<', '>', '&', '=', '!', '@', ',', or ';'"
+          - "found 'S' expected something else"
         "###);
     }
 
@@ -2600,7 +2635,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT 2001-01"), @r###"
         ---
         Err:
-          - "found '1' expected '.', '[', '|', '*', '/', '%', '+', '-', '<', '>', '&', '=', '!', '@', or ','"
+          - "found '1' expected something else"
         "###);
         assert_yaml_snapshot!(parse("SELECT DATE '2001-01-01'"), @r###"
         ---
@@ -2645,7 +2680,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT 12:"), @r###"
         ---
         Err:
-          - "found ':' expected '.', '[', '|', '*', '/', '%', '+', '-', '<', '>', '&', '=', '!', '@', or ','"
+          - "found ':' expected something else"
         "###);
         assert_yaml_snapshot!(parse("SELECT TIME '12:01:20'"), @r###"
         ---
@@ -3324,7 +3359,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT * FROM foo, UNNEST(foo.bar)"), @r###"
         ---
         Err:
-          - "found '(' expected ','"
+          - "found '(' expected something else"
         "###);
         assert_yaml_snapshot!(parse("SELECT * FROM foo, UNNEST(foo.bar) AS bar"), @r###"
         ---

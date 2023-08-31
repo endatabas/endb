@@ -6,6 +6,25 @@ use chumsky::text::Char;
 
 use super::ast::{Ast, Keyword};
 
+pub fn ws<'input, I, E, C>() -> impl Parser<'input, I, (), E> + Clone
+where
+    I: StrInput<'input, C>,
+    C: Char,
+    E: ParserExtra<'input, I> + 'input,
+{
+    let hyphen: C = Char::from_ascii(b'-');
+
+    choice((
+        text::whitespace().at_least(1),
+        just(hyphen)
+            .ignore_then(just(hyphen))
+            .ignore_then(any().and_is(text::newline().not()).repeated().ignored()),
+    ))
+    .repeated()
+    .ignored()
+    .boxed()
+}
+
 pub fn pad<'input, T, I, E, C>(seq: T) -> impl Parser<'input, I, (), E> + Clone
 where
     I: StrInput<'input, C>,
@@ -13,7 +32,7 @@ where
     C: Char,
     T: OrderedSeq<'input, C> + Clone,
 {
-    just(seq).then_ignore(text::whitespace()).ignored()
+    just(seq).then_ignore(ws()).ignored()
 }
 
 pub fn digits<'a, I: StrInput<'a, C>, C: Char<Str = str> + 'a, E: ParserExtra<'a, I> + 'a>(
@@ -39,7 +58,7 @@ pub fn kw<
 where
     C::Str: PartialEq,
 {
-    kw_no_pad(keyword).then_ignore(text::whitespace())
+    kw_no_pad(keyword).then_ignore(ws())
 }
 
 pub fn kw_no_pad<
