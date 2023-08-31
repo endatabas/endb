@@ -20,12 +20,12 @@
            #:sql-round #:sql-sin #:sql-cos #:sql-tan #:sql-sinh #:sql-cosh #:sql-tanh #:sql-asin #:sqn-acos #:sql-atan #:sql-asinh #:sqn-acosh #:sql-atanh #:sql-atan2
            #:sql-floor #:sql-ceiling #:sql-ceil #:sql-patch #:sql-match
            #:sql-sign #:sql-sqrt #:sql-exp #:sql-power #:sql-pow #:sql-log #:sql-log2 #:sql-log10 #:sql-ln #:sql-degrees #:sql-radians #:sql-pi
-           #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-timestamp #:sql-duration #:sql-interval #:sql-like #:sql-substr #:sql-substring #:sql-strftime
+           #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-timestamp #:sql-duration #:sql-like #:sql-substr #:sql-substring #:sql-strftime
            #:sql-typeof #:sql-unixepoch #:sql-julianday #:sql-path_remove #:sql-path_insert #:sql-path_replace #:sql-path_set #:sql-path_extract
            #:sql-contains #:sql-overlaps #:sql-precedes #:sql-succedes #:sql-immediately_precedes #:sql-immediately_succedes
 
            #:syn-current_date #:syn-current_time #:syn-current_timestamp
-           #:syn-access #:syn-access-finish
+           #:syn-access #:syn-access-finish #:syn-interval
 
            #:ra-distinct #:ra-unnest #:ra-union-all #:ra-union #:ra-except #:ra-intersect
            #:ra-scalar-subquery #:ra-in  #:ra-exists #:ra-limit #:ra-order-by
@@ -1106,38 +1106,15 @@
        noon-offset
        unix-day-offset)))
 
+(defmethod sql-duration ((x (eql :null)))
+  :null)
+
 (defmethod sql-duration ((x string))
   (let ((duration (endb/arrow:parse-arrow-interval-month-day-nanos x)))
     (if duration
         duration
         (error 'sql-runtime-error
                :message (format nil "Invalid duration: ~A" x)))))
-
-(defparameter +interval-time-parts+ '(:hour :minute :second))
-(defparameter +interval-parts+ (append '(:year :month :day) +interval-time-parts+))
-
-(defparameter +interval-scanner+ (ppcre:create-scanner "[ :-]"))
-
-(defmethod sql-interval ((x string) from &optional (to from))
-  (let* ((parts (coerce (ppcre:split +interval-scanner+ x) 'list))
-         (units (subseq +interval-parts+
-                        (position from +interval-parts+)
-                        (1+ (position to +interval-parts+)))))
-    (unless (= (length parts) (length units))
-      (error 'sql-runtime-error
-             :message (format nil "Invalid interval: ~A from: ~A to: ~A" x from to)))
-    (let ((strs (loop with time-part-seen-p = nil
-                      for unit in units
-                      for part in parts
-                      for s = (format nil "~d~A" part (char-upcase (char (symbol-name unit) 0)))
-                      if (and (null time-part-seen-p)
-                              (member unit +interval-time-parts+))
-                        collect (progn
-                                  (setf time-part-seen-p t)
-                                  (concatenate 'string "T" s))
-                      else
-                        collect s)))
-      (sql-duration (apply #'concatenate 'string "P" strs)))))
 
 (defmethod sql-like ((x (eql :null)) y &optional z)
   (declare (ignore z))
@@ -1663,6 +1640,32 @@
 (defun syn-current_timestamp (db)
   (or (db-current-timestamp db)
       (endb/arrow:local-time-to-arrow-timestamp-micros (local-time:now))))
+
+(defparameter +interval-time-parts+ '(:hour :minute :second))
+(defparameter +interval-parts+ (append '(:year :month :day) +interval-time-parts+))
+
+(defparameter +interval-scanner+ (ppcre:create-scanner "[ :-]"))
+
+(defun syn-interval (x from &optional (to from))
+  (let* ((parts (coerce (ppcre:split +interval-scanner+ x) 'list))
+         (units (subseq +interval-parts+
+                        (position from +interval-parts+)
+                        (1+ (position to +interval-parts+)))))
+    (unless (= (length parts) (length units))
+      (error 'sql-runtime-error
+             :message (format nil "Invalid interval: ~A from: ~A to: ~A" x from to)))
+    (let ((strs (loop with time-part-seen-p = nil
+                      for unit in units
+                      for part in parts
+                      for s = (format nil "~d~A" part (char-upcase (char (symbol-name unit) 0)))
+                      if (and (null time-part-seen-p)
+                              (member unit +interval-time-parts+))
+                        collect (progn
+                                  (setf time-part-seen-p t)
+                                  (concatenate 'string "T" s))
+                      else
+                        collect s)))
+      (sql-duration (apply #'concatenate 'string "P" strs)))))
 
 ;; RA
 

@@ -222,7 +222,7 @@
     ((and (listp ast)
           (eq :interval (first ast))
           (<= 2 (length (rest ast)) 3))
-     (apply #'endb/sql/expr:sql-interval (rest ast)))
+     (apply #'endb/sql/expr:syn-interval (rest ast)))
     (t (error 'endb/sql/expr:sql-runtime-error :message "Invalid literal"))))
 
 (defun interpret-sql-literal (src)

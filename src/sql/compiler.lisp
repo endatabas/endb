@@ -991,7 +991,7 @@
 (defmethod sql->cl (ctx (type (eql :interval)) &rest args)
   (destructuring-bind (x from &optional to)
       args
-    `(endb/sql/expr:sql-interval ,(ast->cl ctx x) ,from ,to)))
+    `(endb/sql/expr:syn-interval ,(ast->cl ctx x) ,from ,to)))
 
 (defmethod sql->cl (ctx (type (eql :date)) &rest args)
   (destructuring-bind (x)
