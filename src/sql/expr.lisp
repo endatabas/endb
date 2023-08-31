@@ -533,11 +533,17 @@
 (defmethod sql-\|\| (x y)
   (sql-\|\| (sql-cast x :varchar) (sql-cast y :varchar)))
 
-(defmethod sql-char_length ((x string))
-  (length x))
+(defmethod sql-character_length ((x (eql :null)))
+  :null)
 
 (defmethod sql-character_length ((x string))
   (length x))
+
+(defun sql-char_length (x)
+  (sql-character_length x))
+
+(defmethod sql-octet_length ((x (eql :null)))
+  :null)
 
 (defmethod sql-octet_length ((x vector))
   (if (typep x 'endb/arrow:arrow-binary)
@@ -559,17 +565,39 @@
 (defun sql-cardinality (x)
   (sql-length x))
 
+(defmethod sql-trim ((x (eql :null)) &optional (y " "))
+  (declare (ignore y))
+  :null)
+
 (defmethod sql-trim ((x string) &optional (y " "))
   (string-trim y x))
 
+(defmethod sql-ltrim ((x (eql :null)) &optional (y " "))
+  (declare (ignore y))
+  :null)
+
 (defmethod sql-ltrim ((x string) &optional (y " "))
-  (string-left-trim y x))
+  (if (eq :null y)
+      :null
+      (string-left-trim y x)))
+
+(defmethod sql-rtrim ((x (eql :null)) &optional (y " "))
+  (declare (ignore y))
+  :null)
 
 (defmethod sql-rtrim ((x string) &optional (y " "))
-  (string-right-trim y x))
+  (if (eq :null y)
+      :null
+      (string-right-trim y x)))
+
+(defmethod sql-lower ((x (eql :null)))
+  :null)
 
 (defmethod sql-lower ((x string))
   (string-downcase x))
+
+(defmethod sql-upper ((x (eql :null)))
+  :null)
 
 (defmethod sql-upper ((x string))
   (string-upcase x))
@@ -591,24 +619,31 @@
   :null)
 
 (defmethod sql-unhex (x &optional (y ""))
-  (sql-unhex (sql-cast x :varchar) y))
+  (if (eq :null y)
+      :null
+      (sql-unhex (sql-cast x :varchar) y)))
 
 (defparameter +hex-scanner+ (ppcre:create-scanner "^(?i:[0-9a-f]{2})+$"))
 
 (defmethod sql-unhex ((x string) &optional (y ""))
-  (let ((x (remove-if (lambda (x)
-                        (find x y))
-                      x)))
-    (if (ppcre:scan +hex-scanner+ x)
-        (loop with acc = (make-array (/ (length x) 2) :element-type '(unsigned-byte 8))
-              with tmp = (make-string 2)
-              for idx below (length x) by 2
-              for out-idx from 0
-              do (setf (schar tmp 0) (aref x idx))
-                 (setf (schar tmp 1) (aref x (1+ idx)))
-                 (setf (aref acc out-idx) (parse-integer tmp :radix 16))
-              finally (return acc))
-        :null)))
+  (if (eq :null y)
+      :null
+      (let ((x (remove-if (lambda (x)
+                            (find x y))
+                          x)))
+        (if (ppcre:scan +hex-scanner+ x)
+            (loop with acc = (make-array (/ (length x) 2) :element-type '(unsigned-byte 8))
+                  with tmp = (make-string 2)
+                  for idx below (length x) by 2
+                  for out-idx from 0
+                  do (setf (schar tmp 0) (aref x idx))
+                     (setf (schar tmp 1) (aref x (1+ idx)))
+                     (setf (aref acc out-idx) (parse-integer tmp :radix 16))
+                  finally (return acc))
+            :null))))
+
+(defmethod sql-hex ((x (eql :null)))
+  "")
 
 (defmethod sql-hex (x)
   (sql-hex (sql-cast x :varchar)))
@@ -618,9 +653,6 @@
 
 (defmethod sql-hex ((x vector))
   (format nil "~{~X~}" (coerce x 'list)))
-
-(defmethod sql-hex ((x (eql :null)))
-  "")
 
 (defmethod sql-patch ((x (eql :null)) y)
   :null)
