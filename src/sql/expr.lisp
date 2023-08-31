@@ -999,7 +999,7 @@
   :null)
 
 (defmethod sql-glob ((x string) (y string))
-  (let ((regex (concatenate 'string "^" (ppcre:regex-replace-all "\\?" (ppcre:regex-replace-all "\\*" x ".*") ".") "$")))
+  (let ((regex (concatenate 'string "^" (ppcre:regex-replace-all "\\?" (ppcre:regex-replace-all "\\*" x ".*?") ".") "$")))
     (integerp (ppcre:scan regex y))))
 
 (defmethod sql-regexp ((x (eql :null)) y)

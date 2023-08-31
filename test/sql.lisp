@@ -2690,6 +2690,7 @@ SELECT s FROM x WHERE ind=0")
   (is-valid (expr "'barfoo' GLOB '*fo'"))
   (is-valid (expr "GLOB('?arfoo', 'barfoo')"))
   (is-valid (expr "GLOB('?rfoo', 'barfoo')"))
+  (is-valid (expr "GLOB('*/b', 'a/b')"))
 
   (is-valid (expr "ZEROBLOB(8)"))
 
