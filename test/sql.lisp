@@ -1031,6 +1031,36 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT EXTRACT(YEAR FROM P3Y6M)")
+      (is (equalp (list (list 3)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT EXTRACT(MONTH FROM P3Y6M)")
+      (is (equalp (list (list 6)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT EXTRACT(DAY FROM P2DT14H43M39.970062S)")
+      (is (equalp (list (list 2)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT EXTRACT(HOUR FROM P2DT14H43M39.970062S)")
+      (is (equalp (list (list 14)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT EXTRACT(MINUTE FROM P2DT14H43M39.970062S)")
+      (is (equalp (list (list 43)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT EXTRACT(SECOND FROM P2DT14H43M39.970062S)")
+      (is (equalp (list (list 39.970062d0)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT EXTRACT(SECOND FROM NULL)")
       (is (equalp (list (list :null)) result))
       (is (equal '("column1") columns)))))

@@ -1,7 +1,7 @@
 (defpackage :endb/arrow
   (:use :cl)
   (:export #:arrow-date-millis #:arrow-time-micros #:arrow-timestamp-micros #:arrow-interval-month-day-nanos #:arrow-binary #:arrow-struct
-           #:parse-arrow-date-millis #:parse-arrow-timestamp-micros #:parse-arrow-time-micros #:parse-arrow-interval-month-day-nanos
+           #:parse-arrow-date-millis #:parse-arrow-timestamp-micros #:parse-arrow-time-micros #:parse-arrow-interval-month-day-nanos #:periods-duration-seconds
            #:arrow-date-millis-ms #:arrow-time-micros-us #:arrow-timestamp-micros-us #:arrow-interval-month-day-nanos-ns #:arrow-interval-month-day-nanos-uint128
            #:arrow-timestamp-micros-to-local-time #:arrow-time-micros-to-local-time #:arrow-date-millis-to-local-time #:arrow-interval-month-day-nanos-to-periods-duration
            #:local-time-to-arrow-timestamp-micros #:local-time-to-arrow-date-millis #:local-time-to-arrow-time-micros #:periods-duration-to-arrow-interval-month-day-nanos
@@ -192,19 +192,23 @@
                                   :microseconds microseconds
                                   :nanoseconds nanoseconds)))))))))
 
-(defmethod print-object ((object arrow-interval-month-day-nanos) stream)
-  (let* ((duration (arrow-interval-month-day-nanos-to-periods-duration object))
-         (ns (+ (* (periods:duration-seconds duration) 1000000000)
+(defun periods-duration-seconds (duration)
+  (let* ((ns (+ (* (periods:duration-seconds duration) 1000000000)
 	        (* (periods::duration-milliseconds duration) 1000000)
 	        (* (periods::duration-microseconds duration) 1000)
-	        (periods::duration-nanoseconds duration)))
+	        (periods::duration-nanoseconds duration))))
+    (/ ns 1000000000)))
+
+(defmethod print-object ((object arrow-interval-month-day-nanos) stream)
+  (let* ((duration (arrow-interval-month-day-nanos-to-periods-duration object))
+         (seconds (periods-duration-seconds duration))
          (time-part (concatenate 'string
                                  (unless (zerop (periods::duration-hours duration))
                                    (format nil "~AH" (periods::duration-hours duration)))
                                  (unless (zerop (periods::duration-minutes duration))
                                    (format nil "~AM" (periods::duration-minutes duration)))
-                                 (unless (zerop ns)
-                                   (let ((seconds (/ ns 1000000000)))
+                                 (unless (zerop seconds)
+                                   (let ()
                                      (format nil (if (integerp seconds)
                                                      "~AS"
                                                      "~fS")

@@ -1435,6 +1435,24 @@
     (+ (local-time:timestamp-second z :timezone local-time:+utc-zone+)
        (* 0.000001d0 (local-time:timestamp-microsecond z)))))
 
+(defmethod syn-extract ((x (eql :year)) (y endb/arrow:arrow-interval-month-day-nanos))
+  (periods::duration-years (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y)))
+
+(defmethod syn-extract ((x (eql :month)) (y endb/arrow:arrow-interval-month-day-nanos))
+  (periods::duration-months (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y)))
+
+(defmethod syn-extract ((x (eql :day)) (y endb/arrow:arrow-interval-month-day-nanos))
+  (periods::duration-days (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y)))
+
+(defmethod syn-extract ((x (eql :hour)) (y endb/arrow:arrow-interval-month-day-nanos))
+  (periods::duration-hours (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y)))
+
+(defmethod syn-extract ((x (eql :minute)) (y endb/arrow:arrow-interval-month-day-nanos))
+  (periods::duration-minutes (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y)))
+
+(defmethod syn-extract ((x (eql :second)) (y endb/arrow:arrow-interval-month-day-nanos))
+  (coerce (endb/arrow:periods-duration-seconds (endb/arrow:arrow-interval-month-day-nanos-to-periods-duration y)) 'double-float))
+
 (defmethod syn-cast ((x (eql :null)) type)
   :null)
 
