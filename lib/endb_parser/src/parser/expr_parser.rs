@@ -221,7 +221,7 @@ where
     ));
 
     let interval = kw("INTERVAL")
-        .ignore_then(interval_string.padded())
+        .ignore_then(interval_string.padded_by(ws()))
         .then(interval_field.clone())
         .then(kw("TO").ignore_then(interval_field).or_not())
         .map(|((interval, start), end)| {
