@@ -2194,14 +2194,13 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT \"\\/f\\bo\\fo\\nb\\\\a\\\"\\tr\\r\\u03BB\"")
-      (is (equalp `((,(format nil "/f~Ao~Ao~Ab\\a\"~Ar~Aλ" #\Backspace #\Page #\NewLine #\Tab #\Return))) result))
+        (execute-sql db "SELECT 'fo\\no'")
+      (is (equalp `((,(format nil "fo~%o"))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT '\\/f\\0o\\fo\\nb\\\\a\\'\\v\\
-r\\r\\u03BB'")
-      (is (equalp `((,(format nil "/f~Ao~Ao~Ab\\a'~Ar~Aλ" #\Nul #\Page #\NewLine #\Vt #\Return))) result))
+        (execute-sql db "SELECT \"fo\\\"o\"")
+      (is (equalp `((,(format nil "fo\"o"))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
@@ -2262,6 +2261,7 @@ r\\r\\u03BB'")
 (test interpret-sql-literal
   (is (equal "foo" (interpret-sql-literal "'foo'")))
   (is (equal "foo" (interpret-sql-literal "\"foo\"")))
+  (is (equal (format nil "fo~%o") (interpret-sql-literal "\"fo\\no\"")))
   (is (= 2.0 (interpret-sql-literal "2.0")))
   (is (= 9223372036854775807 (interpret-sql-literal "9223372036854775807")))
   (is (= -9223372036854775808 (interpret-sql-literal "-9223372036854775808")))

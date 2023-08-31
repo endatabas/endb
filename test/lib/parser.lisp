@@ -28,6 +28,14 @@
 (test lib-annotate-input-with-error
   (is (equalp expected-annotation (trivial-utf-8:string-to-utf-8-bytes (annotate-input-with-error "SELECT foo < 2" "Unknown column." 7 10)))))
 
+(test lib-parse-escapes
+  (let ((result (caaadr (parse-sql "SELECT \"\\/f\\bo\\fo\\nb\\\\a\\\"\\tr\\r\\u03BB\""))))
+    (is (equalp (format nil "/f~Ao~Ao~Ab\\a\"~Ar~Aλ" #\Backspace #\Page #\NewLine #\Tab #\Return) result)))
+
+  (let ((result (caaadr (parse-sql "SELECT '\\/f\\0o\\fo\\nb\\\\a\\'\\v\\
+r\\r\\u03BB'"))))
+    (is (equalp (format nil "/f~Ao~Ao~Ab\\a'~Ar~Aλ" #\Nul #\Page #\NewLine #\Vt #\Return) result))))
+
 (test lib-parse-sql
   (is (parse-sql "CREATE TABLE t1(a INTEGER, b INTEGER, c INTEGER, d INTEGER, e INTEGER)"))
   (is (parse-sql "INSERT INTO t1(e,c,b,d,a) VALUES(103,102,100,101,104)"))
