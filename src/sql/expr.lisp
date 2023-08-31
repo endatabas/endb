@@ -15,7 +15,8 @@
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-~ #:sql-& #:sql-\|
            #:sql-between #:sql-coalesce
            #:sql-object_keys #:sql-object_values #:sql-object_entries #:sql-object_from_entries
-           #:sql-\|\| #:sql-cardinality #:sql-char_length #:sql-character_length #:sql-octet_length #:sql-length #:sql-trim #:sql-ltrim #:sql-rtrim #:sql-lower #:sql-upper
+           #:sql-\|\| #:sql-concat #:sql-cardinality #:sql-char_length #:sql-character_length #:sql-octet_length #:sql-length
+           #:sql-trim #:sql-ltrim #:sql-rtrim #:sql-lower #:sql-upper
            #:sql-replace #:sql-unhex #:sql-hex #:sql-instr #:sql-min #:sql-max #:sql-char #:sql-unicode #:sql-random #:sql-glob #:sql-regexp #:sql-randomblob #:sql-zeroblob #:sql-iif
            #:sql-round #:sql-sin #:sql-cos #:sql-tan #:sql-sinh #:sql-cosh #:sql-tanh #:sql-asin #:sqn-acos #:sql-atan #:sql-asinh #:sqn-acosh #:sql-atanh #:sql-atan2
            #:sql-floor #:sql-ceiling #:sql-ceil #:sql-patch #:sql-match
@@ -532,6 +533,9 @@
 
 (defmethod sql-\|\| (x y)
   (sql-\|\| (sql-cast x :varchar) (sql-cast y :varchar)))
+
+(defun sql-concat (x y)
+  (sql-\|\| x y))
 
 (defmethod sql-character_length ((x (eql :null)))
   :null)
