@@ -700,7 +700,7 @@
 (defun %handle-complex (fn x)
   (if (complexp x)
       (error 'endb/sql/expr:sql-runtime-error
-             :message (format nil "Complex number as result: ~A to: ~A" x fn))
+             :message (format nil "Complex number as result: (~f, ~f) to: ~A" (realpart x) (imagpart x) fn))
       x))
 
 (defmethod sql-abs ((x (eql :null)))
@@ -2008,16 +2008,12 @@
   (declare (ignore distinct))
   (make-agg-object_agg))
 
-(defmethod agg-accumulate ((agg agg-object_agg) (x string) &rest args)
+(defmethod agg-accumulate ((agg agg-object_agg) x &rest args)
   (unless (eq 1 (length args))
     (error 'sql-runtime-error :message "OBJECT_AGG requires both key and value argument"))
   (with-slots (acc) agg
-    (setf (gethash x acc) (first args))
+    (setf (gethash (syn-cast x :varchar) acc) (first args))
     agg))
-
-(defmethod agg-accumulate ((agg agg-object_agg) x &rest args)
-  (declare (ignore args))
-  (error 'sql-runtime-error :message (format nil "OBJECT_AGG requires string key argument: ~A" x)))
 
 (defmethod agg-finish ((agg agg-object_agg))
   (with-slots (acc) agg

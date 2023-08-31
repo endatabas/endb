@@ -130,7 +130,7 @@
 
 (defun %execute-sql (db sql parameters manyp)
   (when (and manyp (not (fset:seq? parameters)))
-    (error 'endb/sql/expr:sql-runtime-error :message "Many parameters must be a seq"))
+    (error 'endb/sql/expr:sql-runtime-error :message "Many parameters must be an array"))
   (let* ((ast (endb/lib/parser:parse-sql sql))
          (ctx (fset:map (:db db) (:sql sql)))
          (*print-length* 16)
@@ -159,7 +159,7 @@
                                          (fset:seq (fset:convert 'fset:map (loop for x in (fset:convert 'list parameters)
                                                                                  for idx from 0
                                                                                  collect (cons idx x))))
-                                         (t (error 'endb/sql/expr:sql-runtime-error :message "Parameters must be seq or a map"))))))
+                                         (t (error 'endb/sql/expr:sql-runtime-error :message "Parameters must be an array or an object"))))))
     (loop with final-result = nil
           with final-result-code = nil
           for parameters in all-parameters

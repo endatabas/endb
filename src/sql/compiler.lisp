@@ -393,7 +393,7 @@
       (when non-group-selected-vars
         (error 'endb/sql/expr:sql-runtime-error :message (format nil "Selecting columns: ~A that does not match group by: ~A"
                                                                  non-group-selected-vars
-                                                                 group-by)))
+                                                                 (or group-by "()"))))
       (append `(loop for ,(%unique-vars group-by-projection) being the hash-key
                        using (hash-value ,group-by-exprs-projection)
                          of ,group-by-src
@@ -1274,7 +1274,7 @@
                       (optional-idx (position '&optional arg-list))
                       (rest-idx (position '&rest arg-list))
                       (optional-args (if optional-idx
-                                         (- (or rest-idx (length arg-list)) optional-idx)
+                                         (- (or rest-idx (length arg-list)) (1+ optional-idx))
                                          0))
                       (rest-idx (if (and optional-idx rest-idx)
                                     (1- rest-idx)
@@ -1323,9 +1323,9 @@
         (ast->cl ctx (cons fn args))
         (progn
           (when (fset:lookup ctx :aggregate)
-            (error 'endb/sql/expr:sql-runtime-error :message (format nil "Cannot nest aggregate functions: ~A" fn)))
+            (error 'endb/sql/expr:sql-runtime-error :message (format nil "Cannot nest aggregate functions: ~A" (string-upcase (symbol-name fn)))))
           (when (fset:lookup ctx :recursive-select)
-            (error 'endb/sql/expr:sql-runtime-error :message (format nil "Cannot use aggregate functions in recursion: ~A" fn)))
+            (error 'endb/sql/expr:sql-runtime-error :message (format nil "Cannot use aggregate functions in recursion: ~A" (string-upcase (symbol-name fn)))))
           (let ((min-args (if (eq :object_agg fn)
                               2
                               1))
@@ -1486,7 +1486,7 @@
                                               (fset:domain ,param-sym))
                            (error 'endb/sql/expr:sql-runtime-error :message (format nil "Required parameters: ~A does not match given: ~A"
                                                                                     (fset:convert 'list ',parameters)
-                                                                                    (fset:convert 'list (fset:domain ,param-sym)))))
+                                                                                    (or (fset:convert 'list (fset:domain ,param-sym)) "()"))))
                          (let ((,index-sym (make-hash-table :test 'equalp)))
                            (declare (ignorable ,index-sym))
                            ,src))))

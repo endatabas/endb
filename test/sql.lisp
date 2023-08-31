@@ -87,6 +87,15 @@
     (is (equal '((103)) (endb/sql/expr:base-table-visible-rows db "t1")))
     (is (= 1 (endb/sql/expr:base-table-size db "t1")))))
 
+(defmacro signals-with-msg (e msg &body body)
+  (alexandria:with-gensyms (e-sym)
+    `(signals ,e (handler-case
+                     ,@body
+                   (,e (,e-sym)
+                     (if (ppcre:scan ,msg (format nil "~A" ,e-sym))
+                         (error ,e-sym)
+                         (is (ppcre:scan ,msg (format nil "~A" ,e-sym)))))))))
+
 (test no-ddl
   (let* ((db (make-db))
          (write-db (begin-write-tx db)))
@@ -106,33 +115,42 @@
       (is (null result))
       (is (= 1 result-code)))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Column names are required for values"
       (execute-sql write-db "INSERT INTO t1 VALUES(105, FALSE)"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Cannot insert into table: t1 without all values containing same number of columns: 1"
       (execute-sql write-db "INSERT INTO t1(a) VALUES(105, FALSE)"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "All VALUES must have the same number of columns: 2"
       (execute-sql write-db "INSERT INTO t1(a, b) VALUES(105, FALSE), (106)"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Unknown table"
       (execute-sql write-db "DELETE FROM t2 WHERE a = 103"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Unknown table"
       (execute-sql write-db "UPDATE t2 SET a = 101 WHERE a = 103"))
 
     (setf db (commit-write-tx db write-db))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Unknown table"
       (execute-sql db "SELECT * FROM t2"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Unknown column"
       (execute-sql db "SELECT d FROM t1"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Unknown column"
       (execute-sql db "SELECT t1.d FROM t1"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Unknown built-in function: foo"
       (execute-sql db "SELECT foo(1) FROM t1"))
 
     (multiple-value-bind (result columns)
@@ -160,7 +178,8 @@
       (is (equal '((2)) result))
       (is (equal '("b") columns)))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Number of column names: 1 does not match projection: 2"
       (execute-sql db "SELECT * FROM (VALUES (1, 2)) AS foo(a)"))
 
     (multiple-value-bind (result result-code)
@@ -183,7 +202,8 @@
       (is (null result))
       (is (= 1 result-code)))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Update requires at least one set or unset column or patch"
       (execute-sql write-db "UPDATE t2"))
 
     (multiple-value-bind (result columns)
@@ -231,13 +251,16 @@
       (is (equal '((1 2 4 4) (2 3 :null :null) (3 :null 4 6) (4 5 7 8)) result))
       (is (equal '("a" "b" "c" "d") columns)))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "All inserted values needs to provide the on conflict columns"
       (execute-sql write-db "INSERT INTO t2 {c: 4, e: 5}, {c: 4, d: 6} ON CONFLICT (c, e) DO NOTHING"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "All inserted values needs to provide the on conflict columns"
       (execute-sql write-db "INSERT INTO t2 {} ON CONFLICT (a) DO NOTHING"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Column names needs to contain the on conflict columns"
       (execute-sql write-db "INSERT INTO t2(a) VALUES (1) ON CONFLICT (b) DO NOTHING"))
 
     (multiple-value-bind (result result-code)
@@ -250,13 +273,16 @@
       (is (equal '((3 :null 4 6) (1 2 4 4) (:null 3 5 :null) (4 5 7 8)) result))
       (is (equal '("a" "b" "c" "d") columns)))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Inserted values cannot contain duplicated on conflict columns"
       (execute-sql write-db "INSERT INTO t2 {c: 4, e: 5}, {c: 4, e: 5} ON CONFLICT (c, e) DO UPDATE SET f = 1"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Cannot update the on conflict columns"
       (execute-sql write-db "INSERT INTO t2 {c: 4, e: 5} ON CONFLICT (c, e) DO UPDATE SET c = 1"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Cannot update the on conflict columns"
       (execute-sql write-db "INSERT INTO t2 {c: 4, e: 5} ON CONFLICT (c, e) DO UPDATE REMOVE c"))
 
     (multiple-value-bind (result result-code)
@@ -298,7 +324,8 @@
       (is (null result))
       (is (= 1 result-code)))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Cannot insert empty object"
       (execute-sql write-db "UPDATE t3 { a: NULL, b: NULL, c: NULL } WHERE a = 5"))
 
     (multiple-value-bind (result columns)
@@ -316,15 +343,20 @@
       (is (equalp `((5 :null 5 :null) (4 5 7 ,(fset:map ("c" (fset:seq 1))))) result))
       (is (equal '("a" "b" "c" "d") columns)))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Cannot insert empty object"
       (execute-sql write-db "INSERT INTO users {}"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Cannot insert into table: users invalid column name: !foo"
       (execute-sql write-db "INSERT INTO users {'!foo': 2}"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "All inserted values needs to provide the on conflict columns"
       (execute-sql write-db "INSERT INTO foo { ...:a } ON CONFLICT (name) DO NOTHING" (fset:map ("a" (fset:map ("b" 1))))))
-    (signals endb/sql/expr:sql-runtime-error
+
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "All inserted values needs to provide the on conflict columns"
       (execute-sql write-db "INSERT INTO foo { [1 + 1]: 2 } ON CONFLICT (name) DO NOTHING"))))
 
 (test constraints
@@ -332,7 +364,8 @@
 
     (let ((write-db (begin-write-tx db)))
 
-      (signals endb/sql/expr:sql-runtime-error
+      (signals-with-msg endb/sql/expr:sql-runtime-error
+          "Assertions do not support parameters"
         (execute-sql write-db "CREATE ASSERTION foo CHECK (1 = ?)"))
 
       (multiple-value-bind (result result-code)
@@ -361,7 +394,8 @@
         (is (null result))
         (is (= 1 result-code)))
 
-      (signals endb/sql/expr:sql-runtime-error
+      (signals-with-msg endb/sql/expr:sql-runtime-error
+          "Constraint failed: unique_email"
         (commit-write-tx db write-db)))
 
     (let ((write-db (begin-write-tx db)))
@@ -376,7 +410,8 @@
         (is (null result))
         (is (= 1 result-code)))
 
-      (signals endb/sql/expr:sql-runtime-error
+      (signals-with-msg endb/sql/expr:sql-runtime-error
+          "Constraint failed: string_email"
         (commit-write-tx db write-db)))
 
     (let ((write-db (begin-write-tx db))
@@ -445,7 +480,8 @@
       (is (equal '((1 2 3)) result))
       (is (equal '("c" "a" "b") columns)))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Number of column names does not match projection"
       (execute-sql db "WITH bar(a, b) AS (SELECT 2) SELECT * FROM bar"))
 
     (multiple-value-bind (result columns)
@@ -468,16 +504,20 @@
       (is (equal '((1) (2) (3) (4) (5)) result))
       (is (equal '("x") columns)))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Recursion not supported without UNION / UNION ALL"
       (execute-sql db "WITH RECURSIVE cnt(x) AS (SELECT x+1 FROM cnt WHERE x<5) SELECT x FROM cnt ORDER BY x"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Left recursion not supported"
       (execute-sql db "WITH RECURSIVE cnt(x) AS (SELECT x+1 FROM cnt UNION ALL VALUES(1)) SELECT x FROM cnt"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Non-linear recursion not supported"
       (execute-sql db "WITH RECURSIVE cnt(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM cnt AS c1, cnt AS c2 WHERE c1.x<5) SELECT x FROM cnt"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Cannot use aggregate functions in recursion: COUNT"
       (execute-sql db "WITH RECURSIVE cnt(x) AS (VALUES(1) UNION ALL SELECT COUNT(x) FROM cnt WHERE x<5) SELECT x FROM cnt"))
 
     (let* ((write-db (begin-write-tx db)))
@@ -604,13 +644,16 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '((1)) result))
       (is (equal '("x") columns)))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Required parameters: \\(0\\) does not match given: \\(\\)"
       (execute-sql db "SELECT ?"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Parameters must be an array or an object"
       (execute-sql db "SELECT ?" 1))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Parameters must be an array or an object"
       (execute-sql db "SELECT ?" nil))
 
     (multiple-value-bind (result columns)
@@ -618,7 +661,8 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '((6)) result))
       (is (equal '("column1") columns)))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Many parameters must be an array"
       (execute-sql db "SELECT ?" (fset:map ("x" 1) ("y" 3)) t))
 
     (let ((write-db (begin-write-tx db)))
@@ -738,10 +782,12 @@ SELECT s FROM x WHERE ind=0")
       (is (null result))
       (is (eq t result-code)))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Number of column names does not match projection"
       (execute-sql write-db "CREATE VIEW bar(a, b) AS SELECT 1"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Views do not support parameters"
       (execute-sql write-db "CREATE VIEW bar(a) AS SELECT ?"))
 
     (multiple-value-bind (result columns)
@@ -1066,7 +1112,8 @@ SELECT s FROM x WHERE ind=0")
                       result))
           (is (equal '("a" "b" "system_time") columns)))
 
-        (signals endb/sql/expr:sql-runtime-error
+        (signals-with-msg endb/sql/expr:sql-runtime-error
+            "Cannot insert value into SYSTEM_TIME column"
           (execute-sql write-db "INSERT INTO t1(a, b, system_time) VALUES(103, 104, {start: 2001-01-01, end: 2002-01-01})"))))))
 
 (test semi-structured
@@ -1102,7 +1149,8 @@ SELECT s FROM x WHERE ind=0")
       (is (equalp `((,(fset:seq 1 2))) result))
       (is (equal '("column1") columns)))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "ARRAY query must return single column"
       (execute-sql db "SELECT ARRAY (VALUES (1, 2), (2, 3))"))
 
     (multiple-value-bind (result columns)
@@ -1147,11 +1195,9 @@ SELECT s FROM x WHERE ind=0")
       (is (equalp `((,(fset:empty-map))) result))
       (is (equal '("column1") columns)))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Invalid number of arguments: 1 to: OBJECT_AGG min: 2 max: 2"
       (execute-sql db "SELECT OBJECT_AGG(x.column1) FROM (VALUES ('foo', 1), ('bar', 2)) AS x"))
-
-    (signals endb/sql/expr:sql-runtime-error
-      (execute-sql db "SELECT OBJECT_AGG(x.column1, x.column2) FROM (VALUES (1, 1), ('bar', 2)) AS x"))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT * FROM UNNEST([1, 2, 3]) AS foo(bar)")
@@ -2018,7 +2064,8 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '((1 0 :null 104.0d0 :null 102 :null) (2 2 207 103.5d0 102 102 102)) result))
       (is (equal '("column1" "column2" "column3" "column4" "column5" "column6" "b") columns)))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Cannot nest aggregate functions: SUM"
       (execute-sql db "SELECT COUNT(SUM(e)) FROM t1 WHERE FALSE"))
 
     (multiple-value-bind (result columns)
@@ -2278,49 +2325,64 @@ SELECT s FROM x WHERE ind=0")
       (is (equalp '(("foo") ("bar") ("food")) result))
       (is (equal '("x") columns)))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Unknown column"
       (execute-sql db "SELECT x AS y FROM (VALUES (1), (2)) AS foo(x) ORDER BY -y"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Invalid ORDER BY expression"
       (execute-sql db "VALUES (1), (2) ORDER BY -y"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Cannot resolve ORDER BY column: column2"
       (execute-sql db "VALUES (1), (2) ORDER BY column2"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "ORDER BY index not in range: 2"
       (execute-sql db "VALUES (1), (2) ORDER BY 2"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Number of UNION left columns: 2 does not match right columns: 1"
       (execute-sql db "VALUES (1, 2) UNION VALUES (1)"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Complex number as result: \\(0.0, 1.0\\) to: SQRT"
       (execute-sql db "SELECT SQRT(-1)"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "All VALUES must have the same number of columns: 2"
       (execute-sql db "VALUES (1, 2), (1)"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Invalid number of arguments: 1 to: LIKE min: 2 max: 3"
       (execute-sql db "SELECT LIKE('foo')"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Invalid number of arguments: 3 to: MATCH min: 2 max: 2"
       (execute-sql db "SELECT MATCH('foo', 'bar', 'baz')"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Invalid argument types: LIKE\\(2, \"\"\\)"
       (execute-sql db "SELECT LIKE(2, '')"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Invalid escape character: foo"
       (execute-sql db "SELECT '' LIKE '' ESCAPE 'foo'"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Invalid number of arguments: 2 to: AVG min: 1 max: 1"
       (execute-sql db "SELECT AVG(2, 1)"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Unknown table"
       (execute-sql db "SELECT y.* FROM (VALUES (['a', 'b', 'c'])) AS x"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Unknown table"
       (execute-sql db "SELECT { y.* } FROM (VALUES (['a', 'b', 'c'])) AS x"))
 
-    (signals endb/sql/expr:sql-runtime-error
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Selecting columns: \\(foo.x\\) that does not match group by: \\(y\\)"
       (execute-sql db "SELECT AVG(x), foo.* FROM (VALUES (1, 2)) AS foo(x, y) GROUP BY y"))))
 
 (test interpret-sql-literal
@@ -2352,25 +2414,32 @@ SELECT s FROM x WHERE ind=0")
               (interpret-sql-literal "{address: {street: 'Street', number: 42}, friends: [1, 2]}")))
   (is (equalp (fset:empty-map) (interpret-sql-literal "{}")))
 
-  (signals endb/sql/expr:sql-runtime-error
+  (signals-with-msg endb/sql/expr:sql-runtime-error
+      "Invalid literal: 2001-01-01ASFOO"
     (interpret-sql-literal "2001-01-01ASFOO"))
 
-  (signals endb/sql/expr:sql-runtime-error
+  (signals-with-msg endb/sql/expr:sql-runtime-error
+      "Invalid literal: 2001-01"
     (interpret-sql-literal "2001-01"))
 
-  (signals endb/sql/expr:sql-runtime-error
+  (signals-with-msg endb/sql/expr:sql-runtime-error
+      "Invalid literal: 1 \\+ 2"
     (interpret-sql-literal "1 + 2"))
 
-  (signals endb/sql/expr:sql-runtime-error
+  (signals-with-msg endb/sql/expr:sql-runtime-error
+      "Invalid literal: INTERVAL '1-2' MONTH TO YEAR"
     (interpret-sql-literal "INTERVAL '1-2' MONTH TO YEAR"))
 
-  (signals endb/sql/expr:sql-runtime-error
+  (signals-with-msg endb/sql/expr:sql-runtime-error
+      "Invalid literal: INTERVAL '1-2' YEAR"
     (interpret-sql-literal "INTERVAL '1-2' YEAR"))
 
-  (signals endb/sql/expr:sql-runtime-error
+  (signals-with-msg endb/sql/expr:sql-runtime-error
+      "Invalid literal: \\[1 \\+ 2\\]"
     (interpret-sql-literal "[1 + 2]"))
 
-  (signals endb/sql/expr:sql-runtime-error
+  (signals-with-msg endb/sql/expr:sql-runtime-error
+      "Invalid literal: {foo: 1 \\+ 2}"
     (interpret-sql-literal "{foo: 1 + 2}"))
 
   (is (equalp (endb/arrow:parse-arrow-date-millis "2001-01-01")
