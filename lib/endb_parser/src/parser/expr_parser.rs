@@ -114,12 +114,16 @@ where
     let time_ctor = |_, span: SimpleSpan<_>| kw_literal(Time, &span);
 
     let time = choice((
-        kw("TIME").ignore_then(
+        kw("TIME").ignore_then(choice((
             iso_time
                 .clone()
                 .map_with_span(time_ctor)
                 .padded_by(just('\'')),
-        ),
+            iso_time
+                .clone()
+                .map_with_span(time_ctor)
+                .padded_by(just('"')),
+        ))),
         iso_time.clone().map_with_span(time_ctor),
     ));
 
@@ -132,33 +136,39 @@ where
     let date_ctor = |_, span: SimpleSpan<_>| kw_literal(Date, &span);
 
     let date = choice((
-        kw("DATE").ignore_then(
+        kw("DATE").ignore_then(choice((
             iso_date
                 .clone()
                 .map_with_span(date_ctor)
                 .padded_by(just('\'')),
-        ),
+            iso_date
+                .clone()
+                .map_with_span(date_ctor)
+                .padded_by(just('"')),
+        ))),
         iso_date.clone().map_with_span(date_ctor),
     ));
 
     let timestamp_ctor = |_, span: SimpleSpan<_>| kw_literal(Timestamp, &span);
 
+    let iso_timestamp = iso_date
+        .clone()
+        .then(one_of(" T"))
+        .then(iso_time.clone())
+        .then(just('Z').or_not());
+
     let timestamp = choice((
-        kw("TIMESTAMP").ignore_then(
-            iso_date
+        kw("TIMESTAMP").ignore_then(choice((
+            iso_timestamp
                 .clone()
-                .then(one_of(" T"))
-                .then(iso_time.clone())
-                .then(just('Z').or_not())
                 .map_with_span(timestamp_ctor)
                 .padded_by(just('\'')),
-        ),
-        iso_date
-            .clone()
-            .then(just('T'))
-            .then(iso_time.clone())
-            .then(just('Z').or_not())
-            .map_with_span(timestamp_ctor),
+            iso_timestamp
+                .clone()
+                .map_with_span(timestamp_ctor)
+                .padded_by(just('"')),
+        ))),
+        iso_timestamp.map_with_span(timestamp_ctor),
     ));
 
     let iso_quantity = text::int(10).then(one_of(",.").then(text::digits(10)).or_not());
@@ -199,12 +209,16 @@ where
         .then(interval_time.clone())
         .map_with_span(|_, span: SimpleSpan<_>| kw_literal(Interval, &span));
 
-    let interval_string = choice((
+    let unquoted_interval_string = choice((
         interval_time.map_with_span(|_, span: SimpleSpan<_>| kw_literal(Interval, &span)),
         interval_day_time,
         interval_year_month_or_single,
-    ))
-    .padded_by(just('\''));
+    ));
+
+    let interval_string = choice((
+        unquoted_interval_string.clone().padded_by(just('\'')),
+        unquoted_interval_string.padded_by(just('"')),
+    ));
 
     let interval = kw("INTERVAL")
         .ignore_then(interval_string.padded())
@@ -246,11 +260,16 @@ where
             }
         }));
 
-    let binary = one_of("Xx").ignore_then(
+    let binary_ctor = |_, span: SimpleSpan<_>| kw_literal(Blob, &span);
+
+    let binary = one_of("Xx").ignore_then(choice((
         text::digits(16)
-            .map_with_span(|_, span: SimpleSpan<_>| kw_literal(Blob, &span))
+            .map_with_span(binary_ctor)
             .padded_by(just('\'')),
-    );
+        text::digits(16)
+            .map_with_span(binary_ctor)
+            .padded_by(just('"')),
+    )));
 
     let string = string_ast_parser_no_pad();
 

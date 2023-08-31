@@ -2615,6 +2615,19 @@ mod tests {
                             start: 13
                             end: 23
         "###);
+        assert_yaml_snapshot!(parse("SELECT DATE \"2001-01-01\""), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Date
+                        - String:
+                            start: 13
+                            end: 23
+        "###);
 
         assert_yaml_snapshot!(parse("SELECT 12:01:20"), @r###"
         ---
