@@ -127,6 +127,7 @@ pub enum Keyword {
     Path,
     CreateAssertion,
     DropAssertion,
+    Extract,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

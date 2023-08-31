@@ -1430,6 +1430,21 @@ mod tests {
                             start: 22
                             end: 29
         "###);
+
+        assert_yaml_snapshot!(parse("SELECT EXTRACT ( DAY FROM x )"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - List:
+                        - KW: Extract
+                        - KW: Day
+                        - Id:
+                            start: 26
+                            end: 27
+        "###)
     }
 
     #[test]

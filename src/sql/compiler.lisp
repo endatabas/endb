@@ -988,6 +988,11 @@
       args
     `(endb/sql/expr:syn-cast ,(ast->cl ctx x) ,(intern (string-upcase (symbol-name sql-type)) :keyword))))
 
+(defmethod sql->cl (ctx (type (eql :extract)) &rest args)
+  (destructuring-bind (field x)
+      args
+    `(endb/sql/expr:syn-extract ,(intern (string-upcase (symbol-name field)) :keyword) ,(ast->cl ctx x))))
+
 (defmethod sql->cl (ctx (type (eql :interval)) &rest args)
   (destructuring-bind (x from &optional to)
       args

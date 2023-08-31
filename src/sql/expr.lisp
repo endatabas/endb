@@ -26,7 +26,7 @@
            #:sql-contains #:sql-overlaps #:sql-precedes #:sql-succedes #:sql-immediately_precedes #:sql-immediately_succedes
 
            #:syn-current_date #:syn-current_time #:syn-current_timestamp
-           #:syn-access #:syn-access-finish #:syn-interval #:syn-cast
+           #:syn-access #:syn-access-finish #:syn-interval #:syn-cast #:syn-extract
 
            #:ra-distinct #:ra-unnest #:ra-union-all #:ra-union #:ra-except #:ra-intersect
            #:ra-scalar-subquery #:ra-in  #:ra-exists #:ra-limit #:ra-order-by
@@ -1391,6 +1391,49 @@
          (%period-field y "end")))
 
 ;; Syntax
+
+(defmethod syn-extract (x (y (eql :null)))
+  :null)
+
+(defmethod syn-extract ((x (eql :year)) (y endb/arrow:arrow-date-millis))
+  (local-time:timestamp-year (endb/arrow:arrow-date-millis-to-local-time y) :timezone local-time:+utc-zone+))
+
+(defmethod syn-extract ((x (eql :month)) (y endb/arrow:arrow-date-millis))
+  (local-time:timestamp-month (endb/arrow:arrow-date-millis-to-local-time y) :timezone local-time:+utc-zone+))
+
+(defmethod syn-extract ((x (eql :day)) (y endb/arrow:arrow-date-millis))
+  (local-time:timestamp-day (endb/arrow:arrow-date-millis-to-local-time y) :timezone local-time:+utc-zone+))
+
+(defmethod syn-extract ((x (eql :year)) (y endb/arrow:arrow-timestamp-micros))
+  (local-time:timestamp-year (endb/arrow:arrow-timestamp-micros-to-local-time y) :timezone local-time:+utc-zone+))
+
+(defmethod syn-extract ((x (eql :month)) (y endb/arrow:arrow-timestamp-micros))
+  (local-time:timestamp-month (endb/arrow:arrow-timestamp-micros-to-local-time y) :timezone local-time:+utc-zone+))
+
+(defmethod syn-extract ((x (eql :day)) (y endb/arrow:arrow-timestamp-micros))
+  (local-time:timestamp-day (endb/arrow:arrow-timestamp-micros-to-local-time y) :timezone local-time:+utc-zone+))
+
+(defmethod syn-extract ((x (eql :hour)) (y endb/arrow:arrow-timestamp-micros))
+  (local-time:timestamp-hour (endb/arrow:arrow-timestamp-micros-to-local-time y) :timezone local-time:+utc-zone+))
+
+(defmethod syn-extract ((x (eql :minute)) (y endb/arrow:arrow-timestamp-micros))
+  (local-time:timestamp-minute (endb/arrow:arrow-timestamp-micros-to-local-time y) :timezone local-time:+utc-zone+))
+
+(defmethod syn-extract ((x (eql :second)) (y endb/arrow:arrow-timestamp-micros))
+  (let ((z (endb/arrow:arrow-timestamp-micros-to-local-time y)))
+    (+ (local-time:timestamp-second z :timezone local-time:+utc-zone+)
+       (* 0.000001d0 (local-time:timestamp-microsecond z)))))
+
+(defmethod syn-extract ((x (eql :hour)) (y endb/arrow:arrow-time-micros))
+  (local-time:timestamp-hour (endb/arrow:arrow-time-micros-to-local-time y) :timezone local-time:+utc-zone+))
+
+(defmethod syn-extract ((x (eql :minute)) (y endb/arrow:arrow-time-micros))
+  (local-time:timestamp-minute (endb/arrow:arrow-time-micros-to-local-time y) :timezone local-time:+utc-zone+))
+
+(defmethod syn-extract ((x (eql :second)) (y endb/arrow:arrow-time-micros))
+  (let ((z (endb/arrow:arrow-time-micros-to-local-time y)))
+    (+ (local-time:timestamp-second z :timezone local-time:+utc-zone+)
+       (* 0.000001d0 (local-time:timestamp-microsecond z)))))
 
 (defmethod syn-cast ((x (eql :null)) type)
   :null)

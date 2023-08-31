@@ -128,6 +128,7 @@ typedef enum Keyword {
   Path,
   CreateAssertion,
   DropAssertion,
+  Extract,
 } Keyword;
 
 typedef struct Vec_Ast Vec_Ast;

@@ -922,6 +922,71 @@ SELECT s FROM x WHERE ind=0")
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT 2001-04-01 IMMEDIATELY PRECEDES [2001-04-01T00:00:00Z, 2001-05-01]")
       (is (equalp (list (list t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT EXTRACT(YEAR FROM 2001-01-01)")
+      (is (equalp (list (list 2001)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT EXTRACT(MONTH FROM 2001-01-01)")
+      (is (equalp (list (list 1)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT EXTRACT(DAY FROM 2001-01-01)")
+      (is (equalp (list (list 1)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT EXTRACT(YEAR FROM 2023-05-16T14:43:39.970062Z)")
+      (is (equalp (list (list 2023)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT EXTRACT(MONTH FROM 2023-05-16T14:43:39.970062Z)")
+      (is (equalp (list (list 5)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT EXTRACT(DAY FROM 2023-05-16T14:43:39.970062Z)")
+      (is (equalp (list (list 16)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT EXTRACT(HOUR FROM 2023-05-16T14:43:39.970062Z)")
+      (is (equalp (list (list 14)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT EXTRACT(MINUTE FROM 2023-05-16T14:43:39.970062Z)")
+      (is (equalp (list (list 43)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT EXTRACT(SECOND FROM 2023-05-16T14:43:39.970062Z)")
+      (is (equalp (list (list 39.970062d0)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT EXTRACT(HOUR FROM 14:43:39.970062)")
+      (is (equalp (list (list 14)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT EXTRACT(MINUTE FROM 14:43:39.970062)")
+      (is (equalp (list (list 43)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT EXTRACT(SECOND FROM 14:43:39.970062)")
+      (is (equalp (list (list 39.970062d0)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT EXTRACT(SECOND FROM NULL)")
+      (is (equalp (list (list :null)) result))
       (is (equal '("column1") columns)))))
 
 (test temporal-current-literals

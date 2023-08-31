@@ -98,6 +98,23 @@ fn kw_literal(kw: Keyword, span: &SimpleSpan<usize>) -> Ast {
     ])
 }
 
+pub fn datetime_field_ast_parser<'input, E>() -> impl Parser<'input, &'input str, Ast, E> + Clone
+where
+    E: ParserExtra<'input, &'input str>,
+{
+    use super::ast::{Ast::*, Keyword::*};
+
+    choice((
+        kw("YEAR").to(Year),
+        kw("MONTH").to(Month),
+        kw("DAY").to(Day),
+        kw("HOUR").to(Hour),
+        kw("MINUTE").to(Minute),
+        kw("SECOND").to(Second),
+    ))
+    .map(KW)
+}
+
 pub fn atom_ast_parser<'input, E>() -> impl Parser<'input, &'input str, Ast, E> + Clone
 where
     E: ParserExtra<'input, &'input str>,
@@ -186,15 +203,7 @@ where
         )
         .map_with_span(|_, span: SimpleSpan<_>| kw_literal(Duration, &span));
 
-    let interval_field = choice((
-        kw("YEAR").to(Year),
-        kw("MONTH").to(Month),
-        kw("DAY").to(Day),
-        kw("HOUR").to(Hour),
-        kw("MINUTE").to(Minute),
-        kw("SECOND").to(Second),
-    ))
-    .map(KW);
+    let interval_field = datetime_field_ast_parser();
 
     let interval_year_month_or_single = text::int(10)
         .then(just('-').then(text::int(10)).or_not())
@@ -524,6 +533,15 @@ where
             )
             .map(|(expr, id)| List(vec![KW(Cast), expr, id]));
 
+        let extract = kw("EXTRACT")
+            .ignore_then(
+                datetime_field_ast_parser()
+                    .then_ignore(kw("FROM"))
+                    .then(expr.clone())
+                    .delimited_by(pad('('), pad(')')),
+            )
+            .map(|(field, expr)| List(vec![KW(Extract), field, expr]));
+
         let exists = kw("EXISTS")
             .ignore_then(subquery.clone())
             .map(|query| List(vec![KW(Exists), query]));
@@ -604,6 +622,7 @@ where
             array_agg,
             aggregate_function,
             cast,
+            extract,
             case,
             exists,
             array,
