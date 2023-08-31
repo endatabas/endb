@@ -48,25 +48,32 @@ where
 {
     use super::ast::Ast::*;
 
-    let string = choice((just('\'').ignore_then(just('\'')), none_of('\'')))
-        .repeated()
-        .map_with_span(|_, span: SimpleSpan<_>| String {
-            start: span.start() as i32,
-            end: span.end() as i32,
-        })
-        .padded_by(just('\''));
-
     let escape = just('\\').ignore_then(choice((
+        just('0'),
         just('\\'),
         just('/'),
+        just('\''),
         just('"'),
         just('b'),
         just('f'),
         just('n'),
         just('r'),
         just('t'),
+        just('v'),
+        one_of("\n\r\u{2028}\u{2029}"),
         just('u').then_ignore(text::digits(16).exactly(4)),
     )));
+
+    let single_quoted_string = choice((
+        just('\'').ignore_then(just('\'')),
+        choice((none_of("\\'"), escape)),
+    ))
+    .repeated()
+    .map_with_span(|_, span: SimpleSpan<_>| String {
+        start: span.start() as i32,
+        end: span.end() as i32,
+    })
+    .padded_by(just('\''));
 
     let double_quoted_string = choice((none_of("\\\""), escape))
         .repeated()
@@ -76,7 +83,7 @@ where
         })
         .padded_by(just('"'));
 
-    choice((string, double_quoted_string))
+    choice((single_quoted_string, double_quoted_string))
 }
 
 fn kw_literal(kw: Keyword, span: &SimpleSpan<usize>) -> Ast {

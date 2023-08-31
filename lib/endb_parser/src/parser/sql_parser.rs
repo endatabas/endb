@@ -1212,6 +1212,17 @@ mod tests {
                         start: 8
                         end: 13
         "###);
+        assert_yaml_snapshot!(parse("SELECT 'f\\n\\uABCDo\\'o'"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - String:
+                        start: 8
+                        end: 21
+        "###);
     }
 
     #[test]

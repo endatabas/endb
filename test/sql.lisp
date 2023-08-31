@@ -2199,6 +2199,12 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT '\\/f\\0o\\fo\\nb\\\\a\\'\\v\\
+r\\r\\u03BB'")
+      (is (equalp `((,(format nil "/f~Ao~Ao~Ab\\a'~Ar~Aλ" #\Nul #\Page #\NewLine #\Vt #\Return))) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT x AS y FROM (VALUES (1), (2)) AS foo(x) ORDER BY -foo.x")
       (is (equalp '((2) (1)) result))
       (is (equal '("y") columns)))

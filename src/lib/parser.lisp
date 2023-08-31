@@ -214,7 +214,7 @@
                              finally (return acc)))
 
 (defparameter +double-single-quote-scanner+ (ppcre:create-scanner "''"))
-(defparameter +backslash-escape-scanner+ (ppcre:create-scanner "(\\\\u[0-9a-fA-F]{4}|\\\\.)"))
+(defparameter +backslash-escape-scanner+ (ppcre:create-scanner "(?s)(\\\\u[0-9a-fA-F]{4}|\\\\.)"))
 
 (defun visit-ast (input builder ast)
   (loop with input-bytes = (trivial-utf-8:string-to-utf-8-bytes input)
@@ -258,12 +258,15 @@
                                                             (let ((c (char target-string (1+ match-start))))
                                                               (string
                                                                (case c
-                                                                 ((#\" #\\ #\/) c)
+                                                                 ((#\" #\' #\\ #\/) c)
+                                                                 ((#\Newline #\Return #\Line_Separator #\Paragraph_Separator) "")
+                                                                 (#\0 #\Nul)
                                                                  (#\t #\Tab)
                                                                  (#\n #\Newline)
                                                                  (#\r #\Return)
                                                                  (#\f #\Page)
                                                                  (#\b #\Backspace)
+                                                                 (#\v #\Vt)
                                                                  (#\u (code-char (parse-integer (subseq target-string (+ 2 match-start) (+ 6 match-start)) :radix 16))))))))))
                          (push s (first acc)))))))))))
 
