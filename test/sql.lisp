@@ -2561,6 +2561,7 @@ SELECT s FROM x WHERE ind=0")
   (is-valid (expr "1 || NULL"))
   (is-valid (expr "NULL || 'bar'"))
 
+  (is-valid (expr "LENGTH(NULL)"))
   (is-valid (expr "LENGTH('bar')"))
   (is-valid (expr "TRIM(' bar  ')"))
   (is-valid (expr "LTRIM(' bar  ')"))

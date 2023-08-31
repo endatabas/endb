@@ -533,12 +533,6 @@
 (defmethod sql-\|\| (x y)
   (sql-\|\| (sql-cast x :varchar) (sql-cast y :varchar)))
 
-(defmethod sql-cardinality ((x vector))
-  (length x))
-
-(defmethod sql-cardinality ((x fset:collection))
-  (fset:size x))
-
 (defmethod sql-char_length ((x string))
   (length x))
 
@@ -553,11 +547,17 @@
 (defmethod sql-octet_length ((x string))
   (trivial-utf-8:utf-8-byte-length x))
 
-(defmethod sql-length ((x sequence))
+(defmethod sql-length ((x (eql :null)))
+  :null)
+
+(defmethod sql-length ((x vector))
   (length x))
 
 (defmethod sql-length ((x fset:collection))
   (fset:size x))
+
+(defun sql-cardinality (x)
+  (sql-length x))
 
 (defmethod sql-trim ((x string) &optional (y " "))
   (string-trim y x))
