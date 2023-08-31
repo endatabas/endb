@@ -109,9 +109,9 @@
   :overlaps
   :contains
   :precedes
-  :succedes
+  :succeeds
   :immediately_precedes
-  :immediately_succedes
+  :immediately_succeeds
   :year
   :month
   :day

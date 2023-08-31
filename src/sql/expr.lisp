@@ -21,12 +21,12 @@
            #:sql-round #:sql-sin #:sql-cos #:sql-tan #:sql-sinh #:sql-cosh #:sql-tanh #:sql-asin #:sqn-acos #:sql-atan #:sql-asinh #:sqn-acosh #:sql-atanh #:sql-atan2
            #:sql-floor #:sql-ceiling #:sql-ceil #:sql-patch #:sql-match
            #:sql-sign #:sql-sqrt #:sql-exp #:sql-power #:sql-pow #:sql-log #:sql-log2 #:sql-log10 #:sql-ln #:sql-degrees #:sql-radians #:sql-pi
-           #:sql-cast #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-timestamp #:sql-duration #:sql-like #:sql-substr #:sql-substring #:sql-strftime
+           #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-timestamp #:sql-duration #:sql-like #:sql-substr #:sql-substring #:sql-strftime
            #:sql-typeof #:sql-unixepoch #:sql-julianday #:sql-path_remove #:sql-path_insert #:sql-path_replace #:sql-path_set #:sql-path_extract
            #:sql-contains #:sql-overlaps #:sql-precedes #:sql-succedes #:sql-immediately_precedes #:sql-immediately_succedes
 
            #:syn-current_date #:syn-current_time #:syn-current_timestamp
-           #:syn-access #:syn-access-finish #:syn-interval
+           #:syn-access #:syn-access-finish #:syn-interval #:syn-cast
 
            #:ra-distinct #:ra-unnest #:ra-union-all #:ra-union #:ra-except #:ra-intersect
            #:ra-scalar-subquery #:ra-in  #:ra-exists #:ra-limit #:ra-order-by
@@ -532,7 +532,7 @@
   :null)
 
 (defmethod sql-\|\| (x y)
-  (sql-\|\| (sql-cast x :varchar) (sql-cast y :varchar)))
+  (sql-\|\| (syn-cast x :varchar) (syn-cast y :varchar)))
 
 (defun sql-concat (x y)
   (sql-\|\| x y))
@@ -625,7 +625,7 @@
 (defmethod sql-unhex (x &optional (y ""))
   (if (eq :null y)
       :null
-      (sql-unhex (sql-cast x :varchar) y)))
+      (sql-unhex (syn-cast x :varchar) y)))
 
 (defparameter +hex-scanner+ (ppcre:create-scanner "^(?i:[0-9a-f]{2})+$"))
 
@@ -650,7 +650,7 @@
   "")
 
 (defmethod sql-hex (x)
-  (sql-hex (sql-cast x :varchar)))
+  (sql-hex (syn-cast x :varchar)))
 
 (defmethod sql-hex ((x string))
   (sql-hex (trivial-utf-8:string-to-utf-8-bytes x)))
@@ -691,161 +691,6 @@
 
 (defun sql-between (expr lhs rhs)
   (sql-and (sql->= expr lhs) (sql-<= expr rhs)))
-
-(defmethod sql-cast ((x (eql :null)) type)
-  :null)
-
-(defmethod sql-cast (x (type (eql :varchar)))
-  (princ-to-string x))
-
-(defmethod sql-cast ((x integer) (type (eql :varchar)))
-  (princ-to-string x))
-
-(defmethod sql-cast ((x fset:seq) (type (eql :varchar)))
-  (with-output-to-string (out)
-    (format out "[")
-    (fset:do-seq (v x :index idx)
-      (format out (if (stringp v)
-                      "\"~A\""
-                      "~A")
-              (sql-cast v :varchar))
-      (when (< idx (1- (fset:size x)))
-        (format out ",")))
-    (format out "]")))
-
-(defmethod sql-cast ((x fset:map) (type (eql :varchar)))
-  (with-output-to-string (out)
-    (format out "{")
-    (let ((idx 0))
-      (fset:do-map (k v x)
-        (format out "\"~A\":" k)
-        (format out (if (stringp v)
-                        "\"~A\""
-                        "~A")
-                (sql-cast v :varchar))
-        (when (< idx (1- (fset:size x)))
-          (format out ","))
-        (incf idx)))
-    (format out "}")))
-
-(defmethod sql-cast ((x (eql t)) (type (eql :varchar)))
-  "1")
-
-(defmethod sql-cast ((x (eql nil)) (type (eql :varchar)))
-  "0")
-
-(defmethod sql-cast ((x string) (type (eql :varchar)))
-  x)
-
-(defmethod sql-cast ((x real) (type (eql :varchar)))
-  (format nil "~F" x))
-
-(defmethod sql-cast ((x vector) (type (eql :varchar)))
-  (trivial-utf-8:utf-8-bytes-to-string x))
-
-(defmethod sql-cast (x (type (eql :text)))
-  (sql-cast x :varchar))
-
-(defmethod sql-cast (x (type (eql :blob)))
-  (sql-cast (sql-cast x :varchar) :blob))
-
-(defmethod sql-cast ((x string) (type (eql :blob)))
-  (trivial-utf-8:string-to-utf-8-bytes x))
-
-(defmethod sql-cast ((x vector) (type (eql :blob)))
-  x)
-
-(defmethod sql-cast (x (type (eql :varbinary)))
-  (sql-cast x :blob))
-
-(defmethod sql-cast ((x (eql t)) (type (eql :integer)))
-  1)
-
-(defmethod sql-cast ((x (eql nil)) (type (eql :integer)))
-  0)
-
-(defmethod sql-cast ((x string) (type (eql :integer)))
-  (multiple-value-bind (start end)
-      (ppcre:scan "^-?\\d+" x)
-    (if start
-        (let ((*read-eval* nil))
-          (read-from-string (subseq x 0 end)))
-        0)))
-
-(defmethod sql-cast ((x real) (type (eql :integer)))
-  (round x))
-
-(defmethod sql-cast ((x integer) (type (eql :integer)))
-  x)
-
-(defmethod sql-cast (x (type (eql :bigint)))
-  (sql-cast x :integer))
-
-(defmethod sql-cast (x (type (eql :integer)))
-  (sql-cast (sql-cast x :varchar) :integer))
-
-(defmethod sql-cast (x (type (eql :decimal)))
-  (sql-cast x :real))
-
-(defmethod sql-cast ((x (eql t)) (type (eql :decimal)))
-  1)
-
-(defmethod sql-cast ((x (eql nil)) (type (eql :decimal)))
-  0)
-
-(defmethod sql-cast ((x string) (type (eql :decimal)))
-  (multiple-value-bind (start end)
-      (ppcre:scan "^-?\\d+(\\.\\d+)?([eE][-+]?\\d+)?" x)
-    (if start
-        (let ((*read-eval* nil)
-              (*read-default-float-format* 'double-float))
-          (read-from-string (subseq x 0 end)))
-        0)))
-
-(defmethod sql-cast ((x number) (type (eql :decimal)))
-  x)
-
-(defmethod sql-cast (x (type (eql :signed)))
-  (sql-cast x :decimal))
-
-(defmethod sql-cast ((x (eql t)) (type (eql :real)))
-  1.0d0)
-
-(defmethod sql-cast ((x (eql nil)) (type (eql :real)))
-  0.0d0)
-
-(defmethod sql-cast ((x string) (type (eql :real)))
-  (coerce (sql-cast x :decimal) 'double-float))
-
-(defmethod sql-cast ((x number) (type (eql :real)))
-  (coerce x 'double-float))
-
-(defmethod sql-cast (x (type (eql :real)))
-  (sql-cast (sql-cast x :varchar) :real))
-
-(defmethod sql-cast (x (type (eql :double)))
-  (sql-cast x :real))
-
-(defmethod sql-cast ((x endb/arrow:arrow-date-millis) (type (eql :timestamp)))
-  (endb/arrow:local-time-to-arrow-timestamp-micros (endb/arrow:arrow-date-millis-to-local-time x)))
-
-(defmethod sql-cast ((x endb/arrow:arrow-timestamp-micros) (type (eql :date)))
-  (endb/arrow:local-time-to-arrow-date-millis (endb/arrow:arrow-timestamp-micros-to-local-time x)))
-
-(defmethod sql-cast ((x endb/arrow:arrow-timestamp-micros) (type (eql :time)))
-  (endb/arrow:local-time-to-arrow-time-micros (endb/arrow:arrow-timestamp-micros-to-local-time x)))
-
-(defmethod sql-cast (x (type (eql :timestamp)))
-  (sql-timestamp x))
-
-(defmethod sql-cast (x (type (eql :date)))
-  (sql-date x))
-
-(defmethod sql-cast (x (type (eql :time)))
-  (sql-time x))
-
-(defmethod sql-cast (x (type (eql :interval)))
-  (sql-duration x))
 
 (defun sql-nullif (x y)
   (if (eq t (sql-= x y))
@@ -1098,7 +943,7 @@
   (sql-julianday (sql-datetime x)))
 
 (defmethod sql-julianday ((x endb/arrow:arrow-date-millis))
-  (sql-julianday (sql-cast x :timestamp)))
+  (sql-julianday (syn-cast x :timestamp)))
 
 (defmethod sql-julianday ((x endb/arrow:arrow-timestamp-micros))
   (let ((noon-offset 0.5d0)
@@ -1296,7 +1141,7 @@
   (fset:convert 'fset:map
                 (loop for x in (fset:convert 'list x)
                       if (and (fset:seq? x) (= 2 (fset:size x)))
-                        collect (cons (sql-cast (fset:lookup x 0) :varchar)
+                        collect (cons (syn-cast (fset:lookup x 0) :varchar)
                                       (fset:lookup x 1))
                       else
                         do (error 'endb/sql/expr:sql-runtime-error :message "Object entries needs to be two element arrays"))))
@@ -1533,7 +1378,7 @@
   (sql-<= (%period-field x "end")
           (%period-field y "start")))
 
-(defun sql-succedes (x y)
+(defun sql-succeeds (x y)
   (sql->= (%period-field x "start")
           (%period-field y "end")))
 
@@ -1541,11 +1386,166 @@
   (sql-= (%period-field x "end")
          (%period-field y "start")))
 
-(defun sql-immediately_succedes (x y)
+(defun sql-immediately_succeeds (x y)
   (sql-= (%period-field x "start")
          (%period-field y "end")))
 
 ;; Syntax
+
+(defmethod syn-cast ((x (eql :null)) type)
+  :null)
+
+(defmethod syn-cast (x (type (eql :varchar)))
+  (princ-to-string x))
+
+(defmethod syn-cast ((x integer) (type (eql :varchar)))
+  (princ-to-string x))
+
+(defmethod syn-cast ((x fset:seq) (type (eql :varchar)))
+  (with-output-to-string (out)
+    (format out "[")
+    (fset:do-seq (v x :index idx)
+      (format out (if (stringp v)
+                      "\"~A\""
+                      "~A")
+              (syn-cast v :varchar))
+      (when (< idx (1- (fset:size x)))
+        (format out ",")))
+    (format out "]")))
+
+(defmethod syn-cast ((x fset:map) (type (eql :varchar)))
+  (with-output-to-string (out)
+    (format out "{")
+    (let ((idx 0))
+      (fset:do-map (k v x)
+        (format out "\"~A\":" k)
+        (format out (if (stringp v)
+                        "\"~A\""
+                        "~A")
+                (syn-cast v :varchar))
+        (when (< idx (1- (fset:size x)))
+          (format out ","))
+        (incf idx)))
+    (format out "}")))
+
+(defmethod syn-cast ((x (eql t)) (type (eql :varchar)))
+  "1")
+
+(defmethod syn-cast ((x (eql nil)) (type (eql :varchar)))
+  "0")
+
+(defmethod syn-cast ((x string) (type (eql :varchar)))
+  x)
+
+(defmethod syn-cast ((x real) (type (eql :varchar)))
+  (format nil "~F" x))
+
+(defmethod syn-cast ((x vector) (type (eql :varchar)))
+  (trivial-utf-8:utf-8-bytes-to-string x))
+
+(defmethod syn-cast (x (type (eql :text)))
+  (syn-cast x :varchar))
+
+(defmethod syn-cast (x (type (eql :blob)))
+  (syn-cast (syn-cast x :varchar) :blob))
+
+(defmethod syn-cast ((x string) (type (eql :blob)))
+  (trivial-utf-8:string-to-utf-8-bytes x))
+
+(defmethod syn-cast ((x vector) (type (eql :blob)))
+  x)
+
+(defmethod syn-cast (x (type (eql :varbinary)))
+  (syn-cast x :blob))
+
+(defmethod syn-cast ((x (eql t)) (type (eql :integer)))
+  1)
+
+(defmethod syn-cast ((x (eql nil)) (type (eql :integer)))
+  0)
+
+(defmethod syn-cast ((x string) (type (eql :integer)))
+  (multiple-value-bind (start end)
+      (ppcre:scan "^-?\\d+" x)
+    (if start
+        (let ((*read-eval* nil))
+          (read-from-string (subseq x 0 end)))
+        0)))
+
+(defmethod syn-cast ((x real) (type (eql :integer)))
+  (round x))
+
+(defmethod syn-cast ((x integer) (type (eql :integer)))
+  x)
+
+(defmethod syn-cast (x (type (eql :bigint)))
+  (syn-cast x :integer))
+
+(defmethod syn-cast (x (type (eql :integer)))
+  (syn-cast (syn-cast x :varchar) :integer))
+
+(defmethod syn-cast (x (type (eql :decimal)))
+  (syn-cast x :real))
+
+(defmethod syn-cast ((x (eql t)) (type (eql :decimal)))
+  1)
+
+(defmethod syn-cast ((x (eql nil)) (type (eql :decimal)))
+  0)
+
+(defmethod syn-cast ((x string) (type (eql :decimal)))
+  (multiple-value-bind (start end)
+      (ppcre:scan "^-?\\d+(\\.\\d+)?([eE][-+]?\\d+)?" x)
+    (if start
+        (let ((*read-eval* nil)
+              (*read-default-float-format* 'double-float))
+          (read-from-string (subseq x 0 end)))
+        0)))
+
+(defmethod syn-cast ((x number) (type (eql :decimal)))
+  x)
+
+(defmethod syn-cast (x (type (eql :signed)))
+  (syn-cast x :decimal))
+
+(defmethod syn-cast ((x (eql t)) (type (eql :real)))
+  1.0d0)
+
+(defmethod syn-cast ((x (eql nil)) (type (eql :real)))
+  0.0d0)
+
+(defmethod syn-cast ((x string) (type (eql :real)))
+  (coerce (syn-cast x :decimal) 'double-float))
+
+(defmethod syn-cast ((x number) (type (eql :real)))
+  (coerce x 'double-float))
+
+(defmethod syn-cast (x (type (eql :real)))
+  (syn-cast (syn-cast x :varchar) :real))
+
+(defmethod syn-cast (x (type (eql :double)))
+  (syn-cast x :real))
+
+(defmethod syn-cast ((x endb/arrow:arrow-date-millis) (type (eql :timestamp)))
+  (endb/arrow:local-time-to-arrow-timestamp-micros (endb/arrow:arrow-date-millis-to-local-time x)))
+
+(defmethod syn-cast ((x endb/arrow:arrow-timestamp-micros) (type (eql :date)))
+  (endb/arrow:local-time-to-arrow-date-millis (endb/arrow:arrow-timestamp-micros-to-local-time x)))
+
+(defmethod syn-cast ((x endb/arrow:arrow-timestamp-micros) (type (eql :time)))
+  (endb/arrow:local-time-to-arrow-time-micros (endb/arrow:arrow-timestamp-micros-to-local-time x)))
+
+(defmethod syn-cast (x (type (eql :timestamp)))
+  (sql-timestamp x))
+
+(defmethod syn-cast (x (type (eql :date)))
+  (sql-date x))
+
+(defmethod syn-cast (x (type (eql :time)))
+  (sql-time x))
+
+(defmethod syn-cast (x (type (eql :interval)))
+  (sql-duration x))
 
 (defstruct path-seq acc)
 
@@ -1636,10 +1636,10 @@
                                    collect (%flatten-path-acc z)))))
 
 (defun syn-current_date (db)
-  (sql-cast (syn-current_timestamp db) :date))
+  (syn-cast (syn-current_timestamp db) :date))
 
 (defun syn-current_time (db)
-  (sql-cast (syn-current_timestamp db) :time))
+  (syn-cast (syn-current_timestamp db) :time))
 
 (defun syn-current_timestamp (db)
   (or (db-current-timestamp db)
@@ -1928,12 +1928,12 @@
       (error 'sql-runtime-error :message "GROUP_CONCAT with argument doesn't support DISTINCT"))
     (if (member x seen :test 'equalp)
         agg
-        (let ((separator (sql-cast (or (first args) ",") :varchar)))
+        (let ((separator (syn-cast (or (first args) ",") :varchar)))
           (when distinct
             (push x seen))
           (setf acc (if acc
-                        (concatenate 'string acc separator (sql-cast x :varchar))
-                        (sql-cast x :varchar)))
+                        (concatenate 'string acc separator (syn-cast x :varchar))
+                        (syn-cast x :varchar)))
           agg))))
 
 (defmethod agg-accumulate ((agg agg-group_concat) (x (eql :null)) &rest args)

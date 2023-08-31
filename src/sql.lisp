@@ -186,7 +186,7 @@
                                      (loop for arg in (sb-pcl::effective-method-condition-args e)
                                            collect (if (stringp arg)
                                                        (prin1-to-string arg)
-                                                       (endb/sql/expr:sql-cast arg :varchar))))))))
+                                                       (endb/sql/expr:syn-cast arg :varchar))))))))
 
 (defun %interpret-sql-literal (ast)
   (cond

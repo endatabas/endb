@@ -47,7 +47,7 @@
                   (substitute-if #\@ (lambda (c)
                                        (or (char> c #\~)
                                            (char< c #\ )))
-                                 (endb/sql/expr:sql-cast value :varchar))))
+                                 (endb/sql/expr:syn-cast value :varchar))))
          (#\I (format nil "~D" (cond
                                  ((floatp value) (round value))
                                  ((numberp value) value)

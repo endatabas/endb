@@ -986,7 +986,7 @@
 (defmethod sql->cl (ctx (type (eql :cast)) &rest args)
   (destructuring-bind (x sql-type)
       args
-    `(endb/sql/expr:sql-cast ,(ast->cl ctx x) ,(intern (string-upcase (symbol-name sql-type)) :keyword))))
+    `(endb/sql/expr:syn-cast ,(ast->cl ctx x) ,(intern (string-upcase (symbol-name sql-type)) :keyword))))
 
 (defmethod sql->cl (ctx (type (eql :interval)) &rest args)
   (destructuring-bind (x from &optional to)
@@ -1074,7 +1074,7 @@
                                    `(list (cons ,(%unqualified-column-name (symbol-name k))
                                                 ,(ast->cl ctx (second kv))))))
                                 (:computed-property
-                                 `(list (cons (endb/sql/expr:sql-cast ,(ast->cl ctx (second kv)) :varchar)
+                                 `(list (cons (endb/sql/expr:syn-cast ,(ast->cl ctx (second kv)) :varchar)
                                               ,(ast->cl ctx (nth 2 kv)))))
                                 (:*
                                  (let* ((k (second kv))

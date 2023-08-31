@@ -701,10 +701,10 @@ where
                         kw("EQUALS").to(Some(Eq)),
                         kw("CONTAINS").to(Some(Contains)),
                         kw("PRECEDES").to(Some(Precedes)),
-                        kw("SUCCEDES").to(Some(Succedes)),
+                        kw("SUCCEEDS").to(Some(Succeeds)),
                         kw("IMMEDIATELY").ignore_then(choice((
                             kw("PRECEDES").to(Some(ImmediatelyPrecedes)),
-                            kw("SUCCEDES").to(Some(ImmediatelySuccedes)),
+                            kw("SUCCEEDS").to(Some(ImmediatelySucceeds)),
                         ))),
                     ))
                     .then(comp.clone())
