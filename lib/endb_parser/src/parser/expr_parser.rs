@@ -58,12 +58,14 @@ where
 
     let escape = just('\\').ignore_then(choice((
         just('\\'),
+        just('/'),
         just('"'),
-        just('b').to('\x08'),
-        just('f').to('\x0C'),
-        just('n').to('\n'),
-        just('r').to('\r'),
-        just('t').to('\t'),
+        just('b'),
+        just('f'),
+        just('n'),
+        just('r'),
+        just('t'),
+        just('u').then_ignore(text::digits(16).exactly(4)),
     )));
 
     let double_quoted_string = choice((none_of("\\\""), escape))

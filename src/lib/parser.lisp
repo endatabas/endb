@@ -214,7 +214,7 @@
                              finally (return acc)))
 
 (defparameter +double-single-quote-scanner+ (ppcre:create-scanner "''"))
-(defparameter +backslash-escape-scanner+ (ppcre:create-scanner "\\\\."))
+(defparameter +backslash-escape-scanner+ (ppcre:create-scanner "(\\\\u[0-9a-fA-F]{4}|\\\\.)"))
 
 (defun visit-ast (input builder ast)
   (loop with input-bytes = (trivial-utf-8:string-to-utf-8-bytes input)
@@ -255,15 +255,16 @@
                                                           s
                                                           (lambda (target-string start end match-start match-end reg-starts reg-ends)
                                                             (declare (ignore start end match-end reg-starts reg-ends))
-                                                            (string
-                                                             (case (char target-string (1+ match-start))
-                                                               (#\" #\")
-                                                               (#\\ #\\)
-                                                               (#\t #\Tab)
-                                                               (#\n #\Newline)
-                                                               (#\r #\Return)
-                                                               (#\f #\Page)
-                                                               (#\b #\Backspace)))))))
+                                                            (let ((c (char target-string (1+ match-start))))
+                                                              (string
+                                                               (case c
+                                                                 ((#\" #\\ #\/) c)
+                                                                 (#\t #\Tab)
+                                                                 (#\n #\Newline)
+                                                                 (#\r #\Return)
+                                                                 (#\f #\Page)
+                                                                 (#\b #\Backspace)
+                                                                 (#\u (code-char (parse-integer (subseq target-string (+ 2 match-start) (+ 6 match-start)) :radix 16))))))))))
                          (push s (first acc)))))))))))
 
 (defun strip-ansi-escape-codes (s)

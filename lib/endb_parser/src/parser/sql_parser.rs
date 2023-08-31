@@ -1190,7 +1190,7 @@ mod tests {
                         start: 8
                         end: 13
         "###);
-        assert_yaml_snapshot!(parse("SELECT \"f\\noo\""), @r###"
+        assert_yaml_snapshot!(parse("SELECT \"f\\n\\uABCDoo\""), @r###"
         ---
         Ok:
           List:
@@ -1199,7 +1199,7 @@ mod tests {
                 - List:
                     - String:
                         start: 8
-                        end: 13
+                        end: 19
         "###);
         assert_yaml_snapshot!(parse("SELECT \"f\\\"oo\""), @r###"
         ---

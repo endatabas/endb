@@ -2194,8 +2194,8 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT \"f\\bo\\fo\\nb\\\\a\\\"\\tr\\r\"")
-      (is (equalp `((,(format nil "f~Ao~Ao~Ab\\a\"~Ar~A" #\Backspace #\Page #\NewLine #\Tab #\Return))) result))
+        (execute-sql db "SELECT \"\\/f\\bo\\fo\\nb\\\\a\\\"\\tr\\r\\u03BB\"")
+      (is (equalp `((,(format nil "/f~Ao~Ao~Ab\\a\"~Ar~Aλ" #\Backspace #\Page #\NewLine #\Tab #\Return))) result))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
