@@ -1636,7 +1636,7 @@
 
 (defun ra-distinct (rows &optional (distinct :distinct))
   (if (eq :distinct distinct)
-      (delete-duplicates rows :test 'equal)
+      (delete-duplicates rows :test 'equalp)
       rows))
 
 (defun ra-in (item xs)
@@ -1653,16 +1653,16 @@
   (not (null rows)))
 
 (defun ra-union (lhs rhs)
-  (ra-distinct (nunion lhs rhs :test 'equal)))
+  (ra-distinct (nunion lhs rhs :test 'equalp)))
 
 (defun ra-union-all (lhs rhs)
   (nconc lhs rhs))
 
 (defun ra-except (lhs rhs)
-  (ra-distinct (nset-difference lhs rhs :test 'equal)))
+  (ra-distinct (nset-difference lhs rhs :test 'equalp)))
 
 (defun ra-intersect (lhs rhs)
-  (ra-distinct (nintersection lhs rhs :test 'equal)))
+  (ra-distinct (nintersection lhs rhs :test 'equalp)))
 
 (defun ra-scalar-subquery (rows)
   (when (> 1 (length rows))
@@ -1887,7 +1887,7 @@
   (with-slots (acc seen distinct) agg
     (when (and (eq :distinct distinct) args)
       (error 'sql-runtime-error :message "GROUP_CONCAT with argument doesn't support DISTINCT"))
-    (if (member x seen :test 'equal)
+    (if (member x seen :test 'equalp)
         agg
         (let ((separator (sql-cast (or (first args) ",") :varchar)))
           (when distinct
@@ -1920,7 +1920,7 @@
                                               (ra-order-by acc order-by)
                                               (reverse acc))))))
 
-(defstruct agg-object_agg (acc (make-hash-table :test 'equal)))
+(defstruct agg-object_agg (acc (make-hash-table :test 'equalp)))
 
 (defmethod make-agg ((type (eql :object_agg)) &key distinct)
   (declare (ignore distinct))
@@ -2209,7 +2209,7 @@
            (columns-set (fset:convert 'fset:set columns))
            (new-columns (fset:convert 'list (fset:set-difference column-names-set columns-set)))
            (number-of-columns (length (or column-names columns))))
-      (when (member "system_time" column-names :test 'equalp)
+      (when (member "system_time" column-names :test 'equal)
         (error 'sql-runtime-error :message "Cannot insert value into SYSTEM_TIME column"))
       (loop for c in column-names
             do (unless (ppcre:scan +ident-scanner+ c)
