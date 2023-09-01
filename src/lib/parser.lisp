@@ -132,7 +132,8 @@
   :path
   :create-assertion
   :drop-assertion
-  :extract)
+  :extract
+  :erase)
 
 (cffi:defcenum Ast_Tag
   :List

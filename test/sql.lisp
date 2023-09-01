@@ -1153,6 +1153,21 @@ SELECT s FROM x WHERE ind=0")
                       result))
           (is (equal '("a" "b" "system_time") columns)))
 
+        (multiple-value-bind (result result-code)
+            (execute-sql write-db "ERASE FROM t1 WHERE a = 101")
+          (is (null result))
+          (is (= 1 result-code)))
+
+        (setf db (commit-write-tx db write-db))
+
+        (multiple-value-bind (result columns)
+            (execute-sql db "SELECT t1.*, t1.system_time FROM t1 FOR SYSTEM_TIME ALL")
+          (is (equalp (list (list 103 104 (fset:map ("start" system-time-as-of-insert) ("end" system-time-as-of-update))))
+                      result))
+          (is (equal '("a" "b" "system_time") columns)))
+
+        (is (null (endb/sql/expr:base-table-visible-rows db "t1")))
+
         (signals-with-msg endb/sql/expr:sql-runtime-error
             "Cannot insert value into SYSTEM_TIME column"
           (execute-sql write-db "INSERT INTO t1(a, b, system_time) VALUES(103, 104, {start: 2001-01-01, end: 2002-01-01})"))))))

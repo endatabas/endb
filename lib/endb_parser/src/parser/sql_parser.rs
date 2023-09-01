@@ -504,6 +504,16 @@ where
             List(acc)
         });
 
+    let erase_stmt = kw("ERASE")
+        .ignore_then(kw("FROM"))
+        .ignore_then(id.clone())
+        .then(kw("WHERE").ignore_then(expr.clone()).or_not())
+        .map(|(id, expr)| {
+            let mut acc = vec![KW(Erase), id];
+            add_clause(&mut acc, Where, expr);
+            List(acc)
+        });
+
     let update_stmt = kw("UPDATE")
         .ignore_then(id.clone())
         .then(update_body)
@@ -614,6 +624,7 @@ where
         select_stmt,
         insert_stmt,
         delete_stmt,
+        erase_stmt,
         update_stmt,
         create_index_stmt,
         create_view_stmt,
@@ -1990,6 +2001,18 @@ mod tests {
                             start: 66
                             end: 67
                         - Integer: 2
+        "###);
+
+        assert_yaml_snapshot!(parse("ERASE FROM foo WHERE FALSE"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Erase
+            - Id:
+                start: 11
+                end: 14
+            - KW: Where
+            - KW: "False"
         "###);
 
         assert_yaml_snapshot!(parse("DELETE FROM foo WHERE FALSE"), @r###"

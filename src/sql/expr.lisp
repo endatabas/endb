@@ -33,7 +33,7 @@
 
            #:make-agg #:agg-accumulate #:agg-finish
            #:ddl-create-table #:ddl-drop-table #:ddl-create-view #:ddl-drop-view #:ddl-create-index #:ddl-drop-index #:ddl-create-assertion #:ddl-drop-assertion
-           #:dml-insert #:dml-insert-objects #:dml-delete
+           #:dml-insert #:dml-insert-objects #:dml-delete #:dml-erase
 
            #:make-db #:copy-db #:db-buffer-pool #:db-wal #:db-object-store #:db-meta-data #:db-current-timestamp
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions
@@ -2060,14 +2060,17 @@
         (acc))
     (fset:do-map (arrow-file arrow-file-md table-md acc)
       (loop with deletes-md = (or (fset:lookup arrow-file-md "deletes") (fset:empty-map))
+            with erased-md = (or (fset:lookup arrow-file-md "erased") (fset:empty-map))
             for batch-row in (base-table-arrow-batches db table-name arrow-file)
             for batch = (cdr (assoc table-name batch-row :test 'equal))
             for batch-idx from 0
             for batch-deletes = (or (fset:lookup deletes-md (prin1-to-string batch-idx)) (fset:empty-seq))
+            for batch-erased = (or (fset:lookup erased-md (prin1-to-string batch-idx)) (fset:empty-seq))
             do (setf acc (append acc (loop for row-id below (endb/arrow:arrow-length batch)
-                                           unless (fset:find row-id batch-deletes
-                                                             :key (lambda (x)
-                                                                    (fset:lookup x "row_id")))
+                                           unless (or (fset:find row-id batch-deletes
+                                                                 :key (lambda (x)
+                                                                        (fset:lookup x "row_id")))
+                                                      (fset:find row-id batch-erased))
                                              collect (if arrow-file-idx-row-id-p
                                                          (cons (list arrow-file batch-idx row-id)
                                                                (endb/arrow:arrow-struct-projection batch row-id projection))
@@ -2390,3 +2393,19 @@
                       :initial-value (fset:lookup meta-data table-name))))
       (setf meta-data (fset:with meta-data table-name table-md))
       (values nil (length new-batch-file-idx-deleted-row-ids)))))
+
+(defun dml-erase (db table-name new-batch-file-idx-erased-row-ids)
+  (with-slots (meta-data) db
+    (let* ((table-md (reduce
+                      (lambda (acc batch-file-idx-row-id)
+                        (destructuring-bind (batch-file batch-idx row-id)
+                            batch-file-idx-row-id
+                          (let* ((batch-md (fset:lookup acc batch-file))
+                                 (erased-md (or (fset:lookup batch-md "erased") (fset:empty-map)))
+                                 (batch-idx-key (prin1-to-string batch-idx))
+                                 (batch-erased (or (fset:lookup erased-md batch-idx-key) (fset:empty-seq))))
+                            (fset:with acc batch-file (fset:with batch-md "erased" (fset:with erased-md batch-idx-key (fset:with-last batch-erased row-id)))))))
+                      new-batch-file-idx-erased-row-ids
+                      :initial-value (fset:lookup meta-data table-name))))
+      (setf meta-data (fset:with meta-data table-name table-md))
+      (values nil (length new-batch-file-idx-erased-row-ids)))))

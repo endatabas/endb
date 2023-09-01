@@ -195,12 +195,15 @@
     (if (base-table-p from-src)
         (alexandria:with-gensyms (table-md-sym
                                   arrow-file-md-sym
-                                  deletes-md-sym batch-row-sym
+                                  deletes-md-sym
+                                  erased-md-sym
+                                  batch-row-sym
                                   system-time-start-sym
                                   system-time-end-sym
                                   temporal-sym
                                   raw-deleted-row-ids-sym
                                   deleted-row-ids-sym
+                                  erased-row-ids-sym
                                   lambda-sym
                                   batch-sym
                                   scan-row-id-sym
@@ -219,10 +222,11 @@
                                                                      endb/sql/expr:+unix-epoch-time+
                                                                      temporal-start)))
                            (,system-time-end-sym ,(ast->cl ctx (if (eq temporal-type :all)
-                                                                     endb/sql/expr:+end-of-time+
-                                                                     temporal-end))))))
+                                                                   endb/sql/expr:+end-of-time+
+                                                                   temporal-end))))))
                  (fset:do-map (,scan-arrow-file-sym ,arrow-file-md-sym ,table-md-sym)
                    (loop with ,deletes-md-sym = (or (fset:lookup ,arrow-file-md-sym "deletes") (fset:empty-map))
+                         with ,erased-md-sym = (or (fset:lookup ,arrow-file-md-sym "erased") (fset:empty-map))
                          for ,batch-row-sym in (endb/sql/expr:base-table-arrow-batches ,(fset:lookup ctx :db-sym) ,table-name ,scan-arrow-file-sym)
                          for ,batch-sym = (cdr (assoc ,table-name ,batch-row-sym :test 'equal))
                          for ,temporal-sym = (cdr (assoc "system_time_start" ,batch-row-sym :test 'equal))
@@ -235,6 +239,8 @@
                                                              (eq t (endb/sql/expr:sql-<= (fset:lookup ,lambda-sym "system_time_end") ,system-time-start-sym)))
                                                            ,raw-deleted-row-ids-sym)
                                                          raw-deleted-row-ids-sym)
+                         for ,erased-row-ids-sym = (or (fset:lookup ,erased-md-sym (prin1-to-string ,scan-batch-idx-sym))
+                                                       (fset:empty-seq))
                          do (loop for ,scan-row-id-sym of-type fixnum below (endb/arrow:arrow-length ,batch-sym)
                                   for ,vars = ,(if  endb/sql/expr:*sqlite-mode*
                                                     `(endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',projection)
@@ -252,7 +258,8 @@
                                             (not (fset:find ,scan-row-id-sym
                                                             ,deleted-row-ids-sym
                                                             :key (lambda (,lambda-sym)
-                                                                   (fset:lookup ,lambda-sym "row_id")))))
+                                                                   (fset:lookup ,lambda-sym "row_id"))))
+                                            (not (fset:find ,scan-row-id-sym ,erased-row-ids-sym)))
                                     ,@where-src
                                   ,@nested-src)))))))
         `(loop for ,(%unique-vars vars)
@@ -947,6 +954,29 @@
                ,(%table-scan->cl ctx vars projection from-src where-clauses
                                  `(do (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym)))
                (endb/sql/expr:dml-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym))))))))
+
+(defmethod sql->cl (ctx (type (eql :erase)) &rest args)
+  (destructuring-bind (table-name &key (where :true))
+      args
+    (multiple-value-bind (from-src projection)
+        (%base-table-or-view->cl ctx table-name)
+      (when (base-table-p from-src)
+        (alexandria:with-gensyms (scan-row-id-sym scan-batch-idx-sym scan-arrow-file-sym erased-row-ids-sym)
+          (setf (base-table-temporal from-src) (list :all))
+          (let* ((env-extension (%env-extension (symbol-name table-name) projection))
+                 (ctx (fset:map-union (fset:map-union ctx env-extension)
+                                      (fset:map (:scan-row-id-sym scan-row-id-sym)
+                                                (:scan-arrow-file-sym scan-arrow-file-sym)
+                                                (:scan-batch-idx-sym scan-batch-idx-sym))))
+                 (vars (loop for p in projection
+                             collect (fset:lookup env-extension p)))
+                 (where-clauses (loop for clause in (%and-clauses where)
+                                      collect (make-where-clause :src (ast->cl ctx clause)
+                                                                 :ast clause))))
+            `(let ((,erased-row-ids-sym))
+               ,(%table-scan->cl ctx vars projection from-src where-clauses
+                                 `(do (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,erased-row-ids-sym)))
+               (endb/sql/expr:dml-erase ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,erased-row-ids-sym))))))))
 
 (defmethod sql->cl (ctx (type (eql :update)) &rest args)
   (destructuring-bind (table-name update-cols &key (where :true) unset patch)

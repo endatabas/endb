@@ -128,6 +128,7 @@ pub enum Keyword {
     CreateAssertion,
     DropAssertion,
     Extract,
+    Erase,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
