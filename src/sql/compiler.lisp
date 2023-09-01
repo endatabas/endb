@@ -742,8 +742,8 @@
 (defmethod sql->cl (ctx (type (eql :create-assertion)) &rest args)
   (destructuring-bind (constraint-name check-clause)
       args
-    (ast->cl (fset:with ctx :no-parameters "Assertions do not support parameters")
-             `(:select ((,check-clause))))
+    (when (find :parameter (alexandria:flatten check-clause))
+      (%annotated-error constraint-name "Assertions do not support parameters"))
     (let ((assertion-matches (nth-value 1 (ppcre:scan-to-strings +create-assertion-scanner+
                                                                  (fset:lookup ctx :sql)
                                                                  :start (get constraint-name :start)))))

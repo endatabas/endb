@@ -360,73 +360,77 @@
       (execute-sql write-db "INSERT INTO foo { [1 + 1]: 2 } ON CONFLICT (name) DO NOTHING"))))
 
 (test constraints
-  (let* ((db (make-db)))
+  (let* ((db (make-db))
+         (log-level (log4cl:logger-log-level log4cl:*root-logger*)))
 
-    (let ((write-db (begin-write-tx db)))
+    (unwind-protect
+         (progn
+           (setf (log4cl:logger-log-level log4cl:*root-logger*) :error)
 
-      (signals-with-msg endb/sql/expr:sql-runtime-error
-          "Assertions do not support parameters"
-        (execute-sql write-db "CREATE ASSERTION foo CHECK (1 = ?)"))
+           (let ((write-db (begin-write-tx db)))
 
-      (multiple-value-bind (result result-code)
-          (execute-sql write-db "INSERT INTO users {email: 'joe@example.com'}, {email: 'bob@example.com'}")
-        (is (null result))
-        (is (= 2 result-code)))
+             (signals-with-msg endb/sql/expr:sql-runtime-error
+                 "Assertions do not support parameters"
+               (execute-sql write-db "CREATE ASSERTION foo CHECK (1 = ?)"))
 
-      (multiple-value-bind (result result-code)
-          (execute-sql write-db "CREATE ASSERTION unique_email CHECK (1 >= (SELECT MAX(c.cnt) FROM (SELECT COUNT(*) AS cnt FROM users GROUP BY email) AS c))")
-        (is (null result))
-        (is (eq t result-code)))
+             (multiple-value-bind (result result-code)
+                 (execute-sql write-db "CREATE ASSERTION unique_email CHECK (1 >= (SELECT MAX(c.cnt) FROM (SELECT COUNT(*) AS cnt FROM users GROUP BY email) AS c))")
+               (is (null result))
+               (is (eq t result-code)))
 
-      (setf db (commit-write-tx db write-db)))
+             (setf db (commit-write-tx db write-db)))
 
-    (let ((write-db (begin-write-tx db)))
-      (multiple-value-bind (result result-code)
-          (execute-sql write-db "INSERT INTO users {email: 'rob@example.com'}")
-        (is (null result))
-        (is (= 1 result-code)))
+           (let ((write-db (begin-write-tx db)))
 
-      (setf db (commit-write-tx db write-db)))
+             (multiple-value-bind (result result-code)
+                 (execute-sql write-db "INSERT INTO users {email: 'joe@example.com'}, {email: 'bob@example.com'}")
+               (is (null result))
+               (is (= 2 result-code)))
 
-    (let ((write-db (begin-write-tx db)))
-      (multiple-value-bind (result result-code)
-          (execute-sql write-db "INSERT INTO users {email: 'joe@example.com'}")
-        (is (null result))
-        (is (= 1 result-code)))
+             (setf db (commit-write-tx db write-db)))
 
-      (signals-with-msg endb/sql/expr:sql-runtime-error
-          "Constraint failed: unique_email"
-        (commit-write-tx db write-db)))
+           (let ((write-db (begin-write-tx db)))
+             (multiple-value-bind (result result-code)
+                 (execute-sql write-db "INSERT INTO users {email: 'rob@example.com'}")
+               (is (null result))
+               (is (= 1 result-code)))
 
-    (let ((write-db (begin-write-tx db)))
+             (setf db (commit-write-tx db write-db)))
 
-      (multiple-value-bind (result result-code)
-          (execute-sql write-db "CREATE ASSERTION string_email CHECK (NOT EXISTS (SELECT * FROM users WHERE TYPEOF(email) != 'text'))")
-        (is (null result))
-        (is (eq t result-code)))
+           (let ((write-db (begin-write-tx db)))
+             (multiple-value-bind (result result-code)
+                 (execute-sql write-db "INSERT INTO users {email: 'joe@example.com'}")
+               (is (null result))
+               (is (= 1 result-code)))
 
-      (multiple-value-bind (result result-code)
-          (execute-sql write-db "INSERT INTO users {email: x'fab'}")
-        (is (null result))
-        (is (= 1 result-code)))
+             (signals-with-msg endb/sql/expr:sql-runtime-error
+                 "Constraint failed: unique_email"
+               (commit-write-tx db write-db)))
 
-      (signals-with-msg endb/sql/expr:sql-runtime-error
-          "Constraint failed: string_email"
-        (commit-write-tx db write-db)))
+           (let ((write-db (begin-write-tx db)))
 
-    (let ((write-db (begin-write-tx db))
-          (log-level (log4cl:logger-log-level log4cl:*root-logger*)))
-      (unwind-protect
-           (progn
-             (setf (log4cl:logger-log-level log4cl:*root-logger*) :error)
+             (multiple-value-bind (result result-code)
+                 (execute-sql write-db "CREATE ASSERTION string_email CHECK (NOT EXISTS (SELECT * FROM users WHERE TYPEOF(email) != 'text'))")
+               (is (null result))
+               (is (eq t result-code)))
 
+             (multiple-value-bind (result result-code)
+                 (execute-sql write-db "INSERT INTO users {email: x'fab'}")
+               (is (null result))
+               (is (= 1 result-code)))
+
+             (signals-with-msg endb/sql/expr:sql-runtime-error
+                 "Constraint failed: string_email"
+               (commit-write-tx db write-db)))
+
+           (let ((write-db (begin-write-tx db)))
              (multiple-value-bind (result result-code)
                  (execute-sql write-db "CREATE ASSERTION invalid_assertion CHECK (SQRT(-1))")
                (is (null result))
                (is (eq t result-code)))
 
-             (commit-write-tx db write-db))
-        (setf (log4cl:logger-log-level log4cl:*root-logger*) log-level)))))
+             (commit-write-tx db write-db)))
+      (setf (log4cl:logger-log-level log4cl:*root-logger*) log-level))))
 
 (test multiple-statments
   (let* ((db (make-db)))
