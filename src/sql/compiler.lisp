@@ -195,7 +195,7 @@
     (if (base-table-p from-src)
         (alexandria:with-gensyms (table-md-sym
                                   arrow-file-md-sym
-                                  deletes-md-sym
+                                  deleted-md-sym
                                   erased-md-sym
                                   batch-row-sym
                                   system-time-start-sym
@@ -225,13 +225,13 @@
                                                                    endb/sql/expr:+end-of-time+
                                                                    temporal-end))))))
                  (fset:do-map (,scan-arrow-file-sym ,arrow-file-md-sym ,table-md-sym)
-                   (loop with ,deletes-md-sym = (or (fset:lookup ,arrow-file-md-sym "deletes") (fset:empty-map))
+                   (loop with ,deleted-md-sym = (or (fset:lookup ,arrow-file-md-sym "deleted") (fset:empty-map))
                          with ,erased-md-sym = (or (fset:lookup ,arrow-file-md-sym "erased") (fset:empty-map))
                          for ,batch-row-sym in (endb/sql/expr:base-table-arrow-batches ,(fset:lookup ctx :db-sym) ,table-name ,scan-arrow-file-sym)
                          for ,batch-sym = (cdr (assoc ,table-name ,batch-row-sym :test 'equal))
                          for ,temporal-sym = (cdr (assoc "system_time_start" ,batch-row-sym :test 'equal))
                          for ,scan-batch-idx-sym from 0
-                         for ,raw-deleted-row-ids-sym = (or (fset:lookup ,deletes-md-sym (prin1-to-string ,scan-batch-idx-sym))
+                         for ,raw-deleted-row-ids-sym = (or (fset:lookup ,deleted-md-sym (prin1-to-string ,scan-batch-idx-sym))
                                                             (fset:empty-seq))
                          for ,deleted-row-ids-sym = ,(if temporal-type-p
                                                          `(fset:filter

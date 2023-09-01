@@ -2059,15 +2059,15 @@
         (projection (table-columns db table-name))
         (acc))
     (fset:do-map (arrow-file arrow-file-md table-md acc)
-      (loop with deletes-md = (or (fset:lookup arrow-file-md "deletes") (fset:empty-map))
+      (loop with deleted-md = (or (fset:lookup arrow-file-md "deleted") (fset:empty-map))
             with erased-md = (or (fset:lookup arrow-file-md "erased") (fset:empty-map))
             for batch-row in (base-table-arrow-batches db table-name arrow-file)
             for batch = (cdr (assoc table-name batch-row :test 'equal))
             for batch-idx from 0
-            for batch-deletes = (or (fset:lookup deletes-md (prin1-to-string batch-idx)) (fset:empty-seq))
+            for batch-deleted = (or (fset:lookup deleted-md (prin1-to-string batch-idx)) (fset:empty-seq))
             for batch-erased = (or (fset:lookup erased-md (prin1-to-string batch-idx)) (fset:empty-seq))
             do (setf acc (append acc (loop for row-id below (endb/arrow:arrow-length batch)
-                                           unless (or (fset:find row-id batch-deletes
+                                           unless (or (fset:find row-id batch-deleted
                                                                  :key (lambda (x)
                                                                         (fset:lookup x "row_id")))
                                                       (fset:find row-id batch-erased))
@@ -2076,10 +2076,10 @@
                                                                (endb/arrow:arrow-struct-projection batch row-id projection))
                                                          (endb/arrow:arrow-struct-projection batch row-id projection)))))))))
 
-(defun batch-row-system-time-end (batch-deletes row-id)
+(defun batch-row-system-time-end (batch-deleted row-id)
   (fset:lookup (or (fset:find-if (lambda (x)
                                    (= row-id (fset:lookup x "row_id")))
-                                 batch-deletes)
+                                 batch-deleted)
                    (fset:map ("system_time_end" +end-of-time+)))
                "system_time_end"))
 
@@ -2150,7 +2150,7 @@
               (+ acc (- (fset:lookup md "length")
                         (reduce (lambda (acc x)
                                   (+ acc (fset:size x)))
-                                (%fset-values (or (fset:lookup md "deletes") (fset:empty-map)))
+                                (%fset-values (or (fset:lookup md "deleted") (fset:empty-map)))
                                 :initial-value 0))))
             (%fset-values table-md)
             :initial-value 0)))
@@ -2384,11 +2384,11 @@
                         (destructuring-bind (batch-file batch-idx row-id)
                             batch-file-idx-row-id
                           (let* ((batch-md (fset:lookup acc batch-file))
-                                 (deletes-md (or (fset:lookup batch-md "deletes") (fset:empty-map)))
+                                 (deleted-md (or (fset:lookup batch-md "deleted") (fset:empty-map)))
                                  (batch-idx-key (prin1-to-string batch-idx))
-                                 (batch-deletes (or (fset:lookup deletes-md batch-idx-key) (fset:empty-seq)))
+                                 (batch-deleted (or (fset:lookup deleted-md batch-idx-key) (fset:empty-seq)))
                                  (delete-entry (fset:map ("row_id" row-id) ("system_time_end" current-timestamp))))
-                            (fset:with acc batch-file (fset:with batch-md "deletes" (fset:with deletes-md batch-idx-key (fset:with-last batch-deletes delete-entry)))))))
+                            (fset:with acc batch-file (fset:with batch-md "deleted" (fset:with deleted-md batch-idx-key (fset:with-last batch-deleted delete-entry)))))))
                       new-batch-file-idx-deleted-row-ids
                       :initial-value (fset:lookup meta-data table-name))))
       (setf meta-data (fset:with meta-data table-name table-md))
