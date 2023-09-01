@@ -3,6 +3,7 @@
   (:import-from :endb/arrow)
   (:import-from :endb/sql/expr)
   (:import-from :endb/storage/object-store)
+  (:import-from :alexandria)
   (:import-from :cl-ppcre)
   (:import-from :fset)
   (:import-from :sqlite)
