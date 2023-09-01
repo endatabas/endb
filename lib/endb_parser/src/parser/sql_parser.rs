@@ -135,6 +135,7 @@ where
                 kw("FOR")
                     .ignore_then(kw("SYSTEM_TIME"))
                     .ignore_then(choice((
+                        kw("ALL").map(|_| List(vec![KW(All)])),
                         kw("AS")
                             .ignore_then(kw("OF"))
                             .ignore_then(system_time_atom.clone())
@@ -2452,6 +2453,28 @@ mod tests {
                         - KW: AsOf
                         - List:
                             - KW: Parameter
+        "###);
+
+        assert_yaml_snapshot!(parse("SELECT * FROM Emp FOR SYSTEM_TIME ALL"), @r###"
+        ---
+        Ok:
+          List:
+            - KW: Select
+            - List:
+                - List:
+                    - KW: Mul
+            - KW: From
+            - List:
+                - List:
+                    - Id:
+                        start: 14
+                        end: 17
+                    - Id:
+                        start: 14
+                        end: 17
+                    - List: []
+                    - List:
+                        - KW: All
         "###);
 
         assert_yaml_snapshot!(parse("SELECT * FROM Emp FOR SYSTEM_TIME AS OF TIMESTAMP '2011-01-02 00:00:00'"), @r###"

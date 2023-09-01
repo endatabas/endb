@@ -215,8 +215,12 @@
                 (base-table-temporal from-src)
               `(let ((,table-md-sym (endb/sql/expr:base-table-meta ,(fset:lookup ctx :db-sym) ,table-name))
                      ,@(when temporal-type-p
-                         `((,system-time-start-sym ,(ast->cl ctx temporal-start))
-                           (,system-time-end-sym ,(ast->cl ctx temporal-end)))))
+                         `((,system-time-start-sym ,(ast->cl ctx (if (eq temporal-type :all)
+                                                                     endb/sql/expr:+unix-epoch-time+
+                                                                     temporal-start)))
+                           (,system-time-end-sym ,(ast->cl ctx (if (eq temporal-type :all)
+                                                                     endb/sql/expr:+end-of-time+
+                                                                     temporal-end))))))
                  (fset:do-map (,scan-arrow-file-sym ,arrow-file-md-sym ,table-md-sym)
                    (loop with ,deletes-md-sym = (or (fset:lookup ,arrow-file-md-sym "deletes") (fset:empty-map))
                          for ,batch-row-sym in (endb/sql/expr:base-table-arrow-batches ,(fset:lookup ctx :db-sym) ,table-name ,scan-arrow-file-sym)
@@ -240,9 +244,8 @@
                                                                              ("end" (endb/sql/expr:batch-row-system-time-end ,raw-deleted-row-ids-sym ,scan-row-id-sym))))))
                                   when (and ,(if temporal-type-p
                                                  `(eq t (,(case temporal-type
-                                                            (:as-of 'endb/sql/expr:sql-<=)
-                                                            (:from 'endb/sql/expr:sql-<)
-                                                            (:between 'endb/sql/expr:sql-<=))
+                                                            ((:as-of :between :all) 'endb/sql/expr:sql-<=)
+                                                            (:from 'endb/sql/expr:sql-<))
                                                          (endb/arrow:arrow-get ,temporal-sym ,scan-row-id-sym)
                                                          ,system-time-end-sym))
                                                  t)

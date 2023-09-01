@@ -1142,6 +1142,13 @@ SELECT s FROM x WHERE ind=0")
                       result))
           (is (equal '("a" "b" "system_time") columns)))
 
+        (multiple-value-bind (result columns)
+            (execute-sql db "SELECT t1.*, t1.system_time FROM t1 FOR SYSTEM_TIME ALL")
+          (is (equalp (list (list 101 104 (fset:map ("start" system-time-as-of-update) ("end" endb/sql/expr:+end-of-time+)))
+                            (list 103 104 (fset:map ("start" system-time-as-of-insert) ("end" system-time-as-of-update))))
+                      result))
+          (is (equal '("a" "b" "system_time") columns)))
+
         (signals-with-msg endb/sql/expr:sql-runtime-error
             "Cannot insert value into SYSTEM_TIME column"
           (execute-sql write-db "INSERT INTO t1(a, b, system_time) VALUES(103, 104, {start: 2001-01-01, end: 2002-01-01})"))))))
