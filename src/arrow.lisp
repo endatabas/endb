@@ -239,7 +239,7 @@
   (murmurhash:murmurhash (arrow-interval-month-day-nanos-uint128 x) :seed seed :mix-only mix-only))
 
 (defmethod murmurhash:murmurhash ((x fset:seq) &key (seed murmurhash:*default-seed*) mix-only)
-  (murmurhash:murmurhash (fset:convert 'vector x) :seed seed :mix-only mix-only))
+  (murmurhash:murmurhash (fset:convert 'list x) :seed seed :mix-only mix-only))
 
 (defmethod murmurhash:murmurhash ((x fset:map) &key (seed murmurhash:*default-seed*) mix-only)
   (murmurhash:murmurhash (fset:convert 'hash-table x) :seed seed :mix-only mix-only))
