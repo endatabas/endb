@@ -11,8 +11,7 @@
 (in-package :endb-test/core)
 
 (setf fiveam:*run-test-when-defined* t
-      fiveam:*on-error* (if (find :slynk *features*)
-                            :debug
-                            :backtrace)
+      fiveam:*on-error* (when (find :slynk *features*)
+                            :debug)
       fiveam:*on-failure* (when (find :slynk *features*)
                             :debug))
