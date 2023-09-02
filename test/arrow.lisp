@@ -166,25 +166,24 @@
 
   (let* ((expected (list (fset:empty-map) (fset:empty-map)))
          (array (to-arrow expected)))
-    (is (typep array 'endb/arrow::struct-array))
+    (is (typep array 'endb/arrow::map-array))
     (is (= 2 (arrow-length array)))
     (is (zerop (arrow-null-count array)))
-    (is (equal #*11
-               (slot-value array 'endb/arrow::validity)))
+    (is (null (slot-value array 'endb/arrow::validity)))
     (is (equalp expected (coerce array 'list)))
-    (is (zerop (length (arrow-children array))))
-    (is (= 1 (length (arrow-buffers array)))))
+    (is (= 1 (length (arrow-children array))))
+    (is (= 2 (length (arrow-buffers array)))))
 
   (let* ((expected (list :null (fset:empty-map)))
          (array (to-arrow expected)))
-    (is (typep array 'endb/arrow::struct-array))
+    (is (typep array 'endb/arrow::map-array))
     (is (= 2 (arrow-length array)))
     (is (= 1 (arrow-null-count array)))
     (is (equal #*01
                (slot-value array 'endb/arrow::validity)))
     (is (equalp expected (coerce array 'list)))
-    (is (zerop (length (arrow-children array))))
-    (is (= 1 (length (arrow-buffers array))))))
+    (is (= 1 (length (arrow-children array))))
+    (is (= 2 (length (arrow-buffers array))))))
 
 (test boolean-arrays
   (let* ((expected '(t nil :null))

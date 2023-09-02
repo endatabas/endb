@@ -358,7 +358,38 @@
 
     (signals-with-msg endb/sql/expr:sql-runtime-error
         "All inserted values needs to provide the on conflict columns"
-      (execute-sql write-db "INSERT INTO foo { [1 + 1]: 2 } ON CONFLICT (name) DO NOTHING"))))
+      (execute-sql write-db "INSERT INTO foo { [1 + 1]: 2 } ON CONFLICT (name) DO NOTHING"))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "INSERT INTO t4 {addresses: [{city: 'bar'}], name: 'foo'}")
+      (is (null result))
+      (is (= 1 result-code)))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "UPDATE t4 UNSET $.addresses[0].city WHERE name = 'foo'")
+      (is (null result))
+      (is (= 1 result-code)))
+
+    (setf db (commit-write-tx db write-db))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM t4")
+      (is (equalp `((,(fset:seq (fset:empty-map)) "foo")) result))
+      (is (equal '("addresses" "name") columns)))
+
+    (let ((write-db (begin-write-tx db)))
+
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "UPDATE t4 UNSET $.addresses[0] WHERE name = 'foo'")
+        (is (null result))
+        (is (= 1 result-code)))
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "SELECT * FROM t4")
+        (is (equalp `((,(fset:empty-seq) "foo")) result))
+        (is (equal '("addresses" "name") columns)))
+
+      (setf db (commit-write-tx db write-db)))))
 
 (test constraints
   (let* ((db (make-db))

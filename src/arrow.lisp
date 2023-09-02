@@ -356,7 +356,9 @@
     (arrow-time-micros 'time-micros-array)
     (arrow-timestamp-micros 'timestamp-micros-array)
     (arrow-interval-month-day-nanos 'interval-month-day-nanos-array)
-    (arrow-struct 'struct-array)
+    (arrow-struct (if (fset:empty? x)
+                      'map-array
+                      'struct-array))
     (arrow-binary 'binary-array)
     (string 'utf8-array)
     (arrow-list 'list-array)))
@@ -387,6 +389,7 @@
     ((equal "u" format) 'utf8-array)
     ((equal "+s" format) 'struct-array)
     ((equal "+l" format) 'list-array)
+    ((equal "+m" format) 'map-array)
     (t (if (alexandria:starts-with-subseq "+ud:" format)
            'dense-union-array
            (error "unknown format: ~s" format)))))
@@ -912,6 +915,67 @@
   (with-slots (values) array
     (list (cons "item" values))))
 
+(defclass map-array (validity-array)
+  ((offsets :type (vector int32))
+   (values :type arrow-array)))
+
+(defmethod initialize-instance :after ((array map-array) &key (length 0 lengthp) children)
+  (with-slots (offsets values) array
+    (setf offsets (make-array (1+ length) :element-type 'int32
+                                          :fill-pointer (unless lengthp
+                                                          (1+ length))))
+    (if children
+        (progn
+          (assert (= 1 (length children)))
+          (setf values (cdr (first children))))
+        (setf values (make-arrow-array-for (fset:map ("key" :null) ("value" :null)))))))
+
+(defmethod arrow-push ((array map-array) (x fset:map))
+  (if (fset:empty? x)
+      (with-slots (offsets values) array
+        (%push-valid array)
+        (fset:do-map (k v x)
+          (setf values (arrow-push values (fset:map ("key" k) ("value" v)))))
+        (vector-push-extend (arrow-length values) offsets)
+        array)
+      (call-next-method)))
+
+(defmethod arrow-push ((array map-array) (x (eql :null)))
+  (with-slots (offsets values) array
+    (%push-invalid array)
+    (vector-push-extend (length values) offsets)
+    array))
+
+(defmethod arrow-value ((array map-array) (n fixnum))
+  (with-slots (offsets values) array
+    (let* ((start (aref offsets n))
+           (end (aref offsets (1+ n))))
+      (reduce
+       (lambda (acc kv)
+         (fset:with acc (fset:lookup kv "key") (fset:lookup kv "value")))
+       (loop for src-idx from start below end
+             for dst-idx from 0
+             collect (arrow-get values src-idx))
+       :initial-value (fset:empty-map)))))
+
+(defmethod arrow-length ((array map-array))
+  (with-slots (offsets) array
+    (1- (length offsets))))
+
+(defmethod arrow-data-type ((array map-array))
+  "+m")
+
+(defmethod arrow-lisp-type ((array map-array))
+  'arrow-struct)
+
+(defmethod arrow-buffers ((array map-array))
+  (with-slots (offsets) array
+    (append (call-next-method) (list offsets))))
+
+(defmethod arrow-children ((array map-array))
+  (with-slots (values) array
+    (list (cons "entries" values))))
+
 (defun %same-struct-fields-p (array x)
   (with-slots (children) array
     (equal (fset:convert 'list (fset:domain x))
@@ -921,10 +985,9 @@
   ((children :initarg :children :initform () :type list)))
 
 (defmethod arrow-push ((array struct-array) (x fset:map))
-  (if (%same-struct-fields-p array x)
+  (if (and (%same-struct-fields-p array x)
+           (not (fset:empty? x)))
       (with-slots (children) array
-        (when (fset:empty? x)
-          (%ensure-validity-buffer array))
         (%push-valid array)
         (fset:do-map (k v x)
           (let ((kv-pair (assoc k children :test 'equal)))

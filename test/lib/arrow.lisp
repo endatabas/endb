@@ -43,7 +43,8 @@
                                  (fset:map ("name" :null) ("id" 2))
                                  :null
                                  (fset:map ("name" "mark") ("id" 4))))
-                     (170141183460469231731687303715884105727 -170141183460469231731687303715884105728)))
+                     (170141183460469231731687303715884105727 -170141183460469231731687303715884105728)
+                     (,(fset:empty-map))))
       (is (equalp (list array)
                   (loop for x in (read-arrow-arrays-from-ipc-buffer
                                   (write-arrow-arrays-to-ipc-buffer
