@@ -915,62 +915,34 @@
   (with-slots (values) array
     (list (cons "item" values))))
 
-(defclass map-array (validity-array)
-  ((offsets :type (vector int32))
-   (values :type arrow-array)))
+(defclass map-array (list-array) ())
 
-(defmethod initialize-instance :after ((array map-array) &key (length 0 lengthp) children)
+(defmethod initialize-instance :after ((array map-array) &key children)
   (with-slots (offsets values) array
-    (setf offsets (make-array (1+ length) :element-type 'int32
-                                          :fill-pointer (unless lengthp
-                                                          (1+ length))))
-    (if children
-        (progn
-          (assert (= 1 (length children)))
-          (setf values (cdr (first children))))
-        (setf values (make-arrow-array-for (fset:map ("key" :null) ("value" :null)))))))
+    (unless children
+      (setf values (make-arrow-array-for (fset:map ("key" :null) ("value" :null)))))))
 
 (defmethod arrow-push ((array map-array) (x fset:map))
   (if (fset:empty? x)
-      (with-slots (offsets values) array
-        (%push-valid array)
-        (fset:do-map (k v x)
-          (setf values (arrow-push values (fset:map ("key" k) ("value" v)))))
-        (vector-push-extend (arrow-length values) offsets)
-        array)
+      (arrow-push array (fset:reduce
+                         (lambda (acc k v)
+                           (fset:with-last acc (fset:map ("key" k) ("value" v))))
+                         x
+                         :initial-value (fset:empty-seq)))
       (call-next-method)))
 
-(defmethod arrow-push ((array map-array) (x (eql :null)))
-  (with-slots (offsets values) array
-    (%push-invalid array)
-    (vector-push-extend (length values) offsets)
-    array))
-
 (defmethod arrow-value ((array map-array) (n fixnum))
-  (with-slots (offsets values) array
-    (let* ((start (aref offsets n))
-           (end (aref offsets (1+ n))))
-      (reduce
-       (lambda (acc kv)
-         (fset:with acc (fset:lookup kv "key") (fset:lookup kv "value")))
-       (loop for src-idx from start below end
-             for dst-idx from 0
-             collect (arrow-get values src-idx))
-       :initial-value (fset:empty-map)))))
-
-(defmethod arrow-length ((array map-array))
-  (with-slots (offsets) array
-    (1- (length offsets))))
+  (fset:reduce
+   (lambda (acc kv)
+     (fset:with acc (fset:lookup kv "key") (fset:lookup kv "value")))
+   (call-next-method)
+   :initial-value (fset:empty-map)))
 
 (defmethod arrow-data-type ((array map-array))
   "+m")
 
 (defmethod arrow-lisp-type ((array map-array))
   'arrow-struct)
-
-(defmethod arrow-buffers ((array map-array))
-  (with-slots (offsets) array
-    (append (call-next-method) (list offsets))))
 
 (defmethod arrow-children ((array map-array))
   (with-slots (values) array
@@ -990,6 +962,7 @@
       (with-slots (children) array
         (%push-valid array)
         (fset:do-map (k v x)
+          (assert (stringp k))
           (let ((kv-pair (assoc k children :test 'equal)))
             (setf (cdr kv-pair) (arrow-push (cdr kv-pair) v))))
         array)
