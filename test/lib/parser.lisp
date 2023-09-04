@@ -28,6 +28,9 @@
 (test lib-annotate-input-with-error
   (is (equalp expected-annotation (trivial-utf-8:string-to-utf-8-bytes (annotate-input-with-error "SELECT foo < 2" "Unknown column." 7 10)))))
 
+(test empty-input
+  (signals sql-parse-error (parse-sql "")))
+
 (test lib-parse-escapes
   (let ((result (caaadr (parse-sql "SELECT \"\\/f\\bo\\fo\\nb\\\\a\\\"\\tr\\r\\u03BB\""))))
     (is (equalp (format nil "/f~Ao~Ao~Ab\\a\"~Ar~Aλ" #\Backspace #\Page #\NewLine #\Tab #\Return) result)))
