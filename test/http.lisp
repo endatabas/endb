@@ -171,7 +171,7 @@
                      (format nil "[[1,2],[3,4]]~%"))
                (%req app
                      :get "/sql"
-                     :query "q=SELECT%20a,b%20FROM%20foo%20ORDER%20BY%20a")))))
+                     :query "q=SELECT%20a%2Cb%20FROM%20foo%20ORDER%20BY%20a")))))
 
 (test errors
   (let* ((db (endb/sql:make-db))
