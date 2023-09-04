@@ -1530,9 +1530,11 @@
 (defmethod syn-cast ((x (eql nil)) (type (eql :integer)))
   0)
 
+(defparameter +integer-scanner+ (ppcre:create-scanner "^-?\\d+"))
+
 (defmethod syn-cast ((x string) (type (eql :integer)))
   (multiple-value-bind (start end)
-      (ppcre:scan "^-?\\d+" x)
+      (ppcre:scan +integer-scanner+ x)
     (if start
         (let ((*read-eval* nil))
           (read-from-string (subseq x 0 end)))
@@ -1559,9 +1561,11 @@
 (defmethod syn-cast ((x (eql nil)) (type (eql :decimal)))
   0)
 
+(defparameter +decimal-scanner+ (ppcre:create-scanner "^-?\\d+(\\.\\d+)?([eE][-+]?\\d+)?"))
+
 (defmethod syn-cast ((x string) (type (eql :decimal)))
   (multiple-value-bind (start end)
-      (ppcre:scan "^-?\\d+(\\.\\d+)?([eE][-+]?\\d+)?" x)
+      (ppcre:scan +decimal-scanner+ x)
     (if start
         (let ((*read-eval* nil)
               (*read-default-float-format* 'double-float))
