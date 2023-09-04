@@ -2779,6 +2779,8 @@ SELECT s FROM x WHERE ind=0")
   (is-valid (expr "'foo' LIKE NULL"))
 
   (is-valid (expr "'fo%' LIKE 'foX%' ESCAPE 'X'"))
+  (is-valid (expr "'foo' LIKE '.oo'"))
+  (is-valid (expr "'foo' LIKE '.*oo'"))
 
   (is-valid (expr "'foo' || 'bar'"))
   (is-valid (expr "1 || 2"))
@@ -2850,6 +2852,7 @@ SELECT s FROM x WHERE ind=0")
   (is-valid (expr "GLOB('?arfoo', 'barfoo')"))
   (is-valid (expr "GLOB('?rfoo', 'barfoo')"))
   (is-valid (expr "GLOB('*/b', 'a/b')"))
+  (is-valid (expr "GLOB('.b', 'ab')"))
 
   (is-valid (expr "ZEROBLOB(8)"))
 

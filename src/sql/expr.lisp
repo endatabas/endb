@@ -977,10 +977,11 @@
 (defmethod sql-like ((x string) (y string) &optional (z nil zp))
   (when (and zp (not (= 1 (length z))))
     (error 'sql-runtime-error :message (format nil "Invalid escape character: ~A" z)))
-  (let* ((regex (ppcre:regex-replace-all (if zp
-                                             (format nil "(?<![~A])%" z)
-                                             "%")
-                                         y
+  (let* ((regex (ppcre:quote-meta-chars x))
+         (regex (ppcre:regex-replace-all (if zp
+                                             (format nil "(?<![~A])\\\\%" z)
+                                             "\\\\%")
+                                         regex
                                          ".*"))
          (regex (ppcre:regex-replace-all (if zp
                                              (format nil "(?<![~A])_" z)
@@ -988,10 +989,10 @@
                                          regex
                                          "."))
          (regex (if zp
-                    (ppcre:regex-replace-all (format nil "~A([_%])" z) regex "\\1")
+                    (ppcre:regex-replace-all (format nil "~A(_|\\\\%)" z) regex "\\1")
                     regex))
          (regex (concatenate 'string "^" regex "$")))
-    (integerp (ppcre:scan regex x))))
+    (integerp (ppcre:scan regex y))))
 
 (defmethod sql-glob ((x (eql :null)) y)
   :null)
@@ -1000,7 +1001,10 @@
   :null)
 
 (defmethod sql-glob ((x string) (y string))
-  (let ((regex (concatenate 'string "^" (ppcre:regex-replace-all "\\?" (ppcre:regex-replace-all "\\*" x ".*?") ".") "$")))
+  (let* ((regex (ppcre:quote-meta-chars x))
+         (regex (ppcre:regex-replace-all "\\\\\\*" regex ".*?"))
+         (regex (ppcre:regex-replace-all "\\\\\\?" regex "."))
+         (regex (concatenate 'string "^" regex "$")))
     (integerp (ppcre:scan regex y))))
 
 (defmethod sql-regexp ((x (eql :null)) y)

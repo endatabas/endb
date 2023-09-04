@@ -1051,6 +1051,13 @@
       args
     (endb/sql/expr:sql-unhex x)))
 
+(defmethod sql->cl (ctx (type (eql :like)) &rest args)
+  (destructuring-bind (x y &optional (z nil zp))
+      args
+    (if zp
+        `(endb/sql/expr:sql-like ,(ast->cl ctx y) ,(ast->cl ctx x) ,(ast->cl ctx z))
+        `(endb/sql/expr:sql-like ,(ast->cl ctx y) ,(ast->cl ctx x)))))
+
 (defmethod sql->cl (ctx (type (eql :glob)) &rest args)
   (destructuring-bind (x y)
       args

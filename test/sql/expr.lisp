@@ -105,13 +105,13 @@
 
 (test like
   (is (eq t (sql-like "foo" "foo")))
-  (is (eq nil (sql-like "fo" "foo")))
   (is (eq nil (sql-like "foo" "fo")))
-  (is (eq t (sql-like "foo" "fo%")))
-  (is (eq t (sql-like "foo" "%oo")))
-  (is (eq t (sql-like "foo" "%o%")))
-  (is (eq :null (sql-like :null "%o%")))
-  (is (eq :null (sql-like "foo" :null))))
+  (is (eq nil (sql-like "fo" "foo")))
+  (is (eq t (sql-like "fo%" "foo")))
+  (is (eq t (sql-like "%oo" "foo")))
+  (is (eq t (sql-like "%o%" "foo")))
+  (is (eq :null (sql-like "%o%" :null)))
+  (is (eq :null (sql-like :null "foo"))))
 
 (test substring
   (is (equal "foo" (sql-substring "foo" 1)))
