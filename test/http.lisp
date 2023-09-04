@@ -192,6 +192,13 @@
                      :get "/sql"
                      :query "q=DELETE%20FROM%20foo")))
 
+    (is (equal (list +http-bad-request+
+                     '(:content-type "text/plain")
+                     (list (format nil "Invalid argument types: SIN(\"foo\")~%")))
+               (%req app
+                     :get "/sql"
+                     :query "q=SELECT%20SIN%28%27foo%27%29")))
+
     (is (equal (list +http-method-not-allowed+
                      '(:allow "GET, POST"
                        :content-type "text/plain"
