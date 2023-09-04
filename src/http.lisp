@@ -1,6 +1,16 @@
 (defpackage :endb/http
   (:use :cl)
-  (:export #:make-api-handler)
+  (:export #:make-api-handler
+           #:+http-ok+
+           #:+http-created+
+           #:+http-bad-request+
+           #:+http-unauthorized+
+           #:+http-not-found+
+           #:+http-method-not-allowed+
+           #:+http-not-acceptable+
+           #:+http-conflict+
+           #:+http-unsupported-media-type+
+           #:+http-internal-server-error+)
   (:import-from :alexandria)
   (:import-from :bordeaux-threads)
   (:import-from :lack.request)
@@ -27,7 +37,7 @@
 (defconstant +http-unsupported-media-type+ 415)
 (defconstant +http-internal-server-error+ 500)
 
-(defparameter *crlf* (coerce '(#\return #\linefeed) 'string))
+(defparameter +crlf+ (coerce '(#\return #\linefeed) 'string))
 (defparameter +request-json-media-types+ '("application/json" "application/ld+json"))
 (defparameter +request-media-types+ (append '("application/sql" "application/x-www-form-urlencoded" "multipart/")
                                             +request-json-media-types+))
@@ -85,7 +95,7 @@
                finally (funcall writer nil :close t)))
         ((equal "text/csv" content-type)
          (loop for row in (cons column-names rows)
-               do (funcall writer (format nil "~{~A~^,~}~A" (mapcar #'%format-csv row) *crlf*))
+               do (funcall writer (format nil "~{~A~^,~}~A" (mapcar #'%format-csv row) +crlf+))
                finally (funcall writer nil :close t)))))))
 
 (defun %error-response (status error)
