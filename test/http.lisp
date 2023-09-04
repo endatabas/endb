@@ -9,18 +9,16 @@
 (in-suite* :http)
 
 (defun %req (handler method path-info &key query body content-type (accept "*/*") headers)
-  (let* ((raw-body (when body
-                     (trivial-utf-8:string-to-utf-8-bytes body)))
-         (env (list :request-method method
-                    :path-info path-info
-                    :query-string query
-                    :content-type content-type
-                    :content-length (when raw-body
-                                      (length raw-body))
-                    :raw-body (when raw-body
-                                (make-instance 'fast-io:fast-input-stream
-                                               :vector raw-body))
-                    :headers (alexandria:plist-hash-table (append headers (list "accept" accept)) :test 'equal)))
+  (let* ((env (append
+               (list :request-method method
+                     :path-info path-info
+                     :query-string query
+                     :content-type content-type
+                     :headers (alexandria:plist-hash-table (append headers (list "accept" accept)) :test 'equal))
+               (when body
+                 (list :raw-body (make-instance 'fast-io:fast-input-stream
+                                                :vector (trivial-utf-8:string-to-utf-8-bytes body))
+                       :content-length (trivial-utf-8:utf-8-byte-length body)))))
          (response (funcall handler env)))
     (etypecase response
       (function (let* ((response-body "")
