@@ -97,6 +97,22 @@
                          (error ,e-sym)
                          (is (ppcre:scan ,msg (format nil "~A" ,e-sym)))))))))
 
+(test empty-db
+  (let* ((db (make-db))
+         (write-db (begin-write-tx db)))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql write-db "INSERT INTO t1 {a: 103, b: 104}")
+      (is (null result))
+      (is (= 1 result-code)))
+
+    (setf db (commit-write-tx db write-db))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM t1")
+      (is (equal '((103 104)) result))
+      (is (equal '("a" "b") columns)))))
+
 (test no-ddl
   (let* ((db (make-db))
          (write-db (begin-write-tx db)))
@@ -1876,8 +1892,7 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))))
 
 (test directory-db
-  (let* ((endb/sql/expr:*sqlite-mode* t)
-         (target-dir (asdf:system-relative-pathname :endb-test "target/"))
+  (let* ((target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-dir (merge-pathnames "endb_data_directory/" target-dir)))
     (unwind-protect
          (let ((db (make-directory-db :directory test-dir)))
@@ -1885,12 +1900,7 @@ SELECT s FROM x WHERE ind=0")
                 (let ((write-db (begin-write-tx db)))
 
                   (multiple-value-bind (result result-code)
-                      (execute-sql write-db "CREATE TABLE t1(a INTEGER)")
-                    (is (null result))
-                    (is (eq t result-code)))
-
-                  (multiple-value-bind (result result-code)
-                      (execute-sql write-db "INSERT INTO t1 VALUES(103)")
+                      (execute-sql write-db "INSERT INTO t1(a) VALUES(103)")
                     (is (null result))
                     (is (= 1 result-code)))
 
@@ -1907,7 +1917,7 @@ SELECT s FROM x WHERE ind=0")
                     (let ((write-db (begin-write-tx db)))
 
                       (multiple-value-bind (result result-code)
-                          (execute-sql write-db "INSERT INTO t1 VALUES(104)")
+                          (execute-sql write-db "INSERT INTO t1(a) VALUES(104)")
                         (is (null result))
                         (is (= 1 result-code)))
 
@@ -1931,8 +1941,7 @@ SELECT s FROM x WHERE ind=0")
         (uiop:delete-directory-tree test-dir :validate t)))))
 
 (test wal-only-directory-db
-  (let* ((endb/sql/expr:*sqlite-mode* t)
-         (target-dir (asdf:system-relative-pathname :endb-test "target/"))
+  (let* ((target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-dir (merge-pathnames "endb_data_wal_only/" target-dir)))
     (unwind-protect
          (let ((db (make-directory-db :directory test-dir :object-store-path nil)))
@@ -1940,12 +1949,7 @@ SELECT s FROM x WHERE ind=0")
                 (let ((write-db (begin-write-tx db)))
 
                   (multiple-value-bind (result result-code)
-                      (execute-sql write-db "CREATE TABLE t1(a INTEGER)")
-                    (is (null result))
-                    (is (eq t result-code)))
-
-                  (multiple-value-bind (result result-code)
-                      (execute-sql write-db "INSERT INTO t1 VALUES(103)")
+                      (execute-sql write-db "INSERT INTO t1(a) VALUES(103)")
                     (is (null result))
                     (is (= 1 result-code)))
 
@@ -1962,7 +1966,7 @@ SELECT s FROM x WHERE ind=0")
                     (let ((write-db (begin-write-tx db)))
 
                       (multiple-value-bind (result result-code)
-                          (execute-sql write-db "INSERT INTO t1 VALUES(104)")
+                          (execute-sql write-db "INSERT INTO t1(a) VALUES(104)")
                         (is (null result))
                         (is (= 1 result-code)))
 
