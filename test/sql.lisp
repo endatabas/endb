@@ -101,10 +101,25 @@
   (let* ((db (make-db))
          (write-db (begin-write-tx db)))
 
+    (signals-with-msg
+        endb/sql/expr:sql-runtime-error
+        "Unknown table"
+        (execute-sql db "SELECT * FROM t1"))
+
     (multiple-value-bind (result result-code)
-        (execute-sql write-db "INSERT INTO t1 {a: 103, b: 104}")
+        (execute-sql write-db "INSERT INTO t1 {a: 103, b: 104} ON CONFLICT (b) DO NOTHING")
       (is (null result))
       (is (= 1 result-code)))
+
+    (signals-with-msg
+        endb/sql/expr:sql-runtime-error
+        "Unknown table"
+        (execute-sql db "SELECT * FROM t1"))
+
+    (multiple-value-bind (result columns)
+        (execute-sql write-db "SELECT * FROM t1")
+      (is (equal '((103 104)) result))
+      (is (equal '("a" "b") columns)))
 
     (setf db (commit-write-tx db write-db))
 
