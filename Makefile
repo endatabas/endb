@@ -24,6 +24,7 @@ else
 	DOCKER_IMAGE = endatabas/endb:latest
 endif
 DOCKER_ID = $(shell docker images -q $(DOCKER_IMAGE))
+PODMAN_USR = $(shell grep "^unqualified-search-registries = \[\"docker.io\"\]" /etc/containers/registries.conf || grep "^unqualified-search-registries = \[\"docker.io\"\]" ~/.config/containers/registries.conf)
 
 LIB_PROFILE = release
 LIB_PROFILE_DIR = $(LIB_PROFILE)
@@ -175,15 +176,21 @@ docker-alpine: docker
 run-docker: docker endb_data
 	$(DOCKER) run --rm -p 3803:3803 -v "$(PWD)/endb_data":/app/endb_data -it endatabas/endb:latest-$(DOCKER_ENDB_OS)
 
-~/.config/containers/registries.conf:
-	mkdir -p ~/.config/containers/
-	echo 'unqualified-search-registries = ["docker.io"]' > ~/.config/containers/registries.conf
-
 # explicit builds mean `push-docker` does not depend on build directly
-push-docker: ~/.config/containers/registries.conf
+push-docker:
+ifeq ($(PODMAN_USR),)
+	@echo "\nWARNING: 'unqualified-search-registries' is missing. Looked in:"
+	@echo "    /etc/containers/registries.conf"
+	@echo "    ~/.config/containers/registries.conf\n"
+	@echo "Remove this warning by running the following command:"
+	@echo "echo 'unqualified-search-registries = [\"docker.io\"]' >> ~/.config/containers/registries.conf\n"
+	@echo "'push-docker' target failed."
+else
+	@echo "'unqualified-search-registries' successfully detected."
 	$(DOCKER) login --username=endatabas
 	$(DOCKER) tag $(DOCKER_ID) endatabas/endb:latest
 	$(DOCKER) push endatabas/endb:latest
+endif
 
 clean:
 	(cd lib; $(CARGO) clean)
