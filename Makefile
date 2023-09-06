@@ -167,7 +167,7 @@ slt-test-ci:
 
 docker:
 	$(DOCKER) build --pull \
-		--build-arg ENDB_GIT_REVISION=$(shell git rev-parse HEAD) \
+		--build-arg ENDB_GIT_DESCRIBE=$(shell git describe --always --dirty) \
 		--build-arg RUST_OS=$(DOCKER_RUST_OS) --build-arg SBCL_OS=$(DOCKER_SBCL_OS) --build-arg ENDB_OS=$(DOCKER_ENDB_OS) \
 		$(DOCKER_TAGS) .
 

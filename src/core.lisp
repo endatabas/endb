@@ -74,21 +74,21 @@
     :key :log-level)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defvar *git-revision* (or (uiop:getenv "ENDB_GIT_REVISION")
+  (defvar *git-describe* (or (uiop:getenv "ENDB_GIT_DESCRIBE")
                              (handler-case
                                  (multiple-value-bind (out err exit-code)
-                                     (uiop:run-program '("git" "rev-parse" "HEAD") :output '(:string :stripped t) :ignore-error-status t)
+                                     (uiop:run-program '("git" "describe" "--always" "--dirty") :output '(:string :stripped t) :ignore-error-status t)
                                    (declare (ignore err))
                                    (when (zerop exit-code)
                                      out))
                                (error ()))
-                             "<unknown revison>")))
+                             "<unknown revision>")))
 
 (defun endb-command ()
   (let ((endb-system (asdf:find-system :endb)))
     (clingon:make-command :name (asdf:component-name endb-system)
                           :description (asdf/component:component-description endb-system)
-                          :version (format nil "~A ~A" (asdf:component-version endb-system) *git-revision*)
+                          :version (format nil "~A ~A" (asdf:component-version endb-system) *git-describe*)
                           :license (asdf:system-license endb-system)
                           :usage "[OPTION]..."
                           :options (endb-options)
