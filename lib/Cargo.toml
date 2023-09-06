@@ -20,3 +20,6 @@ arrow2 = { version = "0.17.0", features = ["io_ipc", "io_parquet", "io_parquet_c
 [profile.release]
 lto = true
 codegen-units = 1
+
+[profile.test]
+debug = 1
