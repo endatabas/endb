@@ -10,7 +10,8 @@
   (:import-from :log4cl)
   (:import-from :endb/http)
   (:import-from :endb/lib)
-  (:import-from :endb/sql))
+  (:import-from :endb/sql)
+  (:import-from :uiop))
 (in-package :endb/core)
 
 (defun endb-handler (cmd)
@@ -72,11 +73,22 @@
     :env-vars '("ENDB_LOG_LEVEL")
     :key :log-level)))
 
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defvar *git-revision* (or (uiop:getenv "ENDB_GIT_REVISION")
+                             (handler-case
+                                 (multiple-value-bind (out err exit-code)
+                                     (uiop:run-program '("git" "rev-parse" "HEAD") :output '(:string :stripped t) :ignore-error-status t)
+                                   (declare (ignore err))
+                                   (when (zerop exit-code)
+                                     out))
+                               (error ()))
+                             "<unknown revison>")))
+
 (defun endb-command ()
   (let ((endb-system (asdf:find-system :endb)))
     (clingon:make-command :name (asdf:component-name endb-system)
                           :description (asdf/component:component-description endb-system)
-                          :version (asdf:component-version endb-system)
+                          :version (format nil "~A ~A" (asdf:component-version endb-system) *git-revision*)
                           :license (asdf:system-license endb-system)
                           :usage "[OPTION]..."
                           :options (endb-options)

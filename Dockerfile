@@ -1,6 +1,7 @@
 ARG RUST_OS=bullseye
 ARG SBCL_OS=debian
 ARG ENDB_OS=debian
+ARG ENDB_GIT_REVISION="<unknown revision>"
 
 FROM docker.io/rust:$RUST_OS AS rust-build-env
 
@@ -20,6 +21,7 @@ RUN cargo test; cargo build --release
 FROM docker.io/fukamachi/sbcl:latest-$SBCL_OS AS sbcl-build-env
 
 ARG SBCL_OS
+ARG ENDB_GIT_REVISION
 
 RUN if [ "$SBCL_OS" = "alpine" ]; then \
       apk add --no-cache gcc musl-dev sqlite-libs; \
@@ -32,9 +34,9 @@ COPY . /root/.roswell/local-projects/endb
 
 COPY --from=rust-build-env /root/endb/target/release/libendb.so /root/.roswell/local-projects/endb/target/libendb.so
 
-RUN make test slt-test target/endb -e CARGO=echo
+RUN make -e ENDB_GIT_REVISION="$ENDB_GIT_REVISION" test slt-test target/endb -e CARGO=echo
 
-FROM $ENDB_OS
+FROM docker.io/$ENDB_OS
 
 ARG ENDB_OS
 
