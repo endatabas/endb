@@ -24,7 +24,7 @@ else
 	DOCKER_IMAGE = endatabas/endb:latest
 endif
 DOCKER_ID = $(shell docker images -q $(DOCKER_IMAGE))
-PODMAN_USR = $(shell grep "^unqualified-search-registries = \[\"docker.io\"\]" /etc/containers/registries.conf || grep "^unqualified-search-registries = \[\"docker.io\"\]" ~/.config/containers/registries.conf)
+PODMAN_USER = $(shell grep "^unqualified-search-registries = \[\"docker.io\"\]" /etc/containers/registries.conf || grep "^unqualified-search-registries = \[\"docker.io\"\]" ~/.config/containers/registries.conf)
 
 LIB_PROFILE = release
 LIB_PROFILE_DIR = $(LIB_PROFILE)
@@ -182,7 +182,7 @@ run-docker: docker endb_data
 
 # explicit builds mean `push-docker` does not depend on build directly
 push-docker:
-ifeq ($(PODMAN_USR),)
+ifeq ($(PODMAN_USER),)
 	@echo "\nWARNING: 'unqualified-search-registries' is missing. Looked in:"
 	@echo "    /etc/containers/registries.conf"
 	@echo "    ~/.config/containers/registries.conf\n"
