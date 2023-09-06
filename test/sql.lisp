@@ -104,7 +104,7 @@
     (signals-with-msg
         endb/sql/expr:sql-runtime-error
         "Unknown table"
-        (execute-sql db "SELECT * FROM t1"))
+      (execute-sql db "SELECT * FROM t1"))
 
     (multiple-value-bind (result result-code)
         (execute-sql write-db "INSERT INTO t1 {a: 103, b: 104} ON CONFLICT (b) DO NOTHING")
@@ -114,7 +114,7 @@
     (signals-with-msg
         endb/sql/expr:sql-runtime-error
         "Unknown table"
-        (execute-sql db "SELECT * FROM t1"))
+      (execute-sql db "SELECT * FROM t1"))
 
     (multiple-value-bind (result columns)
         (execute-sql write-db "SELECT * FROM t1")
@@ -2050,6 +2050,31 @@ SELECT s FROM x WHERE ind=0")
                                "t1/0000000000000002.arrow")
                              (endb/storage/object-store:object-store-list (endb/sql/expr:db-object-store db)))))
              (close-db db)))
+      (when (probe-file test-dir)
+        (uiop:delete-directory-tree test-dir :validate t)))))
+
+(test wal-only-directory-db-tx-log-version
+  (let* ((target-dir (asdf:system-relative-pathname :endb-test "target/"))
+         (test-dir (merge-pathnames "endb_data_tx_log_version/" target-dir)))
+    (unwind-protect
+         (let ((db (make-directory-db :directory test-dir :object-store-path nil)))
+           (unwind-protect
+                (let ((write-db (begin-write-tx db)))
+
+                  (multiple-value-bind (result result-code)
+                      (execute-sql write-db "INSERT INTO t1(a) VALUES(103)")
+                    (is (null result))
+                    (is (= 1 result-code)))
+
+                  (is (equal '((103)) (execute-sql write-db "SELECT * FROM t1")))
+
+                  (setf db (commit-write-tx db write-db)))
+             (close-db db))
+
+           (let ((endb/sql::*tx-log-version* (1+ endb/sql::*tx-log-version*)))
+             (signals-with-msg simple-error
+                 "Transaction log version mismatch: 2 does not match stored: 1"
+               (make-directory-db :directory test-dir :object-store-path nil))))
       (when (probe-file test-dir)
         (uiop:delete-directory-tree test-dir :validate t)))))
 

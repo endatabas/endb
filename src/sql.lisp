@@ -16,6 +16,7 @@
 (in-package :endb/sql)
 
 (defvar *query-timing* nil)
+(defvar *tx-log-version* 1)
 
 (defun %replay-log (read-wal)
   (loop with md = (fset:empty-map)
@@ -24,7 +25,12 @@
                                                                                             (not (alexandria:starts-with-subseq "_log/" x))))
                                 (cons buffer name))
         when buffer
-          do (setf md (endb/json:json-merge-patch md (endb/json:json-parse buffer)))
+          do (let* ((tx-md (endb/json:json-parse buffer))
+                    (tx-tx-log-version (fset:lookup tx-md "_tx_log_version")))
+               (assert (equal *tx-log-version* tx-tx-log-version)
+                       nil
+                       (format nil "Transaction log version mismatch: ~A does not match stored: ~A" *tx-log-version* tx-tx-log-version))
+               (setf md (endb/json:json-merge-patch md tx-md)))
         while name
         finally (return md)))
 
@@ -97,6 +103,7 @@
           (let* ((tx-id (1+ (or (fset:lookup tx-md "_last_tx") 0)))
                  (tx-md (fset:with tx-md "_last_tx" tx-id))
                  (md-diff (endb/json:json-diff current-md tx-md))
+                 (md-diff (fset:with md-diff "_tx_log_version" *tx-log-version*))
                  (md-diff-bytes (trivial-utf-8:string-to-utf-8-bytes (endb/json:json-stringify md-diff)))
                  (wal (endb/sql/expr:db-wal write-db)))
             (%write-new-buffers write-db)
