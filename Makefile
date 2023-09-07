@@ -20,8 +20,10 @@ DOCKER_ENDB_OS = debian
 DOCKER_TAGS = -t endatabas/endb:$(DOCKER_ENDB_OS) -t endatabas/endb:latest-$(DOCKER_ENDB_OS) -t endatabas/endb:latest
 ifeq ($(shell docker --version | cut -d" " -f1),podman)
 	DOCKER_IMAGE = localhost/endatabas/endb:latest
+  DOCKER_PULL_ALWAYS = -always
 else
 	DOCKER_IMAGE = endatabas/endb:latest
+  DOCKER_PULL_ALWAYS = =always
 endif
 DOCKER_ID = $(shell docker images -q $(DOCKER_IMAGE))
 PODMAN_USER = $(shell grep "^unqualified-search-registries = \[\"docker.io\"\]" /etc/containers/registries.conf || grep "^unqualified-search-registries = \[\"docker.io\"\]" ~/.config/containers/registries.conf)
@@ -166,7 +168,7 @@ slt-test-ci:
 	$(SLT_ENV) make slt-test-tpch
 
 docker:
-	$(DOCKER) build --pull \
+	$(DOCKER) build --pull$(DOCKER_PULL_ALWAYS) \
 		--build-arg ENDB_GIT_DESCRIBE=$(shell git describe --always --dirty) \
 		--build-arg RUST_OS=$(DOCKER_RUST_OS) --build-arg SBCL_OS=$(DOCKER_SBCL_OS) --build-arg ENDB_OS=$(DOCKER_ENDB_OS) \
 		$(DOCKER_TAGS) .
