@@ -9,6 +9,15 @@ For more information, please contact us at [hello@endatabas.com](mailto:hello@en
 Endatabas is **experimental software.**
 Learn more by reading our [roadmap](ROADMAP.md).
 
+## Installation
+
+* [Quickstart](https://docs.endatabas.com/tutorial/quickstart.html)
+* [Installation](https://docs.endatabas.com/reference/installation.html) (additional methods)
+
+## Documentation
+
+* [https://docs.endatabas.com/](https://docs.endatabas.com/) contains a tutorial, reference docs, and SQL language reference.
+
 ## Building
 
 Install https://www.quicklisp.org/ and https://www.sbcl.org/
