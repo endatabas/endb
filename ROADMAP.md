@@ -32,20 +32,30 @@
     * SQL parameters
 * docker image
 * `endb-book`
+* better errors
 
 ## 2023 Q4
 
-* DBaaS ramp-up
-* single-node hardening
-    * API authentication
-    * Performance
-    * Monitoring
+* compiler and performance
+* compaction, erasure
+* object store, local separation-of-storage-from-compute
+* refine SQL dialect
+    * better control of schema-on-read
+    * consolidate path languages
+    * etc.
+* Beta Open Source Release
 
 ## 2024 Q1
 
-* multi-node k8s
-* basic separation-of-storage-from-compute
+* multi-node kubernetes
+    * serverless
+    * consensus
+* API authentication
+* monitoring
+* cloud separation-of-storage-from-compute
 
 ## 2024 Q2
 
-* Alpha Product
+* window functions
+* adaptive indexing
+* Alpha DBaaS
