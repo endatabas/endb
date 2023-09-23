@@ -159,7 +159,7 @@
   (n :double))
 
 (cffi:defcstruct KW_Union
-  (kw :int32))
+  (kw :unsigned-int))
 
 (cffi:defcstruct List_Union
   (cap :uint64)
@@ -175,7 +175,7 @@
   (string (:struct String_Union)))
 
 (cffi:defcstruct Ast
-  (tag :int32)
+  (tag :unsigned-int)
   (value (:union Ast_Union)))
 
 (cffi:defcfun "endb_ast_vec_len" :size
@@ -222,7 +222,6 @@
   (loop with input-bytes = (trivial-utf-8:string-to-utf-8-bytes input)
         with queue = (list ast)
         with acc = (ast-builder-acc builder)
-        with stride = (cffi:foreign-type-size '(:struct Ast))
         while queue
         for ast = (pop queue)
         do (case ast
@@ -233,10 +232,8 @@
                 (ecase tag
                   (0 (progn
                        (push :end-list queue)
-                       (loop with ptr = (endb-ast-vec-ptr value)
-                             for idx below (endb-ast-vec-len value)
-                             for offset from 0 by stride
-                             do (push (cffi:inc-pointer ptr offset) queue))
+                       (loop for idx below (endb-ast-vec-len value)
+                             do (push (endb-ast-vec-element value idx) queue))
                        (push :start-list queue)))
                   (1 (cffi:with-foreign-slots ((kw) value (:struct KW_Union))
                        (push (aref kw-array kw) (first acc))))
