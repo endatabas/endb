@@ -1,5 +1,5 @@
 [workspace]
-members = ["endb_parser", "endb_arrow", "endb_lib"]
+members = ["endb_parser", "endb_arrow", "endb_lib", "endb_cst"]
 resolver = "2"
 
 [workspace.package]
@@ -14,7 +14,8 @@ repository = "https://github.com/endatabase/endb"
 rust-version = "1.70.0"
 
 [workspace.dependencies]
-chumsky = "1.0.0-alpha.4"
+chumsky = { version = "1.0.0-alpha.4", features = ["label", "regex"] }
+ariadne = "0.2.0"
 arrow2 = { version = "0.17.0", features = ["io_ipc", "io_parquet", "io_parquet_compression"] }
 
 [profile.release]

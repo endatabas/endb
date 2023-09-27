@@ -136,3 +136,69 @@ pub extern "C" fn endb_arrow_array_stream_consumer(
         }
     }
 }
+
+#[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn endb_parse_sql_cst(
+    filename: *const c_char,
+    input: *const c_char,
+    on_success: extern "C" fn(*const c_char),
+    on_error: extern "C" fn(*const c_char),
+) {
+    if let Err(err) = panic::catch_unwind(|| {
+        endb_cst::SQL_CST_PARSER.with(|parser| {
+            let c_str = unsafe { CStr::from_ptr(filename) };
+            let filename_str = c_str.to_str().unwrap();
+            let c_str = unsafe { CStr::from_ptr(input) };
+            let input_str = c_str.to_str().unwrap();
+
+            let mut state = endb_cst::ParseState::default();
+
+            match endb_cst::reuse_parser(parser)(input_str, 0, &mut state) {
+                Ok(_) => {
+                    string_callback(
+                        endb_cst::events_to_sexp(input_str, &state.events).unwrap(),
+                        on_success,
+                    );
+                }
+                Err(_) => {
+                    string_callback(
+                        endb_cst::parse_errors_to_string(
+                            filename_str,
+                            input_str,
+                            &endb_cst::events_to_errors(&state.errors),
+                        )
+                        .unwrap(),
+                        on_error,
+                    );
+                }
+            }
+        });
+    }) {
+        let msg = err.downcast_ref::<&str>().unwrap_or(&"unknown panic!!");
+        string_callback(msg.to_string(), on_error);
+    }
+}
+
+#[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn endb_render_json_error_report(
+    report_json: *const c_char,
+    on_success: extern "C" fn(*const c_char),
+    on_error: extern "C" fn(*const c_char),
+) {
+    if let Err(err) = panic::catch_unwind(|| {
+        let c_str = unsafe { CStr::from_ptr(report_json) };
+        let report_json_str = c_str.to_str().unwrap();
+
+        match endb_cst::json_error_report_to_string(report_json_str) {
+            Ok(report) => {
+                string_callback(report, on_success);
+            }
+            Err(err) => string_callback(err.to_string(), on_error),
+        }
+    }) {
+        let msg = err.downcast_ref::<&str>().unwrap_or(&"unknown panic!!");
+        string_callback(msg.to_string(), on_error);
+    }
+}
