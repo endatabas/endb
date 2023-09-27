@@ -782,17 +782,13 @@ pub fn parse_errors_to_string<'a>(
                         vec![literal.to_string()]
                     }
                 }
-                ParseErrorDescriptor::ExpectedPattern(pattern) => {
-                    if "$" == pattern {
-                        vec!["EOF".to_string()]
-                    } else {
-                        vec![e
-                            .context
-                            .last()
-                            .map(|(label, _)| *label)
-                            .unwrap_or("")
-                            .to_string()]
-                    }
+                ParseErrorDescriptor::ExpectedPattern(_) => {
+                    vec![e
+                        .context
+                        .last()
+                        .map(|(label, _)| *label)
+                        .unwrap_or("")
+                        .to_string()]
                 }
                 ParseErrorDescriptor::Labeled(_) => vec![],
                 ParseErrorDescriptor::Unexpected => vec![],
@@ -848,7 +844,12 @@ pub fn parse_errors_to_string<'a>(
             });
         }
 
-        if let Some((label, pos)) = context.iter().last() {
+        if let Some((label, pos)) = context
+            .iter()
+            .rev()
+            .find(|(label, _)| !expected.contains(&label.to_string()))
+            .or(context.first())
+        {
             report.labels.push(ParseReportLabel {
                 span: (filename.to_string(), *pos..range.start),
                 msg: Some(format!("while parsing {}", label)),
