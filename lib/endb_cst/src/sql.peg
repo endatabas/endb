@@ -13,7 +13,7 @@ type_name <- ident
 column_name <- ident
 
 <subquery> <- '(' select_stmt ')'
-<paren_expr> <- '(' expr ')'
+paren_expr <- '(' expr ')'
 <cast_expr> <- 'CAST' ^ '(' expr 'AS' type_name ')'
 <function_call_expr> <- function_name '(' ( 'DISTINCT'? ( expr ( ',' expr )* )? / '*' ) ')' ( 'FILTER' ^ '(' 'WHERE' expr ')' )?
 <exists_expr> <- 'EXISTS' ^ subquery

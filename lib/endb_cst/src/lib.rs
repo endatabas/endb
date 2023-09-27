@@ -1,7 +1,7 @@
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::error::Error;
 use std::ops::Range;
 use std::rc::Rc;
@@ -691,13 +691,23 @@ pub fn parse_errors_to_string<'a>(
     let range = start..end;
 
     let errors_by_context = errors.iter().fold(
-        HashMap::<ParseContext<'a>, Vec<ParseError<'a>>>::new(),
+        HashMap::<Vec<&'a str>, Vec<ParseError<'a>>>::new(),
         |mut acc, e| {
-            acc.entry(e.context.clone()).or_default().push(e.clone());
+            let last_idx = if let ParseErrorDescriptor::ExpectedPattern(_) = e.descriptor {
+                e.context.len() - 1
+            } else {
+                e.context.len()
+            };
+            let context = e.context[0..last_idx]
+                .iter()
+                .map(|(label, _)| *label)
+                .collect::<Vec<_>>();
+            acc.entry(context).or_default().push(e.clone());
             acc
         },
     );
-    let mut target_sizes_by_context = HashMap::<ParseContext<'a>, usize>::new();
+
+    let mut target_sizes_by_context = HashMap::<Vec<&'a str>, usize>::new();
     for (context, errs) in errors_by_context.iter() {
         if errs.len() == 1 {
             target_sizes_by_context
@@ -713,7 +723,7 @@ pub fn parse_errors_to_string<'a>(
     }
 
     let errors_by_context = errors_by_context.iter().fold(
-        HashMap::<ParseContext<'a>, Vec<ParseError<'a>>>::new(),
+        HashMap::<Vec<&'a str>, Vec<ParseError<'a>>>::new(),
         |mut acc, (context, errs)| {
             let parent_path = &context[0..context.len() - 1];
             match target_sizes_by_context.get(parent_path) {
@@ -734,12 +744,8 @@ pub fn parse_errors_to_string<'a>(
     );
 
     let mut errors_sorted_by_context_len = errors_by_context.iter().collect::<Vec<_>>();
-    errors_sorted_by_context_len.sort_by_key(|(context, _)| {
-        context
-            .iter()
-            .map(|(label, _)| label.len())
-            .collect::<Vec<_>>()
-    });
+    errors_sorted_by_context_len
+        .sort_by_key(|(context, _)| context.iter().map(|label| label.len()).collect::<Vec<_>>());
     errors_sorted_by_context_len.dedup();
 
     let mut report = ParseReport {
@@ -754,10 +760,12 @@ pub fn parse_errors_to_string<'a>(
         if found.is_empty() { "EOF" } else { found }
     );
     report.msg = Some(unexpected_message.clone());
+    let mut label_sets = vec![];
     for (context, errs) in errors_sorted_by_context_len {
+        let mut labels = vec![];
         for e in errs {
             if let ParseErrorDescriptor::Labeled(label) = e.descriptor {
-                report.labels.push(ParseReportLabel {
+                labels.push(ParseReportLabel {
                     span: (filename.to_string(), e.range.clone()),
                     msg: Some(label.to_string()),
                     color: Some(ParseReportColor::Yellow),
@@ -803,7 +811,7 @@ pub fn parse_errors_to_string<'a>(
                 .iter()
                 .any(|e| e.descriptor == ParseErrorDescriptor::Unexpected)
         {
-            report.labels.push(ParseReportLabel {
+            labels.push(ParseReportLabel {
                 span: (filename.to_string(), range.clone()),
                 msg: Some(unexpected_message.to_string()),
                 color: Some(ParseReportColor::Red),
@@ -830,7 +838,7 @@ pub fn parse_errors_to_string<'a>(
                 }
             );
 
-            report.labels.push(ParseReportLabel {
+            labels.push(ParseReportLabel {
                 span: (filename.to_string(), range.clone()),
                 msg: Some(message.to_string()),
                 color: Some(ParseReportColor::Red),
@@ -838,25 +846,30 @@ pub fn parse_errors_to_string<'a>(
             });
         }
 
-        if let Some((label, pos)) = context
-            .iter()
-            .rev()
-            .find(|(label, _)| !expected.contains(&label.to_string()))
-            .or(context.first())
-        {
+        if let Some(label) = context.iter().last() {
             let msg = Some(format!(" in {}", label));
-            report.labels.push(ParseReportLabel {
-                span: (filename.to_string(), *pos..range.start),
+            labels.push(ParseReportLabel {
+                span: (
+                    filename.to_string(),
+                    errs[0]
+                        .context
+                        .iter()
+                        .find(|(e_label, _)| e_label == label)
+                        .map(|(_, pos)| *pos)
+                        .unwrap_or(0)..range.start,
+                ),
                 color: Some(ParseReportColor::Blue),
                 msg,
                 ..ParseReportLabel::default()
             });
         }
+        if !label_sets.iter().any(|s| *s == labels) {
+            label_sets.push(labels);
+        }
     }
-    let mut unique = HashSet::new();
-    report.labels.retain(|x| unique.insert(x.clone()));
-    for (idx, label) in report.labels.iter_mut().enumerate() {
+    for (idx, label) in label_sets.iter_mut().flatten().enumerate() {
         label.order = idx as i32;
+        report.labels.push(label.clone());
     }
 
     parse_report_to_string(&report)
