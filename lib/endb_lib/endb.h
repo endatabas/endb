@@ -242,3 +242,12 @@ void endb_arrow_array_stream_producer(struct ArrowArrayStream *stream,
 void endb_arrow_array_stream_consumer(void (*init_stream)(struct ArrowArrayStream*),
                                       void (*on_success)(const uint8_t*, uintptr_t),
                                       void (*on_error)(const char*));
+
+void endb_parse_sql_cst(const char *filename,
+                        const char *input,
+                        void (*on_success)(const char*),
+                        void (*on_error)(const char*));
+
+void endb_render_json_error_report(const char *report_json,
+                                   void (*on_success)(const char*),
+                                   void (*on_error)(const char*));

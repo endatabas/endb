@@ -7,6 +7,7 @@
   (:import-from :endb-test/http)
   (:import-from :endb-test/storage)
   (:import-from :endb-test/lib/arrow)
+  (:import-from :endb-test/lib/cst)
   (:import-from :endb-test/lib/parser)
   (:import-from :endb/core))
 (in-package :endb-test/core)

@@ -1,5 +1,5 @@
 [package]
-name = "endb_parser"
+name = "endb_cst"
 
 version.workspace = true
 edition.workspace = true
@@ -12,12 +12,7 @@ rust-version.workspace = true
 crate-type = ["rlib"]
 
 [dependencies]
-chumsky.workspace = true
 ariadne.workspace = true
+regex = "1.7"
 serde = { version = "1.0", features = ["derive"] }
-
-[dev-dependencies]
-insta = { version = "1.29.0", features = ["yaml"] }
-
-[build-dependencies]
-cbindgen = "0.24.3"
+serde_json = "1.0"

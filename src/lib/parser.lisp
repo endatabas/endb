@@ -1,6 +1,6 @@
 (defpackage :endb/lib/parser
   (:use :cl)
-  (:export  #:sql-parse-error #:parse-sql #:annotate-input-with-error)
+  (:export  #:sql-parse-error #:parse-sql #:annotate-input-with-error #:strip-ansi-escape-codes)
   (:import-from :endb/lib)
   (:import-from :cffi)
   (:import-from :cl-ppcre)
