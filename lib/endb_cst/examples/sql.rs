@@ -12,7 +12,7 @@ fn main() {
                     continue;
                 }
                 let mut state = endb_cst::ParseState::default();
-                match endb_cst::reuse_parser(parser)(&src, 0, &mut state) {
+                match parser(&src, 0, &mut state) {
                     Ok(_) => {
                         println!("{}", endb_cst::events_to_sexp(&src, &state.events).unwrap());
                     }

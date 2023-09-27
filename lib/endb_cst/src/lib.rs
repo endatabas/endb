@@ -56,9 +56,9 @@ pub enum ParseErr {
 type ParseContextEntry<'a> = (&'a str, usize);
 type ParseContext<'a> = Vec<ParseContextEntry<'a>>;
 type ParseResult<'a> = Result<usize, ParseErr>;
-type ParseFn<'a> = dyn Fn(&'a str, usize, &mut ParseState<'a>) -> ParseResult<'a> + 'a;
-type Parser<'a> = Rc<ParseFn<'a>>;
-type ParserGrammar<'a> = Rc<RefCell<HashMap<&'a str, Parser<'a>>>>;
+type ParseFn<'a, 'b> = dyn Fn(&str, usize, &mut ParseState<'a>) -> ParseResult<'a> + 'b;
+type Parser<'a, 'b> = Rc<ParseFn<'a, 'b>>;
+type ParserGrammar<'a, 'b> = Rc<RefCell<HashMap<&'a str, Parser<'a, 'b>>>>;
 
 #[derive(Clone, PartialEq, Debug)]
 #[repr(C)]
@@ -72,7 +72,7 @@ pub enum Node<'a> {
     },
 }
 
-pub fn label<'a, 'b: 'a>(label: &'b str, parser: Parser<'a>) -> Parser<'a> {
+pub fn label<'a: 'b, 'b>(label: &'a str, parser: Parser<'a, 'b>) -> Parser<'a, 'b> {
     Rc::new(move |input, pos, state| {
         state.events.push(Event::Open { label, pos });
         state.errors.push(Event::Open { label, pos });
@@ -85,7 +85,7 @@ pub fn label<'a, 'b: 'a>(label: &'b str, parser: Parser<'a>) -> Parser<'a> {
     })
 }
 
-pub fn throw<'a, 'b: 'a>(message: &'b str) -> Parser<'a> {
+pub fn throw(message: &str) -> Parser<'_, '_> {
     Rc::new(move |_, pos, state| {
         state.errors.push(Event::Error {
             descriptor: ParseErrorDescriptor::Labeled(message),
@@ -95,11 +95,11 @@ pub fn throw<'a, 'b: 'a>(message: &'b str) -> Parser<'a> {
     })
 }
 
-pub fn cut<'a>() -> Parser<'a> {
+pub fn cut<'a: 'b, 'b>() -> Parser<'a, 'b> {
     Rc::new(|_, _, _| Err(ParseErr::Cut))
 }
 
-fn terminal(re: Regex, descriptor: ParseErrorDescriptor, trivia: bool) -> Parser {
+fn terminal(re: Regex, descriptor: ParseErrorDescriptor<'_>, trivia: bool) -> Parser<'_, '_> {
     Rc::new(move |input, pos, state| match re.find_at(input, pos) {
         Some(m) if m.range().start == pos => {
             state.events.push(Event::Token {
@@ -118,7 +118,7 @@ fn terminal(re: Regex, descriptor: ParseErrorDescriptor, trivia: bool) -> Parser
     })
 }
 
-pub fn trivia<'a, 'b: 'a>(pattern: &'b str) -> Parser<'a> {
+pub fn trivia(pattern: &str) -> Parser<'_, '_> {
     terminal(
         Regex::new(pattern).unwrap(),
         ParseErrorDescriptor::ExpectedPattern(pattern),
@@ -126,7 +126,7 @@ pub fn trivia<'a, 'b: 'a>(pattern: &'b str) -> Parser<'a> {
     )
 }
 
-pub fn re<'a, 'b: 'a>(pattern: &'b str) -> Parser<'a> {
+pub fn re(pattern: &str) -> Parser<'_, '_> {
     terminal(
         Regex::new(pattern).unwrap(),
         ParseErrorDescriptor::ExpectedPattern(pattern),
@@ -134,7 +134,7 @@ pub fn re<'a, 'b: 'a>(pattern: &'b str) -> Parser<'a> {
     )
 }
 
-pub fn string<'a, 'b: 'a>(literal: &'b str) -> Parser<'a> {
+pub fn string(literal: &str) -> Parser<'_, '_> {
     let is_punctuation = literal.chars().all(|c| c.is_ascii_punctuation());
     Rc::new(move |input, pos, state| {
         let range = pos..std::cmp::min(pos + literal.len(), input.len());
@@ -157,15 +157,15 @@ pub fn string<'a, 'b: 'a>(literal: &'b str) -> Parser<'a> {
     })
 }
 
-pub fn eof<'a>() -> Parser<'a> {
+pub fn eof<'a: 'b, 'b>() -> Parser<'a, 'b> {
     trivia("$")
 }
 
-pub fn epsilon<'a>() -> Parser<'a> {
+pub fn epsilon<'a: 'b, 'b>() -> Parser<'a, 'b> {
     trivia("")
 }
 
-pub fn seq(parsers: Vec<Parser>) -> Parser {
+pub fn seq<'a: 'b, 'b>(parsers: Vec<Parser<'a, 'b>>) -> Parser<'a, 'b> {
     Rc::new(move |input, pos, state| {
         let mut pos = pos;
         let mut cut = ParseErr::Fail;
@@ -193,7 +193,7 @@ pub fn seq(parsers: Vec<Parser>) -> Parser {
     })
 }
 
-pub fn star(parser: Parser) -> Parser {
+pub fn star<'a: 'b, 'b>(parser: Parser<'a, 'b>) -> Parser<'a, 'b> {
     Rc::new(move |input, pos, state| {
         let mut pos = pos;
         loop {
@@ -215,15 +215,15 @@ pub fn star(parser: Parser) -> Parser {
     })
 }
 
-pub fn plus(parser: Parser) -> Parser {
+pub fn plus<'a: 'b, 'b>(parser: Parser<'a, 'b>) -> Parser<'a, 'b> {
     seq(vec![parser.clone(), star(parser)])
 }
 
-pub fn opt(parser: Parser) -> Parser {
+pub fn opt<'a: 'b, 'b>(parser: Parser<'a, 'b>) -> Parser<'a, 'b> {
     ord(vec![parser, epsilon()])
 }
 
-pub fn neg(parser: Parser) -> Parser {
+pub fn neg<'a: 'b, 'b>(parser: Parser<'a, 'b>) -> Parser<'a, 'b> {
     Rc::new(move |input, pos, state| {
         let idx = state.events.len();
         let err_idx = state.errors.len();
@@ -243,11 +243,11 @@ pub fn neg(parser: Parser) -> Parser {
     })
 }
 
-pub fn look(parser: Parser) -> Parser {
+pub fn look<'a: 'b, 'b>(parser: Parser<'a, 'b>) -> Parser<'a, 'b> {
     neg(neg(parser))
 }
 
-pub fn ord(parsers: Vec<Parser>) -> Parser {
+pub fn ord<'a: 'b, 'b>(parsers: Vec<Parser<'a, 'b>>) -> Parser<'a, 'b> {
     Rc::new(move |input, pos, state| {
         let idx = state.events.len();
         for parser in &parsers {
@@ -266,7 +266,7 @@ pub fn ord(parsers: Vec<Parser>) -> Parser {
     })
 }
 
-pub fn nt<'a, 'b: 'a>(rules: ParserGrammar<'a>, rule_name: &'b str) -> Parser<'a> {
+pub fn nt<'a: 'b, 'b>(rules: ParserGrammar<'a, 'b>, rule_name: &'b str) -> Parser<'a, 'b> {
     let cache = RefCell::<Option<Parser>>::default();
     Rc::new(move |input, pos, state| {
         if let Some(parser) = cache.borrow().as_deref() {
@@ -284,7 +284,7 @@ pub fn nt<'a, 'b: 'a>(rules: ParserGrammar<'a>, rule_name: &'b str) -> Parser<'a
     })
 }
 
-pub fn peg_meta_parser<'a>() -> Parser<'a> {
+pub fn peg_meta_parser<'a: 'b, 'b>() -> Parser<'a, 'b> {
     let rules = ParserGrammar::default();
 
     let spacing = trivia("\\s*");
@@ -414,21 +414,21 @@ pub fn build_cst_tree(events: Vec<Event>) -> Node {
     unreachable!("invalid tree");
 }
 
-pub fn peg_cst_to_parser<'a, 'b: 'a>(
-    src: &'b str,
-    start_rule: &'b str,
-    whitespace: &'b str,
-    node: Node<'b>,
-) -> Parser<'a> {
+pub fn peg_cst_to_parser<'a: 'b, 'b>(
+    src: &'a str,
+    start_rule: &'a str,
+    whitespace: &'a str,
+    node: Node<'a>,
+) -> Parser<'a, 'b> {
     use Node::*;
 
-    struct WalkEnv<'a> {
+    struct WalkEnv<'a, 'b> {
         src: &'a str,
-        whitespace: Parser<'a>,
-        rules: ParserGrammar<'a>,
+        whitespace: Parser<'a, 'b>,
+        rules: ParserGrammar<'a, 'b>,
     }
 
-    fn walk<'a>(env: &WalkEnv<'a>, node: &Node<'a>) -> Parser<'a> {
+    fn walk<'a: 'b, 'b>(env: &WalkEnv<'a, 'b>, node: &Node<'a>) -> Parser<'a, 'b> {
         match node {
             Branch {
                 id: "grammar",
@@ -580,11 +580,11 @@ pub fn peg_cst_to_parser<'a, 'b: 'a>(
     seq(vec![whitespace, nt(env.rules.clone(), start_rule)])
 }
 
-pub fn build_peg_parser<'a, 'b: 'a>(
-    src: &'b str,
-    start_rule: &'b str,
-    whitespace: &'b str,
-) -> Result<Parser<'a>, Vec<Event<'a>>> {
+pub fn build_peg_parser<'a: 'b, 'b>(
+    src: &'a str,
+    start_rule: &'a str,
+    whitespace: &'a str,
+) -> Result<Parser<'a, 'b>, Vec<Event<'a>>> {
     let peg_meta_parser = peg_meta_parser();
     let mut state = ParseState::default();
     match peg_meta_parser(src, 0, &mut state) {
@@ -865,12 +865,8 @@ pub fn parse_errors_to_string<'a>(
 
 pub const SQL_PEG: &str = include_str!("sql.peg");
 
-pub fn reuse_parser<'src>(parser: &Parser<'static>) -> &'src Parser<'src> {
-    unsafe { &*(parser as *const Parser<'_>).cast() }
-}
-
 std::thread_local! {
-    pub static SQL_CST_PARSER: Parser<'static> = build_peg_parser(SQL_PEG, "sql_stmt_list", "\\s*").unwrap();
+    pub static SQL_CST_PARSER: Parser<'static, 'static> = build_peg_parser(SQL_PEG, "sql_stmt_list", "\\s*").unwrap();
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Default)]
