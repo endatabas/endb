@@ -6,7 +6,7 @@ blob_literal <- "(\\b[xX]'[0-9A-Fa-f]*?'|[xX]\"[0-9A-Fa-f]*?\")"
 
 <literal> <- numeric_literal / string_literal / blob_literal / 'NULL' / 'TRUE' / 'FALSE' / 'CURRENT_TIME' / 'CURRENT_DATE' / 'CURRENT_TIMESTAMP'
 
-bind_parameter <- '?' / ':' ident
+bind_parameter <- "\\b(:?\\?|:\\p{XID_START}\\p{XID_CONTINUE}*)\\b"
 
 function_name <- ident
 type_name <- ident
@@ -18,7 +18,7 @@ column_name <- ident
 <function_call_expr> <- function_name '(' ( 'DISTINCT'? ( expr ( ',' expr )* )? / '*' ) ')' ( 'FILTER' ^ '(' 'WHERE' expr ')' )?
 <exists_expr> <- 'EXISTS' ^ subquery
 <case_expr> <- 'CASE' ^ (!'WHEN' expr)? ( 'WHEN' expr 'THEN' expr ) ( 'WHEN' expr 'THEN' expr )* ( 'ELSE' expr )? 'END'
-<column_reference> <- ( table_name '.' )? column_name
+column_reference <- ( table_name '.' )? column_name
 
 <atom> <-
      literal
@@ -56,7 +56,9 @@ column_alias <- ident
 
 table_name <- ident
 
-result_column <- expr ( 'AS' ^ column_alias / !( 'FROM' / 'WHERE' / 'GROUP' / 'HAVING' / 'ORDER' / 'LIMIT' ) column_alias )? / '*' / table_name '.' '*'
+qualified_asterisk <- table_name '.' ? '*'
+asterisk <- '*'
+result_column <- expr ( 'AS' ^ column_alias / !( 'FROM' / 'WHERE' / 'GROUP' / 'HAVING' / 'ORDER' / 'LIMIT' ) column_alias )? / qualified_asterisk / asterisk
 
 table_alias <- ident
 
