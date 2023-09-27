@@ -1,7 +1,7 @@
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::ops::Range;
 use std::rc::Rc;
@@ -679,8 +679,6 @@ pub fn parse_errors_to_string<'a>(
     src: &'a str,
     errors: &'a [ParseError<'a>],
 ) -> Result<String, Box<dyn Error>> {
-    let mut reports = vec![];
-
     let start = errors.first().map(|e| e.range.start).unwrap_or(0);
     let end = errors.iter().map(|e| e.range.end).max().unwrap_or(start);
     let range = start..end;
@@ -737,20 +735,19 @@ pub fn parse_errors_to_string<'a>(
     });
     errors_sorted_by_context_len.dedup();
 
+    let mut report = ParseReport {
+        kind: ParseReportKind::Error,
+        location: (filename.to_string(), range.start),
+        source: src.to_string(),
+        ..ParseReport::default()
+    };
+    let found = &src[range.clone()].trim();
+    let unexpected_message = format!(
+        "unexpected {}",
+        if found.is_empty() { "EOF" } else { found }
+    );
+    report.msg = Some(unexpected_message.clone());
     for (context, errs) in errors_sorted_by_context_len {
-        let mut report = ParseReport {
-            kind: ParseReportKind::Error,
-            location: (filename.to_string(), range.start),
-            source: src.to_string(),
-            ..ParseReport::default()
-        };
-
-        let found = &src[range.clone()].trim();
-        let unexpected_message = format!(
-            "unexpected {}",
-            if found.is_empty() { "EOF" } else { found }
-        );
-
         for e in errs {
             if let ParseErrorDescriptor::Labeled(label) = e.descriptor {
                 report.labels.push(ParseReportLabel {
@@ -807,7 +804,7 @@ pub fn parse_errors_to_string<'a>(
             });
         }
 
-        let expected_parts = expected.chunks(6);
+        let expected_parts = expected.chunks(5);
         let expected_parts_len = expected_parts.len();
         for (idx, expected) in expected_parts.enumerate() {
             let message = format!(
@@ -840,26 +837,22 @@ pub fn parse_errors_to_string<'a>(
             .find(|(label, _)| !expected.contains(&label.to_string()))
             .or(context.first())
         {
-            report.msg = Some(format!("{} in {}", unexpected_message.clone(), label));
+            let msg = Some(format!(" in {}", label));
             report.labels.push(ParseReportLabel {
                 span: (filename.to_string(), *pos..range.start),
                 color: Some(ParseReportColor::Blue),
-                order: 1,
+                msg,
                 ..ParseReportLabel::default()
             });
-        } else {
-            report.msg = Some(unexpected_message.clone());
-        }
-
-        if !reports.iter().any(|r| *r == report) {
-            reports.push(report);
         }
     }
-    Ok(reports
-        .iter()
-        .flat_map(parse_report_to_string)
-        .collect::<Vec<_>>()
-        .join(""))
+    let mut unique = HashSet::new();
+    report.labels.retain(|x| unique.insert(x.clone()));
+    for (idx, label) in report.labels.iter_mut().enumerate() {
+        label.order = idx as i32;
+    }
+
+    parse_report_to_string(&report)
 }
 
 pub const SQL_PEG: &str = include_str!("sql.peg");
@@ -876,7 +869,7 @@ pub enum ParseReportKind {
     Advice,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Default, Hash, Eq)]
 pub enum ParseReportColor {
     #[default]
     Unset,
@@ -891,7 +884,7 @@ pub enum ParseReportColor {
     White,
 }
 
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Default)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Default, Hash, Eq)]
 pub struct ParseReportLabel {
     span: (String, Range<usize>),
     msg: Option<String>,
