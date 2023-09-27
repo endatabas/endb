@@ -680,7 +680,14 @@ pub fn parse_errors_to_string<'a>(
     errors: &'a [ParseError<'a>],
 ) -> Result<String, Box<dyn Error>> {
     let start = errors.first().map(|e| e.range.start).unwrap_or(0);
-    let end = errors.iter().map(|e| e.range.end).max().unwrap_or(start);
+    let end = start
+        + src[start..]
+            .chars()
+            .enumerate()
+            .take_while(|(_, c)| !c.is_whitespace())
+            .map(|(idx, _)| idx + 1)
+            .last()
+            .unwrap_or(0);
     let range = start..end;
 
     let errors_by_context = errors.iter().fold(
