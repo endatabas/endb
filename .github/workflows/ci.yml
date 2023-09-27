@@ -12,7 +12,6 @@ jobs:
       with:
         rust-version: stable
     - run: sudo apt install sbcl cl-quicklisp
-    - run: sbcl --load /usr/share/common-lisp/source/quicklisp/quicklisp.lisp --eval "(apropos without-prompting) (quicklisp-quickstart:install) (ql:add-to-init-file)"
+    - run: sbcl --load /usr/share/common-lisp/source/quicklisp/quicklisp.lisp --eval "(apropos without-prompting)" --eval "(quicklisp-quickstart:install)" --eval "(ql:add-to-init-file)"
     - run: ln -s $PWD ~/quicklisp/local-projects
     - run: make
-
