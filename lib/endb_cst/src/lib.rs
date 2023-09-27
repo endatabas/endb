@@ -680,11 +680,21 @@ pub fn parse_errors_to_string<'a>(
     errors: &'a [ParseError<'a>],
 ) -> Result<String, Box<dyn Error>> {
     let start = errors.first().map(|e| e.range.start).unwrap_or(0);
+    let punctuation = src
+        .chars()
+        .nth(start)
+        .map_or(false, |c| c.is_ascii_punctuation());
     let end = start
         + src[start..]
             .chars()
             .enumerate()
-            .take_while(|(_, c)| !c.is_whitespace())
+            .take_while(|(_, c)| {
+                if punctuation {
+                    c.is_ascii_punctuation()
+                } else {
+                    c.is_alphanumeric()
+                }
+            })
             .map(|(idx, _)| idx + 1)
             .last()
             .unwrap_or(0);
