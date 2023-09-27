@@ -679,9 +679,7 @@ pub fn parse_errors_to_string<'a>(
     src: &'a str,
     errors: &'a [ParseError<'a>],
 ) -> Result<String, Box<dyn Error>> {
-    use std::fmt::Write;
-
-    let mut buf = String::new();
+    let mut reports = vec![];
 
     let start = errors.first().map(|e| e.range.start).unwrap_or(0);
     let end = errors.iter().map(|e| e.range.end).max().unwrap_or(start);
@@ -740,8 +738,6 @@ pub fn parse_errors_to_string<'a>(
     errors_sorted_by_context_len.dedup();
 
     for (context, errs) in errors_sorted_by_context_len {
-        let path_elements = context.iter().map(|(label, _)| *label).collect::<Vec<_>>();
-
         let mut report = ParseReport {
             kind: ParseReportKind::Error,
             location: (filename.to_string(), range.start),
@@ -754,12 +750,6 @@ pub fn parse_errors_to_string<'a>(
             "unexpected {}",
             if found.is_empty() { "EOF" } else { found }
         );
-        report.msg = Some(format!("parse error: {}", unexpected_message.clone()));
-
-        let path = path_elements.join(" / ");
-        if !path_elements.is_empty() {
-            report.note = Some(format!("/ {}", path));
-        }
 
         for e in errs {
             if let ParseErrorDescriptor::Labeled(label) = e.descriptor {
@@ -850,18 +840,26 @@ pub fn parse_errors_to_string<'a>(
             .find(|(label, _)| !expected.contains(&label.to_string()))
             .or(context.first())
         {
+            report.msg = Some(format!("{} in {}", unexpected_message.clone(), label));
             report.labels.push(ParseReportLabel {
                 span: (filename.to_string(), *pos..range.start),
-                msg: Some(format!("while parsing {}", label)),
                 color: Some(ParseReportColor::Blue),
                 order: 1,
                 ..ParseReportLabel::default()
             });
+        } else {
+            report.msg = Some(unexpected_message.clone());
         }
 
-        write!(buf, "{}", simple_report_to_string(&report)?)?;
+        if !reports.iter().any(|r| *r == report) {
+            reports.push(report);
+        }
     }
-    Ok(buf)
+    Ok(reports
+        .iter()
+        .flat_map(parse_report_to_string)
+        .collect::<Vec<_>>()
+        .join(""))
 }
 
 pub const SQL_PEG: &str = include_str!("sql.peg");
@@ -914,7 +912,7 @@ pub struct ParseReport {
     source: String,
 }
 
-fn simple_report_to_string(report: &ParseReport) -> Result<String, Box<dyn Error>> {
+fn parse_report_to_string(report: &ParseReport) -> Result<String, Box<dyn Error>> {
     let mut buf = vec![];
     let (filename, pos) = &report.location;
     let report_kind = match &report.kind {
@@ -971,5 +969,5 @@ fn simple_report_to_string(report: &ParseReport) -> Result<String, Box<dyn Error
 
 pub fn json_error_report_to_string(report_json: &str) -> Result<String, Box<dyn Error>> {
     let report: ParseReport = serde_json::from_str(report_json)?;
-    simple_report_to_string(&report)
+    parse_report_to_string(&report)
 }
