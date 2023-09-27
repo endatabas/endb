@@ -154,7 +154,7 @@ pub extern "C" fn endb_parse_sql_cst(
 
             let mut state = endb_cst::ParseState::default();
 
-            match endb_cst::reuse_parser(parser)(input_str, 0, &mut state) {
+            match parser(input_str, 0, &mut state) {
                 Ok(_) => {
                     string_callback(
                         endb_cst::events_to_sexp(input_str, &state.events).unwrap(),
