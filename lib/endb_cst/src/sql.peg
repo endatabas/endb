@@ -12,12 +12,13 @@ function_name <- ident
 type_name <- ident
 column_name <- ident
 
-<subquery> <- '(' select_stmt ')'
+subquery <- '(' select_stmt ')'
 paren_expr <- '(' expr ')'
-<cast_expr> <- 'CAST' ^ '(' expr 'AS' type_name ')'
-<function_call_expr> <- function_name '(' ( 'DISTINCT'? ( expr ( ',' expr )* )? / '*' ) ')' ( 'FILTER' ^ '(' 'WHERE' expr ')' )?
-<exists_expr> <- 'EXISTS' ^ subquery
-<case_expr> <- 'CASE' ^ (!'WHEN' expr)? ( 'WHEN' expr 'THEN' expr ) ( 'WHEN' expr 'THEN' expr )* ( 'ELSE' expr )? 'END'
+cast_expr <- 'CAST' ^ '(' expr 'AS' type_name ')'
+function_call_expr <- function_name '(' ( 'DISTINCT'? ( expr ( ',' expr )* )? / '*' ) ')' ( 'FILTER' ^ '(' 'WHERE' expr ')' )?
+exists_expr <- 'EXISTS' ^ subquery
+case_when_then_expr <- 'WHEN' expr 'THEN' expr
+case_expr <- 'CASE' ^ (!'WHEN' expr)? case_when_then_expr+ ( 'ELSE' expr )? 'END'
 column_reference <- ( table_name '.' )? column_name
 
 <atom> <-
