@@ -137,10 +137,13 @@ pub fn re(pattern: &str) -> Parser<'_, '_> {
 pub fn string(literal: &str) -> Parser<'_, '_> {
     let is_punctuation = literal.chars().all(|c| c.is_ascii_punctuation());
     Rc::new(move |input, pos, state| {
-        let range = pos..std::cmp::min(pos + literal.len(), input.len());
-        let following_char = input[range.end..].chars().next().unwrap_or(' ');
+        let range = pos..(pos + literal.len()).min(input.len());
         if input[range.clone()].eq_ignore_ascii_case(literal)
-            && (is_punctuation || !following_char.is_alphanumeric())
+            && (is_punctuation
+                || input[range.end..]
+                    .chars()
+                    .next()
+                    .map_or(true, |c| !c.is_alphanumeric()))
         {
             state.events.push(Event::Token {
                 range: range.clone(),
@@ -888,7 +891,7 @@ pub fn parse_errors_to_string<'a>(
 pub const SQL_PEG: &str = include_str!("sql.peg");
 
 std::thread_local! {
-    pub static SQL_CST_PARSER: Parser<'static, 'static> = build_peg_parser(SQL_PEG, "sql_stmt_list", "\\s*").unwrap();
+    pub static SQL_CST_PARSER: Parser<'static, 'static> = build_peg_parser(SQL_PEG, "sql_stmt_list", "(\\s|--[^\n\r]*?)*").unwrap();
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Default)]
