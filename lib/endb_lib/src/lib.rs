@@ -162,6 +162,12 @@ pub extern "C" fn endb_parse_sql_cst(
                     );
                 }
                 Err(_) => {
+                    let mut state = endb_cst::ParseState {
+                        track_errors: true,
+                        ..endb_cst::ParseState::default()
+                    };
+                    let _ = parser(input_str, 0, &mut state);
+
                     string_callback(
                         endb_cst::parse_errors_to_string(
                             filename_str,

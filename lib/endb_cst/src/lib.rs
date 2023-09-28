@@ -44,6 +44,7 @@ pub struct ParseError<'a> {
 pub struct ParseState<'a> {
     pub events: Vec<Event<'a>>,
     pub errors: Vec<Event<'a>>,
+    pub track_errors: bool,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -75,11 +76,15 @@ pub enum Node<'a> {
 pub fn label<'a: 'b, 'b>(label: &'a str, parser: Parser<'a, 'b>) -> Parser<'a, 'b> {
     Rc::new(move |input, pos, state| {
         state.events.push(Event::Open { label, pos });
-        state.errors.push(Event::Open { label, pos });
+        if state.track_errors {
+            state.errors.push(Event::Open { label, pos });
+        }
 
         let result = parser(input, pos, state);
         state.events.push(Event::Close);
-        state.errors.push(Event::Close);
+        if state.track_errors {
+            state.errors.push(Event::Close);
+        }
 
         result
     })
@@ -87,10 +92,12 @@ pub fn label<'a: 'b, 'b>(label: &'a str, parser: Parser<'a, 'b>) -> Parser<'a, '
 
 pub fn throw(message: &str) -> Parser<'_, '_> {
     Rc::new(move |_, pos, state| {
-        state.errors.push(Event::Error {
-            descriptor: ParseErrorDescriptor::Labeled(message),
-            range: pos..pos,
-        });
+        if state.track_errors {
+            state.errors.push(Event::Error {
+                descriptor: ParseErrorDescriptor::Labeled(message),
+                range: pos..pos,
+            });
+        }
         Err(ParseErr::Error)
     })
 }
@@ -109,10 +116,12 @@ fn terminal(re: Regex, descriptor: ParseErrorDescriptor<'_>, trivia: bool) -> Pa
             Ok(m.range().end)
         }
         _ => {
-            state.errors.push(Event::Error {
-                descriptor: descriptor.clone(),
-                range: pos..pos,
-            });
+            if state.track_errors {
+                state.errors.push(Event::Error {
+                    descriptor: descriptor.clone(),
+                    range: pos..pos,
+                });
+            }
             Err(ParseErr::Fail)
         }
     })
@@ -151,10 +160,12 @@ pub fn string(literal: &str) -> Parser<'_, '_> {
             });
             Ok(range.end)
         } else {
-            state.errors.push(Event::Error {
-                descriptor: ParseErrorDescriptor::ExpectedLiteral(literal),
-                range,
-            });
+            if state.track_errors {
+                state.errors.push(Event::Error {
+                    descriptor: ParseErrorDescriptor::ExpectedLiteral(literal),
+                    range,
+                });
+            }
             Err(ParseErr::Fail)
         }
     })
@@ -232,14 +243,18 @@ pub fn neg<'a: 'b, 'b>(parser: Parser<'a, 'b>) -> Parser<'a, 'b> {
         let err_idx = state.errors.len();
         let result = parser(input, pos, state);
         state.events.truncate(idx);
-        state.errors.truncate(err_idx);
+        if state.track_errors {
+            state.errors.truncate(err_idx);
+        }
         match result {
             Err(_) => Ok(pos),
             Ok(new_pos) => {
-                state.errors.push(Event::Error {
-                    descriptor: ParseErrorDescriptor::Unexpected,
-                    range: pos..new_pos,
-                });
+                if state.track_errors {
+                    state.errors.push(Event::Error {
+                        descriptor: ParseErrorDescriptor::Unexpected,
+                        range: pos..new_pos,
+                    });
+                }
                 Err(ParseErr::Fail)
             }
         }

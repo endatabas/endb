@@ -11,7 +11,10 @@ fn main() {
                 if src.trim().is_empty() {
                     continue;
                 }
-                let mut state = endb_cst::ParseState::default();
+                let mut state = endb_cst::ParseState {
+                    track_errors: true,
+                    ..endb_cst::ParseState::default()
+                };
                 match parser(&src, 0, &mut state) {
                     Ok(_) => {
                         println!("{}", endb_cst::events_to_sexp(&src, &state.events).unwrap());
