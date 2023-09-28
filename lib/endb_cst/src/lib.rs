@@ -51,7 +51,6 @@ pub struct ParseState<'a> {
 pub enum ParseErr {
     Fail,
     Error,
-    Cut,
 }
 
 type ParseContextEntry<'a> = (&'a str, usize);
@@ -100,10 +99,6 @@ pub fn throw(message: &str) -> Parser<'_, '_> {
         }
         Err(ParseErr::Error)
     })
-}
-
-pub fn cut<'a: 'b, 'b>() -> Parser<'a, 'b> {
-    Rc::new(|_, _, _| Err(ParseErr::Cut))
 }
 
 fn terminal(re: Regex, descriptor: ParseErrorDescriptor<'_>, trivia: bool) -> Parser<'_, '_> {
@@ -182,24 +177,15 @@ pub fn epsilon<'a: 'b, 'b>() -> Parser<'a, 'b> {
 pub fn seq<'a: 'b, 'b>(parsers: Vec<Parser<'a, 'b>>) -> Parser<'a, 'b> {
     Rc::new(move |input, pos, state| {
         let mut pos = pos;
-        let mut cut = ParseErr::Fail;
         for parser in &parsers {
             let idx = state.events.len();
             match parser(input, pos, state) {
                 Ok(new_pos) => {
                     pos = new_pos;
                 }
-                Err(ParseErr::Cut) => {
+                Err(err) => {
                     state.events.truncate(idx);
-                    cut = ParseErr::Error;
-                }
-                Err(ParseErr::Error) => {
-                    state.events.truncate(idx);
-                    return Err(ParseErr::Error);
-                }
-                Err(ParseErr::Fail) => {
-                    state.events.truncate(idx);
-                    return Err(cut);
+                    return Err(err);
                 }
             }
         }
@@ -263,6 +249,10 @@ pub fn neg<'a: 'b, 'b>(parser: Parser<'a, 'b>) -> Parser<'a, 'b> {
 
 pub fn look<'a: 'b, 'b>(parser: Parser<'a, 'b>) -> Parser<'a, 'b> {
     neg(neg(parser))
+}
+
+pub fn cut<'a: 'b, 'b>(parser: Parser<'a, 'b>) -> Parser<'a, 'b> {
+    Rc::new(move |input, pos, state| parser(input, pos, state).or(Err(ParseErr::Error)))
 }
 
 pub fn ord<'a: 'b, 'b>(parsers: Vec<Parser<'a, 'b>>) -> Parser<'a, 'b> {
@@ -348,7 +338,6 @@ pub fn peg_meta_parser<'a: 'b, 'b>() -> Parser<'a, 'b> {
             string_literal,
             regex_literal,
             throw,
-            caret,
         ]),
     );
     let labeled = seq(vec![
@@ -362,7 +351,7 @@ pub fn peg_meta_parser<'a: 'b, 'b>() -> Parser<'a, 'b> {
             opt(ord(vec![question, star_, plus_, labeled])),
         ]),
     );
-    let prefix = label("prefix", seq(vec![opt(ord(vec![and, not])), suffix]));
+    let prefix = label("prefix", seq(vec![opt(ord(vec![and, not, caret])), suffix]));
     let sequence = label("sequence", star(prefix));
     let expression = label(
         "expression",
@@ -513,6 +502,7 @@ pub fn peg_cst_to_parser<'a: 'b, 'b>(
             } => match children.as_slice() {
                 [Branch { id: "!", .. }, node] => neg(walk(env, node)),
                 [Branch { id: "&", .. }, node] => look(walk(env, node)),
+                [Branch { id: "^", .. }, node] => cut(walk(env, node)),
                 [node] => walk(env, node),
                 _ => unreachable!("{:?}", node),
             },
@@ -544,7 +534,6 @@ pub fn peg_cst_to_parser<'a: 'b, 'b>(
                     }
                     _ => unreachable!("{:?}", node),
                 },
-                [Branch { id: "^", .. }] => cut(),
                 [node] => walk(env, node),
                 _ => unreachable!("{:?}", node),
             },
