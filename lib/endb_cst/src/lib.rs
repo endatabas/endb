@@ -610,28 +610,28 @@ fn events_to_sexp_into(
 
     for e in events {
         match e {
-            Event::Open { label, .. } => write!(
-                out,
-                "{}(:|{}|",
-                if out.is_empty() { "" } else { " " },
-                label
-            )?,
+            Event::Open { label, .. } => {
+                if !out.is_empty() {
+                    out.push(' ');
+                }
+                out.push_str("(:|");
+                out.push_str(label);
+                out.push('|');
+            }
             Event::Token {
                 ref range,
                 trivia: false,
             } => {
-                let text = &src[range.clone()];
-                write!(
-                    out,
-                    "{}({:?} {} {})",
-                    if out.is_empty() { "" } else { " " },
-                    text,
-                    range.start,
-                    range.end,
-                )?;
+                out.push_str(" (\"");
+                out.push_str(&src[range.clone()]);
+                out.push_str("\" ");
+                write!(out, "{}", range.start)?;
+                out.push(' ');
+                write!(out, "{}", range.end)?;
+                out.push(')');
             }
             Event::Token { trivia: true, .. } => {}
-            Event::Close => write!(out, ")")?,
+            Event::Close => out.push(')'),
             Event::Error { .. } => {}
         }
     }

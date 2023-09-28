@@ -22,5 +22,5 @@ fn main() {
         result = endb_cst::events_to_sexp(&sql, &state.events);
     }
     println!("Elapsed: {:?}", now.elapsed());
-    println!("{:?}", result);
+    println!("{}", result.unwrap());
 }
