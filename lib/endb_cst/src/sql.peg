@@ -14,11 +14,11 @@ column_name <- ident
 
 subquery <- '(' select_stmt ')'
 paren_expr <- '(' expr ')'
-cast_expr <- 'CAST' ^ '(' expr 'AS' type_name ')'
-function_call_expr <- function_name '(' ( 'DISTINCT'? ( expr ( ',' expr )* )? / '*' ) ')' ( 'FILTER' ^ '(' 'WHERE' expr ')' )?
+cast_expr <- 'CAST' ^( '(' expr 'AS' type_name ')' )
+function_call_expr <- function_name '(' ( 'DISTINCT'? ( expr ( ',' expr )* )? / '*' ) ')' ( 'FILTER' ^( '(' 'WHERE' expr ')' ) )?
 exists_expr <- 'EXISTS' ^ subquery
 case_when_then_expr <- 'WHEN' expr 'THEN' expr
-case_expr <- 'CASE' ^ (!'WHEN' expr)? case_when_then_expr+ ( 'ELSE' expr )? 'END'
+case_expr <- 'CASE' ^( (!'WHEN' expr)? case_when_then_expr+ ( 'ELSE' expr )? 'END' )
 column_reference <- ( table_name '.' )? column_name
 
 <atom> <-
@@ -41,10 +41,10 @@ column_reference <- ( table_name '.' )? column_name
 <equal> <-
       comp (
       ( ( '==' / '=' / '!=' / '<>' ) comp )
-      / 'NOT'? ( 'LIKE' ^ comp ( 'ESCAPE' ^ comp )? / ( 'GLOB' / 'REGEXP' / 'MATCH' ) ^ comp )
-      / 'IS' ^ 'NOT'? comp
-      / 'NOT'? 'BETWEEN' ^ comp 'AND' comp
-      / 'NOT'? 'IN' ^ ( '(' select_stmt ')' / '(' expr ( ',' expr )* ')' / '(' ')' )
+      / 'NOT'? ( 'LIKE' ^( comp ( 'ESCAPE' ^comp )? ) / ( 'GLOB' / 'REGEXP' / 'MATCH' ) ^comp )
+      / 'IS' ^( 'NOT'? comp )
+      / 'NOT'? 'BETWEEN' ^( comp 'AND' comp )
+      / 'NOT'? 'IN' ^( '(' select_stmt ')' / '(' expr ( ',' expr )* ')' / '(' ')' )
       )*
 
 <not> <- 'NOT'* equal
@@ -59,7 +59,7 @@ table_name <- ident
 qualified_asterisk <- table_name '.' ? '*'
 asterisk <- '*'
 invalid_column_alias <- 'FROM' / 'WHERE' / 'GROUP' / 'HAVING' / 'ORDER' / 'LIMIT' / 'UNION' / 'INTERSECT' / 'EXCEPT'
-result_column <- expr ( 'AS' ^ column_alias / !invalid_column_alias column_alias )? / qualified_asterisk / asterisk
+result_column <- expr ( 'AS' ^column_alias / !invalid_column_alias column_alias )? / qualified_asterisk / asterisk
 
 table_alias <- ident
 
@@ -67,7 +67,7 @@ join_constraint <- ( 'ON' expr )?
 join_operator <- ',' / ( 'LEFT' 'OUTER'? / 'INNER' / 'CROSS' )? 'JOIN'
 join_clause <- table_or_subquery ( join_operator table_or_subquery join_constraint )*
 invalid_table_alias <- 'LEFT' / 'INNER' / 'CROSS'/ 'JOIN' / 'WHERE' / 'GROUP' / 'HAVING' / 'ORDER' / 'LIMIT' / 'ON' / 'UNION' / 'INTERSECT' / 'EXCEPT'
-table_or_subquery <- table_name ( 'AS' ^ table_alias  / !invalid_table_alias table_alias )? / '(' select_stmt ')' 'AS' table_alias / '(' join_clause ')'
+table_or_subquery <- table_name ( 'AS' ^table_alias / !invalid_table_alias table_alias )? / '(' select_stmt ')' 'AS' table_alias / '(' join_clause ')'
 
 from_clause <- 'FROM' ( table_or_subquery ( ',' table_or_subquery )* / join_clause )
 where_clause <- 'WHERE' expr
