@@ -341,7 +341,7 @@ pub fn peg_meta_parser<'a: 'b, 'b>() -> Parser<'a, 'b> {
         ]),
     );
     let labeled = seq(vec![
-        label("^", re("\\^\\p{XID_START}\\p{XID_CONTINUE}*\\b")),
+        label("~", re("~\\p{XID_START}\\p{XID_CONTINUE}*\\b")),
         spacing.clone(),
     ]);
     let suffix = label(
@@ -513,7 +513,7 @@ pub fn peg_cst_to_parser<'a: 'b, 'b>(
                 [node, Branch { id: "?", .. }] => opt(walk(env, node)),
                 [node, Branch { id: "*", .. }] => star(walk(env, node)),
                 [node, Branch { id: "+", .. }] => plus(walk(env, node)),
-                [node, Branch { id: "^", children }] => match children.as_slice() {
+                [node, Branch { id: "~", children }] => match children.as_slice() {
                     [Leaf { range }] => {
                         let labeled = &env.src[(range.start + 1)..range.end];
                         ord(vec![label(labeled, walk(env, node)), throw(labeled)])
