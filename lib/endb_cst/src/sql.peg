@@ -41,7 +41,7 @@ column_reference <- ( table_name '.' )? column_name
 <equal> <-
       comp (
       ( ( '==' / '=' / '!=' / '<>' ) comp )
-      / 'NOT'? ( 'LIKE' ^( comp ( 'ESCAPE' ^comp )? ) / ( 'GLOB' / 'REGEXP' / 'MATCH' ) ^comp )
+      / 'NOT'? ( 'LIKE' ^( comp ( 'ESCAPE' comp )? ) / ( 'GLOB' / 'REGEXP' / 'MATCH' ) ^comp )
       / 'IS' ^( 'NOT'? comp )
       / 'NOT'? 'BETWEEN' ^( comp 'AND' comp )
       / 'NOT'? 'IN' ^( '(' select_stmt ')' / '(' expr ( ',' expr )* ')' / '(' ')' )
