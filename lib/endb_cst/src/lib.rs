@@ -1,12 +1,11 @@
-use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::error::Error;
 use std::ops::Range;
-use std::rc::Rc;
 
 use ariadne::{sources, Color, Label, Report, ReportKind};
+
+pub mod sql;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ParseErrorDescriptor<'a> {
@@ -55,554 +54,213 @@ pub enum ParseErr {
 
 type ParseContextEntry<'a> = (&'a str, usize);
 type ParseContext<'a> = Vec<ParseContextEntry<'a>>;
-type ParseResult<'a> = Result<usize, ParseErr>;
-type ParseFn<'a, 'b> = dyn Fn(&str, usize, &mut ParseState<'a>) -> ParseResult<'a> + 'b;
-type Parser<'a, 'b> = Rc<ParseFn<'a, 'b>>;
-type ParserGrammar<'a, 'b> = Rc<RefCell<HashMap<&'a str, Parser<'a, 'b>>>>;
+pub type ParseResult = Result<usize, ParseErr>;
 
-#[derive(Clone, PartialEq, Debug)]
-#[repr(C)]
-pub enum Node<'a> {
-    Branch {
-        id: &'a str,
-        children: Vec<Node<'a>>,
-    },
-    Leaf {
-        range: Range<usize>,
-    },
-}
-
-pub fn label<'a: 'b, 'b>(label: &'a str, parser: Parser<'a, 'b>) -> Parser<'a, 'b> {
-    Rc::new(move |input, pos, state| {
-        state.events.push(Event::Open { label, pos });
-        if state.track_errors {
-            state.errors.push(Event::Open { label, pos });
-        }
-
-        let result = parser(input, pos, state);
-        state.events.push(Event::Close);
-        if state.track_errors {
-            state.errors.push(Event::Close);
-        }
-
-        result
-    })
-}
-
-pub fn throw(message: &str) -> Parser<'_, '_> {
-    Rc::new(move |_, pos, state| {
-        if state.track_errors {
-            state.errors.push(Event::Error {
-                descriptor: ParseErrorDescriptor::Labeled(message),
-                range: pos..pos,
-            });
-        }
-        Err(ParseErr::Error)
-    })
-}
-
-fn terminal(re: Regex, descriptor: ParseErrorDescriptor<'_>, trivia: bool) -> Parser<'_, '_> {
-    Rc::new(move |input, pos, state| match re.find_at(input, pos) {
-        Some(m) if m.range().start == pos => {
-            state.events.push(Event::Token {
-                range: m.range(),
-                trivia,
-            });
-            Ok(m.range().end)
-        }
-        _ => {
-            if state.track_errors {
-                state.errors.push(Event::Error {
-                    descriptor: descriptor.clone(),
-                    range: pos..pos,
-                });
-            }
-            Err(ParseErr::Fail)
-        }
-    })
-}
-
-pub fn trivia(pattern: &str) -> Parser<'_, '_> {
-    terminal(
-        Regex::new(pattern).unwrap(),
-        ParseErrorDescriptor::ExpectedPattern(pattern),
-        true,
-    )
-}
-
-pub fn re(pattern: &str) -> Parser<'_, '_> {
-    terminal(
-        Regex::new(pattern).unwrap(),
-        ParseErrorDescriptor::ExpectedPattern(pattern),
-        false,
-    )
-}
-
-pub fn string(literal: &str) -> Parser<'_, '_> {
-    let is_punctuation = literal.chars().all(|c| c.is_ascii_punctuation());
-    Rc::new(move |input, pos, state| {
-        let range = pos..(pos + literal.len()).min(input.len());
-        if input[range.clone()].eq_ignore_ascii_case(literal)
-            && (is_punctuation
-                || input[range.end..]
-                    .chars()
-                    .next()
-                    .map_or(true, |c| !c.is_alphanumeric()))
-        {
-            state.events.push(Event::Token {
-                range: range.clone(),
-                trivia: false,
-            });
-            Ok(range.end)
-        } else {
-            if state.track_errors {
-                state.errors.push(Event::Error {
-                    descriptor: ParseErrorDescriptor::ExpectedLiteral(literal),
-                    range,
-                });
-            }
-            Err(ParseErr::Fail)
-        }
-    })
-}
-
-pub fn eof<'a: 'b, 'b>() -> Parser<'a, 'b> {
-    trivia("$")
-}
-
-pub fn epsilon<'a: 'b, 'b>() -> Parser<'a, 'b> {
-    trivia("")
-}
-
-pub fn seq<'a: 'b, 'b>(parsers: Vec<Parser<'a, 'b>>) -> Parser<'a, 'b> {
-    Rc::new(move |input, pos, state| {
-        let mut pos = pos;
-        for parser in &parsers {
-            let idx = state.events.len();
-            match parser(input, pos, state) {
-                Ok(new_pos) => {
-                    pos = new_pos;
-                }
-                Err(err) => {
-                    state.events.truncate(idx);
-                    return Err(err);
-                }
-            }
-        }
-        Ok(pos)
-    })
-}
-
-pub fn star<'a: 'b, 'b>(parser: Parser<'a, 'b>) -> Parser<'a, 'b> {
-    Rc::new(move |input, pos, state| {
-        let mut pos = pos;
-        loop {
-            let idx = state.events.len();
-            match parser(input, pos, state) {
-                Ok(new_pos) => {
-                    pos = new_pos;
-                }
-                Err(ParseErr::Error) => {
-                    state.events.truncate(idx);
-                    return Err(ParseErr::Error);
-                }
-                Err(_) => {
-                    state.events.truncate(idx);
-                    return Ok(pos);
-                }
-            }
-        }
-    })
-}
-
-pub fn plus<'a: 'b, 'b>(parser: Parser<'a, 'b>) -> Parser<'a, 'b> {
-    seq(vec![parser.clone(), star(parser)])
-}
-
-pub fn opt<'a: 'b, 'b>(parser: Parser<'a, 'b>) -> Parser<'a, 'b> {
-    ord(vec![parser, epsilon()])
-}
-
-pub fn neg<'a: 'b, 'b>(parser: Parser<'a, 'b>) -> Parser<'a, 'b> {
-    Rc::new(move |input, pos, state| {
-        let idx = state.events.len();
-        let err_idx = state.errors.len();
-        let result = parser(input, pos, state);
-        state.events.truncate(idx);
-        if state.track_errors {
-            state.errors.truncate(err_idx);
-        }
-        match result {
-            Err(_) => Ok(pos),
-            Ok(new_pos) => {
-                if state.track_errors {
-                    state.errors.push(Event::Error {
-                        descriptor: ParseErrorDescriptor::Unexpected,
-                        range: pos..new_pos,
-                    });
-                }
-                Err(ParseErr::Fail)
-            }
-        }
-    })
-}
-
-pub fn look<'a: 'b, 'b>(parser: Parser<'a, 'b>) -> Parser<'a, 'b> {
-    neg(neg(parser))
-}
-
-pub fn cut<'a: 'b, 'b>(parser: Parser<'a, 'b>) -> Parser<'a, 'b> {
-    Rc::new(move |input, pos, state| parser(input, pos, state).or(Err(ParseErr::Error)))
-}
-
-pub fn ord<'a: 'b, 'b>(parsers: Vec<Parser<'a, 'b>>) -> Parser<'a, 'b> {
-    Rc::new(move |input, pos, state| {
-        let idx = state.events.len();
-        for parser in &parsers {
-            match parser(input, pos, state) {
-                Ok(pos) => return Ok(pos),
-                Err(ParseErr::Error) => {
-                    state.events.truncate(idx);
-                    return Err(ParseErr::Error);
-                }
-                Err(_) => {
-                    state.events.truncate(idx);
-                }
-            }
-        }
-        Err(ParseErr::Fail)
-    })
-}
-
-pub fn nt<'a: 'b, 'b>(rules: ParserGrammar<'a, 'b>, rule_name: &'b str) -> Parser<'a, 'b> {
-    let cache = RefCell::<Option<Parser>>::default();
-    Rc::new(move |input, pos, state| {
-        if let Some(parser) = cache.borrow().as_deref() {
-            return parser(input, pos, state);
-        }
-        match rules.borrow().get(rule_name) {
-            Some(parser) => {
-                cache.replace(Some(parser.clone()));
-                parser(input, pos, state)
-            }
-            None => {
-                unreachable!("unknown rule {}", rule_name)
-            }
-        }
-    })
-}
-
-pub fn peg_meta_parser<'a: 'b, 'b>() -> Parser<'a, 'b> {
-    let rules = ParserGrammar::default();
-
-    let spacing = trivia("\\s*");
-    let end_of_file = eof();
-
-    let identifier = label(
-        "identifier",
-        seq(vec![
-            re("\\b\\p{XID_START}\\p{XID_CONTINUE}*\\b"),
-            spacing.clone(),
-        ]),
-    );
-    let string_literal = label("string", seq(vec![re("'[^']*?'"), spacing.clone()]));
-    let regex_literal = label(
-        "regex",
-        seq(vec![re("\"(?:[^\\\\\"]|\\\\.)*\""), spacing.clone()]),
-    );
-
-    let token = |s| seq(vec![label(s, string(s)), spacing.clone()]);
-    let hide = |s| seq(vec![trivia(s), spacing.clone()]);
-
-    let left_arrow = hide("<-");
-    let open = hide("\\(");
-    let close = hide("\\)");
-    let question = token("?");
-    let and = token("&");
-    let not = token("!");
-    let star_ = token("*");
-    let plus_ = token("+");
-    let slash = hide("/");
-    let caret = token("^");
-
-    let throw = seq(vec![
-        label("%", re("\\%\\p{XID_START}\\p{XID_CONTINUE}*\\b")),
-        spacing.clone(),
-    ]);
-
-    let primary = label(
-        "primary",
-        ord(vec![
-            seq(vec![identifier.clone(), neg(left_arrow.clone())]),
-            seq(vec![open, nt(rules.clone(), "expression"), close]),
-            string_literal,
-            regex_literal,
-            throw,
-        ]),
-    );
-    let labeled = seq(vec![
-        label("~", re("~\\p{XID_START}\\p{XID_CONTINUE}*\\b")),
-        spacing.clone(),
-    ]);
-    let suffix = label(
-        "suffix",
-        seq(vec![
-            primary,
-            opt(ord(vec![question, star_, plus_, labeled])),
-        ]),
-    );
-    let prefix = label("prefix", seq(vec![opt(ord(vec![and, not, caret])), suffix]));
-    let sequence = label("sequence", star(prefix));
-    let expression = label(
-        "expression",
-        seq(vec![sequence.clone(), star(seq(vec![slash, sequence]))]),
-    );
-
-    rules.borrow_mut().insert("expression", expression.clone());
-
-    let hidden_identifier = label(
-        "hidden_identifier",
-        seq(vec![
-            re("<\\p{XID_START}\\p{XID_CONTINUE}*>"),
-            spacing.clone(),
-        ]),
-    );
-    let definition = label(
-        "definition",
-        seq(vec![
-            ord(vec![hidden_identifier, identifier]),
-            left_arrow,
-            expression,
-        ]),
-    );
-
-    let grammar = label("grammar", seq(vec![spacing, plus(definition), end_of_file]));
-
-    grammar
-}
-
-pub fn build_cst_tree(events: Vec<Event>) -> Node {
-    let mut idx = 0;
-    let mut stack = vec![];
-    while idx < events.len() {
-        match events[idx] {
-            Event::Open { label, .. } => {
-                stack.push(Node::Branch {
-                    id: label,
-                    children: Vec::new(),
-                });
-            }
-            Event::Close => {
-                let node = stack.pop().expect("unbalanced tree");
-                if let Some(Node::Branch { children, .. }) = stack.last_mut() {
-                    children.push(node);
-                } else {
-                    assert!(idx + 1 == events.len());
-                    return node;
-                }
-            }
-            Event::Token {
-                ref range,
-                trivia: false,
-            } => {
-                if let Some(Node::Branch { children, .. }) = stack.last_mut() {
-                    children.push(Node::Leaf {
-                        range: range.clone(),
-                    });
-                } else {
-                    unreachable!("invalid parent");
-                };
-            }
-            Event::Token { trivia: true, .. } => {}
-            Event::Error { .. } => {}
-        }
-        idx += 1;
-    }
-    unreachable!("invalid tree");
-}
-
-pub fn peg_cst_to_parser<'a: 'b, 'b>(
-    src: &'a str,
-    start_rule: &'a str,
-    whitespace: &'a str,
-    node: Node<'a>,
-) -> Parser<'a, 'b> {
-    use Node::*;
-
-    struct WalkEnv<'a, 'b> {
-        src: &'a str,
-        whitespace: Parser<'a, 'b>,
-        rules: ParserGrammar<'a, 'b>,
-    }
-
-    fn walk<'a: 'b, 'b>(env: &WalkEnv<'a, 'b>, node: &Node<'a>) -> Parser<'a, 'b> {
-        match node {
-            Branch {
-                id: "grammar",
-                children,
-            } => {
-                for c in children {
-                    walk(env, c);
-                }
-                epsilon()
-            }
-            Branch {
-                id: "definition",
-                children,
-            } => match children.as_slice() {
-                [Branch {
-                    id: "identifier",
-                    children,
-                }, expression] => match children.as_slice() {
-                    [Leaf { range }] => {
-                        let rule_name = &env.src[range.clone()];
-                        let parser = label(rule_name, walk(env, expression));
-                        env.rules.borrow_mut().insert(rule_name, parser);
-                        epsilon()
-                    }
-                    _ => unreachable!("{:?}", node),
-                },
-                [Branch {
-                    id: "hidden_identifier",
-                    children,
-                }, expression] => match children.as_slice() {
-                    [Leaf { range }] => {
-                        let rule_name = &env.src[(range.start + 1)..(range.end - 1)];
-                        let parser = walk(env, expression);
-                        env.rules.borrow_mut().insert(rule_name, parser);
-                        epsilon()
-                    }
-                    _ => unreachable!("{:?}", node),
-                },
-                _ => unreachable!("{:?}", node),
-            },
-            Branch {
-                id: "expression",
-                children,
-            } => {
-                if children.len() == 1 {
-                    walk(env, children.first().unwrap())
-                } else {
-                    ord(children.iter().map(|c| walk(env, c)).collect())
-                }
-            }
-            Branch {
-                id: "sequence",
-                children,
-            } => {
-                if children.len() == 1 {
-                    walk(env, children.first().unwrap())
-                } else {
-                    seq(children.iter().map(|c| walk(env, c)).collect())
-                }
-            }
-            Branch {
-                id: "prefix",
-                children,
-            } => match children.as_slice() {
-                [Branch { id: "!", .. }, node] => neg(walk(env, node)),
-                [Branch { id: "&", .. }, node] => look(walk(env, node)),
-                [Branch { id: "^", .. }, node] => cut(walk(env, node)),
-                [node] => walk(env, node),
-                _ => unreachable!("{:?}", node),
-            },
-            Branch {
-                id: "suffix",
-                children,
-            } => match children.as_slice() {
-                [node, Branch { id: "?", .. }] => opt(walk(env, node)),
-                [node, Branch { id: "*", .. }] => star(walk(env, node)),
-                [node, Branch { id: "+", .. }] => plus(walk(env, node)),
-                [node, Branch { id: "~", children }] => match children.as_slice() {
-                    [Leaf { range }] => {
-                        let labeled = &env.src[(range.start + 1)..range.end];
-                        ord(vec![label(labeled, walk(env, node)), throw(labeled)])
-                    }
-                    _ => unreachable!("{:?}", node),
-                },
-                [node] => walk(env, node),
-                _ => unreachable!("{:?}", node),
-            },
-            Branch {
-                id: "primary",
-                children,
-            } => match children.as_slice() {
-                [Branch { id: "%", children }] => match children.as_slice() {
-                    [Leaf { range }] => {
-                        let labeled = &env.src[(range.start + 1)..range.end];
-                        throw(labeled)
-                    }
-                    _ => unreachable!("{:?}", node),
-                },
-                [node] => walk(env, node),
-                _ => unreachable!("{:?}", node),
-            },
-            Branch {
-                id: "identifier",
-                children,
-            } => match children.as_slice() {
-                [Leaf { range }] => nt(env.rules.clone(), &env.src[range.clone()]),
-                _ => unreachable!("{:?}", node),
-            },
-            Branch {
-                id: "regex",
-                children,
-            } => match children.as_slice() {
-                [Leaf { range }] => {
-                    let literal = &env.src[(range.start + 1)..(range.end - 1)];
-                    let pattern = literal.replace("\\\\", "\\");
-                    let re = terminal(
-                        Regex::new(&pattern).unwrap(),
-                        ParseErrorDescriptor::ExpectedPattern(literal),
-                        false,
-                    );
-                    seq(vec![re, env.whitespace.clone()])
-                }
-                _ => unreachable!("{:?}", node),
-            },
-            Branch {
-                id: "string",
-                children,
-            } => match children.as_slice() {
-                [Leaf { range }] => {
-                    let literal = &env.src[(range.start + 1)..(range.end - 1)];
-                    seq(vec![string(literal), env.whitespace.clone()])
-                }
-                _ => unreachable!("{:?}", node),
-            },
-            _ => unreachable!("{:?}", node),
-        }
-    }
-
-    let rules = ParserGrammar::default();
-    let whitespace = trivia(whitespace);
-    let env = WalkEnv {
-        src,
-        whitespace: whitespace.clone(),
-        rules,
+#[macro_export]
+macro_rules! peg {
+    ( $( $rule:tt ; )+ ) => {
+        $( peg!($rule); )+
     };
+    ( ( < $name:ident > <- $( $parser:tt )+ ) ) => {
+        #[allow(clippy::redundant_closure_call)]
+        fn $name<'a, 'b: 'a>(input: &'a str, pos: usize, state: &mut ParseState<'b>) -> ParseResult {
+            peg!(($($parser)+))(input, pos, state)
+        }
+    };
+    ( ( $name:ident <- $( $parser:tt )+ ) ) => {
+        #[allow(clippy::redundant_closure_call)]
+        pub fn $name<'a, 'b: 'a>(input: &'a str, pos: usize, state: &mut ParseState<'b>) -> ParseResult {
+            state.events.push(Event::Open { label: stringify!($name), pos });
+            if state.track_errors {
+                state.errors.push(Event::Open { label: stringify!($name), pos });
+            }
 
-    walk(&env, &node);
+            let result = peg!(($($parser)+))(input, pos, state);
 
-    seq(vec![whitespace, nt(env.rules.clone(), start_rule)])
-}
+            state.events.push(Event::Close);
+            if state.track_errors {
+                state.errors.push(Event::Close);
+            }
 
-pub fn build_peg_parser<'a: 'b, 'b>(
-    src: &'a str,
-    start_rule: &'a str,
-    whitespace: &'a str,
-) -> Result<Parser<'a, 'b>, Vec<Event<'a>>> {
-    let peg_meta_parser = peg_meta_parser();
-    let mut state = ParseState::default();
-    match peg_meta_parser(src, 0, &mut state) {
-        Ok(_) => Ok(peg_cst_to_parser(
-            src,
-            start_rule,
-            whitespace,
-            build_cst_tree(state.events),
-        )),
-        _ => Err(state.errors),
-    }
+            result
+        }
+    };
+    ( ( LITERAL $literal:literal ) ) => {
+        |input: &str, pos: usize, state: &mut ParseState| {
+            lazy_static::lazy_static! {
+                static ref PUNCTUATION: bool = $literal.chars().all(|c| c.is_ascii_punctuation());
+            }
+            let range = pos..(pos + $literal.len()).min(input.len());
+            if input[range.clone()].eq_ignore_ascii_case($literal)
+                && (*PUNCTUATION || input[range.end..]
+                .chars()
+                .next()
+                .map_or(true, |c| !c.is_alphanumeric()))
+            {
+                    state.events.push(Event::Token {
+                        range: range.clone(),
+                        trivia: false,
+                    });
+                    whitespace(input, range.end, state)
+                } else {
+                    if state.track_errors {
+                        state.errors.push(Event::Error {
+                            descriptor: ParseErrorDescriptor::ExpectedLiteral($literal),
+                            range,
+                        });
+                    }
+                    Err(ParseErr::Fail)
+                }
+        }
+    };
+    ( ( RE $pattern:literal ) ) => {
+        |input: &str, pos: usize, state: &mut ParseState| {
+            lazy_static::lazy_static! {
+                static ref RE: regex::Regex = regex::Regex::new($pattern).unwrap();
+            }
+            match RE.find_at(input, pos) {
+                Some(m) if m.range().start == pos => {
+                    state.events.push(Event::Token {
+                        range: m.range(),
+                        trivia: false,
+                    });
+                    whitespace(input, m.range().end, state)
+                }
+                _ => {
+                    if state.track_errors {
+                        state.errors.push(Event::Error {
+                            descriptor: ParseErrorDescriptor::ExpectedPattern($pattern),
+                            range: pos..pos,
+                        });
+                    }
+                    Err(ParseErr::Fail)
+                }
+            }
+        }
+    };
+    ( ( TRIVIA $pattern:literal ) ) => {
+        |input: &str, pos: usize, state: &mut ParseState| {
+            lazy_static::lazy_static! {
+                static ref RE: regex::Regex = regex::Regex::new($pattern).unwrap();
+            }
+            match RE.find_at(input, pos) {
+                Some(m) if m.range().start == pos => {
+                    Ok(m.range().end)
+                }
+                _ => {
+                    if state.track_errors {
+                        state.errors.push(Event::Error {
+                            descriptor: ParseErrorDescriptor::ExpectedPattern($pattern),
+                            range: pos..pos,
+                        });
+                    }
+                    Err(ParseErr::Fail)
+                }
+            }
+        }
+    };
+    ( ( / $( $parser:tt )+ ) ) => {
+        |input: &str, pos: usize, state: &mut ParseState| {
+            let idx = state.events.len();
+            $(
+                match peg!($parser)(input, pos, state) {
+                    Ok(pos) => return Ok(pos),
+                    Err(ParseErr::Error) => {
+                        state.events.truncate(idx);
+                        return Err(ParseErr::Error);
+                    }
+                    Err(_) => {
+                        state.events.truncate(idx);
+                    }
+                };
+            )+
+            Err(ParseErr::Fail)
+        }
+    };
+    ( ( * $( $parser:tt )+ ) ) => {
+        |input: &str, pos: usize, state: &mut ParseState| {
+            let mut pos = pos;
+            loop {
+                let idx = state.events.len();
+                match peg!(($($parser)+))(input, pos, state) {
+                    Ok(new_pos) => {
+                        pos = new_pos;
+                    }
+                    Err(ParseErr::Error) => {
+                        state.events.truncate(idx);
+                        return Err(ParseErr::Error);
+                    }
+                    Err(_) => {
+                        state.events.truncate(idx);
+                        return Ok(pos);
+                    }
+                }
+            }
+        }
+    };
+    ( ( + $( $parser:tt )+ ) ) => {
+        peg!((($($parser)+) (* ($($parser)+))))
+    };
+    ( ( ? $( $parser:tt )+ ) ) => {
+        peg!((/ ($($parser)+) (TRIVIA "")))
+    };
+    ( ( ! $( $parser:tt )+ ) ) => {
+        |input: &str, pos: usize, state: &mut ParseState| {
+            let idx = state.events.len();
+            let err_idx = state.errors.len();
+            let result = peg!(($($parser)+))(input, pos, state);
+            state.events.truncate(idx);
+            if state.track_errors {
+                state.errors.truncate(err_idx);
+            }
+            match result {
+                Err(_) => Ok(pos),
+                Ok(new_pos) => {
+                    if state.track_errors {
+                        state.errors.push(Event::Error {
+                            descriptor: ParseErrorDescriptor::Unexpected,
+                            range: pos..new_pos,
+                        });
+                    }
+                    Err(ParseErr::Fail)
+                }
+            }
+        }
+    };
+    ( ( & $( $parser:tt )+ ) ) => {
+        peg!((! (! ($($parser)+))))
+    };
+    ( ( ^ $( $parser:tt )+ ) ) => {
+        |input: &str, pos: usize, state: &mut ParseState| {
+            peg!(($($parser)+))(input, pos, state).or(Err(ParseErr::Error))
+        }
+    };
+    ( ( $( $parser:tt )+ ) ) => {
+        |input: &str, pos: usize, state: &mut ParseState| {
+            let mut pos = pos;
+            let idx = state.events.len();
+
+            $(
+                match peg!($parser)(input, pos, state) {
+                    Ok(new_pos) => {
+                        pos = new_pos;
+                    }
+                    Err(err) => {
+                        state.events.truncate(idx);
+                        return Err(err);
+                    }
+                };
+            )+
+
+            Ok(pos)
+        }
+    };
+    ( $literal:literal ) => {
+        peg!((LITERAL $literal))
+    };
+    ( $nt:ident ) => {
+        $nt
+    };
 }
 
 fn events_to_sexp_into(
@@ -890,12 +548,6 @@ pub fn parse_errors_to_string<'a>(
     }
 
     parse_report_to_string(&report)
-}
-
-pub const SQL_PEG: &str = include_str!("sql.peg");
-
-std::thread_local! {
-    pub static SQL_CST_PARSER: Parser<'static, 'static> = build_peg_parser(SQL_PEG, "sql_stmt_list", "(\\s|--[^\n\r]*?)*").unwrap();
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize, Default)]
