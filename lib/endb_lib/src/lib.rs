@@ -146,40 +146,38 @@ pub extern "C" fn endb_parse_sql_cst(
     on_error: extern "C" fn(*const c_char),
 ) {
     if let Err(err) = panic::catch_unwind(|| {
-        endb_cst::SQL_CST_PARSER.with(|parser| {
-            let c_str = unsafe { CStr::from_ptr(filename) };
-            let filename_str = c_str.to_str().unwrap();
-            let c_str = unsafe { CStr::from_ptr(input) };
-            let input_str = c_str.to_str().unwrap();
+        let c_str = unsafe { CStr::from_ptr(filename) };
+        let filename_str = c_str.to_str().unwrap();
+        let c_str = unsafe { CStr::from_ptr(input) };
+        let input_str = c_str.to_str().unwrap();
 
-            let mut state = endb_cst::ParseState::default();
+        let mut state = endb_cst::ParseState::default();
 
-            match parser(input_str, 0, &mut state) {
-                Ok(_) => {
-                    string_callback(
-                        endb_cst::events_to_sexp(input_str, &state.events).unwrap(),
-                        on_success,
-                    );
-                }
-                Err(_) => {
-                    let mut state = endb_cst::ParseState {
-                        track_errors: true,
-                        ..endb_cst::ParseState::default()
-                    };
-                    let _ = parser(input_str, 0, &mut state);
-
-                    string_callback(
-                        endb_cst::parse_errors_to_string(
-                            filename_str,
-                            input_str,
-                            &endb_cst::events_to_errors(&state.errors),
-                        )
-                        .unwrap(),
-                        on_error,
-                    );
-                }
+        match endb_cst::sql::sql_stmt_list(input_str, 0, &mut state) {
+            Ok(_) => {
+                string_callback(
+                    endb_cst::events_to_sexp(input_str, &state.events).unwrap(),
+                    on_success,
+                );
             }
-        });
+            Err(_) => {
+                let mut state = endb_cst::ParseState {
+                    track_errors: true,
+                    ..endb_cst::ParseState::default()
+                };
+                let _ = endb_cst::sql::sql_stmt_list(input_str, 0, &mut state);
+
+                string_callback(
+                    endb_cst::parse_errors_to_string(
+                        filename_str,
+                        input_str,
+                        &endb_cst::events_to_errors(&state.errors),
+                    )
+                    .unwrap(),
+                    on_error,
+                );
+            }
+        }
     }) {
         let msg = err.downcast_ref::<&str>().unwrap_or(&"unknown panic!!");
         string_callback(msg.to_string(), on_error);

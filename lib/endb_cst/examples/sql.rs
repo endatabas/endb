@@ -1,7 +1,7 @@
 use std::io::{self, BufRead, Write};
 
 fn main() {
-    endb_cst::SQL_CST_PARSER.with(|parser| loop {
+    loop {
         print!(">>> ");
         io::stdout().flush().ok();
         let stdin = io::stdin();
@@ -15,7 +15,7 @@ fn main() {
                     track_errors: true,
                     ..endb_cst::ParseState::default()
                 };
-                match parser(&src, 0, &mut state) {
+                match endb_cst::sql::sql_stmt_list(&src, 0, &mut state) {
                     Ok(_) => {
                         println!("{}", endb_cst::events_to_sexp(&src, &state.events).unwrap());
                     }
@@ -34,5 +34,5 @@ fn main() {
             }
             _ => break,
         }
-    });
+    }
 }

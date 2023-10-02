@@ -341,6 +341,7 @@ name = "endb_cst"
 version = "0.1.0"
 dependencies = [
  "ariadne",
+ "lazy_static",
  "regex",
  "serde",
  "serde_json",
