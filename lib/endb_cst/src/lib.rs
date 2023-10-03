@@ -63,30 +63,30 @@ macro_rules! peg {
     };
     ( ( < $name:ident > <- $( $parser:tt )+ ) ) => {
         #[allow(clippy::redundant_closure_call)]
-        fn $name<'a, 'b: 'a>(input: &'a str, pos: usize, state: &mut ParseState<'b>) -> ParseResult {
+        fn $name<'a, 'b: 'a>(input: &'a str, pos: usize, state: &mut $crate::ParseState<'b>) -> $crate::ParseResult {
             peg!(($($parser)+))(input, pos, state)
         }
     };
     ( ( $name:ident <- $( $parser:tt )+ ) ) => {
         #[allow(clippy::redundant_closure_call)]
-        pub fn $name<'a, 'b: 'a>(input: &'a str, pos: usize, state: &mut ParseState<'b>) -> ParseResult {
-            state.events.push(Event::Open { label: stringify!($name), pos });
+        pub fn $name<'a, 'b: 'a>(input: &'a str, pos: usize, state: &mut $crate::ParseState<'b>) -> $crate::ParseResult {
+            state.events.push($crate::Event::Open { label: stringify!($name), pos });
             if state.track_errors {
-                state.errors.push(Event::Open { label: stringify!($name), pos });
+                state.errors.push($crate::Event::Open { label: stringify!($name), pos });
             }
 
             let result = peg!(($($parser)+))(input, pos, state);
 
-            state.events.push(Event::Close);
+            state.events.push($crate::Event::Close);
             if state.track_errors {
-                state.errors.push(Event::Close);
+                state.errors.push($crate::Event::Close);
             }
 
             result
         }
     };
     ( ( LITERAL $literal:literal ) ) => {
-        |input: &str, pos: usize, state: &mut ParseState| {
+        |input: &str, pos: usize, state: &mut $crate::ParseState| {
             lazy_static::lazy_static! {
                 static ref PUNCTUATION: bool = $literal.chars().all(|c| c.is_ascii_punctuation());
             }
@@ -97,30 +97,30 @@ macro_rules! peg {
                 .next()
                 .map_or(true, |c| !c.is_alphanumeric()))
             {
-                    state.events.push(Event::Token {
+                    state.events.push($crate::Event::Token {
                         range: range.clone(),
                         trivia: false,
                     });
                     whitespace(input, range.end, state)
                 } else {
                     if state.track_errors {
-                        state.errors.push(Event::Error {
-                            descriptor: ParseErrorDescriptor::ExpectedLiteral($literal),
+                        state.errors.push($crate::Event::Error {
+                            descriptor: $crate::ParseErrorDescriptor::ExpectedLiteral($literal),
                             range,
                         });
                     }
-                    Err(ParseErr::Fail)
+                    Err($crate::ParseErr::Fail)
                 }
         }
     };
     ( ( RE $pattern:literal ) ) => {
-        |input: &str, pos: usize, state: &mut ParseState| {
+        |input: &str, pos: usize, state: &mut $crate::ParseState| {
             lazy_static::lazy_static! {
                 static ref RE: regex::Regex = regex::Regex::new($pattern).unwrap();
             }
             match RE.find_at(input, pos) {
                 Some(m) if m.range().start == pos => {
-                    state.events.push(Event::Token {
+                    state.events.push($crate::Event::Token {
                         range: m.range(),
                         trivia: false,
                     });
@@ -128,18 +128,18 @@ macro_rules! peg {
                 }
                 _ => {
                     if state.track_errors {
-                        state.errors.push(Event::Error {
-                            descriptor: ParseErrorDescriptor::ExpectedPattern($pattern),
+                        state.errors.push($crate::Event::Error {
+                            descriptor: $crate::ParseErrorDescriptor::ExpectedPattern($pattern),
                             range: pos..pos,
                         });
                     }
-                    Err(ParseErr::Fail)
+                    Err($crate::ParseErr::Fail)
                 }
             }
         }
     };
     ( ( TRIVIA $pattern:literal ) ) => {
-        |input: &str, pos: usize, state: &mut ParseState| {
+        |input: &str, pos: usize, state: &mut $crate::ParseState| {
             lazy_static::lazy_static! {
                 static ref RE: regex::Regex = regex::Regex::new($pattern).unwrap();
             }
@@ -149,36 +149,36 @@ macro_rules! peg {
                 }
                 _ => {
                     if state.track_errors {
-                        state.errors.push(Event::Error {
-                            descriptor: ParseErrorDescriptor::ExpectedPattern($pattern),
+                        state.errors.push($crate::Event::Error {
+                            descriptor: $crate::ParseErrorDescriptor::ExpectedPattern($pattern),
                             range: pos..pos,
                         });
                     }
-                    Err(ParseErr::Fail)
+                    Err($crate::ParseErr::Fail)
                 }
             }
         }
     };
     ( ( / $( $parser:tt )+ ) ) => {
-        |input: &str, pos: usize, state: &mut ParseState| {
+        |input: &str, pos: usize, state: &mut $crate::ParseState| {
             let idx = state.events.len();
             $(
                 match peg!($parser)(input, pos, state) {
                     Ok(pos) => return Ok(pos),
-                    Err(ParseErr::Error) => {
+                    Err($crate::ParseErr::Error) => {
                         state.events.truncate(idx);
-                        return Err(ParseErr::Error);
+                        return Err($crate::ParseErr::Error);
                     }
                     Err(_) => {
                         state.events.truncate(idx);
                     }
                 };
             )+
-            Err(ParseErr::Fail)
+            Err($crate::ParseErr::Fail)
         }
     };
     ( ( * $( $parser:tt )+ ) ) => {
-        |input: &str, pos: usize, state: &mut ParseState| {
+        |input: &str, pos: usize, state: &mut $crate::ParseState| {
             let mut pos = pos;
             loop {
                 let idx = state.events.len();
@@ -186,9 +186,9 @@ macro_rules! peg {
                     Ok(new_pos) => {
                         pos = new_pos;
                     }
-                    Err(ParseErr::Error) => {
+                    Err($crate::ParseErr::Error) => {
                         state.events.truncate(idx);
-                        return Err(ParseErr::Error);
+                        return Err($crate::ParseErr::Error);
                     }
                     Err(_) => {
                         state.events.truncate(idx);
@@ -205,7 +205,7 @@ macro_rules! peg {
         peg!((/ ($($parser)+) (TRIVIA "")))
     };
     ( ( ! $( $parser:tt )+ ) ) => {
-        |input: &str, pos: usize, state: &mut ParseState| {
+        |input: &str, pos: usize, state: &mut $crate::ParseState| {
             let idx = state.events.len();
             let err_idx = state.errors.len();
             let result = peg!(($($parser)+))(input, pos, state);
@@ -217,12 +217,12 @@ macro_rules! peg {
                 Err(_) => Ok(pos),
                 Ok(new_pos) => {
                     if state.track_errors {
-                        state.errors.push(Event::Error {
-                            descriptor: ParseErrorDescriptor::Unexpected,
+                        state.errors.push($crate::Event::Error {
+                            descriptor: $crate::ParseErrorDescriptor::Unexpected,
                             range: pos..new_pos,
                         });
                     }
-                    Err(ParseErr::Fail)
+                    Err($crate::ParseErr::Fail)
                 }
             }
         }
@@ -231,12 +231,12 @@ macro_rules! peg {
         peg!((! (! ($($parser)+))))
     };
     ( ( ^ $( $parser:tt )+ ) ) => {
-        |input: &str, pos: usize, state: &mut ParseState| {
-            peg!(($($parser)+))(input, pos, state).or(Err(ParseErr::Error))
+        |input: &str, pos: usize, state: &mut $crate::ParseState| {
+            peg!(($($parser)+))(input, pos, state).or(Err($crate::ParseErr::Error))
         }
     };
     ( ( $( $parser:tt )+ ) ) => {
-        |input: &str, pos: usize, state: &mut ParseState| {
+        |input: &str, pos: usize, state: &mut $crate::ParseState| {
             let mut pos = pos;
             let idx = state.events.len();
 
