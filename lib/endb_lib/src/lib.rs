@@ -142,7 +142,9 @@ pub extern "C" fn endb_arrow_array_stream_consumer(
 pub extern "C" fn endb_parse_sql_cst(
     filename: *const c_char,
     input: *const c_char,
-    on_success: extern "C" fn(*const c_char),
+    on_open: extern "C" fn(*const u8, usize),
+    on_close: extern "C" fn(),
+    on_token: extern "C" fn(usize, usize),
     on_error: extern "C" fn(*const c_char),
 ) {
     if let Err(err) = panic::catch_unwind(|| {
@@ -155,10 +157,20 @@ pub extern "C" fn endb_parse_sql_cst(
 
         match endb_cst::sql::sql_stmt_list(input_str, 0, &mut state) {
             Ok(_) => {
-                string_callback(
-                    endb_cst::events_to_sexp(input_str, &state.events).unwrap(),
-                    on_success,
-                );
+                for e in state.events {
+                    match e {
+                        endb_cst::Event::Open { label, .. } => {
+                            on_open(label.as_ptr(), label.len());
+                        }
+                        endb_cst::Event::Close {} => {
+                            on_close();
+                        }
+                        endb_cst::Event::Token { range, .. } => {
+                            on_token(range.start, range.end);
+                        }
+                        endb_cst::Event::Error { .. } => {}
+                    }
+                }
             }
             Err(_) => {
                 let mut state = endb_cst::ParseState {

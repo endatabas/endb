@@ -10,7 +10,9 @@
 (cffi:defcfun "endb_parse_sql_cst" :void
   (filename (:pointer :char))
   (input (:pointer :char))
-  (on_success :pointer)
+  (on_open :pointer)
+  (on_close :pointer)
+  (on_token :pointer)
   (on_error :pointer))
 
 (cffi:defcfun "endb_render_json_error_report" :void
@@ -18,34 +20,72 @@
   (on_success :pointer)
   (on_error :pointer))
 
-(defvar *parse-sql-cst-on-success*)
-
-(cffi:defcallback parse-sql-cst-on-success :void
-    ((cst :string))
-  (funcall *parse-sql-cst-on-success* cst))
-
 (cffi:defcallback parse-sql-cst-on-error :void
     ((err :string))
   (error 'endb/lib/parser:sql-parse-error :message err))
 
+(defvar *parse-sql-cst-on-open*)
+
+(cffi:defcallback parse-sql-cst-on-open :void
+    ((label-ptr :pointer)
+     (label-size :size))
+  (funcall *parse-sql-cst-on-open* label-ptr label-size))
+
+(defvar *parse-sql-cst-on-close*)
+
+(cffi:defcallback parse-sql-cst-on-close :void
+    ()
+  (funcall *parse-sql-cst-on-close*))
+
+(defvar *parse-sql-cst-on-token*)
+
+(cffi:defcallback parse-sql-cst-on-token :void
+    ((start :size)
+     (end :size))
+  (funcall *parse-sql-cst-on-token* start end))
+
+(defparameter +kw-cache+ (make-hash-table))
+
 (defun parse-sql-cst (input &key (filename ""))
   (endb/lib:init-lib)
   (if (zerop (length input))
-      (error 'sql-parse-error :message "Empty input")
-      (let* ((result)
-             (*parse-sql-cst-on-success* (lambda (cst)
-                                           (let ((*read-eval* nil)
-                                                 (*read-default-float-format* 'double-float))
-                                             (setf result (read-from-string cst))))))
+      (error 'endb/lib/parser:sql-parse-error :message "Empty input")
+      (let* ((result (list (list)))
+             (input-bytes (trivial-utf-8:string-to-utf-8-bytes input))
+             (*parse-sql-cst-on-open* (lambda (label-ptr label-size)
+                                        (let* ((address (cffi:pointer-address label-ptr))
+                                               (kw (or (gethash address +kw-cache+)
+                                                       (let* ((kw-string (make-array label-size :element-type 'character)))
+                                                         (dotimes (n label-size)
+                                                           (setf (aref kw-string n)
+                                                                 (code-char (cffi:mem-ref label-ptr :char n))))
+                                                         (setf (gethash address +kw-cache+)
+                                                               (intern kw-string :keyword))))))
+                                          (push (list kw) result))))
+             (*parse-sql-cst-on-close* (lambda ()
+                                         (push (nreverse (pop result)) (first result))))
+             (*parse-sql-cst-on-token* (lambda (start end)
+                                         (let ((token (trivial-utf-8:utf-8-bytes-to-string input-bytes :start start :end end)))
+                                           (push (list token start end) (first result))))))
         (if (and (typep filename 'base-string)
                  (typep input 'base-string))
             (cffi:with-pointer-to-vector-data (filename-ptr input)
               (cffi:with-pointer-to-vector-data (input-ptr input)
-                (endb-parse-sql-cst filename-ptr input-ptr (cffi:callback parse-sql-cst-on-success) (cffi:callback parse-sql-cst-on-error))))
+                (endb-parse-sql-cst filename-ptr
+                                    input-ptr
+                                    (cffi:callback parse-sql-cst-on-open)
+                                    (cffi:callback parse-sql-cst-on-close)
+                                    (cffi:callback parse-sql-cst-on-token)
+                                    (cffi:callback parse-sql-cst-on-error))))
             (cffi:with-foreign-string (filename-ptr input)
               (cffi:with-foreign-string (input-ptr input)
-                (endb-parse-sql-cst filename-ptr input-ptr (cffi:callback parse-sql-cst-on-success) (cffi:callback parse-sql-cst-on-error)))))
-        result)))
+                (endb-parse-sql-cst filename-ptr
+                                    input-ptr
+                                    (cffi:callback parse-sql-cst-on-open)
+                                    (cffi:callback parse-sql-cst-on-close)
+                                    (cffi:callback parse-sql-cst-on-token)
+                                    (cffi:callback parse-sql-cst-on-error)))))
+        (caar result))))
 
 (defvar *render-json-error-report-on-success*)
 
