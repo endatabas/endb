@@ -1,6 +1,6 @@
-use crate::{peg, Event, ParseErr, ParseErrorDescriptor, ParseResult, ParseState};
+use crate::peg;
 
-crate::peg! {
+peg! {
     (<whitespace> <- (TRIVIA "(\\s*|--[^\n\r]*?)*"));
 
     (<ident> <- (RE "\\b\\p{XID_START}\\p{XID_CONTINUE}*\\b"));
