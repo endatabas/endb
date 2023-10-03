@@ -4,7 +4,8 @@
   (:import-from :endb/lib)
   (:import-from :endb/lib/parser)
   (:import-from :endb/json)
-  (:import-from :cffi))
+  (:import-from :cffi)
+  (:import-from :trivial-utf-8))
 (in-package :endb/lib/cst)
 
 (cffi:defcfun "endb_parse_sql_cst" :void
