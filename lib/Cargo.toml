@@ -1,5 +1,5 @@
 [workspace]
-members = ["endb_parser", "endb_arrow", "endb_lib", "endb_cst"]
+members = ["endb_parser", "endb_arrow", "endb_lib", "endb_cst", "endb_proc_macro"]
 resolver = "2"
 
 [workspace.package]
