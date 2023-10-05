@@ -341,6 +341,7 @@ name = "endb_cst"
 version = "0.1.0"
 dependencies = [
  "ariadne",
+ "endb_proc_macro",
  "lazy_static",
  "regex",
  "serde",
@@ -369,6 +370,14 @@ dependencies = [
  "chumsky",
  "insta",
  "serde",
+]
+
+[[package]]
+name = "endb_proc_macro"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
 ]
 
 [[package]]
