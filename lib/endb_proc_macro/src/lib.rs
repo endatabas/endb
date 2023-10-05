@@ -295,6 +295,20 @@ fn parse_seq(i: &mut impl Iterator<Item = TokenTree>) -> TokenStream {
             }
         };
 
+        let suffix =
+            i.next_if(|i| matches!(i, TokenTree::Punct(punct) if "?+*".contains(punct.as_char())));
+
+        let parser = match suffix {
+            Some(TokenTree::Punct(ref punct)) => match punct.as_char() {
+                '*' => build_star(parser),
+                '+' => build_plus(parser),
+                '?' => build_opt(parser),
+                _ => unreachable!("unexpected suffix: {}", punct.as_char()),
+            },
+
+            _ => parser,
+        };
+
         let parser = match prefix {
             Some(TokenTree::Punct(punct)) => match punct.as_char() {
                 '!' => build_neg(parser),
@@ -306,18 +320,6 @@ fn parse_seq(i: &mut impl Iterator<Item = TokenTree>) -> TokenStream {
             _ => parser,
         };
 
-        let postfix =
-            i.next_if(|i| matches!(i, TokenTree::Punct(punct) if "?+*".contains(punct.as_char())));
-
-        let parser = match postfix {
-            Some(TokenTree::Punct(ref punct)) => match punct.as_char() {
-                '*' => build_star(parser),
-                '+' => build_plus(parser),
-                '?' => build_opt(parser),
-                _ => unreachable!("unexpected postfix: {}", punct.as_char()),
-            },
-            _ => parser,
-        };
         seq.push(parser);
     }
 
