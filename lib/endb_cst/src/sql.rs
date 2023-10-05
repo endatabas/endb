@@ -83,10 +83,7 @@ peg! {
 
     select_core <-
         SELECT ( ALL / DISTINCT )? ( result_column ( "," result_column )* )
-        from_clause?
-    where_clause?
-        group_by_clause?
-        having_clause?
+        from_clause? where_clause? group_by_clause? having_clause?
         /
         VALUES ( "(" expr ( "," expr)* ")" ) ( "," ( "(" expr ( "," expr)* ")" ) )*;
 
