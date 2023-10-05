@@ -9,7 +9,7 @@
   (:import-from :mmap))
 (in-package :endb/lib/arrow)
 
-(cffi:defbitfield arrow-flags
+(cffi:defbitfield (arrow-flags :int64)
   (:dictionary-encoded 1)
   (:nullable 2)
   (:map-keys-sorted 4))
