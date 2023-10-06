@@ -327,14 +327,14 @@ impl ToTokens for Rule {
                 }
             }
         } else {
-            let id_str = LitStr::new(&id.to_string(), id.span());
+            let id_string = id.to_string();
 
             quote_spanned! {id.span()=>
                #[allow(clippy::redundant_closure_call)]
                 pub fn #id<'a, 'b: 'a>(input: &'a str, pos: usize, state: &mut ParseState<'b>) -> ParseResult {
-                    state.events.push(Event::Open { label: #id_str, pos });
+                    state.events.push(Event::Open { label: #id_string, pos });
                     if state.track_errors {
-                        state.errors.push(Event::Open { label: #id_str, pos });
+                        state.errors.push(Event::Open { label: #id_string, pos });
                     }
 
                     let result = (#body)(input, pos, state);
