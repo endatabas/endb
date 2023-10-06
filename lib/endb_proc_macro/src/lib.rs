@@ -122,8 +122,7 @@ impl ToTokens for PegParser {
                         }
                     }
                 }
-            }
-            .to_tokens(tokens),
+            },
             PegParser::Trivia(pattern) => quote! {
                 |input: &str, pos: usize, state: &mut ParseState| {
                     lazy_static::lazy_static! {
@@ -144,8 +143,7 @@ impl ToTokens for PegParser {
                         }
                     }
                 }
-            }
-            .to_tokens(tokens),
+            },
             PegParser::Literal(literal) => {
                 let literal_str = literal.value();
                 let literal_len = literal_str.len();
@@ -181,7 +179,6 @@ impl ToTokens for PegParser {
                         }
                     }
                 }
-                .to_tokens(tokens)
             }
             PegParser::Seq(parsers) => quote! {
                 |input: &str, pos: usize, state: &mut ParseState| {
@@ -203,8 +200,7 @@ impl ToTokens for PegParser {
 
                     Ok(pos)
                 }
-            }
-            .to_tokens(tokens),
+            },
             PegParser::Ord(parsers) => quote! {
                 |input: &str, pos: usize, state: &mut ParseState| {
                     let idx = state.events.len();
@@ -224,8 +220,7 @@ impl ToTokens for PegParser {
 
                     Err(ParseErr::Fail)
                 }
-            }
-            .to_tokens(tokens),
+            },
             PegParser::Star(parser) => quote! {
                 |input: &str, pos: usize, state: &mut ParseState| {
                     let mut pos = pos;
@@ -246,8 +241,7 @@ impl ToTokens for PegParser {
                         }
                     }
                 }
-            }
-            .to_tokens(tokens),
+            },
             PegParser::Neg(parser) => quote! {
                 |input: &str, pos: usize, state: &mut ParseState| {
                     let idx = state.events.len();
@@ -270,28 +264,27 @@ impl ToTokens for PegParser {
                         }
                     }
                 }
-            }
-            .to_tokens(tokens),
+            },
             PegParser::Cut(parser) => quote! {
                 |input: &str, pos: usize, state: &mut ParseState| {
                     (#parser)(input, pos, state).or(Err(ParseErr::Error))
                 }
-            }
-            .to_tokens(tokens),
-            PegParser::NonTerminal(id) => id.to_tokens(tokens),
+            },
+            PegParser::NonTerminal(id) => id.to_token_stream(),
             PegParser::Look(parser) => {
-                PegParser::Neg(PegParser::Neg(parser.clone()).into()).to_tokens(tokens)
+                PegParser::Neg(PegParser::Neg(parser.clone()).into()).to_token_stream()
             }
             PegParser::Plus(parser) => {
                 PegParser::Seq(vec![*parser.clone(), PegParser::Star(parser.clone())])
-                    .to_tokens(tokens)
+                    .to_token_stream()
             }
             PegParser::Opt(parser) => PegParser::Ord(vec![
                 *parser.clone(),
                 PegParser::Trivia(LitStr::new("", proc_macro2::Span::mixed_site())),
             ])
-            .to_tokens(tokens),
-        };
+            .to_token_stream(),
+        }
+        .to_tokens(tokens);
     }
 }
 
