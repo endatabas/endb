@@ -79,7 +79,7 @@ peg! {
     from_clause <- FROM ( table_or_subquery ( "," table_or_subquery )* / join_clause );
     where_clause <- WHERE expr;
     group_by_clause <- GROUP BY expr ( "," expr )*;
-    having_clause <-  HAVING expr;
+    having_clause <- HAVING expr;
 
     select_core <-
         SELECT ( ALL / DISTINCT )? ( result_column ( "," result_column )* )
@@ -87,7 +87,7 @@ peg! {
         /
         VALUES ( "(" expr ( "," expr)* ")" ) ( "," ( "(" expr ( "," expr)* ")" ) )*;
 
-    compound_operator <- UNION ALL / UNION / INTERSECT / EXCEPT;
+    compound_operator <- UNION ALL? / INTERSECT / EXCEPT;
     common_table_expression <- table_name ( "(" column_name ( "," column_name )* ")" )? AS "(" select_stmt ")";
 
     with_clause <- WITH RECURSIVE? common_table_expression ( "," common_table_expression )*;
