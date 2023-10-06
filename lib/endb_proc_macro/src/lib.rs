@@ -26,28 +26,27 @@ impl Parse for PegParser {
 
         while !(input.is_empty() || input.peek(token::Semi) || input.peek(token::Slash)) {
             let prefix_span = input.span();
-            let mut prefix = if input.parse::<Token![~]>().is_ok() {
-                Some('~')
-            } else if input.parse::<Token![#]>().is_ok() {
-                Some('#')
-            } else if input.parse::<Token![!]>().is_ok() {
-                Some('!')
-            } else if input.parse::<Token![&]>().is_ok() {
-                Some('&')
-            } else if input.parse::<Token![^]>().is_ok() {
-                Some('^')
+            let prefix_error = input.error("invalid prefix");
+            let mut prefix = if input.peek(Token![~])
+                || input.peek(Token![#])
+                || input.peek(Token![!])
+                || input.peek(Token![&])
+                || input.peek(Token![^])
+            {
+                input.step(|cursor| cursor.token_tree().ok_or(cursor.error("missing prefix")))?;
+                prefix_span.source_text()
             } else {
                 None
             };
 
             let parser = if let Ok(literal) = input.parse::<LitStr>() {
-                match prefix {
-                    Some('~') => {
-                        prefix = None;
+                match prefix.as_deref() {
+                    Some("~") => {
+                        prefix.take();
                         PegParser::Trivia(literal)
                     }
-                    Some('#') => {
-                        prefix = None;
+                    Some("#") => {
+                        prefix.take();
                         PegParser::Pattern(literal)
                     }
                     _ => PegParser::Literal(literal),
@@ -66,11 +65,11 @@ impl Parse for PegParser {
                 return Err(input.error("unknown parser"));
             };
 
-            let parser = match prefix {
-                Some('!') => PegParser::Neg(parser.into()),
-                Some('&') => PegParser::Look(parser.into()),
-                Some('^') => PegParser::Cut(parser.into()),
-                Some(_) => return Err(syn::Error::new(prefix_span, "invalid prefix")),
+            let parser = match prefix.as_deref() {
+                Some("!") => PegParser::Neg(parser.into()),
+                Some("&") => PegParser::Look(parser.into()),
+                Some("^") => PegParser::Cut(parser.into()),
+                Some(_) => return Err(prefix_error),
                 _ => parser,
             };
 
