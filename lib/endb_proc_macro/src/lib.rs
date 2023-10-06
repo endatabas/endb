@@ -25,7 +25,8 @@ impl Parse for PegParser {
         let mut seq = vec![];
 
         while !(input.is_empty() || input.peek(token::Semi) || input.peek(token::Slash)) {
-            let prefix = if input.parse::<Token![~]>().is_ok() {
+            let prefix_span = input.span();
+            let mut prefix = if input.parse::<Token![~]>().is_ok() {
                 Some('~')
             } else if input.parse::<Token![#]>().is_ok() {
                 Some('#')
@@ -41,8 +42,14 @@ impl Parse for PegParser {
 
             let parser = if let Ok(literal) = input.parse::<LitStr>() {
                 match prefix {
-                    Some('~') => PegParser::Trivia(literal),
-                    Some('#') => PegParser::Pattern(literal),
+                    Some('~') => {
+                        prefix = None;
+                        PegParser::Trivia(literal)
+                    }
+                    Some('#') => {
+                        prefix = None;
+                        PegParser::Pattern(literal)
+                    }
                     _ => PegParser::Literal(literal),
                 }
             } else if let Ok(id) = input.parse::<Ident>() {
@@ -63,6 +70,7 @@ impl Parse for PegParser {
                 Some('!') => PegParser::Neg(parser.into()),
                 Some('&') => PegParser::Look(parser.into()),
                 Some('^') => PegParser::Cut(parser.into()),
+                Some(_) => return Err(syn::Error::new(prefix_span, "invalid prefix")),
                 _ => parser,
             };
 
