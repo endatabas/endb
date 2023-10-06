@@ -1,389 +1,405 @@
-use proc_macro2::{Ident, Literal, TokenStream, TokenTree};
-use quote::{quote, quote_spanned};
+use proc_macro2::TokenStream;
+use quote::{quote, quote_spanned, ToTokens};
+use syn::parse::{Parse, ParseStream, Result};
+use syn::punctuated::Punctuated;
+use syn::{parse_macro_input, token, Ident, LitStr, Token};
 
-fn build_private_rule(id: Ident, body: TokenStream) -> TokenStream {
-    quote_spanned! {id.span()=>
-       #[allow(clippy::redundant_closure_call)]
-        fn #id<'a, 'b: 'a>(input: &'a str, pos: usize, state: &mut ParseState<'b>) -> ParseResult {
-            (#body)(input, pos, state)
-        }
-    }
+#[derive(Clone)]
+enum PegParser {
+    Seq(Vec<PegParser>),
+    Ord(Vec<PegParser>),
+    Pattern(LitStr),
+    Trivia(LitStr),
+    Literal(LitStr),
+    NonTerminal(Ident),
+    Neg(Box<PegParser>),
+    Look(Box<PegParser>),
+    Cut(Box<PegParser>),
+    Star(Box<PegParser>),
+    Plus(Box<PegParser>),
+    Opt(Box<PegParser>),
 }
 
-fn build_pub_rule(id: Ident, body: TokenStream) -> TokenStream {
-    let id_str = Literal::string(&id.to_string());
+impl Parse for PegParser {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let mut seq = vec![];
 
-    quote_spanned! {id.span()=>
-       #[allow(clippy::redundant_closure_call)]
-        pub fn #id<'a, 'b: 'a>(input: &'a str, pos: usize, state: &mut ParseState<'b>) -> ParseResult {
-            state.events.push(Event::Open { label: #id_str, pos });
-            if state.track_errors {
-                state.errors.push(Event::Open { label: #id_str, pos });
-            }
-
-            let result = (#body)(input, pos, state);
-
-            state.events.push(Event::Close);
-            if state.track_errors {
-                state.errors.push(Event::Close);
-            }
-
-            result
-        }
-    }
-}
-
-fn build_nt(nt: Ident) -> TokenStream {
-    TokenTree::Ident(nt).into()
-}
-
-fn build_pattern(pattern: Literal) -> TokenStream {
-    quote! {
-        |input: &str, pos: usize, state: &mut ParseState| {
-            lazy_static::lazy_static! {
-                static ref RE: regex::Regex = regex::Regex::new(#pattern).unwrap();
-            }
-            match RE.find_at(input, pos) {
-                Some(m) if m.range().start == pos => {
-                    state.events.push(Event::Token {
-                        range: m.range(),
-                        trivia: false,
-                    });
-                    whitespace(input, m.range().end, state)
-                }
-                _ => {
-                    if state.track_errors {
-                        state.errors.push(Event::Error {
-                            descriptor: ParseErrorDescriptor::ExpectedPattern(#pattern),
-                            range: pos..pos,
-                        });
-                    }
-                    Err(ParseErr::Fail)
-                }
-            }
-        }
-    }
-}
-
-fn build_trivia(pattern: Literal) -> TokenStream {
-    quote! {
-        |input: &str, pos: usize, state: &mut ParseState| {
-            lazy_static::lazy_static! {
-                static ref RE: regex::Regex = regex::Regex::new(#pattern).unwrap();
-            }
-            match RE.find_at(input, pos) {
-                Some(m) if m.range().start == pos => {
-                    Ok(m.range().end)
-                }
-                _ => {
-                    if state.track_errors {
-                        state.errors.push(Event::Error {
-                            descriptor: ParseErrorDescriptor::ExpectedPattern(#pattern),
-                            range: pos..pos,
-                        });
-                    }
-                    Err(ParseErr::Fail)
-                }
-            }
-        }
-    }
-}
-
-fn build_literal(literal: Literal) -> TokenStream {
-    let literal_str = literal.to_string();
-    let punctuation = literal_str[1..literal_str.len() - 1]
-        .chars()
-        .all(|c| c.is_ascii_punctuation());
-    let valid_next_char = if punctuation {
-        quote! {true}
-    } else {
-        quote! {
-            input[range.end..]
-                .chars()
-                .next()
-                .map_or(true, |c| !c.is_alphanumeric())
-        }
-    };
-    quote! {
-        |input: &str, pos: usize, state: &mut ParseState| {
-            let range = pos..(pos + #literal.len()).min(input.len());
-            if input[range.clone()].eq_ignore_ascii_case(#literal)
-                && #valid_next_char {
-                state.events.push(Event::Token {
-                    range: range.clone(),
-                    trivia: false,
-                });
-                whitespace(input, range.end, state)
+        while !(input.is_empty() || input.peek(token::Semi) || input.peek(token::Slash)) {
+            let prefix = if input.parse::<Token![~]>().is_ok() {
+                Some('~')
+            } else if input.parse::<Token![#]>().is_ok() {
+                Some('#')
+            } else if input.parse::<Token![!]>().is_ok() {
+                Some('!')
+            } else if input.parse::<Token![&]>().is_ok() {
+                Some('&')
+            } else if input.parse::<Token![^]>().is_ok() {
+                Some('^')
             } else {
-                if state.track_errors {
-                    state.errors.push(Event::Error {
-                        descriptor: ParseErrorDescriptor::ExpectedLiteral(#literal),
-                        range,
+                None
+            };
+
+            let parser = if let Ok(literal) = input.parse::<LitStr>() {
+                match prefix {
+                    Some('~') => PegParser::Trivia(literal),
+                    Some('#') => PegParser::Pattern(literal),
+                    _ => PegParser::Literal(literal),
+                }
+            } else if let Ok(id) = input.parse::<Ident>() {
+                if id.to_string().chars().all(|c| c.is_uppercase() || c == '_') {
+                    PegParser::Literal(LitStr::new(&id.to_string(), id.span()))
+                } else {
+                    PegParser::NonTerminal(id)
+                }
+            } else if input.peek(token::Paren) {
+                let content;
+                syn::parenthesized!(content in input);
+                parse_ord(&content)?
+            } else {
+                return Err(input.error("unknown parser"));
+            };
+
+            let parser = match prefix {
+                Some('!') => PegParser::Neg(parser.into()),
+                Some('&') => PegParser::Look(parser.into()),
+                Some('^') => PegParser::Cut(parser.into()),
+                _ => parser,
+            };
+
+            let parser = if input.parse::<Token![*]>().is_ok() {
+                PegParser::Star(parser.into())
+            } else if input.parse::<Token![+]>().is_ok() {
+                PegParser::Plus(parser.into())
+            } else if input.parse::<Token![?]>().is_ok() {
+                PegParser::Opt(parser.into())
+            } else {
+                parser
+            };
+
+            seq.push(parser);
+        }
+
+        if seq.len() == 1 {
+            Ok(seq[0].clone())
+        } else {
+            Ok(PegParser::Seq(seq))
+        }
+    }
+}
+
+impl ToTokens for PegParser {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        match self {
+            PegParser::Pattern(pattern) => quote! {
+                |input: &str, pos: usize, state: &mut ParseState| {
+                    lazy_static::lazy_static! {
+                        static ref RE: regex::Regex = regex::Regex::new(#pattern).unwrap();
+                    }
+                    match RE.find_at(input, pos) {
+                        Some(m) if m.range().start == pos => {
+                            state.events.push(Event::Token {
+                                range: m.range(),
+                                trivia: false,
+                            });
+                            whitespace(input, m.range().end, state)
+                        }
+                        _ => {
+                            if state.track_errors {
+                                state.errors.push(Event::Error {
+                                    descriptor: ParseErrorDescriptor::ExpectedPattern(#pattern),
+                                    range: pos..pos,
+                                });
+                            }
+                            Err(ParseErr::Fail)
+                        }
+                    }
+                }
+            }
+            .to_tokens(tokens),
+            PegParser::Trivia(pattern) => quote! {
+                |input: &str, pos: usize, state: &mut ParseState| {
+                    lazy_static::lazy_static! {
+                        static ref RE: regex::Regex = regex::Regex::new(#pattern).unwrap();
+                    }
+                    match RE.find_at(input, pos) {
+                        Some(m) if m.range().start == pos => {
+                            Ok(m.range().end)
+                        }
+                        _ => {
+                            if state.track_errors {
+                                state.errors.push(Event::Error {
+                                    descriptor: ParseErrorDescriptor::ExpectedPattern(#pattern),
+                                    range: pos..pos,
+                                });
+                            }
+                            Err(ParseErr::Fail)
+                        }
+                    }
+                }
+            }
+            .to_tokens(tokens),
+            PegParser::Literal(literal) => {
+                let literal_str = literal.value();
+                let literal_len = literal_str.len();
+                let punctuation = literal_str.chars().all(|c| c.is_ascii_punctuation());
+                let valid_next_char = if punctuation {
+                    quote! {true}
+                } else {
+                    quote! {
+                        input[range.end..]
+                            .chars()
+                            .next()
+                            .map_or(true, |c| !c.is_alphanumeric())
+                    }
+                };
+                quote! {
+                    |input: &str, pos: usize, state: &mut ParseState| {
+                        let range = pos..(pos + #literal_len).min(input.len());
+                        if input[range.clone()].eq_ignore_ascii_case(#literal)
+                            && #valid_next_char {
+                            state.events.push(Event::Token {
+                                range: range.clone(),
+                                trivia: false,
+                            });
+                            whitespace(input, range.end, state)
+                        } else {
+                            if state.track_errors {
+                                state.errors.push(Event::Error {
+                                    descriptor: ParseErrorDescriptor::ExpectedLiteral(#literal),
+                                    range,
+                                });
+                            }
+                            Err(ParseErr::Fail)
+                        }
+                    }
+                }
+                .to_tokens(tokens)
+            }
+            PegParser::Seq(parsers) => {
+                let mut body = TokenStream::new();
+
+                for parser in parsers {
+                    body.extend(quote! {
+                        match (#parser)(input, pos, state) {
+                            Ok(new_pos) => {
+                                pos = new_pos;
+                            }
+                            Err(err) => {
+                                state.events.truncate(idx);
+                                return Err(err);
+                            }
+                        };
                     });
                 }
-                Err(ParseErr::Fail)
-            }
-        }
-    }
-}
 
-fn build_neg(neg: TokenStream) -> TokenStream {
-    quote! {
-        |input: &str, pos: usize, state: &mut ParseState| {
-            let idx = state.events.len();
-            let err_idx = state.errors.len();
-            let result = (#neg)(input, pos, state);
-            state.events.truncate(idx);
-            if state.track_errors {
-                state.errors.truncate(err_idx);
+                quote! {
+                    |input: &str, pos: usize, state: &mut ParseState| {
+                        let mut pos = pos;
+                        let idx = state.events.len();
+
+                        #body
+
+                        Ok(pos)
+                    }
+                }
+                .to_tokens(tokens)
             }
-            match result {
-                Err(_) => Ok(pos),
-                Ok(new_pos) => {
+            PegParser::Ord(parsers) => {
+                let mut body = TokenStream::new();
+
+                for parser in parsers {
+                    body.extend(quote! {
+                        match (#parser)(input, pos, state) {
+                            Ok(pos) => return Ok(pos),
+                            Err(ParseErr::Error) => {
+                                state.events.truncate(idx);
+                                return Err(ParseErr::Error);
+                            }
+                            Err(_) => {
+                                state.events.truncate(idx);
+                            }
+                        };
+                    });
+                }
+                quote! {
+                    |input: &str, pos: usize, state: &mut ParseState| {
+                        let idx = state.events.len();
+
+                        #body
+
+                        Err(ParseErr::Fail)
+                    }
+                }
+                .to_tokens(tokens)
+            }
+            PegParser::Star(parser) => quote! {
+                |input: &str, pos: usize, state: &mut ParseState| {
+                    let mut pos = pos;
+                    loop {
+                        let idx = state.events.len();
+                        match (#parser)(input, pos, state) {
+                            Ok(new_pos) => {
+                                pos = new_pos;
+                            }
+                            Err(ParseErr::Error) => {
+                                state.events.truncate(idx);
+                                return Err(ParseErr::Error);
+                            }
+                            Err(_) => {
+                                state.events.truncate(idx);
+                                return Ok(pos);
+                            }
+                        }
+                    }
+                }
+            }
+            .to_tokens(tokens),
+            PegParser::Neg(parser) => quote! {
+                |input: &str, pos: usize, state: &mut ParseState| {
+                    let idx = state.events.len();
+                    let err_idx = state.errors.len();
+                    let result = (#parser)(input, pos, state);
+                    state.events.truncate(idx);
                     if state.track_errors {
-                        state.errors.push(Event::Error {
-                            descriptor: ParseErrorDescriptor::Unexpected,
-                            range: pos..new_pos,
-                        });
+                        state.errors.truncate(err_idx);
                     }
-                    Err(ParseErr::Fail)
-                }
-            }
-        }
-    }
-}
-
-fn build_look(look: TokenStream) -> TokenStream {
-    build_neg(build_neg(look))
-}
-
-fn build_cut(cut: TokenStream) -> TokenStream {
-    quote! {
-        |input: &str, pos: usize, state: &mut ParseState| {
-            (#cut)(input, pos, state).or(Err(ParseErr::Error))
-        }
-    }
-}
-
-fn build_star(star: TokenStream) -> TokenStream {
-    quote! {
-        |input: &str, pos: usize, state: &mut ParseState| {
-            let mut pos = pos;
-            loop {
-                let idx = state.events.len();
-                match (#star)(input, pos, state) {
-                    Ok(new_pos) => {
-                        pos = new_pos;
-                    }
-                    Err(ParseErr::Error) => {
-                        state.events.truncate(idx);
-                        return Err(ParseErr::Error);
-                    }
-                    Err(_) => {
-                        state.events.truncate(idx);
-                        return Ok(pos);
+                    match result {
+                        Err(_) => Ok(pos),
+                        Ok(new_pos) => {
+                            if state.track_errors {
+                                state.errors.push(Event::Error {
+                                    descriptor: ParseErrorDescriptor::Unexpected,
+                                    range: pos..new_pos,
+                                });
+                            }
+                            Err(ParseErr::Fail)
+                        }
                     }
                 }
             }
-        }
-    }
-}
-
-fn build_plus(plus: TokenStream) -> TokenStream {
-    build_seq(&[plus.clone(), build_star(plus)])
-}
-
-fn build_opt(opt: TokenStream) -> TokenStream {
-    build_ord(&[opt, build_trivia(Literal::string(""))])
-}
-
-fn build_seq(seq: &[TokenStream]) -> TokenStream {
-    if let [tt] = seq {
-        return tt.clone();
-    }
-
-    let mut body = TokenStream::new();
-
-    for tt in seq {
-        body.extend(quote! {
-            match (#tt)(input, pos, state) {
-                Ok(new_pos) => {
-                    pos = new_pos;
-                }
-                Err(err) => {
-                    state.events.truncate(idx);
-                    return Err(err);
-                }
-            };
-        });
-    }
-
-    quote! {
-        |input: &str, pos: usize, state: &mut ParseState| {
-            let mut pos = pos;
-            let idx = state.events.len();
-
-            #body
-
-            Ok(pos)
-        }
-    }
-}
-
-fn build_ord(ord: &[TokenStream]) -> TokenStream {
-    if let [tt] = ord {
-        return tt.clone();
-    }
-
-    let mut body = TokenStream::new();
-
-    for tt in ord {
-        body.extend(quote! {
-            match (#tt)(input, pos, state) {
-                Ok(pos) => return Ok(pos),
-                Err(ParseErr::Error) => {
-                    state.events.truncate(idx);
-                    return Err(ParseErr::Error);
-                }
-                Err(_) => {
-                    state.events.truncate(idx);
-                }
-            };
-        });
-    }
-
-    quote! {
-        |input: &str, pos: usize, state: &mut ParseState| {
-            let idx = state.events.len();
-
-            #body
-
-            Err(ParseErr::Fail)
-        }
-    }
-}
-
-fn parse_seq(i: &mut impl Iterator<Item = TokenTree>) -> TokenStream {
-    let mut seq = vec![];
-    let mut i = i.peekable();
-
-    while i.peek().is_some() {
-        let prefix = i
-            .next_if(|i| matches!(i, TokenTree::Punct(punct) if "!&^#~".contains(punct.as_char())));
-        let token = i.next().expect("token");
-
-        let parser = match token {
-            TokenTree::Ident(id) => {
-                if id.to_string().chars().all(|c| c.is_uppercase() || c == '_') {
-                    build_literal(Literal::string(&id.to_string()))
-                } else {
-                    build_nt(id)
+            .to_tokens(tokens),
+            PegParser::Cut(parser) => quote! {
+                |input: &str, pos: usize, state: &mut ParseState| {
+                    (#parser)(input, pos, state).or(Err(ParseErr::Error))
                 }
             }
-            TokenTree::Group(group) => parse_ord(&mut group.stream().into_iter()),
-            TokenTree::Literal(literal) => match prefix {
-                Some(TokenTree::Punct(ref punct)) if '#' == punct.as_char() => {
-                    build_pattern(literal)
-                }
-                Some(TokenTree::Punct(ref punct)) if '~' == punct.as_char() => {
-                    build_trivia(literal)
-                }
-                _ => build_literal(literal),
-            },
-            TokenTree::Punct(punct) => {
-                unreachable!("unexpected punct: {}", punct.as_char())
+            .to_tokens(tokens),
+            PegParser::NonTerminal(id) => id.to_tokens(tokens),
+            PegParser::Look(parser) => {
+                PegParser::Neg(PegParser::Neg(parser.clone()).into()).to_tokens(tokens)
             }
+            PegParser::Plus(parser) => {
+                PegParser::Seq(vec![*parser.clone(), PegParser::Star(parser.clone())])
+                    .to_tokens(tokens)
+            }
+            PegParser::Opt(parser) => PegParser::Ord(vec![
+                *parser.clone(),
+                PegParser::Trivia(LitStr::new("", proc_macro2::Span::call_site())),
+            ])
+            .to_tokens(tokens),
         };
+    }
+}
 
-        let suffix =
-            i.next_if(|i| matches!(i, TokenTree::Punct(punct) if "?+*".contains(punct.as_char())));
+fn parse_ord(input: ParseStream) -> Result<PegParser> {
+    let ord = Punctuated::<PegParser, Token![/]>::parse_separated_nonempty(input)?
+        .iter()
+        .cloned()
+        .collect::<Vec<_>>();
 
-        let parser = match suffix {
-            Some(TokenTree::Punct(ref punct)) => match punct.as_char() {
-                '*' => build_star(parser),
-                '+' => build_plus(parser),
-                '?' => build_opt(parser),
-                _ => unreachable!("unexpected suffix: {}", punct.as_char()),
-            },
+    if ord.len() == 1 {
+        Ok(ord[0].clone())
+    } else {
+        Ok(PegParser::Ord(ord))
+    }
+}
 
-            _ => parser,
+#[derive(Clone)]
+struct Rule {
+    id: Ident,
+    hidden: bool,
+    body: PegParser,
+}
+
+impl ToTokens for Rule {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        let id = &self.id;
+        let body = &self.body;
+        if self.hidden {
+            quote_spanned! {id.span()=>
+               #[allow(clippy::redundant_closure_call)]
+                fn #id<'a, 'b: 'a>(input: &'a str, pos: usize, state: &mut ParseState<'b>) -> ParseResult {
+                    (#body)(input, pos, state)
+                }
+            }
+        } else {
+            let id_str = LitStr::new(&id.to_string(), id.span());
+
+            quote_spanned! {id.span()=>
+               #[allow(clippy::redundant_closure_call)]
+                pub fn #id<'a, 'b: 'a>(input: &'a str, pos: usize, state: &mut ParseState<'b>) -> ParseResult {
+                    state.events.push(Event::Open { label: #id_str, pos });
+                    if state.track_errors {
+                        state.errors.push(Event::Open { label: #id_str, pos });
+                    }
+
+                    let result = (#body)(input, pos, state);
+
+                    state.events.push(Event::Close);
+                    if state.track_errors {
+                        state.errors.push(Event::Close);
+                    }
+
+                    result
+                }
+            }
+        }.to_tokens(tokens);
+    }
+}
+
+impl Parse for Rule {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let hidden = input.peek(Token![<]);
+        let id: Ident = if hidden {
+            input.parse::<Token![<]>()?;
+            let id = input.parse()?;
+            input.parse::<Token![>]>()?;
+            id
+        } else {
+            input.parse()?
         };
+        input.parse::<Token![<]>()?;
+        input.parse::<Token![-]>()?;
 
-        let parser = match prefix {
-            Some(TokenTree::Punct(punct)) => match punct.as_char() {
-                '!' => build_neg(parser),
-                '&' => build_look(parser),
-                '^' => build_cut(parser),
-                '#' | '~' => parser,
-                _ => unreachable!("unexpected prefix: {}", punct.as_char()),
-            },
-            _ => parser,
-        };
-
-        seq.push(parser);
+        let body = parse_ord(input)?;
+        Ok(Rule { id, hidden, body })
     }
-
-    build_seq(&seq)
 }
 
-fn parse_ord(i: &mut impl Iterator<Item = TokenTree>) -> TokenStream {
-    let mut ord = vec![];
-
-    for seq in i
-        .collect::<Vec<_>>()
-        .split(|item| matches!(item, TokenTree::Punct(punct) if '/' == punct.as_char()))
-    {
-        ord.push(parse_seq(&mut seq.iter().cloned()));
-    }
-
-    build_ord(&ord)
+#[derive(Clone)]
+struct Grammar {
+    rules: Vec<Rule>,
 }
 
-fn read_rule_arrow(i: &mut impl Iterator<Item = TokenTree>) {
-    assert!(matches!(i.next(), Some(TokenTree::Punct(punct)) if '<' == punct.as_char()));
-    assert!(matches!(i.next(), Some(TokenTree::Punct(punct)) if '-' == punct.as_char()));
-}
-
-fn parse_rule(i: &mut impl Iterator<Item = TokenTree>) -> TokenStream {
-    let token = i.next();
-
-    match token {
-        Some(TokenTree::Punct(punct)) if '<' == punct.as_char() => {
-            let token = i.next();
-            let Some(TokenTree::Ident(id)) = token else {
-                unreachable!("unexpected {:?}", token)
-            };
-            assert!(matches!(i.next(), Some(TokenTree::Punct(punct)) if '>' == punct.as_char()));
-            read_rule_arrow(i);
-
-            let body = parse_ord(i);
-            build_private_rule(id.clone(), body)
+impl ToTokens for Grammar {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        for rule in &self.rules {
+            rule.to_tokens(tokens);
         }
-        Some(TokenTree::Ident(id)) => {
-            read_rule_arrow(i);
-
-            let body = parse_ord(i);
-            build_pub_rule(id, body)
-        }
-        None => TokenStream::new(),
-        _ => unreachable!("unexpected: {:?}", token),
     }
 }
 
-fn parse_grammar(i: &mut impl Iterator<Item = TokenTree>) -> TokenStream {
-    let mut grammar = TokenStream::new();
-
-    for rule in i
-        .collect::<Vec<_>>()
-        .split(|item| matches!(item, TokenTree::Punct(punct) if ';' == punct.as_char()))
-    {
-        grammar.extend(parse_rule(&mut rule.iter().cloned()));
+impl Parse for Grammar {
+    fn parse(input: ParseStream) -> Result<Self> {
+        let rules = Punctuated::<Rule, Token![;]>::parse_terminated(input)?;
+        Ok(Grammar {
+            rules: rules.iter().cloned().collect::<Vec<_>>(),
+        })
     }
-
-    grammar
 }
 
 #[proc_macro]
 pub fn peg(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    proc_macro::TokenStream::from(parse_grammar(&mut TokenStream::from(input).into_iter()))
+    let grammar = parse_macro_input!(input as Grammar);
+    proc_macro::TokenStream::from(grammar.to_token_stream())
 }
