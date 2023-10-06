@@ -61,7 +61,7 @@ impl Parse for PegParser {
             } else if input.peek(token::Paren) {
                 let content;
                 syn::parenthesized!(content in input);
-                parse_ord(&content)?
+                content.call(parse_ord)?
             } else {
                 return Err(input.error("unknown parser"));
             };
@@ -358,7 +358,7 @@ impl Parse for Rule {
         input.parse::<Token![<]>()?;
         input.parse::<Token![-]>()?;
 
-        let body = parse_ord(input)?;
+        let body = input.call(parse_ord)?;
         Ok(Rule { id, hidden, body })
     }
 }
