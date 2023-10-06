@@ -70,6 +70,8 @@ Install https://www.rust-lang.org/
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
+_Note, Endatabas does not currently work on MacOS when using Rust for `aarch64-apple-darwin`. `x86_64-apple-darwin` does work via Rosetta._
+
 Run the tests and build the binary:
 
 ```bash
