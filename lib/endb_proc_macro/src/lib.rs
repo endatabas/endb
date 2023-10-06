@@ -183,12 +183,13 @@ impl ToTokens for PegParser {
                 }
                 .to_tokens(tokens)
             }
-            PegParser::Seq(parsers) => {
-                let mut body = TokenStream::new();
+            PegParser::Seq(parsers) => quote! {
+                |input: &str, pos: usize, state: &mut ParseState| {
+                    let mut pos = pos;
+                    let idx = state.events.len();
 
-                for parser in parsers {
-                    body.extend(quote! {
-                        match (#parser)(input, pos, state) {
+                    #(
+                        match (#parsers)(input, pos, state) {
                             Ok(new_pos) => {
                                 pos = new_pos;
                             }
@@ -197,27 +198,19 @@ impl ToTokens for PegParser {
                                 return Err(err);
                             }
                         };
-                    });
+
+                    )*
+
+                    Ok(pos)
                 }
-
-                quote! {
-                    |input: &str, pos: usize, state: &mut ParseState| {
-                        let mut pos = pos;
-                        let idx = state.events.len();
-
-                        #body
-
-                        Ok(pos)
-                    }
-                }
-                .to_tokens(tokens)
             }
-            PegParser::Ord(parsers) => {
-                let mut body = TokenStream::new();
+            .to_tokens(tokens),
+            PegParser::Ord(parsers) => quote! {
+                |input: &str, pos: usize, state: &mut ParseState| {
+                    let idx = state.events.len();
 
-                for parser in parsers {
-                    body.extend(quote! {
-                        match (#parser)(input, pos, state) {
+                    #(
+                        match (#parsers)(input, pos, state) {
                             Ok(pos) => return Ok(pos),
                             Err(ParseErr::Error) => {
                                 state.events.truncate(idx);
@@ -227,19 +220,12 @@ impl ToTokens for PegParser {
                                 state.events.truncate(idx);
                             }
                         };
-                    });
-                }
-                quote! {
-                    |input: &str, pos: usize, state: &mut ParseState| {
-                        let idx = state.events.len();
+                    )*
 
-                        #body
-
-                        Err(ParseErr::Fail)
-                    }
+                    Err(ParseErr::Fail)
                 }
-                .to_tokens(tokens)
             }
+            .to_tokens(tokens),
             PegParser::Star(parser) => quote! {
                 |input: &str, pos: usize, state: &mut ParseState| {
                     let mut pos = pos;
@@ -302,7 +288,7 @@ impl ToTokens for PegParser {
             }
             PegParser::Opt(parser) => PegParser::Ord(vec![
                 *parser.clone(),
-                PegParser::Trivia(LitStr::new("", proc_macro2::Span::call_site())),
+                PegParser::Trivia(LitStr::new("", proc_macro2::Span::mixed_site())),
             ])
             .to_tokens(tokens),
         };
