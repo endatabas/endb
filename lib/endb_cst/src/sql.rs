@@ -167,6 +167,6 @@ peg! {
     ddl_drop_stmt <- DROP ( INDEX / VIEW / TABLE / ASSERTION ) ( IF EXISTS )? ident;
 
     sql_stmt <- select_stmt / insert_stmt / delete_stmt / erase_stmt / update_stmt / create_index_stmt / create_view_stmt / create_table_stmt /  create_assertion_stmt / ddl_drop_stmt;
-    sql_stmt_list <- whitespace sql_stmt ( ";" sql_stmt )* ";"? !(~".");
+    sql_stmt_list <- whitespace sql_stmt ( ";" sql_stmt )* ";"? !(#".");
 
 }
