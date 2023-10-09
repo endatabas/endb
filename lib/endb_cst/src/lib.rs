@@ -27,7 +27,6 @@ pub enum Event<'a> {
     Close,
     Token {
         range: Range<usize>,
-        trivia: bool,
     },
     Error {
         range: Range<usize>,
@@ -76,10 +75,7 @@ fn events_to_sexp_into(
                 out.push_str(label);
                 out.push('|');
             }
-            Event::Token {
-                ref range,
-                trivia: false,
-            } => {
+            Event::Token { ref range } => {
                 out.push_str(" (\"");
                 out.push_str(&src[range.clone()].replace('"', "\\\""));
                 out.push_str("\" ");
@@ -88,7 +84,6 @@ fn events_to_sexp_into(
                 write!(out, "{}", range.end)?;
                 out.push(')');
             }
-            Event::Token { trivia: true, .. } => {}
             Event::Close => out.push(')'),
             Event::Error { .. } => {}
         }

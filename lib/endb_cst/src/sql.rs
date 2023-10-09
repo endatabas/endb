@@ -1,9 +1,11 @@
 use crate::{Event, ParseErr, ParseErrorDescriptor, ParseResult, ParseState};
 use endb_proc_macro::peg;
 
-peg! {
+lazy_static::lazy_static! {
+    static ref WHITESPACE: regex::Regex = regex::Regex::new("(\\s+|--[^\n\r]*)*").unwrap();
+}
 
-    <whitespace> <- ~"(\\s+|--[^\n\r]*)*";
+peg! {
 
     <ident> <- #"\\b\\p{XID_START}\\p{XID_CONTINUE}*\\b";
 
@@ -167,6 +169,6 @@ peg! {
     ddl_drop_stmt <- DROP ( INDEX / VIEW / TABLE / ASSERTION ) ( IF EXISTS )? ident;
 
     sql_stmt <- select_stmt / insert_stmt / delete_stmt / erase_stmt / update_stmt / create_index_stmt / create_view_stmt / create_table_stmt /  create_assertion_stmt / ddl_drop_stmt;
-    sql_stmt_list <- whitespace sql_stmt ( ";" sql_stmt )* ";"? !(#".");
+    sql_stmt_list <- #"^" sql_stmt ( ";" sql_stmt )* ";"? !(#".");
 
 }

@@ -9,7 +9,6 @@ enum PegParser {
     Seq(Vec<PegParser>),
     Ord(Vec<PegParser>),
     Pattern(LitStr),
-    Trivia(LitStr),
     Literal(LitStr),
     NonTerminal(Ident),
     Neg(Box<PegParser>),
@@ -27,8 +26,7 @@ impl Parse for PegParser {
         while !(input.is_empty() || input.peek(token::Semi) || input.peek(token::Slash)) {
             let prefix_span = input.span();
             let prefix_error = input.error("invalid prefix");
-            let mut prefix = if input.peek(Token![~])
-                || input.peek(Token![#])
+            let mut prefix = if input.peek(Token![#])
                 || input.peek(Token![!])
                 || input.peek(Token![&])
                 || input.peek(Token![^])
@@ -41,10 +39,6 @@ impl Parse for PegParser {
 
             let parser = if let Ok(literal) = input.parse::<LitStr>() {
                 match prefix.as_deref() {
-                    Some("~") => {
-                        prefix.take();
-                        PegParser::Trivia(literal)
-                    }
                     Some("#") => {
                         prefix.take();
                         PegParser::Pattern(literal)
@@ -104,32 +98,19 @@ impl ToTokens for PegParser {
                     }
                     match RE.find_at(input, pos) {
                         Some(m) if m.range().start == pos => {
-                            state.events.push(Event::Token {
-                                range: m.range(),
-                                trivia: false,
-                            });
-                            whitespace(input, m.range().end, state)
-                        }
-                        _ => {
-                            if state.track_errors {
-                                state.errors.push(Event::Error {
-                                    descriptor: ParseErrorDescriptor::ExpectedPattern(#pattern),
-                                    range: pos..pos,
+                            if !m.range().is_empty() {
+                                state.events.push(Event::Token {
+                                    range: m.range(),
                                 });
                             }
-                            Err(ParseErr::Fail)
-                        }
-                    }
-                }
-            },
-            PegParser::Trivia(pattern) => quote! {
-                |input: &str, pos: usize, state: &mut ParseState| {
-                    lazy_static::lazy_static! {
-                        static ref RE: regex::Regex = regex::Regex::new(#pattern).unwrap();
-                    }
-                    match RE.find_at(input, pos) {
-                        Some(m) if m.range().start == pos => {
-                            Ok(m.range().end)
+
+                            let pos = m.range().end;
+                            match WHITESPACE.find_at(input, pos) {
+                                Some(m) if m.range().start == pos => {
+                                    Ok(m.range().end)
+                                }
+                                _ => Ok(pos)
+                            }
                         }
                         _ => {
                             if state.track_errors {
@@ -162,20 +143,27 @@ impl ToTokens for PegParser {
                         let range = pos..(pos + #literal_len).min(input.len());
                         if input[range.clone()].eq_ignore_ascii_case(#literal)
                             && #valid_next_char {
-                            state.events.push(Event::Token {
-                                range: range.clone(),
-                                trivia: false,
-                            });
-                            whitespace(input, range.end, state)
-                        } else {
-                            if state.track_errors {
-                                state.errors.push(Event::Error {
-                                    descriptor: ParseErrorDescriptor::ExpectedLiteral(#literal),
-                                    range,
-                                });
+                                if !range.is_empty() {
+                                    state.events.push(Event::Token {
+                                        range: range.clone(),
+                                    });
+                                }
+                                let pos = range.end;
+                                match WHITESPACE.find_at(input, pos) {
+                                    Some(m) if m.range().start == pos => {
+                                        Ok(m.range().end)
+                                    }
+                                    _ => Ok(pos)
+                                }
+                            } else {
+                                if state.track_errors {
+                                    state.errors.push(Event::Error {
+                                        descriptor: ParseErrorDescriptor::ExpectedLiteral(#literal),
+                                        range,
+                                    });
+                                }
+                                Err(ParseErr::Fail)
                             }
-                            Err(ParseErr::Fail)
-                        }
                     }
                 }
             }
@@ -279,7 +267,7 @@ impl ToTokens for PegParser {
             }
             PegParser::Opt(parser) => PegParser::Ord(vec![
                 *parser.clone(),
-                PegParser::Trivia(LitStr::new("", proc_macro2::Span::mixed_site())),
+                PegParser::Literal(LitStr::new("", proc_macro2::Span::mixed_site())),
             ])
             .to_token_stream(),
         }
@@ -312,8 +300,9 @@ impl ToTokens for Rule {
         let id = &self.id;
         let body = &self.body;
         if self.hidden {
-            quote_spanned! {id.span()=>
-               #[allow(clippy::redundant_closure_call)]
+            quote_spanned! {
+                id.span()=>
+                #[allow(clippy::redundant_closure_call)]
                 fn #id<'a, 'b: 'a>(input: &'a str, pos: usize, state: &mut ParseState<'b>) -> ParseResult {
                     (#body)(input, pos, state)
                 }
@@ -321,8 +310,9 @@ impl ToTokens for Rule {
         } else {
             let id_string = id.to_string();
 
-            quote_spanned! {id.span()=>
-               #[allow(clippy::redundant_closure_call)]
+            quote_spanned! {
+                id.span()=>
+                #[allow(clippy::redundant_closure_call)]
                 pub fn #id<'a, 'b: 'a>(input: &'a str, pos: usize, state: &mut ParseState<'b>) -> ParseResult {
                     state.events.push(Event::Open { label: #id_string, pos });
                     if state.track_errors {
