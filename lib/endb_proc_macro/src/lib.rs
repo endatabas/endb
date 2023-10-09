@@ -141,29 +141,28 @@ impl ToTokens for PegParser {
                 quote! {
                     |input: &str, pos: usize, state: &mut ParseState| {
                         let range = pos..(pos + #literal_len).min(input.len());
-                        if input[range.clone()].eq_ignore_ascii_case(#literal)
-                            && #valid_next_char {
-                                if !range.is_empty() {
-                                    state.events.push(Event::Token {
-                                        range: range.clone(),
-                                    });
-                                }
-                                let pos = range.end;
-                                match WHITESPACE.find_at(input, pos) {
-                                    Some(m) if m.range().start == pos => {
-                                        Ok(m.range().end)
-                                    }
-                                    _ => Ok(pos)
-                                }
-                            } else {
-                                if state.track_errors {
-                                    state.errors.push(Event::Error {
-                                        descriptor: ParseErrorDescriptor::ExpectedLiteral(#literal),
-                                        range,
-                                    });
-                                }
-                                Err(ParseErr::Fail)
+                        if input[range.clone()].eq_ignore_ascii_case(#literal) && #valid_next_char {
+                            if !range.is_empty() {
+                                state.events.push(Event::Token {
+                                    range: range.clone(),
+                                });
                             }
+                            let pos = range.end;
+                            match WHITESPACE.find_at(input, pos) {
+                                Some(m) if m.range().start == pos => {
+                                    Ok(m.range().end)
+                                }
+                                _ => Ok(pos)
+                            }
+                        } else {
+                            if state.track_errors {
+                                state.errors.push(Event::Error {
+                                    descriptor: ParseErrorDescriptor::ExpectedLiteral(#literal),
+                                    range,
+                                });
+                            }
+                            Err(ParseErr::Fail)
+                        }
                     }
                 }
             }
