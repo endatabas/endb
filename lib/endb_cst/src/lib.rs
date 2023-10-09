@@ -7,6 +7,9 @@ use ariadne::{sources, Color, Label, Report, ReportKind};
 
 pub mod sql;
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Clone, PartialEq, Debug)]
 pub enum ParseErrorDescriptor<'a> {
     ExpectedLiteral(&'a str),
@@ -78,7 +81,7 @@ fn events_to_sexp_into(
                 trivia: false,
             } => {
                 out.push_str(" (\"");
-                out.push_str(&src[range.clone()]);
+                out.push_str(&src[range.clone()].replace('"', "\\\""));
                 out.push_str("\" ");
                 write!(out, "{}", range.start)?;
                 out.push(' ');

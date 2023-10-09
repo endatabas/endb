@@ -342,6 +342,7 @@ version = "0.1.0"
 dependencies = [
  "ariadne",
  "endb_proc_macro",
+ "insta",
  "lazy_static",
  "regex",
  "serde",
