@@ -57,7 +57,7 @@ peg! {
     exists_expr <- EXISTS ^subquery;
     case_when_then_expr <- WHEN expr THEN expr;
     case_expr <- CASE ^( (!WHEN expr)? case_when_then_expr+ ( ELSE expr )? END );
-    column_reference <- ( table_name "." )? column_name;
+    column_reference <- ( table_name "." !"." )? column_name;
 
     array_expr <- ARRAY subquery / ARRAY? ( "[" "]" / "[" "..."? expr  ( "," "..."? expr )* ","? "]" );
     object_key_value_pair <- ( ( ident / string_literal / "["  expr "]" ) (#"[:=]") expr ) / "..." expr / ( table_name "." "*" ) / column_reference / bind_parameter;
@@ -105,7 +105,7 @@ peg! {
     column_alias <- ident;
     table_name <- INFORMATION_SCHEMA "." ident / ident;
 
-    qualified_asterisk <- table_name "." ^"*";
+    qualified_asterisk <- table_name "." "*";
     asterisk <- "*";
     invalid_column_alias <- FROM / WHERE / GROUP / HAVING / ORDER / LIMIT / UNION / INTERSECT / EXCEPT;
     result_column <- expr ( AS ^column_alias / !invalid_column_alias column_alias )? / qualified_asterisk / asterisk;
