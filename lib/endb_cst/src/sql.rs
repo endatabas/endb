@@ -15,14 +15,14 @@ peg! {
     iso_date_literal <- #"\\d{4}-\\d{2}-\\d{2}";
     iso_timestamp_literal <- #"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?Z?";
 
-    time_literal <- TIME ^ (#"('\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?'|\"\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?\")");
-    date_literal <- DATE ^ (#"('\\d{4}-\\d{2}-\\d{2}'|\"\\d{4}-\\d{2}-\\d{2}\")");
-    timestamp_literal <- TIMESTAMP ^ (#"('\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?Z?'|\"\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?Z?\")");
+    time_literal <- TIME ^(#"('\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?'|\"\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?\")");
+    date_literal <- DATE ^(#"('\\d{4}-\\d{2}-\\d{2}'|\"\\d{4}-\\d{2}-\\d{2}\")");
+    timestamp_literal <- TIMESTAMP ^(#"('\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?Z?'|\"\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?Z?\")");
 
     iso_duration_literal <- #"P(\\d+(:?[,.]\\d+)?Y)?(:?\\d+(:?[,.]\\d+)?M)?(:?\\d+(:?[,.]\\d+)?D)?(T(\\d+(:?[,.]\\d+)?H)?(:?\\d+(:?[,.]\\d+)?M)?(:?\\d+(:?[,.]\\d+)?S)?)?";
 
     datetime_field <- YEAR / MONTH / DAY / HOUR / MINUTE / SECOND;
-    interval_literal <- INTERVAL ^ (#"('\\d+(:?-\\d+)?'|\"\\d+(:?-\\d+)?\")|('(:?\\d+ )?\\d{2}(:?\\:\\d{2})?(:?\\:\\d{2})?(:?\\.\\d+)?'|\"(:?\\d+ )?\\d{2}(:?\\:\\d{2})?(:?\\:\\d{2})?(:?\\.\\d+)?\")") datetime_field ( TO ^datetime_field )?;
+    interval_literal <- INTERVAL ^(#"('\\d+(:?-\\d+)?'|\"\\d+(:?-\\d+)?\")|('(:?\\d+ )?\\d{2}(:?\\:\\d{2})?(:?\\:\\d{2})?(:?\\.\\d+)?'|\"(:?\\d+ )?\\d{2}(:?\\:\\d{2})?(:?\\:\\d{2})?(:?\\.\\d+)?\")") datetime_field ( TO ^datetime_field )?;
 
     <literal> <-
         iso_timestamp_literal
@@ -117,8 +117,8 @@ peg! {
     join_clause <- table_or_subquery ( join_operator table_or_subquery join_constraint )*;
     invalid_table_alias <- LEFT / INNER / CROSS / JOIN / WHERE / GROUP / HAVING / ORDER / LIMIT / ON / UNION / INTERSECT / EXCEPT;
     table_or_subquery <-
-        UNNEST "(" expr ( "," expr )* ")" ( WITH ^ORDINALITY )? AS table_alias
-        / table_name ( NOT ^INDEXED )?  ( FOR ^( SYSTEM_TIME ( ALL / AS OF atom / FROM atom TO atom / BETWEEN atom AND atom ) ) )? ( AS ^table_alias / !invalid_table_alias table_alias )?
+        UNNEST "(" expr ( "," expr )* ")" ( WITH ORDINALITY )? AS table_alias
+        / table_name ( NOT INDEXED )? ( FOR ^( SYSTEM_TIME ( ALL / AS OF atom / FROM atom TO atom / BETWEEN atom AND atom ) ) )? ( AS ^table_alias / !invalid_table_alias table_alias )?
         / "(" select_stmt ")" AS table_alias
         / "(" join_clause ")";
 
@@ -150,8 +150,8 @@ peg! {
 
     update_body <- ( SET ( column_name / path_expr ) "=" expr ( "," ( column_name / path_expr ) "=" expr )* )? ( ( UNSET / REMOVE) ( column_name / path_expr ) ( "," ( column_name / path_expr ) )* )? ( PATCH? object_expr )? ( WHERE expr )?;
 
-    insert_stmt <- INSERT ( OR ^REPLACE )? INTO table_name ( ( "(" column_name ( "," column_name)* ")" )? select_stmt / OBJECTS? object_expr ( "," object_expr)* )
-        ( ON ^CONFLICT "(" column_name ("," column_name )* ")" DO ( NOTHING / UPDATE update_body ) )?;
+    insert_stmt <- INSERT ( OR REPLACE )? INTO table_name ( ( "(" column_name ( "," column_name)* ")" )? select_stmt / OBJECTS? object_expr ( "," object_expr)* )
+        ( ON CONFLICT "(" column_name ("," column_name )* ")" DO ( NOTHING / UPDATE update_body ) )?;
 
     delete_stmt <- DELETE FROM table_name ( WHERE expr )?;
     erase_stmt <- ERASE FROM table_name ( WHERE expr )?;
@@ -164,7 +164,7 @@ peg! {
     create_table_stmt <- CREATE TABLE table_name "(" column_definition ( "," column_definition )* ")";
 
     create_assertion_stmt <- CREATE ASSERTION ident CHECK "(" expr ")";
-    ddl_drop_stmt <- DROP ^( INDEX / VIEW / TABLE / ASSERTION ) ( IF EXISTS )? ident;
+    ddl_drop_stmt <- DROP ( INDEX / VIEW / TABLE / ASSERTION ) ( IF EXISTS )? ident;
 
     sql_stmt <- select_stmt / insert_stmt / delete_stmt / erase_stmt / update_stmt / create_index_stmt / create_view_stmt / create_table_stmt /  create_assertion_stmt / ddl_drop_stmt;
     sql_stmt_list <- whitespace sql_stmt ( ";" sql_stmt )* ";"? !(~".");
