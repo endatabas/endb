@@ -17,14 +17,14 @@ peg! {
     iso_date_literal <- #"\\d{4}-\\d{2}-\\d{2}";
     iso_timestamp_literal <- #"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?Z?";
 
-    time_literal <- TIME ^(#"('\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?'|\"\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?\")");
-    date_literal <- DATE ^(#"('\\d{4}-\\d{2}-\\d{2}'|\"\\d{4}-\\d{2}-\\d{2}\")");
-    timestamp_literal <- TIMESTAMP ^(#"('\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?Z?'|\"\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?Z?\")");
+    time_literal <- TIME ^#"('\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?'|\"\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?\")";
+    date_literal <- DATE ^#"('\\d{4}-\\d{2}-\\d{2}'|\"\\d{4}-\\d{2}-\\d{2}\")";
+    timestamp_literal <- TIMESTAMP ^#"('\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?Z?'|\"\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?Z?\")";
 
     iso_duration_literal <- #"P(\\d+(:?[,.]\\d+)?Y)?(:?\\d+(:?[,.]\\d+)?M)?(:?\\d+(:?[,.]\\d+)?D)?(T(\\d+(:?[,.]\\d+)?H)?(:?\\d+(:?[,.]\\d+)?M)?(:?\\d+(:?[,.]\\d+)?S)?)?";
 
     datetime_field <- YEAR / MONTH / DAY / HOUR / MINUTE / SECOND;
-    interval_literal <- INTERVAL ^(#"('\\d+(:?-\\d+)?'|\"\\d+(:?-\\d+)?\")|('(:?\\d+ )?\\d{2}(:?\\:\\d{2})?(:?\\:\\d{2})?(:?\\.\\d+)?'|\"(:?\\d+ )?\\d{2}(:?\\:\\d{2})?(:?\\:\\d{2})?(:?\\.\\d+)?\")") datetime_field ( TO ^datetime_field )?;
+    interval_literal <- INTERVAL ^(#"('\\d+(:?-\\d+)?'|\"\\d+(:?-\\d+)?\")|('(:?\\d+ )?\\d{2}(:?\\:\\d{2})?(:?\\:\\d{2})?(:?\\.\\d+)?'|\"(:?\\d+ )?\\d{2}(:?\\:\\d{2})?(:?\\:\\d{2})?(:?\\.\\d+)?\")" datetime_field ( TO datetime_field )?);
 
     <literal> <-
         iso_timestamp_literal
@@ -62,7 +62,7 @@ peg! {
     column_reference <- ( table_name "." !"." )? column_name;
 
     array_expr <- ARRAY subquery / ARRAY? ( "[" "]" / "[" "..."? expr  ( "," "..."? expr )* ","? "]" );
-    object_key_value_pair <- ( ( ident / string_literal / "["  expr "]" ) (#"[:=]") expr ) / "..." expr / ( table_name "." "*" ) / column_reference / bind_parameter;
+    object_key_value_pair <- ( ( ident / string_literal / "["  expr "]" ) #"[:=]" expr ) / "..." expr / ( table_name "." "*" ) / column_reference / bind_parameter;
     object_expr <- OBJECT "(" ( object_key_value_pair ( "," object_key_value_pair )* ","? )? ")" / "{" ( object_key_value_pair ( "," object_key_value_pair )* ","? )? "}";
     path_expr <- "$" ( ( "." ident ) / "[" ( "#" "-" )? expr "]" / "[" "#" "]" )* ;
 
@@ -169,6 +169,6 @@ peg! {
     ddl_drop_stmt <- DROP ( INDEX / VIEW / TABLE / ASSERTION ) ( IF EXISTS )? ident;
 
     sql_stmt <- select_stmt / insert_stmt / delete_stmt / erase_stmt / update_stmt / create_index_stmt / create_view_stmt / create_table_stmt /  create_assertion_stmt / ddl_drop_stmt;
-    sql_stmt_list <- #"^" sql_stmt ( ";" sql_stmt )* ";"? !(#".");
+    sql_stmt_list <- #"^" sql_stmt ( ";" sql_stmt )* ";"? !#".";
 
 }
