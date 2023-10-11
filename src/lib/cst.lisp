@@ -116,12 +116,28 @@
              (remove-if (lambda (x)
                           (and (listp x) (= 3 (length x)) (equal delimiter (first x))))
                         xs))
-           (ident (id start end)
-             (let ((s (make-symbol id)))
-               (setf (get s :start) start (get s :end) end (get s :input) input)
-               s))
+           (binary-op-tree (xs)
+             (first
+              (reduce
+               (lambda (acc x)
+                 (let ((acc (trivia:match x
+                              ((trivia:guard (list op _ _)
+                                             (stringp op))
+                               (cons (intern op :keyword) acc))
+                              (_ (cons (walk x) acc)))))
+                   (trivia:match acc
+                     ((list y op x)
+                      (list (list op x y)))
+                     (_ acc))))
+               xs
+               :initial-value ())))
            (walk (cst)
              (trivia:ematch cst
+               ((list :|ident| (list id start end))
+                (let ((s (make-symbol id)))
+                  (setf (get s :start) start (get s :end) end (get s :input) input)
+                  s))
+
                ((list :|sql_stmt_list| x)
                 (first (walk x)))
 
@@ -152,8 +168,8 @@
                ((list :|table_or_subquery| x)
                 (list (walk x)))
 
-               ((list :|table_name| (list x start end))
-                (ident x start end))
+               ((list :|table_name| x)
+                (walk x))
 
                ((list :|where_clause| _ expr)
                 (list :where (walk expr)))
@@ -167,11 +183,53 @@
                ((list :|ordering_term| x)
                 (list (walk x) :asc))
 
-               ((list :|expr| x)
+               ((list :|literal| x)
                 (walk x))
 
-               ((list :|expr| x (list op _ _) y)
-                (list (intern op :keyword) (walk x) (walk y)))
+               ((list :|atom| x)
+                (walk x))
+
+               ((list :|access_expr| x)
+                (walk x))
+
+               ((list :|unary_expr| x)
+                (walk x))
+
+               ((list* :|unary_expr| (list op _ _) x)
+                (list (intern op :keyword) (walk (list :|unary_expr| x))))
+
+               ((list* :|concat_expr| xs)
+                (binary-op-tree xs))
+
+               ((list* :|mul_expr| xs)
+                (binary-op-tree xs))
+
+               ((list* :|add_expr| xs)
+                (binary-op-tree xs))
+
+               ((list* :|bit_expr| xs)
+                (binary-op-tree xs))
+
+               ((list* :|rel_expr| xs)
+                (binary-op-tree xs))
+
+               ((list* :|equal_expr| xs)
+                (binary-op-tree xs))
+
+               ((list :|not_expr| x)
+                (walk x))
+
+               ((list* :|not_expr| (list op _ _) x)
+                (list (intern op :keyword)  (walk (list :|not_expr| x))))
+
+               ((list* :|and_expr| xs)
+                (binary-op-tree xs))
+
+               ((list* :|or_expr| xs)
+                (binary-op-tree xs))
+
+               ((list :|expr| x)
+                (walk x))
 
                ((list* :|function_call_expr| xs)
                 (cons :function (mapcar #'walk (strip-delimiters ")" (strip-delimiters "(" xs)))))
@@ -182,17 +240,14 @@
                ((list :|column_reference| x)
                 (walk x))
 
-               ((list :|column_name| (list x start end))
-                (ident x start end))
+               ((list :|column_name| x)
+                (walk x))
 
-               ((list :|function_name| (list x start end))
-                (ident x start end))
+               ((list :|function_name| x)
+                (walk x))
 
                ((list :|numeric_literal| (list x _ _))
-                (read-from-string x))
-
-               ((list* :ast xs)
-                xs))))
+                (read-from-string x)))))
     (let ((*read-eval* nil)
           (*read-default-float-format* 'double-float))
       (walk cst))))

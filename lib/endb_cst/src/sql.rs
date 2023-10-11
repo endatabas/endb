@@ -7,7 +7,7 @@ lazy_static::lazy_static! {
 
 peg! {
 
-    <ident> <- #"\\b\\p{XID_START}\\p{XID_CONTINUE}*\\b";
+    ident <- #"\\b\\p{XID_START}\\p{XID_CONTINUE}*\\b";
 
     numeric_literal <- #"\\b(0[xX][0-9A-Fa-f]+|[0-9]+(\\.[0-9]+)?([eE][+-]?[0-9]+)?)\\b";
     string_literal <- #"(\"(?:\\\"|[^\"])*\"|'(?:''|[^'])*')";
@@ -26,7 +26,7 @@ peg! {
     datetime_field <- YEAR / MONTH / DAY / HOUR / MINUTE / SECOND;
     interval_literal <- INTERVAL ^(#"('\\d+(:?-\\d+)?'|\"\\d+(:?-\\d+)?\")|('(:?\\d+ )?\\d{2}(:?\\:\\d{2})?(:?\\:\\d{2})?(:?\\.\\d+)?'|\"(:?\\d+ )?\\d{2}(:?\\:\\d{2})?(:?\\:\\d{2})?(:?\\.\\d+)?\")" datetime_field ( TO datetime_field )?);
 
-    <literal> <-
+    literal <-
         iso_timestamp_literal
         / iso_date_literal
         / iso_time_literal
@@ -70,7 +70,7 @@ peg! {
     object_expr <- OBJECT "(" object_key_value_list? ")" / "{" object_key_value_list? "}";
     path_expr <- "$" ( ( "." ident ) / "[" ( "#" "-" )? expr "]" / "[" "#" "]" )* ;
 
-    <atom> <-
+    atom <-
         literal
         / bind_parameter
         / subquery
@@ -85,28 +85,28 @@ peg! {
         / case_expr
         / column_reference;
 
-    <access> <- atom ( ( ".." / "." ) ident / "[" ( expr / "*" ) "]" )*;
-    <unary> <- ("+" / "-" / "~" )* access;
-    <concat> <- unary ( "||" unary )*;
-    <mul> <- concat ( ( "*" / "/" / "%" ) concat )*;
-    <add> <- mul ( ( "+" / "-" ) mul )*;
-    <bit> <- add ( ( "<<" / ">>" / "&" / "|" ) add )*;
-    <comp> <- bit ( ( "<=" / "<" / ">=" / ">" ) bit )*;
-    <equal> <-
-        comp (
-            ( ( "==" / "=" / "!=" / "<>" / OVERLAPS / EQUALS / CONTAINS / IMMEDIATELY? PRECEDES / IMMEDIATELY? SUCCEEDS ) comp )
-                / NOT? ( LIKE ^( comp ( ESCAPE comp )? ) / ( GLOB / REGEXP / MATCH / "@>" ) ^comp )
-                / IS ^( NOT? comp )
+    access_expr <- atom ( ( ".." / "." ) ident / "[" ( expr / "*" ) "]" )*;
+    unary_expr <- ("+" / "-" / "~" )* access_expr;
+    concat_expr <- unary_expr ( "||" unary_expr )*;
+    mul_expr <- concat_expr ( ( "*" / "/" / "%" ) concat_expr )*;
+    add_expr <- mul_expr ( ( "+" / "-" ) mul_expr )*;
+    bit_expr <- add_expr ( ( "<<" / ">>" / "&" / "|" ) add_expr )*;
+    rel_expr <- bit_expr ( ( "<=" / "<" / ">=" / ">" ) bit_expr )*;
+    equal_expr <-
+        rel_expr (
+            ( ( "==" / "=" / "!=" / "<>" / OVERLAPS / EQUALS / CONTAINS / IMMEDIATELY? PRECEDES / IMMEDIATELY? SUCCEEDS ) rel_expr )
+                / NOT? ( LIKE ^( rel_expr ( ESCAPE rel_expr )? ) / ( GLOB / REGEXP / MATCH / "@>" ) ^rel_expr )
+                / IS ^( NOT? rel_expr )
                 / NOT NULL
-                / NOT? BETWEEN ^( comp AND comp )
+                / NOT? BETWEEN ^( rel_expr AND rel_expr )
                 / NOT? IN ^( "(" select_stmt ")" / "(" expr_list ")" / "(" ")" )
         )*;
 
-    <not> <- NOT* equal;
-    <and> <- not ( AND not )*;
-    <or> <- and ( OR and )*;
+    not_expr <- NOT* equal_expr;
+    and_expr <- not_expr ( AND not_expr )*;
+    or_expr <- and_expr ( OR and_expr )*;
 
-    expr <- or;
+    expr <- or_expr;
 
     column_alias <- ident;
     table_name <- INFORMATION_SCHEMA "." ident / ident;

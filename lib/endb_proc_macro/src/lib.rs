@@ -288,7 +288,6 @@ fn parse_ord(input: ParseStream) -> Result<PegParser> {
 #[derive(Clone)]
 struct Rule {
     id: Ident,
-    hidden: bool,
     body: PegParser,
 }
 
@@ -296,18 +295,9 @@ impl ToTokens for Rule {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let id = &self.id;
         let body = &self.body;
-        if self.hidden {
-            quote_spanned! {
-                id.span()=>
-                #[allow(clippy::redundant_closure_call)]
-                fn #id<'a, 'b: 'a>(input: &'a str, pos: usize, state: &mut ParseState<'b>) -> ParseResult {
-                    (#body)(input, pos, state)
-                }
-            }
-        } else {
-            let id_string = id.to_string();
+        let id_string = id.to_string();
 
-            quote_spanned! {
+        quote_spanned! {
                 id.span()=>
                 #[allow(clippy::redundant_closure_call)]
                 pub fn #id<'a, 'b: 'a>(input: &'a str, pos: usize, state: &mut ParseState<'b>) -> ParseResult {
@@ -325,27 +315,18 @@ impl ToTokens for Rule {
 
                     result
                 }
-            }
         }.to_tokens(tokens);
     }
 }
 
 impl Parse for Rule {
     fn parse(input: ParseStream) -> Result<Self> {
-        let hidden = input.peek(Token![<]);
-        let id: Ident = if hidden {
-            input.parse::<Token![<]>()?;
-            let id = input.parse()?;
-            input.parse::<Token![>]>()?;
-            id
-        } else {
-            input.parse()?
-        };
+        let id: Ident = input.parse()?;
         input.parse::<Token![<]>()?;
         input.parse::<Token![-]>()?;
 
         let body = input.call(parse_ord)?;
-        Ok(Rule { id, hidden, body })
+        Ok(Rule { id, body })
     }
 }
 

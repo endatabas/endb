@@ -9,12 +9,27 @@
 (in-suite* :lib)
 
 (test parse-cst
-      (is (equal '(:|sql_stmt_list|
-                    (:|sql_stmt|
-                      (:|select_stmt|
-                        (:|select_core| ("SELECT" 0 6)
-                          (:|result_expr_list|
-                            (:|result_column| (:|expr| (:|numeric_literal| ("1" 7 8)))))))))
+  (is (equal '(:|sql_stmt_list|
+               (:|sql_stmt|
+                (:|select_stmt|
+                 (:|select_core| ("SELECT" 0 6)
+                  (:|result_expr_list|
+                   (:|result_column|
+                    (:|expr|
+                      (:|or_expr|
+                        (:|and_expr|
+                          (:|not_expr|
+                            (:|equal_expr|
+                              (:|rel_expr|
+                                (:|bit_expr|
+                                  (:|add_expr|
+                                    (:|mul_expr|
+                                      (:|concat_expr|
+                                        (:|unary_expr|
+                                          (:|access_expr|
+                                            (:|atom|
+                                              (:|literal|
+                                                (:|numeric_literal| ("1" 7 8))))))))))))))))))))))
                  (parse-sql-cst "SELECT 1"))))
 
 (defvar report-json
@@ -50,7 +65,7 @@
          (prin1-to-string (endb/lib/parser:parse-sql sql))
          (prin1-to-string (cst->ast sql (parse-sql-cst sql))))))
 
-  (let ((sql "SELECT a, b, 123, myfunc(b) FROM table_1 WHERE a > b ORDER BY a DESC, b"))
+  (let ((sql "SELECT a, b, 123, myfunc(b) FROM table_1 WHERE a > b AND b < 100 ORDER BY a DESC, b"))
     (is (equal
          (prin1-to-string (endb/lib/parser:parse-sql sql))
          (prin1-to-string (cst->ast sql (parse-sql-cst sql)))))))
