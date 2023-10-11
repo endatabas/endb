@@ -139,10 +139,7 @@
                 (first (walk x)))
 
                ((list* :|sql_stmt_list| xs)
-                (mapcar #'walk (strip-delimiters '(";") xs)))
-
-               ((list :|sql_stmt| x)
-                (walk x))
+                (list :multiple-statments (mapcan #'walk (strip-delimiters '(";") xs))))
 
                ((list* :|select_stmt| xs)
                 (list (mapcan #'walk xs)))
@@ -165,9 +162,6 @@
                ((list :|table_or_subquery| x)
                 (list (walk x)))
 
-               ((list :|table_name| x)
-                (walk x))
-
                ((list :|where_clause| _ expr)
                 (list :where (walk expr)))
 
@@ -179,18 +173,6 @@
 
                ((list :|ordering_term| x)
                 (list (walk x) :asc))
-
-               ((list :|literal| x)
-                (walk x))
-
-               ((list :|atom| x)
-                (walk x))
-
-               ((list :|access_expr| x)
-                (walk x))
-
-               ((list :|unary_expr| x)
-                (walk x))
 
                ((list* :|unary_expr| (list op _ _) x)
                 (list (intern op :keyword) (walk (list :|unary_expr| x))))
@@ -213,11 +195,8 @@
                ((list* :|equal_expr| xs)
                 (binary-op-tree xs))
 
-               ((list :|not_expr| x)
-                (walk x))
-
                ((list* :|not_expr| (list op _ _) x)
-                (list (intern op :keyword)  (walk (list :|not_expr| x))))
+                (list (intern op :keyword) (walk (list :|not_expr| x))))
 
                ((list* :|and_expr| xs)
                 (binary-op-tree xs))
@@ -225,26 +204,17 @@
                ((list* :|or_expr| xs)
                 (binary-op-tree xs))
 
-               ((list :|expr| x)
-                (walk x))
-
                ((list* :|function_call_expr| xs)
                 (cons :function (mapcar #'walk (strip-delimiters '("(" ")") xs))))
 
                ((list* :|expr_list| xs)
                 (mapcar #'walk xs))
 
-               ((list :|column_reference| x)
-                (walk x))
-
-               ((list :|column_name| x)
-                (walk x))
-
-               ((list :|function_name| x)
-                (walk x))
-
                ((list :|numeric_literal| (list x _ _))
-                (read-from-string x)))))
+                (read-from-string x))
+
+               ((trivia:guard (list kw x) (keywordp kw))
+                (walk x)))))
     (let ((*read-eval* nil)
           (*read-default-float-format* 'double-float))
       (walk cst))))
