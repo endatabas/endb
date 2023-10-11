@@ -112,25 +112,22 @@
     (endb/lib/parser:strip-ansi-escape-codes result)))
 
 (defun cst->ast (input cst)
-  (labels ((strip-delimiters (delimiter xs)
+  (labels ((strip-delimiters (delimiters xs)
              (remove-if (lambda (x)
-                          (and (listp x) (= 3 (length x)) (equal delimiter (first x))))
+                          (trivia:match x
+                            ((trivia:guard (list x _ _)
+                                           (member x delimiters :test 'equal))
+                             t)))
                         xs))
            (binary-op-tree (xs)
-             (first
-              (reduce
-               (lambda (acc x)
-                 (let ((acc (trivia:match x
-                              ((trivia:guard (list op _ _)
-                                             (stringp op))
-                               (cons (intern op :keyword) acc))
-                              (_ (cons (walk x) acc)))))
-                   (trivia:match acc
-                     ((list y op x)
-                      (list (list op x y)))
-                     (_ acc))))
-               xs
-               :initial-value ())))
+             (reduce
+              (lambda (lhs op-rhs)
+                (list (first op-rhs)
+                      lhs
+                      (second op-rhs)))
+              (loop for (x y) on (rest xs) by #'cddr
+                    collect (list (intern (first x) :keyword) (walk y)))
+              :initial-value (walk (first xs))))
            (walk (cst)
              (trivia:ematch cst
                ((list :|ident| (list id start end))
@@ -142,7 +139,7 @@
                 (first (walk x)))
 
                ((list* :|sql_stmt_list| xs)
-                (mapcar #'walk (strip-delimiters ";" xs)))
+                (mapcar #'walk (strip-delimiters '(";") xs)))
 
                ((list :|sql_stmt| x)
                 (walk x))
@@ -154,7 +151,7 @@
                 (cons :select (mapcan #'walk xs)))
 
                ((list* :|result_expr_list| xs)
-                (list (mapcar #'walk (strip-delimiters "," xs))))
+                (list (mapcar #'walk (strip-delimiters '(",") xs))))
 
                ((list :|result_column| x)
                 (list (walk x)))
@@ -175,7 +172,7 @@
                 (list :where (walk expr)))
 
                ((list* :|order_by_clause| _ _ xs)
-                (list :order-by (mapcar #'walk (strip-delimiters "," xs))))
+                (list :order-by (mapcar #'walk (strip-delimiters '(",") xs))))
 
                ((list :|ordering_term| x (list dir _ _))
                 (list (walk x) (intern dir :keyword)))
@@ -232,7 +229,7 @@
                 (walk x))
 
                ((list* :|function_call_expr| xs)
-                (cons :function (mapcar #'walk (strip-delimiters ")" (strip-delimiters "(" xs)))))
+                (cons :function (mapcar #'walk (strip-delimiters '("(" ")") xs))))
 
                ((list* :|expr_list| xs)
                 (mapcar #'walk xs))
