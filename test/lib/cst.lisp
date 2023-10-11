@@ -43,3 +43,14 @@
           (endb/json:json-parse report-json))))
     (is (alexandria:starts-with-subseq "Error: parse error: unexpected SEL"
                                        (render-error-report report)))))
+
+(test cst-to-ast
+  (let ((sql "SELECT 1"))
+    (is (equal
+         (prin1-to-string (endb/lib/parser:parse-sql sql))
+         (prin1-to-string (cst->ast sql (parse-sql-cst sql))))))
+
+  (let ((sql "SELECT a, b, 123, myfunc(b) FROM table_1 WHERE a > b ORDER BY a DESC, b"))
+    (is (equal
+         (prin1-to-string (endb/lib/parser:parse-sql sql))
+         (prin1-to-string (cst->ast sql (parse-sql-cst sql)))))))

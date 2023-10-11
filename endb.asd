@@ -30,7 +30,8 @@
                "periods"
                "qbase64"
                "trivial-gray-streams"
-               "trivial-utf-8")
+               "trivial-utf-8"
+               "trivia")
   :pathname "src"
   :build-operation program-op
   :build-pathname "../target/endb"
