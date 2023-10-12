@@ -144,7 +144,8 @@ pub extern "C" fn endb_parse_sql_cst(
     input: *const c_char,
     on_open: extern "C" fn(*const u8, usize),
     on_close: extern "C" fn(),
-    on_token: extern "C" fn(usize, usize),
+    on_literal: extern "C" fn(*const u8, usize, usize, usize),
+    on_pattern: extern "C" fn(usize, usize),
     on_error: extern "C" fn(*const c_char),
 ) {
     if let Err(err) = panic::catch_unwind(|| {
@@ -165,8 +166,11 @@ pub extern "C" fn endb_parse_sql_cst(
                         endb_cst::Event::Close {} => {
                             on_close();
                         }
-                        endb_cst::Event::Token { range, .. } => {
-                            on_token(range.start, range.end);
+                        endb_cst::Event::Literal { literal, range } => {
+                            on_literal(literal.as_ptr(), literal.len(), range.start, range.end);
+                        }
+                        endb_cst::Event::Pattern { range, .. } => {
+                            on_pattern(range.start, range.end);
                         }
                         endb_cst::Event::Error { .. } => {}
                     }

@@ -14,7 +14,8 @@
   (input (:pointer :char))
   (on_open :pointer)
   (on_close :pointer)
-  (on_token :pointer)
+  (on_literal :pointer)
+  (on_pattern :pointer)
   (on_error :pointer))
 
 (cffi:defcfun "endb_render_json_error_report" :void
@@ -39,14 +40,24 @@
     ()
   (funcall *parse-sql-cst-on-close*))
 
-(defvar *parse-sql-cst-on-token*)
+(defvar *parse-sql-cst-on-literal*)
 
-(cffi:defcallback parse-sql-cst-on-token :void
+(cffi:defcallback parse-sql-cst-on-literal :void
+    ((literal-ptr :pointer)
+     (literal-size :size)
+     (start :size)
+     (end :size))
+  (funcall *parse-sql-cst-on-literal* literal-ptr literal-size start end))
+
+(defvar *parse-sql-cst-on-pattern*)
+
+(cffi:defcallback parse-sql-cst-on-pattern :void
     ((start :size)
      (end :size))
-  (funcall *parse-sql-cst-on-token* start end))
+  (funcall *parse-sql-cst-on-pattern* start end))
 
 (defparameter +kw-cache+ (make-hash-table))
+(defparameter +literal-cache+ (make-hash-table))
 
 (defun parse-sql-cst (input &key (filename ""))
   (endb/lib:init-lib)
@@ -66,9 +77,18 @@
                                           (push (list kw) result))))
              (*parse-sql-cst-on-close* (lambda ()
                                          (push (nreverse (pop result)) (first result))))
-             (*parse-sql-cst-on-token* (lambda (start end)
-                                         (let ((token (trivial-utf-8:utf-8-bytes-to-string input-bytes :start start :end end)))
-                                           (push (list token start end) (first result))))))
+             (*parse-sql-cst-on-literal* (lambda (literal-ptr literal-size start end)
+                                           (let* ((address (cffi:pointer-address literal-ptr))
+                                                  (literal (or (gethash address +literal-cache+)
+                                                               (let* ((literal-string (make-array literal-size :element-type 'character)))
+                                                                 (dotimes (n literal-size)
+                                                                   (setf (aref literal-string n)
+                                                                         (code-char (cffi:mem-ref literal-ptr :char n))))
+                                                                 (setf (gethash address +literal-cache+) literal-string)))))
+                                             (push (list literal start end) (first result)))))
+             (*parse-sql-cst-on-pattern* (lambda (start end)
+                                           (let ((token (trivial-utf-8:utf-8-bytes-to-string input-bytes :start start :end end)))
+                                             (push (list token start end) (first result))))))
         (if (and (typep filename 'base-string)
                  (typep input 'base-string))
             (cffi:with-pointer-to-vector-data (filename-ptr input)
@@ -77,7 +97,8 @@
                                     input-ptr
                                     (cffi:callback parse-sql-cst-on-open)
                                     (cffi:callback parse-sql-cst-on-close)
-                                    (cffi:callback parse-sql-cst-on-token)
+                                    (cffi:callback parse-sql-cst-on-literal)
+                                    (cffi:callback parse-sql-cst-on-pattern)
                                     (cffi:callback parse-sql-cst-on-error))))
             (cffi:with-foreign-string (filename-ptr input)
               (cffi:with-foreign-string (input-ptr input)
@@ -85,7 +106,8 @@
                                     input-ptr
                                     (cffi:callback parse-sql-cst-on-open)
                                     (cffi:callback parse-sql-cst-on-close)
-                                    (cffi:callback parse-sql-cst-on-token)
+                                    (cffi:callback parse-sql-cst-on-literal)
+                                    (cffi:callback parse-sql-cst-on-pattern)
                                     (cffi:callback parse-sql-cst-on-error)))))
         (caar result))))
 
@@ -121,12 +143,10 @@
                         xs))
            (split-binary-ops (acc xs)
              (trivia:ematch xs
-               ((trivia:guard (list* (list between-kw _ _) x (list and-kw _ _) y xs)
-                              (and (equalp "BETWEEN" between-kw) (equalp "AND" and-kw)))
+               ((list* (list "BETWEEN" _ _) x (list "AND" _ _) y xs)
                 (split-binary-ops (cons (list :between (list (walk x) (walk y))) acc)
                                   xs))
-               ((trivia:guard (list* (list not-kw _ _) (list between-kw _ _) x (list and-kw _ _) y xs)
-                              (and (equalp "NOT" not-kw) (equalp "BETWEEN" between-kw) (equalp "AND" and-kw)))
+               ((list* (list "NOT" _ _) (list "BETWEEN" _ _) x (list "AND" _ _) y xs)
                 (split-binary-ops (cons (list (list :not :between) (list (walk x) (walk y))) acc)
                                   xs))
                ((trivia:guard (list* (list op _ _) x xs)
@@ -173,7 +193,7 @@
 
                ((list* :|table_constraint| _))
 
-               ((list* :|create_index_stmt| _ (trivia:guard (list unique-kw _ _) (equalp "UNIQUE" unique-kw)) _ index-name _ table-name _)
+               ((list* :|create_index_stmt| _ (list "UNIQUE" _ _) _ index-name _ table-name _)
                 (list :create-index (walk index-name) (walk table-name)))
 
                ((list* :|create_index_stmt| _ _ index-name _ table-name _)
@@ -218,7 +238,7 @@
                ((list* :|column_name_list| xs)
                 (mapcar #'walk (strip-delimiters '(",") xs)))
 
-               ((list* :|select_core| (trivia:guard (list kw _ _) (equalp "SELECT" kw)) xs)
+               ((list* :|select_core| (list "SELECT" _ _) xs)
                 (cons :select (mapcan #'walk xs)))
 
                ((list* :|values_clause| _ xs)
@@ -353,7 +373,7 @@
                ((list :|string_literal| (list x _ _))
                 (endb/lib/parser:sql-string-to-cl (eql #\' (char x 0)) (subseq x 1 (1- (length x)))))
 
-               ((trivia:guard (list null-kw  _ _) (equalp "NULL" null-kw))
+               ((list "NULL"  _ _)
                 :null)
 
                ((trivia:guard (list kw x) (keywordp kw))

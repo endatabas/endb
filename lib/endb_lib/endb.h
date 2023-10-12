@@ -247,7 +247,8 @@ void endb_parse_sql_cst(const char *filename,
                         const char *input,
                         void (*on_open)(const uint8_t*, uintptr_t),
                         void (*on_close)(void),
-                        void (*on_token)(uintptr_t, uintptr_t),
+                        void (*on_literal)(const uint8_t*, uintptr_t, uintptr_t, uintptr_t),
+                        void (*on_pattern)(uintptr_t, uintptr_t),
                         void (*on_error)(const char*));
 
 void endb_render_json_error_report(const char *report_json,

@@ -97,7 +97,7 @@ impl ToTokens for PegParser {
                     match RE.find_at(input, pos) {
                         Some(m) if m.range().start == pos => {
                             if !m.range().is_empty() {
-                                state.events.push(Event::Token {
+                                state.events.push(Event::Pattern {
                                     range: m.range(),
                                 });
                             }
@@ -141,7 +141,8 @@ impl ToTokens for PegParser {
                         let range = pos..(pos + #literal_len).min(input.len());
                         if input[range.clone()].eq_ignore_ascii_case(#literal) && #valid_next_char {
                             if !range.is_empty() {
-                                state.events.push(Event::Token {
+                                state.events.push(Event::Literal {
+                                    literal: #literal,
                                     range: range.clone(),
                                 });
                             }

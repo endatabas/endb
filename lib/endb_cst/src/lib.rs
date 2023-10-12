@@ -25,7 +25,11 @@ pub enum Event<'a> {
         pos: usize,
     },
     Close,
-    Token {
+    Literal {
+        literal: &'a str,
+        range: Range<usize>,
+    },
+    Pattern {
         range: Range<usize>,
     },
     Error {
@@ -75,7 +79,7 @@ fn events_to_sexp_into(
                 out.push_str(label);
                 out.push('|');
             }
-            Event::Token { ref range } => {
+            Event::Pattern { ref range } | Event::Literal { ref range, .. } => {
                 out.push_str(" (\"");
                 out.push_str(&src[range.clone()].replace('"', "\\\""));
                 out.push_str("\" ");
@@ -109,7 +113,6 @@ pub fn events_to_errors<'a>(events: &'a [Event<'a>]) -> Vec<ParseError<'a>> {
             Event::Close => {
                 context.pop().expect("unbalanced tree");
             }
-            Event::Token { .. } => {}
             Event::Error {
                 descriptor, range, ..
             } => {
@@ -125,6 +128,7 @@ pub fn events_to_errors<'a>(events: &'a [Event<'a>]) -> Vec<ParseError<'a>> {
                     });
                 }
             }
+            _ => {}
         }
     }
     errors
