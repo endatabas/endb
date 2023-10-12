@@ -88,45 +88,45 @@
    AND d>e
    AND EXISTS(SELECT 1 FROM t1 AS x WHERE x.b<t1.b)
  ORDER BY 4,2,1,3,5")
-;;   (is-valid "SELECT CASE a+1 WHEN b THEN 111 WHEN c THEN 222
-;;         WHEN d THEN 333  WHEN e THEN 444 ELSE 555 END,
-;;        CASE WHEN a<b-3 THEN 111 WHEN a<=b THEN 222
-;;         WHEN a<b+3 THEN 333 ELSE 444 END,
-;;        a+b*2+c*3+d*4,
-;;        a+b*2+c*3,
-;;        c,
-;;        CASE WHEN c>(SELECT avg(c) FROM t1) THEN a*2 ELSE b*10 END,
-;;        abs(b-c)
-;;   FROM t1
-;;  WHERE EXISTS(SELECT 1 FROM t1 AS x WHERE x.b<t1.b)
-;;     OR b>c
-;;     OR d NOT BETWEEN 110 AND 150
-;;  ORDER BY 4,1,5,2,6,3,7")
-;;   (is-valid "SELECT c,
-;;        d-e,
-;;        CASE a+1 WHEN b THEN 111 WHEN c THEN 222
-;;         WHEN d THEN 333  WHEN e THEN 444 ELSE 555 END,
-;;        a+b*2+c*3+d*4,
-;;        e
-;;   FROM t1
-;;  WHERE d NOT BETWEEN 110 AND 150
-;;     OR c BETWEEN b-2 AND d+2
-;;     OR (e>c OR e<d)
-;;  ORDER BY 1,5,3,2,4")
-;;   (is-valid "SELECT a,
-;;        (SELECT count(*) FROM t1 AS x WHERE x.b<t1.b),
-;;        a+b*2+c*3+d*4+e*5,
-;;        d
-;;   FROM t1
-;;  WHERE a IS NULL")
-;;   (is-valid "CREATE TABLE t1(
-;;   a1 INTEGER PRIMARY KEY,
-;;   b1 INTEGER,
-;;   x1 VARCHAR(40)
-;; )")
-;;   (is-valid "INSERT INTO t1 VALUES(382,414,67,992,483,'table tn1 row 1')")
-;;   (is-valid "CREATE INDEX t1i0 ON t1(a1,b1,c1,d1,e1,x1)")
-;;   (is-valid "CREATE INDEX t8all ON t8(e8 DESC, d8 ASC, c8 DESC, b8 ASC, a8 DESC)")
+  (is-valid "SELECT CASE a+1 WHEN b THEN 111 WHEN c THEN 222
+        WHEN d THEN 333  WHEN e THEN 444 ELSE 555 END,
+       CASE WHEN a<b-3 THEN 111 WHEN a<=b THEN 222
+        WHEN a<b+3 THEN 333 ELSE 444 END,
+       a+b*2+c*3+d*4,
+       a+b*2+c*3,
+       c,
+       CASE WHEN c>(SELECT avg(c) FROM t1) THEN a*2 ELSE b*10 END,
+       abs(b-c)
+  FROM t1
+ WHERE EXISTS(SELECT 1 FROM t1 AS x WHERE x.b<t1.b)
+    OR b>c
+    OR d NOT BETWEEN 110 AND 150
+ ORDER BY 4,1,5,2,6,3,7")
+  (is-valid "SELECT c,
+       d-e,
+       CASE a+1 WHEN b THEN 111 WHEN c THEN 222
+        WHEN d THEN 333  WHEN e THEN 444 ELSE 555 END,
+       a+b*2+c*3+d*4,
+       e
+  FROM t1
+ WHERE d NOT BETWEEN 110 AND 150
+    OR c BETWEEN b-2 AND d+2
+    OR (e>c OR e<d)
+ ORDER BY 1,5,3,2,4")
+  (is-valid "SELECT a,
+       (SELECT count(*) FROM t1 AS x WHERE x.b<t1.b),
+       a+b*2+c*3+d*4+e*5,
+       d
+  FROM t1
+ WHERE a IS NULL")
+  (is-valid "CREATE TABLE t1(
+  a1 INTEGER PRIMARY KEY,
+  b1 INTEGER,
+  x1 VARCHAR(40)
+)")
+  (is-valid "INSERT INTO t1 VALUES(382,414,67,992,483,'table tn1 row 1')")
+  (is-valid "CREATE INDEX t1i0 ON t1(a1,b1,c1,d1,e1,x1)")
+  (is-valid "CREATE INDEX t8all ON t8(e8 DESC, d8 ASC, c8 DESC, b8 ASC, a8 DESC)")
 ;;   (is-valid "SELECT e1 FROM t1
 ;;    WHERE a1 in (767,433,637,363,776,109,451)
 ;;       OR c1 in (683,531,654,246,3,876,309,284)
@@ -164,7 +164,7 @@
 ;;       OR (d7=399 AND e7=408 AND 396=b7 AND a7=97 AND c7=813)
 ;;       OR (e7=605 OR 837=b7 OR e7=918)")
 ;;   (is-valid "SELECT * FROM t1")
-;;   (is-valid "INSERT INTO t1(e,c,b,d,a) VALUES(NULL,102,NULL,101,104)")
+  (is-valid "INSERT INTO t1(e,c,b,d,a) VALUES(NULL,102,NULL,101,104)")
 ;;   (is-valid "SELECT cor0.col2 AS col2 FROM tab2 AS cor0 GROUP BY col2 HAVING NOT NULL < NULL")
 ;;   (is-valid "SELECT 20 / - - 96 + CAST ( 90 AS INTEGER ) AS col2")
 ;;   (is-valid "SELECT ALL * FROM tab0 cor0 CROSS JOIN tab2 AS cor1")
@@ -173,39 +173,39 @@
 ;;   (is-valid "SELECT ALL 74 * - COALESCE ( + CASE - CASE WHEN NOT ( NOT - 79 >= NULL ) THEN 48 END WHEN + + COUNT( * ) THEN 6 END, MIN( ALL + - 30 ) * 45 * 77 ) * - 14")
 ;;   (is-valid "SELECT * FROM tab1 WHERE NULL NOT IN ( col0 * col0 )")
 ;;   (is-valid "SELECT SUM ( + 73 ) * - CASE WHEN NOT ( NOT 27 BETWEEN 15 AND - NULLIF ( - 63, - 28 + + 76 ) ) THEN NULL ELSE + 77 * + 69 END / - CAST ( - 69 AS INTEGER ) AS col0")
-;;   (is-valid "CREATE UNIQUE INDEX idx_tab2_2 ON tab2 (col1 DESC)")
-;;   (is-valid "INSERT INTO tab0 VALUES(0,6,5.6,'jtqxx',9,5.19,'qvgba')")
-;;   (is-valid "DELETE FROM tab0 WHERE col4 > 2.27")
-;;   (is-valid "DROP TABLE tab0")
+  (is-valid "CREATE UNIQUE INDEX idx_tab2_2 ON tab2 (col1 DESC)")
+  (is-valid "INSERT INTO tab0 VALUES(0,6,5.6,'jtqxx',9,5.19,'qvgba')")
+  (is-valid "DELETE FROM tab0 WHERE col4 > 2.27")
+  (is-valid "DROP TABLE tab0")
 ;;   (is-valid "SELECT ALL col2 FROM tab0 WHERE + col0 IS NOT NULL")
-;;   (is-valid "DROP VIEW IF EXISTS view_3_tab0_153")
-;;   (is-valid "CREATE VIEW view_1_tab0_153 AS SELECT pk, col0 FROM tab0 WHERE col0 = 49")
-;;   (is-valid "DROP VIEW view_1_tab1_153")
+  (is-valid "DROP VIEW IF EXISTS view_3_tab0_153")
+  (is-valid "CREATE VIEW view_1_tab0_153 AS SELECT pk, col0 FROM tab0 WHERE col0 = 49")
+  (is-valid "DROP VIEW view_1_tab1_153")
 ;;   (is-valid "SELECT pk FROM ( SELECT pk, col0 FROM tab0 WHERE col0 = 49 ) AS tab0_153")
 ;;   (is-valid "SELECT * FROM tab0 cor0 JOIN tab0 AS cor1 ON NULL IS NULL")
-;;   (is-valid "DROP INDEX t1i1")
-;;   (is-valid "DROP TABLE IF EXISTS t1")
+  (is-valid "DROP INDEX t1i1")
+  (is-valid "DROP TABLE IF EXISTS t1")
 ;;   (is-valid "SELECT 1 FROM t1 WHERE 1 IN ()")
 ;;   (is-valid "SELECT 1 FROM t1 WHERE 1 IN (2)")
-;;   (is-valid "CREATE TABLE t3(z INTEGER UNIQUE)")
+  (is-valid "CREATE TABLE t3(z INTEGER UNIQUE)")
 ;;   (is-valid "SELECT x'303132' IN (SELECT * FROM t1)")
 ;;   (is-valid "UPDATE t1 SET x=1 WHERE x>0")
 ;;   (is-valid "UPDATE t1 SET x=3, x=4, x=5")
 ;;   (is-valid "SELECT 1 IN t1")
-;;   (is-valid "CREATE TEMP VIEW view2 AS SELECT x FROM t1 WHERE x>0")
-;;   (is-valid "INSERT OR REPLACE INTO view1 VALUES(2,'unknown')")
-;;   (is-valid "SELECT x FROM t1 WHERE x NOT NULL ORDER BY x")
-;;   (is-valid "INSERT INTO t1 VALUES(1<<63,'true')")
-;;   (is-valid "CREATE TABLE partsupp (
-;;   ps_partkey    INTEGER,
-;;   ps_suppkey    INTEGER,
-;;   ps_availqty   INTEGER,
-;;   ps_supplycost INTEGER,
-;;   ps_comment    TEXT,
-;;   PRIMARY KEY (ps_partkey, ps_suppkey),
-;;   FOREIGN KEY (ps_suppkey) REFERENCES supplier(s_suppkey),
-;;   FOREIGN KEY (ps_partkey) REFERENCES part(p_partkey)
-;; )")
+  (is-valid "CREATE TEMP VIEW view2 AS SELECT x FROM t1 WHERE x>0")
+  (is-valid "INSERT OR REPLACE INTO view1 VALUES(2,'unknown')")
+  (is-valid "SELECT x FROM t1 WHERE x NOT NULL ORDER BY x")
+  (is-valid "INSERT INTO t1 VALUES(1<<63,'true')")
+  (is-valid "CREATE TABLE partsupp (
+  ps_partkey    INTEGER,
+  ps_suppkey    INTEGER,
+  ps_availqty   INTEGER,
+  ps_supplycost INTEGER,
+  ps_comment    TEXT,
+  PRIMARY KEY (ps_partkey, ps_suppkey),
+  FOREIGN KEY (ps_suppkey) REFERENCES supplier(s_suppkey),
+  FOREIGN KEY (ps_partkey) REFERENCES part(p_partkey)
+)")
 ;;   (is-valid "SELECT * FROM t1 LEFT OUTER JOIN t2 ON t1.a = t2.a")
 ;;   (is-valid "SELECT * FROM t1 LEFT JOIN t2 ON t1.a = t2.a")
 ;;   (is-valid "SELECT * FROM t1 JOIN t2 ON t1.a = t2.a")

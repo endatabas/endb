@@ -100,7 +100,7 @@ peg! {
                 / IS ^( NOT? rel_expr )
                 / NOT NULL
                 / NOT? BETWEEN ^( rel_expr AND rel_expr )
-                / NOT? IN ^( "(" select_stmt ")" / "(" expr_list ")" / "(" ")" )
+                / NOT? IN ^( subquery / "(" expr_list ")" / "(" ")" )
         )*;
 
     not_expr <- NOT* equal_expr;
