@@ -127,71 +127,71 @@
   (is-valid "INSERT INTO t1 VALUES(382,414,67,992,483,'table tn1 row 1')")
   (is-valid "CREATE INDEX t1i0 ON t1(a1,b1,c1,d1,e1,x1)")
   (is-valid "CREATE INDEX t8all ON t8(e8 DESC, d8 ASC, c8 DESC, b8 ASC, a8 DESC)")
-;;   (is-valid "SELECT e1 FROM t1
-;;    WHERE a1 in (767,433,637,363,776,109,451)
-;;       OR c1 in (683,531,654,246,3,876,309,284)
-;;       OR (b1=738)
-;; EXCEPT
-;;   SELECT b8 FROM t8
-;;    WHERE NOT ((761=d8 AND b8=259 AND e8=44 AND 762=c8 AND 563=a8)
-;;            OR e8 in (866,579,106,933)
-;; EXCEPT
-;;   SELECT e6 FROM t6
-;;    WHERE NOT ((825=b6 OR d6=500)
-;;            OR (230=b6 AND e6=731 AND d6=355 AND 116=a6)
-;; UNION
-;;   SELECT b2 FROM t2
-;;    WHERE (d2=416)
-;; UNION
-;;   SELECT a4 FROM t4
-;;    WHERE c4 in (806,119,489,658,366,424,2,471)
-;;       OR (215=c4 OR c4=424 OR e4=405)
-;; UNION ALL
-;;   SELECT a9 FROM t9
-;;    WHERE (e9=195)
-;;       OR (c9=98 OR d9=145)
-;; UNION ALL
-;;   SELECT e5 FROM t5
-;;    WHERE (44=c5 AND a5=362 AND 193=b5)
-;;       OR (858=b5)
-;; UNION
-;;   SELECT d3 FROM t3
-;;    WHERE (b3=152)
-;;       OR (726=d3)
-;; UNION
-;;   SELECT e7 FROM t7
-;;    WHERE d7 in (687,507,603,52,118)
-;;       OR (d7=399 AND e7=408 AND 396=b7 AND a7=97 AND c7=813)
-;;       OR (e7=605 OR 837=b7 OR e7=918)")
-;;   (is-valid "SELECT * FROM t1")
+  (is-valid "SELECT e1 FROM t1
+   WHERE a1 in (767,433,637,363,776,109,451)
+      OR c1 in (683,531,654,246,3,876,309,284)
+      OR (b1=738)
+EXCEPT
+  SELECT b8 FROM t8
+   WHERE NOT ((761=d8 AND b8=259 AND e8=44 AND 762=c8 AND 563=a8)
+           OR e8 in (866,579,106,933))
+EXCEPT
+  SELECT e6 FROM t6
+   WHERE NOT ((825=b6 OR d6=500)
+           OR (230=b6 AND e6=731 AND d6=355 AND 116=a6))
+UNION
+  SELECT b2 FROM t2
+   WHERE (d2=416)
+UNION
+  SELECT a4 FROM t4
+   WHERE c4 in (806,119,489,658,366,424,2,471)
+      OR (215=c4 OR c4=424 OR e4=405)
+UNION ALL
+  SELECT a9 FROM t9
+   WHERE (e9=195)
+      OR (c9=98 OR d9=145)
+UNION ALL
+  SELECT e5 FROM t5
+   WHERE (44=c5 AND a5=362 AND 193=b5)
+      OR (858=b5)
+UNION
+  SELECT d3 FROM t3
+   WHERE (b3=152)
+      OR (726=d3)
+UNION
+  SELECT e7 FROM t7
+   WHERE d7 in (687,507,603,52,118)
+      OR (d7=399 AND e7=408 AND 396=b7 AND a7=97 AND c7=813)
+      OR (e7=605 OR 837=b7 OR e7=918)")
+  (is-valid "SELECT * FROM t1")
   (is-valid "INSERT INTO t1(e,c,b,d,a) VALUES(NULL,102,NULL,101,104)")
   (is-valid "SELECT cor0.col2 AS col2 FROM tab2 AS cor0 GROUP BY col2 HAVING NOT NULL < NULL")
   (is-valid "SELECT 20 / - - 96 + CAST ( 90 AS INTEGER ) AS col2")
-;;   (is-valid "SELECT ALL * FROM tab0 cor0 CROSS JOIN tab2 AS cor1")
-;;   (is-valid "SELECT + + MIN ( ALL - + 32 ) AS col0, + COUNT ( * ) * + COUNT ( * ) FROM ( tab0 AS cor0 CROSS JOIN tab0 cor1 )")
-;;   (is-valid "SELECT ALL NULLIF ( - COUNT ( * ), + 67 * - - ( + 25 ) + 89 + - 39 * 63 ) + + 54 AS col2, 11 * 31 * - - ( 70 )")
-;;   (is-valid "SELECT ALL 74 * - COALESCE ( + CASE - CASE WHEN NOT ( NOT - 79 >= NULL ) THEN 48 END WHEN + + COUNT( * ) THEN 6 END, MIN( ALL + - 30 ) * 45 * 77 ) * - 14")
-;;   (is-valid "SELECT * FROM tab1 WHERE NULL NOT IN ( col0 * col0 )")
-;;   (is-valid "SELECT SUM ( + 73 ) * - CASE WHEN NOT ( NOT 27 BETWEEN 15 AND - NULLIF ( - 63, - 28 + + 76 ) ) THEN NULL ELSE + 77 * + 69 END / - CAST ( - 69 AS INTEGER ) AS col0")
+  (is-valid "SELECT ALL * FROM tab0 cor0 CROSS JOIN tab2 AS cor1")
+  (is-valid "SELECT + + MIN ( ALL - + 32 ) AS col0, + COUNT ( * ) * + COUNT ( * ) FROM ( tab0 AS cor0 CROSS JOIN tab0 cor1 )")
+  (is-valid "SELECT ALL NULLIF ( - COUNT ( * ), + 67 * - - ( + 25 ) + 89 + - 39 * 63 ) + + 54 AS col2, 11 * 31 * - - ( 70 )")
+  (is-valid "SELECT ALL 74 * - COALESCE ( + CASE - CASE WHEN NOT ( NOT - 79 >= NULL ) THEN 48 END WHEN + + COUNT( * ) THEN 6 END, MIN( ALL + - 30 ) * 45 * 77 ) * - 14")
+  (is-valid "SELECT * FROM tab1 WHERE NULL NOT IN ( col0 * col0 )")
+  (is-valid "SELECT SUM ( + 73 ) * - CASE WHEN NOT ( NOT 27 BETWEEN 15 AND - NULLIF ( - 63, - 28 + + 76 ) ) THEN NULL ELSE + 77 * + 69 END / - CAST ( - 69 AS INTEGER ) AS col0")
   (is-valid "CREATE UNIQUE INDEX idx_tab2_2 ON tab2 (col1 DESC)")
   (is-valid "INSERT INTO tab0 VALUES(0,6,5.6,'jtqxx',9,5.19,'qvgba')")
   (is-valid "DELETE FROM tab0 WHERE col4 > 2.27")
   (is-valid "DROP TABLE tab0")
-;;   (is-valid "SELECT ALL col2 FROM tab0 WHERE + col0 IS NOT NULL")
+  (is-valid "SELECT ALL col2 FROM tab0 WHERE + col0 IS NOT NULL")
   (is-valid "DROP VIEW IF EXISTS view_3_tab0_153")
   (is-valid "CREATE VIEW view_1_tab0_153 AS SELECT pk, col0 FROM tab0 WHERE col0 = 49")
   (is-valid "DROP VIEW view_1_tab1_153")
   (is-valid "SELECT pk FROM ( SELECT pk, col0 FROM tab0 WHERE col0 = 49 ) AS tab0_153")
-;;   (is-valid "SELECT * FROM tab0 cor0 JOIN tab0 AS cor1 ON NULL IS NULL")
+  (is-valid "SELECT * FROM tab0 cor0 JOIN tab0 AS cor1 ON NULL IS NULL")
   (is-valid "DROP INDEX t1i1")
   (is-valid "DROP TABLE IF EXISTS t1")
-;;   (is-valid "SELECT 1 FROM t1 WHERE 1 IN ()")
-;;   (is-valid "SELECT 1 FROM t1 WHERE 1 IN (2)")
+  (is-valid "SELECT 1 FROM t1 WHERE 1 IN ()")
+  (is-valid "SELECT 1 FROM t1 WHERE 1 IN (2)")
   (is-valid "CREATE TABLE t3(z INTEGER UNIQUE)")
-;;   (is-valid "SELECT x'303132' IN (SELECT * FROM t1)")
-;;   (is-valid "UPDATE t1 SET x=1 WHERE x>0")
-;;   (is-valid "UPDATE t1 SET x=3, x=4, x=5")
-;;   (is-valid "SELECT 1 IN t1")
+  (is-valid "SELECT x'303132' IN (SELECT * FROM t1)")
+  (is-valid "UPDATE t1 SET x=1 WHERE x>0")
+  (is-valid "UPDATE t1 SET x=3, x=4, x=5")
+  (is-valid "SELECT 1 IN t1")
   (is-valid "CREATE TEMP VIEW view2 AS SELECT x FROM t1 WHERE x>0")
   (is-valid "INSERT OR REPLACE INTO view1 VALUES(2,'unknown')")
   (is-valid "SELECT x FROM t1 WHERE x NOT NULL ORDER BY x")
@@ -206,12 +206,11 @@
   FOREIGN KEY (ps_suppkey) REFERENCES supplier(s_suppkey),
   FOREIGN KEY (ps_partkey) REFERENCES part(p_partkey)
 )")
-;;   (is-valid "SELECT * FROM t1 LEFT OUTER JOIN t2 ON t1.a = t2.a")
-;;   (is-valid "SELECT * FROM t1 LEFT JOIN t2 ON t1.a = t2.a")
-;;   (is-valid "SELECT * FROM t1 JOIN t2 ON t1.a = t2.a")
-;;   (is-valid "SELECT DISTINCT * FROM t1")
-;;   (is-valid "SELECT ALL * FROM t1")
+  (is-valid "SELECT * FROM t1 LEFT OUTER JOIN t2 ON t1.a = t2.a")
+  (is-valid "SELECT * FROM t1 LEFT JOIN t2 ON t1.a = t2.a")
+  (is-valid "SELECT * FROM t1 JOIN t2 ON t1.a = t2.a")
+  (is-valid "SELECT DISTINCT * FROM t1")
+  (is-valid "SELECT ALL * FROM t1")
   (is-valid "SELECT 1; SELECT 1;")
   (is-valid "SELECT 1;")
-  ;; (is-valid "WITH foo(c) AS (SELECT 1), bar(a, b) AS (SELECT 1, 2) SELECT * FROM foo, bar")
-  )
+  (is-valid "WITH foo(c) AS (SELECT 1), bar(a, b) AS (SELECT 1, 2) SELECT * FROM foo, bar"))

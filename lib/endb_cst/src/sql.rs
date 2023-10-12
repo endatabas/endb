@@ -58,7 +58,7 @@ peg! {
     paren_expr <- "(" expr ")";
     extract_expr <- EXTRACT ^( "(" datetime_field FROM expr ")" );
     cast_expr <- CAST ^( "(" expr AS type_name ")" );
-    function_call_expr <- function_name "(" ( "*" / DISTINCT? expr_list? order_by_clause? ) ")" ( FILTER ^( "(" WHERE expr ")" ) )?;
+    function_call_expr <- function_name "(" ( "*" / ( ALL / DISTINCT )? expr_list? order_by_clause? ) ")" ( FILTER ^( "(" WHERE expr ")" ) )?;
     exists_expr <- EXISTS ^subquery;
     case_when_then_expr <- WHEN expr THEN expr;
     case_else_expr <- ELSE expr;
@@ -86,6 +86,8 @@ peg! {
         / case_expr
         / column_reference;
 
+    in_expr_list <- "(" expr_list? ")";
+
     access_expr <- atom ( ( ".." / "." ) ident / "[" ( expr / "*" ) "]" )*;
     unary_expr <- ("+" / "-" / "~" )* access_expr;
     concat_expr <- unary_expr ( "||" unary_expr )*;
@@ -100,7 +102,7 @@ peg! {
                 / IS ^( NOT? rel_expr )
                 / NOT NULL
                 / NOT? BETWEEN ^( rel_expr AND rel_expr )
-                / NOT? IN ^( subquery / "(" expr_list ")" / "(" ")" )
+                / NOT? IN ^( subquery / in_expr_list / table_name )
         )*;
 
     not_expr <- NOT* equal_expr;
@@ -161,7 +163,11 @@ peg! {
         order_by_clause?
         limit_offset_clause?;
 
-    update_clause <- ( SET ( column_name / path_expr ) "=" expr ( "," ( column_name / path_expr ) "=" expr )* )? ( ( UNSET / REMOVE) ( column_name / path_expr ) ( "," ( column_name / path_expr ) )* )? ( PATCH? object_expr )? ( WHERE expr )?;
+    update_set_clause <- SET ( column_name / path_expr ) "=" expr ( "," ( column_name / path_expr ) "=" expr )*;
+    update_remove_clause <- ( UNSET / REMOVE) ( column_name / path_expr ) ( "," ( column_name / path_expr ) )*;
+    update_patch_clause <- PATCH? object_expr;
+    update_where_clause <- WHERE expr;
+    update_clause <- update_set_clause? update_remove_clause? update_patch_clause? update_where_clause?;
     upsert_clause <- ON CONFLICT "(" column_name_list ")" DO ( NOTHING / UPDATE update_clause );
 
     insert_stmt <- INSERT ( OR REPLACE )? INTO table_name ( "(" column_name_list ")" )? select_stmt upsert_clause?;
@@ -179,7 +185,7 @@ peg! {
 
     signed_number <- ( "+" / "-" )? numeric_literal;
     column_constraint <- PRIMARY KEY / UNIQUE;
-    column_def <- column_name !"KEY" type_name ( "(" signed_number ")" )? column_constraint?;
+    column_def <- column_name !KEY type_name ( "(" signed_number ")" )? column_constraint?;
     foreign_key_clause <- REFERENCES table_name "(" column_name_list ")";
     table_constraint <- PRIMARY KEY "(" column_name_list ")" / FOREIGN KEY "(" column_name_list ")" foreign_key_clause;
     create_table_stmt <- CREATE TABLE table_name "(" column_def ( "," column_def )*  ( "," table_constraint )* ")";
