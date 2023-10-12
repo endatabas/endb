@@ -86,7 +86,8 @@ peg! {
         / case_expr
         / column_reference;
 
-    in_expr_list <- "(" expr_list? ")";
+    paren_expr_list <- "(" expr_list ")";
+    empty_list <- "(" ")";
 
     access_expr <- atom ( ( ".." / "." ) ident / "[" ( expr / "*" ) "]" )*;
     unary_expr <- ("+" / "-" / "~" )* access_expr;
@@ -102,7 +103,7 @@ peg! {
                 / IS ^( NOT? rel_expr )
                 / NOT NULL
                 / NOT? BETWEEN ^( rel_expr AND rel_expr )
-                / NOT? IN ^( subquery / in_expr_list / table_name )
+                / NOT? IN ^( subquery / paren_expr_list / empty_list / table_name )
         )*;
 
     not_expr <- NOT* equal_expr;
@@ -127,7 +128,7 @@ peg! {
     system_time_clause <- FOR ^( SYSTEM_TIME ( ALL / AS OF atom / FROM atom TO atom / BETWEEN atom AND atom ) );
     invalid_table_alias <- LEFT / INNER / CROSS / JOIN / WHERE / GROUP / HAVING / ORDER / LIMIT / ON / UNION / INTERSECT / EXCEPT;
     table_or_subquery <-
-        UNNEST "(" expr_list ")" ( WITH ORDINALITY )? AS? table_alias
+        UNNEST paren_expr_list  ( WITH ORDINALITY )? AS? table_alias
         / table_name ( NOT INDEXED )? system_time_clause? ( AS ^table_alias / !invalid_table_alias table_alias )?
         / subquery AS? table_alias
         / "(" join_clause ")";
@@ -137,7 +138,7 @@ peg! {
     group_by_clause <- GROUP BY expr_list;
     having_clause <- HAVING expr;
 
-    values_clause <- VALUES "(" expr_list ")" ( "," ( "(" expr_list ")" ) )*;
+    values_clause <- VALUES paren_expr_list ( "," paren_expr_list )*;
     objects_clause <- OBJECTS? object_expr ( "," object_expr)*;
 
     result_expr_list <- result_column ( "," result_column )*;

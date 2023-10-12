@@ -286,7 +286,7 @@
                 (cons :select (mapcan #'walk xs)))
 
                ((list* :|values_clause| _ xs)
-                (cons :values (list (mapcar #'walk (strip-delimiters '("(" ")" ",") xs)))))
+                (cons :values (list (mapcar #'walk (strip-delimiters '(",") xs)))))
 
                ((list* :|with_clause| _ xs)
                 (list :with (mapcar #'walk (strip-delimiters '(",") xs))))
@@ -433,11 +433,10 @@
                ((list* :|expr_list| xs)
                 (mapcar #'walk (strip-delimiters '(",") xs)))
 
-               ((list :|in_expr_list| _ expr-list _)
+               ((list :|paren_expr_list| _ expr-list _)
                 (walk expr-list))
 
-               ((list :|in_expr_list| _ _)
-                ())
+               ((list :|empty_list| _ _))
 
                ((list :|numeric_literal| (list x _ _))
                 (read-from-string x))
