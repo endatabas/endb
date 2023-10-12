@@ -149,6 +149,26 @@
                ((list* (list "NOT" _ _) (list "BETWEEN" _ _) x (list "AND" _ _) y xs)
                 (split-binary-ops (cons (list (list :not :between) (list (walk x) (walk y))) acc)
                                   xs))
+               ((list* (list "NOT" _ _) (list "IN" _ _) (list* :|subquery| x) xs)
+                (split-binary-ops (cons (list (list :not :in-query) (walk (cons :|subquery| x))) acc)
+                                  xs))
+               ((list* (list "IN" _ _) (list* :|subquery| x) xs)
+                (split-binary-ops (cons (list :in-query (walk (cons :|subquery| x))) acc)
+                                  xs))
+               ((list* (list "NOT" _ _) (list "IN" _ _) (list :|table_name| x) xs)
+                (split-binary-ops (cons (list (list :not :in-query) (walk x)) acc)
+                                  xs))
+               ((list* (list "IN" _ _) (list :|table_name| x) xs)
+                (split-binary-ops (cons (list :in-query (walk x)) acc)
+                                  xs))
+               ((trivia:guard (list* (list op _ _) (list "NOT" _ _) x xs)
+                              (stringp op))
+                (split-binary-ops (cons (list (list :not (intern op :keyword)) (walk x)) acc)
+                                  xs))
+               ((trivia:guard (list* (list "NOT" _ _) (list op _ _) x xs)
+                              (stringp op))
+                (split-binary-ops (cons (list (list :not (intern op :keyword)) (walk x)) acc)
+                                  xs))
                ((trivia:guard (list* (list op _ _) x xs)
                               (stringp op))
                 (split-binary-ops (cons (list (intern op :keyword) (walk x)) acc)
@@ -162,6 +182,8 @@
                        (list :not (list :between lhs x y)))
                       ((list :between (list x y))
                        (list :between lhs x y))
+                      ((list (list :not op) rhs)
+                       (list :not (list op lhs rhs)))
                       ((list :not :null)
                        (list :not (list :is lhs :null))))
                     (list (first op-rhs)
@@ -169,6 +191,29 @@
                           (second op-rhs))))
               (split-binary-ops () (rest xs))
               :initial-value (walk (first xs))))
+           (flatten-join (xs)
+             (trivia:ematch xs
+               ((list* x (list* :|join_operator| (list op _ _) _) y (list :|join_constraint| _ expr) xs)
+                (append (list (list :join (walk x) (walk y)
+                                    :on (walk expr)
+                                    :type (if (equal "LEFT" op)
+                                              :left
+                                              :inner)))
+                        (flatten-join xs)))
+               ((list* x (list* :|join_operator| _) y xs)
+                (append (list (walk x) (walk y)) (flatten-join xs)))
+               ((list x)
+                (list (walk x)))
+               ((list)
+                ())))
+           (build-compound-select-stmt (acc xs)
+             (trivia:ematch xs
+               ((list* (list :|compound_operator| (list op _ _)) x xs)
+                (build-compound-select-stmt (list (intern op :keyword) acc (walk x)) xs))
+               ((list* (list :|compound_operator| (list "UNION" _ _) (list "ALL" _ _)) x xs)
+                (build-compound-select-stmt (list :union-all acc (walk x)) xs))
+               ((list* xs)
+                (append acc (mapcan #'walk xs)))))
            (walk (cst)
              (trivia:ematch cst
                ((list :|ident| (list id start end))
@@ -182,8 +227,11 @@
                ((list* :|sql_stmt_list| xs)
                 (list :multiple-statments (mapcar #'walk (strip-delimiters '(";") xs))))
 
-               ((list* :|select_stmt| xs)
-                (mapcan #'walk xs))
+               ((list* :|select_stmt| (list* :|with_clause| with) xs)
+                (append (walk (cons :|with_clause| with)) (list (walk (cons :|select_stmt| xs)))))
+
+               ((list* :|select_stmt| x xs)
+                (build-compound-select-stmt (walk x) xs))
 
                ((list* :|create_table_stmt| _ _ table-name xs)
                 (list :create-table (walk table-name) (remove nil (mapcar #'walk (strip-delimiters '("(" ")" ",") xs)))))
@@ -217,6 +265,19 @@
                ((list :|delete_stmt| _ _ table-name _ expr)
                 (list :delete (walk table-name) :where (walk expr)))
 
+               ((list :|update_stmt| _ table-name update-clause)
+                (append (list :update (walk table-name)) (walk update-clause)))
+
+               ((list* :|update_clause| xs)
+                (mapcan #'walk xs))
+
+               ((list* :|update_set_clause| _ sets)
+                (list (loop for (column expr) on (strip-delimiters '("," "=") sets) by #'cddr
+                            collect (list (walk column) (walk expr)))))
+
+               ((list :|update_where_clause| _ expr)
+                (list :where (walk expr)))
+
                ((list :|drop_table_stmt| _ _ table-name)
                 (list :drop-table (walk table-name)))
 
@@ -238,14 +299,29 @@
                ((list* :|column_name_list| xs)
                 (mapcar #'walk (strip-delimiters '(",") xs)))
 
+               ((list* :|select_core| (list "SELECT" _ _) (list "ALL" _ _) result-expr-list xs)
+                (append (cons :select (walk result-expr-list)) (list :distinct :all) (mapcan #'walk xs)))
+
+               ((list* :|select_core| (list "SELECT" _ _) (list "DISTINCT" _ _) result-expr-list xs)
+                (append (cons :select (walk result-expr-list)) (list :distinct :distinct) (mapcan #'walk xs)))
+
                ((list* :|select_core| (list "SELECT" _ _) xs)
                 (cons :select (mapcan #'walk xs)))
 
                ((list* :|values_clause| _ xs)
                 (cons :values (list (mapcar #'walk (strip-delimiters '("(" ")" ",") xs)))))
 
+               ((list* :|with_clause| _ xs)
+                (list :with (mapcar #'walk (strip-delimiters '(",") xs))))
+
+               ((list :|common_table_expression| table-name _ column-name-list _ _ subquery)
+                (list (walk table-name) (walk subquery) (walk column-name-list)))
+
                ((list* :|result_expr_list| xs)
                 (list (mapcar #'walk (strip-delimiters '(",") xs))))
+
+               ((list :|result_column| (list :|asterisk| _))
+                (list :*))
 
                ((list :|result_column| x)
                 (list (walk x)))
@@ -256,11 +332,14 @@
                ((list :|result_column| x _ alias)
                 (list (walk x) (walk alias)))
 
-               ((list* :|from_clause| _ xs)
-                (cons :from (mapcar #'walk xs)))
+               ((list :|from_clause| _ join-clause)
+                (list :from (walk join-clause)))
 
                ((list* :|join_clause| xs)
-                (mapcar #'walk xs))
+                (flatten-join xs))
+
+               ((list :|table_or_subquery| (list "(" _ _) join-clause (list ")" _ _))
+                (append (cons :join (walk join-clause)) (list :on :true :type :inner)))
 
                ((list :|table_or_subquery| table-name)
                 (list (walk table-name)))
@@ -329,7 +408,17 @@
                 (list :aggregate-function :count-star nil))
 
                ((list* :|function_call_expr| function-name xs)
-                (let* ((args (mapcar #'walk (strip-delimiters '("(" ")") xs)))
+                (let* ((args (strip-delimiters '("(" ")") xs))
+                       (distinct-all (trivia:match (first args)
+                                       ((list "DISTINCT" _ _)
+                                        :distinct)
+                                       ((list "ALL" _ _)
+                                        :all)))
+                       (args (if distinct-all
+                                 (rest args)
+                                 args))
+                       (args (append (mapcar #'walk args) (when distinct-all
+                                                            (list :distinct distinct-all))))
                        (fn (trivia:match function-name
                              ((list :|function_name| (list :|ident| (list fn _ _)))
                               (string-upcase fn)))))
@@ -367,11 +456,20 @@
                ((list* :|expr_list| xs)
                 (mapcar #'walk (strip-delimiters '(",") xs)))
 
+               ((list :|in_expr_list| _ expr-list _)
+                (walk expr-list))
+
+               ((list :|in_expr_list| _ _)
+                ())
+
                ((list :|numeric_literal| (list x _ _))
                 (read-from-string x))
 
                ((list :|string_literal| (list x _ _))
                 (endb/lib/parser:sql-string-to-cl (eql #\' (char x 0)) (subseq x 1 (1- (length x)))))
+
+               ((list :|blob_literal| (list x _ _))
+                (list :blob (subseq x 2 (1- (length x)))))
 
                ((list "NULL"  _ _)
                 :null)
