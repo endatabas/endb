@@ -184,7 +184,7 @@
                ((list* x (list* :|join_operator| _) y xs)
                 (flatten-join (append acc (list (walk x) (walk y))) xs))
                ((list x)
-                (append (list (walk x)) acc))
+                (append acc (list (walk x))))
                (() acc)))
            (build-compound-select-stmt (acc xs)
              (trivia:ematch xs
@@ -372,8 +372,8 @@
                ((list* :|equal_expr| x xs)
                 (binary-equal-op-tree (walk x) xs))
 
-               ((list* :|not_expr| (list op _ _) xs)
-                (list (intern op :keyword) (walk (cons :|not_expr| xs))))
+               ((list* :|not_expr| (list _ _ _) xs)
+                (list :not (walk (cons :|not_expr| xs))))
 
                ((list* :|and_expr| x xs)
                 (binary-op-tree (walk x) xs))
