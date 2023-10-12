@@ -116,17 +116,38 @@
              (remove-if (lambda (x)
                           (trivia:match x
                             ((trivia:guard (list x _ _)
-                                           (member x delimiters :test 'equal))
+                                           (member x delimiters :test 'equalp))
                              t)))
                         xs))
+           (split-binary-ops (acc xs)
+             (trivia:ematch xs
+               ((trivia:guard (list* (list between-kw _ _) x (list and-kw _ _) y xs)
+                              (and (equalp "BETWEEN" between-kw) (equalp "AND" and-kw)))
+                (split-binary-ops (cons (list :between (list (walk x) (walk y))) acc)
+                                  xs))
+               ((trivia:guard (list* (list not-kw _ _) (list between-kw _ _) x (list and-kw _ _) y xs)
+                              (and (equalp "NOT" not-kw) (equalp "BETWEEN" between-kw) (equalp "AND" and-kw)))
+                (split-binary-ops (cons (list (list :not :between) (list (walk x) (walk y))) acc)
+                                  xs))
+               ((trivia:guard (list* (list op _ _) x xs)
+                              (stringp op))
+                (split-binary-ops (cons (list (intern op :keyword) (walk x)) acc)
+                                  xs))
+               ((list) (reverse acc))))
            (binary-op-tree (xs)
              (reduce
               (lambda (lhs op-rhs)
-                (list (first op-rhs)
-                      lhs
-                      (second op-rhs)))
-              (loop for (x y) on (rest xs) by #'cddr
-                    collect (list (intern (first x) :keyword) (walk y)))
+                (or (trivia:match op-rhs
+                      ((list (list :not :between) (list x y))
+                       (list :not (list :between lhs x y)))
+                      ((list :between (list x y))
+                       (list :between lhs x y))
+                      ((list :not :null)
+                       (list :not (list :is lhs :null))))
+                    (list (first op-rhs)
+                          lhs
+                          (second op-rhs))))
+              (split-binary-ops () (rest xs))
               :initial-value (walk (first xs))))
            (walk (cst)
              (trivia:ematch cst
@@ -145,18 +166,59 @@
                 (mapcan #'walk xs))
 
                ((list* :|create_table_stmt| _ _ table-name xs)
-                (list :create-table (walk table-name) (mapcar #'walk (strip-delimiters '("(" ")" ",") xs))))
+                (list :create-table (walk table-name) (remove nil (mapcar #'walk (strip-delimiters '("(" ")" ",") xs)))))
 
-               ((list :|column_def| column-name _)
+               ((list* :|column_def| column-name _)
                 (walk column-name))
+
+               ((list* :|table_constraint| _))
+
+               ((list* :|create_index_stmt| _ (trivia:guard (list unique-kw _ _) (equalp "UNIQUE" unique-kw)) _ index-name _ table-name _)
+                (list :create-index (walk index-name) (walk table-name)))
+
+               ((list* :|create_index_stmt| _ _ index-name _ table-name _)
+                (list :create-index (walk index-name) (walk table-name)))
+
+               ((list :|create_view_stmt| _ _ view-name _ query)
+                (list :create-view (walk view-name) (walk query)))
+
+               ((list :|create_view_stmt| _ _ _ view-name _ query)
+                (list :create-view (walk view-name) (walk query)))
+
+               ((list :|insert_stmt| _ _ table-name query)
+                (list :insert (walk table-name) (walk query)))
+
+               ((list :|insert_stmt| _ _ _ _ table-name query)
+                (list :insert (walk table-name) (walk query)))
 
                ((list :|insert_stmt| _ _ table-name _ column-name-list _ query)
                 (list :insert (walk table-name) (walk query) :column-names (walk column-name-list)))
 
+               ((list :|delete_stmt| _ _ table-name _ expr)
+                (list :delete (walk table-name) :where (walk expr)))
+
+               ((list :|drop_table_stmt| _ _ table-name)
+                (list :drop-table (walk table-name)))
+
+               ((list :|drop_table_stmt| _ _ _ _ table-name)
+                (list :drop-table (walk table-name) :if-exists :if-exists))
+
+               ((list :|drop_view_stmt| _ _ view-name)
+                (list :drop-view (walk view-name)))
+
+               ((list :|drop_view_stmt| _ _ _ _ view-name)
+                (list :drop-view (walk view-name) :if-exists :if-exists))
+
+               ((list :|drop_index_stmt| _ _ index-name)
+                (list :drop-index (walk index-name)))
+
+               ((list :|drop_index_stmt| _ _ _ _ index-name)
+                (list :drop-index (walk index-name) :if-exists :if-exists))
+
                ((list* :|column_name_list| xs)
                 (mapcar #'walk (strip-delimiters '(",") xs)))
 
-               ((list* :|select_core| (list "SELECT" _ _) xs)
+               ((list* :|select_core| (trivia:guard (list kw _ _) (equalp "SELECT" kw)) xs)
                 (cons :select (mapcan #'walk xs)))
 
                ((list* :|values_clause| _ xs)
@@ -225,17 +287,26 @@
                ((list* :|or_expr| xs)
                 (binary-op-tree xs))
 
+               ((list* :|function_call_expr| (trivia:guard (list :|function_name|
+                                                                 (list :|ident| (list fn _ _)))
+                                                           (equalp "COUNT" fn))
+                       (list _ (list "*" _ _) _))
+                (list :aggregate-function :count-star nil))
+
                ((list* :|function_call_expr| function-name xs)
-                (let ((args (mapcar #'walk (strip-delimiters '("(" ")") xs)))
-                      (fn (trivia:match function-name
-                            ((list _ (list _ (list fn _ _)))
-                             fn))))
-                  (if (member fn '("COUNT" "AVG" "SUM" "TOTAL" "MIN" "MAX" "ARRAY_AGG" "OBJECT_AGG" "GROUP_CONCAT") :test 'equalp)
-                      (cons :aggregate-function (cons (intern (string-upcase fn) :keyword) args))
+                (let* ((args (mapcar #'walk (strip-delimiters '("(" ")") xs)))
+                       (fn (trivia:match function-name
+                             ((list :|function_name| (list :|ident| (list fn _ _)))
+                              (string-upcase fn)))))
+                  (if (member fn '("COUNT" "AVG" "SUM" "TOTAL" "MIN" "MAX" "ARRAY_AGG" "OBJECT_AGG" "GROUP_CONCAT") :test 'equal)
+                      (cons :aggregate-function (cons (intern fn :keyword) args))
                       (cons :function (cons (walk function-name) args)))))
 
                ((list* :|case_expr| _ xs)
-                (cons :case (list (mapcar #'walk (strip-delimiters '("END") xs)))))
+                (or (trivia:match (first xs)
+                      ((list* :|case_when_then_expr| _)
+                       (cons :case (list (mapcar #'walk (strip-delimiters '("END") xs))))))
+                    (cons :case (cons (walk (first xs)) (list (mapcar #'walk (strip-delimiters '("END") (rest xs))))))))
 
                ((list :|case_when_then_expr| _ when-expr _ then-expr)
                 (list (walk when-expr) (walk then-expr)))
@@ -257,6 +328,12 @@
 
                ((list :|numeric_literal| (list x _ _))
                 (read-from-string x))
+
+               ((list :|string_literal| (list x _ _))
+                (endb/lib/parser:sql-string-to-cl (eql #\' (char x 0)) (subseq x 1 (1- (length x)))))
+
+               ((trivia:guard (list null-kw  _ _) (equalp "NULL" null-kw))
+                :null)
 
                ((trivia:guard (list kw x) (keywordp kw))
                 (walk x)))))

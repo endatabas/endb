@@ -1,6 +1,6 @@
 (defpackage :endb/lib/parser
   (:use :cl)
-  (:export  #:sql-parse-error #:parse-sql #:annotate-input-with-error #:strip-ansi-escape-codes)
+  (:export  #:sql-parse-error #:parse-sql #:annotate-input-with-error #:strip-ansi-escape-codes #:sql-string-to-cl)
   (:import-from :endb/lib)
   (:import-from :cffi)
   (:import-from :cl-ppcre)
@@ -218,6 +218,28 @@
 (defparameter +double-single-quote-scanner+ (ppcre:create-scanner "''"))
 (defparameter +backslash-escape-scanner+ (ppcre:create-scanner "(?s)(\\\\u[0-9a-fA-F]{4}|\\\\.)"))
 
+(defun sql-string-to-cl (single-quote-p s)
+  (let* ((s (if single-quote-p
+                (ppcre:regex-replace-all +double-single-quote-scanner+ s "'")
+                s)))
+    (ppcre:regex-replace-all +backslash-escape-scanner+
+                             s
+                             (lambda (target-string start end match-start match-end reg-starts reg-ends)
+                               (declare (ignore start end match-end reg-starts reg-ends))
+                               (let ((c (char target-string (1+ match-start))))
+                                 (string
+                                  (case c
+                                    ((#\" #\' #\\ #\/) c)
+                                    ((#\Newline #\Return #\Line_Separator #\Paragraph_Separator) "")
+                                    (#\0 #\Nul)
+                                    (#\t #\Tab)
+                                    (#\n #\Newline)
+                                    (#\r #\Return)
+                                    (#\f #\Page)
+                                    (#\b #\Backspace)
+                                    (#\v #\Vt)
+                                    (#\u (code-char (parse-integer (subseq target-string (+ 2 match-start) (+ 6 match-start)) :radix 16))))))))))
+
 (defun visit-ast (input builder ast)
   (loop with input-bytes = (trivial-utf-8:string-to-utf-8-bytes input)
         with queue = (list ast)
@@ -247,26 +269,7 @@
                          (push s (first acc)))))
                   (5 (cffi:with-foreign-slots ((start end) value (:struct String_Union))
                        (let* ((s (trivial-utf-8:utf-8-bytes-to-string input-bytes :start start :end end))
-                              (s (if (= (char-code #\') (aref input-bytes (1- start)))
-                                     (ppcre:regex-replace-all +double-single-quote-scanner+ s "'")
-                                     s))
-                              (s (ppcre:regex-replace-all +backslash-escape-scanner+
-                                                          s
-                                                          (lambda (target-string start end match-start match-end reg-starts reg-ends)
-                                                            (declare (ignore start end match-end reg-starts reg-ends))
-                                                            (let ((c (char target-string (1+ match-start))))
-                                                              (string
-                                                               (case c
-                                                                 ((#\" #\' #\\ #\/) c)
-                                                                 ((#\Newline #\Return #\Line_Separator #\Paragraph_Separator) "")
-                                                                 (#\0 #\Nul)
-                                                                 (#\t #\Tab)
-                                                                 (#\n #\Newline)
-                                                                 (#\r #\Return)
-                                                                 (#\f #\Page)
-                                                                 (#\b #\Backspace)
-                                                                 (#\v #\Vt)
-                                                                 (#\u (code-char (parse-integer (subseq target-string (+ 2 match-start) (+ 6 match-start)) :radix 16))))))))))
+                              (s (sql-string-to-cl (= (char-code #\') (aref input-bytes (1- start))) s)))
                          (push s (first acc)))))))))))
 
 (defun strip-ansi-escape-codes (s)
