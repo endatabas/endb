@@ -127,7 +127,7 @@ peg! {
     table_or_subquery <-
         UNNEST "(" expr_list ")" ( WITH ORDINALITY )? AS? table_alias
         / table_name ( NOT INDEXED )? system_time_clause? ( AS ^table_alias / !invalid_table_alias table_alias )?
-        / "(" select_stmt ")" AS? table_alias
+        / subquery AS? table_alias
         / "(" join_clause ")";
 
     from_clause <- FROM join_clause;
@@ -147,7 +147,7 @@ peg! {
 
     compound_operator <- UNION ALL? / INTERSECT / EXCEPT;
 
-    common_table_expression <- table_name ( "(" column_name_list ")" )? AS "(" select_stmt ")";
+    common_table_expression <- table_name ( "(" column_name_list ")" )? AS subquery;
 
     with_clause <- WITH RECURSIVE? common_table_expression ( "," common_table_expression )*;
 
