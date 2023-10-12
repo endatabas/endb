@@ -251,8 +251,8 @@
                ((list* :|update_clause| xs)
                 (mapcan #'walk xs))
 
-               ((list* :|update_set_clause| _ sets)
-                (list (loop for (column expr) on (strip-delimiters '("," "=") sets) by #'cddr
+               ((list* :|update_set_clause| _ xs)
+                (list (loop for (column expr) on (strip-delimiters '("," "=") xs) by #'cddr
                             collect (list (walk column) (walk expr)))))
 
                ((list :|update_where_clause| _ expr)
@@ -303,14 +303,14 @@
                ((list :|result_column| (list :|asterisk| _))
                 (list :*))
 
-               ((list :|result_column| x)
-                (list (walk x)))
+               ((list :|result_column| expr)
+                (list (walk expr)))
 
-               ((list :|result_column| x alias)
-                (list (walk x) (walk alias)))
+               ((list :|result_column| expr alias)
+                (list (walk expr) (walk alias)))
 
-               ((list :|result_column| x _ alias)
-                (list (walk x) (walk alias)))
+               ((list :|result_column| expr _ alias)
+                (list (walk expr) (walk alias)))
 
                ((list :|from_clause| _ join-clause)
                 (list :from (walk join-clause)))
@@ -342,11 +342,11 @@
                ((list* :|order_by_clause| _ _ xs)
                 (list :order-by (mapcar #'walk (strip-delimiters '(",") xs))))
 
-               ((list :|ordering_term| x (list dir _ _))
-                (list (walk x) (intern dir :keyword)))
+               ((list :|ordering_term| expr (list dir _ _))
+                (list (walk expr) (intern dir :keyword)))
 
-               ((list :|ordering_term| x)
-                (list (walk x) :asc))
+               ((list :|ordering_term| expr)
+                (list (walk expr) :asc))
 
                ((list :|column_reference| table-name _ column-name)
                 (make-symbol (concatenate 'string (symbol-name (walk table-name)) "." (symbol-name (walk column-name)))))
