@@ -230,6 +230,12 @@
                ((list :|result_column| x)
                 (list (walk x)))
 
+               ((list :|result_column| x alias)
+                (list (walk x) (walk alias)))
+
+               ((list :|result_column| x _ alias)
+                (list (walk x) (walk alias)))
+
                ((list* :|from_clause| _ xs)
                 (cons :from (mapcar #'walk xs)))
 
@@ -239,11 +245,20 @@
                ((list :|table_or_subquery| table-name)
                 (list (walk table-name)))
 
+               ((list :|table_or_subquery| table-name alias)
+                (list (walk table-name) (walk alias)))
+
                ((list :|table_or_subquery| table-name _ alias)
                 (list (walk table-name) (walk alias)))
 
                ((list :|where_clause| _ expr)
                 (list :where (walk expr)))
+
+               ((list* :|group_by_clause| _ _ xs)
+                (list :group-by (mapcan #'walk xs)))
+
+               ((list :|having_clause| _ expr)
+                (list :having (walk expr)))
 
                ((list* :|order_by_clause| _ _ xs)
                 (list :order-by (mapcar #'walk (strip-delimiters '(",") xs))))
@@ -258,7 +273,7 @@
                 (make-symbol (concatenate 'string (symbol-name (walk table-name)) "." (symbol-name (walk column-name)))))
 
                ((list* :|unary_expr| (list op _ _) x)
-                (list (intern op :keyword) (walk (list :|unary_expr| x))))
+                (list (intern op :keyword) (walk (cons :|unary_expr| x))))
 
                ((list* :|concat_expr| xs)
                 (binary-op-tree xs))
@@ -279,7 +294,7 @@
                 (binary-op-tree xs))
 
                ((list* :|not_expr| (list op _ _) x)
-                (list (intern op :keyword) (walk (list :|not_expr| x))))
+                (list (intern op :keyword) (walk (cons :|not_expr| x))))
 
                ((list* :|and_expr| xs)
                 (binary-op-tree xs))
@@ -318,10 +333,16 @@
                 (walk expr))
 
                ((list :|exists_expr| _ query)
-                (list :exists (second (walk query))))
+                (list :exists (walk query)))
+
+               ((list :|cast_expr| _ _ expr _ type _)
+                (list :cast (walk expr) (walk type)))
+
+               ((list :|atom| (list :|subquery| _ query _))
+                (list :scalar-subquery (walk query)))
 
                ((list :|subquery| _ query _)
-                (list :scalar-subquery (walk query)))
+                (walk query))
 
                ((list* :|expr_list| xs)
                 (mapcar #'walk (strip-delimiters '(",") xs)))
