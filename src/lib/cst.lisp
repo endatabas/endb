@@ -136,16 +136,31 @@
                   s))
 
                ((list :|sql_stmt_list| x)
-                (first (walk x)))
+                (walk x))
 
                ((list* :|sql_stmt_list| xs)
-                (list :multiple-statments (mapcan #'walk (strip-delimiters '(";") xs))))
+                (list :multiple-statments (mapcar #'walk (strip-delimiters '(";") xs))))
 
                ((list* :|select_stmt| xs)
-                (list (mapcan #'walk xs)))
+                (mapcan #'walk xs))
 
-               ((list* :|select_core| _ xs)
+               ((list* :|create_table_stmt| _ _ table-name xs)
+                (list :create-table (walk table-name) (mapcar #'walk (strip-delimiters '("(" ")" ",") xs))))
+
+               ((list :|column_def| column-name _)
+                (walk column-name))
+
+               ((list :|insert_stmt| _ _ table-name _ column-name-list _ query)
+                (list :insert (walk table-name) (walk query) :column-names (walk column-name-list)))
+
+               ((list* :|column_name_list| xs)
+                (mapcar #'walk (strip-delimiters '(",") xs)))
+
+               ((list* :|select_core| (list "SELECT" _ _) xs)
                 (cons :select (mapcan #'walk xs)))
+
+               ((list* :|values_clause| _ xs)
+                (cons :values (list (mapcar #'walk (strip-delimiters '("(" ")" ",") xs)))))
 
                ((list* :|result_expr_list| xs)
                 (list (mapcar #'walk (strip-delimiters '(",") xs))))
@@ -159,8 +174,11 @@
                ((list* :|join_clause| xs)
                 (mapcar #'walk xs))
 
-               ((list :|table_or_subquery| x)
-                (list (walk x)))
+               ((list :|table_or_subquery| table-name)
+                (list (walk table-name)))
+
+               ((list :|table_or_subquery| table-name _ alias)
+                (list (walk table-name) (walk alias)))
 
                ((list :|where_clause| _ expr)
                 (list :where (walk expr)))
@@ -173,6 +191,9 @@
 
                ((list :|ordering_term| x)
                 (list (walk x) :asc))
+
+               ((list :|column_reference| table-name _ column-name)
+                (make-symbol (concatenate 'string (symbol-name (walk table-name)) "." (symbol-name (walk column-name)))))
 
                ((list* :|unary_expr| (list op _ _) x)
                 (list (intern op :keyword) (walk (list :|unary_expr| x))))
@@ -204,11 +225,35 @@
                ((list* :|or_expr| xs)
                 (binary-op-tree xs))
 
-               ((list* :|function_call_expr| xs)
-                (cons :function (mapcar #'walk (strip-delimiters '("(" ")") xs))))
+               ((list* :|function_call_expr| function-name xs)
+                (let ((args (mapcar #'walk (strip-delimiters '("(" ")") xs)))
+                      (fn (trivia:match function-name
+                            ((list _ (list _ (list fn _ _)))
+                             fn))))
+                  (if (member fn '("COUNT" "AVG" "SUM" "TOTAL" "MIN" "MAX" "ARRAY_AGG" "OBJECT_AGG" "GROUP_CONCAT") :test 'equalp)
+                      (cons :aggregate-function (cons (intern (string-upcase fn) :keyword) args))
+                      (cons :function (cons (walk function-name) args)))))
+
+               ((list* :|case_expr| _ xs)
+                (cons :case (list (mapcar #'walk (strip-delimiters '("END") xs)))))
+
+               ((list :|case_when_then_expr| _ when-expr _ then-expr)
+                (list (walk when-expr) (walk then-expr)))
+
+               ((list :|case_else_expr| _ else-expr)
+                (list :else (walk else-expr)))
+
+               ((list :|paren_expr| _ expr _)
+                (walk expr))
+
+               ((list :|exists_expr| _ query)
+                (list :exists (second (walk query))))
+
+               ((list :|subquery| _ query _)
+                (list :scalar-subquery (walk query)))
 
                ((list* :|expr_list| xs)
-                (mapcar #'walk xs))
+                (mapcar #'walk (strip-delimiters '(",") xs)))
 
                ((list :|numeric_literal| (list x _ _))
                 (read-from-string x))
