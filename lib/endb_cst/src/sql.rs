@@ -7,24 +7,24 @@ lazy_static::lazy_static! {
 
 peg! {
 
-    ident <- #r"\b\p{XID_START}\p{XID_CONTINUE}*\b";
+    ident <- r"\b\p{XID_START}\p{XID_CONTINUE}*\b";
 
-    numeric_literal <- #r"\b(0[xX][0-9A-Fa-f]+|[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?)\b";
-    string_literal <- #r#"(?s)("(?:[^\\"]|\\.)*"|'(?:[^\\']|''|\\.)*')"#;
-    blob_literal <- #r#"(\b[xX]'[0-9A-Fa-f]*?'|[xX]"[0-9A-Fa-f]*?")"#;
+    numeric_literal <- r"\b(0[xX][0-9A-Fa-f]+|[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?)\b";
+    string_literal <- r#"(?s)("(?:[^\\"]|\\.)*"|'(?:[^\\']|''|\\.)*')"#;
+    blob_literal <- r#"(\b[xX]'[0-9A-Fa-f]*?'|[xX]"[0-9A-Fa-f]*?")"#;
 
-    iso_time_literal <- #r"\d{2}:\d{2}:\d{2}(:?\.\d+)?";
-    iso_date_literal <- #r"\d{4}-\d{2}-\d{2}";
-    iso_timestamp_literal <- #r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(:?\.\d+)?Z?";
+    iso_time_literal <- r"\d{2}:\d{2}:\d{2}(:?\.\d+)?";
+    iso_date_literal <- r"\d{4}-\d{2}-\d{2}";
+    iso_timestamp_literal <- r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(:?\.\d+)?Z?";
 
-    time_literal <- TIME #r#"('\d{2}:\d{2}:\d{2}(:?\.\d+)?'|"\d{2}:\d{2}:\d{2}(:?\.\d+)?")"#;
-    date_literal <- DATE #r#"('\d{4}-\d{2}-\d{2}'|"\d{4}-\d{2}-\d{2}")"#;
-    timestamp_literal <- TIMESTAMP #r#"('\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(:?\.\d+)?Z?'|"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(:?\.\d+)?Z?")"#;
+    time_literal <- TIME r#"('\d{2}:\d{2}:\d{2}(:?\.\d+)?'|"\d{2}:\d{2}:\d{2}(:?\.\d+)?")"#;
+    date_literal <- DATE r#"('\d{4}-\d{2}-\d{2}'|"\d{4}-\d{2}-\d{2}")"#;
+    timestamp_literal <- TIMESTAMP r#"('\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(:?\.\d+)?Z?'|"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(:?\.\d+)?Z?")"#;
 
-    iso_duration_literal <- #r"P(\d+(:?[,.]\d+)?[YMD])+(T(\d+(:?[,.]\d+)?[HMS])+)?" / #r"PT(\d+(:?[,.]\d+)?[HMS])+";
+    iso_duration_literal <- r"P(\d+(:?[,.]\d+)?[YMD])+(T(\d+(:?[,.]\d+)?[HMS])+)?" / r"PT(\d+(:?[,.]\d+)?[HMS])+";
 
     datetime_field <- YEAR / MONTH / DAY / HOUR / MINUTE / SECOND;
-    interval_literal <- INTERVAL #r#"('\d+(:?-\d+)?'|"\d+(:?-\d+)?")|('(:?\d+ )?\d{2}(:?\:\d{2})?(:?\:\d{2})?(:?\.\d+)?'|"(:?\d+ )?\d{2}(:?\:\d{2})?(:?\:\d{2})?(:?\.\d+)?")"# datetime_field ( TO datetime_field )?;
+    interval_literal <- INTERVAL r#"('\d+(:?-\d+)?'|"\d+(:?-\d+)?")|('(:?\d+ )?\d{2}(:?\:\d{2})?(:?\:\d{2})?(:?\.\d+)?'|"(:?\d+ )?\d{2}(:?\:\d{2})?(:?\:\d{2})?(:?\.\d+)?")"# datetime_field ( TO datetime_field )?;
 
     literal <-
         iso_timestamp_literal
@@ -45,7 +45,7 @@ peg! {
         / CURRENT_DATE
         / CURRENT_TIMESTAMP;
 
-    bind_parameter <- #r"(:?\?|:\p{XID_START}\p{XID_CONTINUE}*\b)";
+    bind_parameter <- r"(:?\?|:\p{XID_START}\p{XID_CONTINUE}*\b)";
 
     function_name <- ident;
     type_name <- ident;
@@ -70,7 +70,7 @@ peg! {
     array_element <- spread_expr / expr;
     array_expr <- ARRAY subquery / ARRAY? ( "[" "]" / "[" array_element ( "," array_element )* ","? "]" );
     computer_property_name <- "["  expr "]";
-    object_key_value_pair <- ( ( ident / string_literal / computer_property_name ) #"[:=]" expr ) / spread_expr / qualified_asterisk / column_reference / bind_parameter;
+    object_key_value_pair <- ( ( ident / string_literal / computer_property_name ) ( ":" / "=" ) expr ) / spread_expr / qualified_asterisk / column_reference / bind_parameter;
     object_key_value_list <- object_key_value_pair ( "," object_key_value_pair )* ","?;
     object_expr <- OBJECT "(" object_key_value_list? ")" / "{" object_key_value_list? "}";
     path_property_access <- ( "." ident ) / "[" ( "#" "-" )? expr "]" / "[" "#" "]";
@@ -221,6 +221,6 @@ peg! {
         / drop_table_stmt
         / drop_view_stmt;
 
-    sql_stmt_list <- #"^" sql_stmt ( ";" sql_stmt )* ";"? !#".";
+    sql_stmt_list <- r"^" sql_stmt ( ";" sql_stmt )* ";"? !r".";
 
 }
