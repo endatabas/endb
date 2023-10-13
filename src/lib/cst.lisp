@@ -464,6 +464,60 @@
                ((list :|blob_literal| (list x _ _))
                 (list :blob (subseq x 2 (1- (length x)))))
 
+               ((list :|iso_date_literal| (list x _ _))
+                (list :date x))
+
+               ((list :|date_literal| _ (list x _ _))
+                (list :date x))
+
+               ((list :|iso_time_literal| (list x _ _))
+                (list :time x))
+
+               ((list :|time_literal| _ (list x _ _))
+                (list :time x))
+
+               ((list :|iso_timestamp_literal| (list x _ _))
+                (list :timestamp x))
+
+               ((list :|timestamp_literal| _ (list x _ _))
+                (list :timestamp x))
+
+               ((list :|iso_duration_literal| (list x _ _))
+                (list :duration x))
+
+               ((list :|interval_literal| _ (list x _ _) from)
+                (list :interval (subseq x 1 (1- (length x))) (walk from)))
+
+               ((list :|interval_literal| _ (list x _ _) from _ to)
+                (list :interval (subseq x 1 (1- (length x))) (walk from) (walk to)))
+
+               ((list :|datetime_field| (list x _ _))
+                (intern x :keyword))
+
+               ((list :|object_expr| (list "OBJECT" _ _) _ object-key-value-list _)
+                (list :object (walk object-key-value-list)))
+
+               ((list :|object_expr| (list "OBJECT" _ _) _ _)
+                (list :object nil))
+
+               ((list :|object_expr| _ object-key-value-list _)
+                (list :object (walk object-key-value-list)))
+
+               ((list :|object_expr| _ _)
+                (list :object nil))
+
+               ((list* :|object_key_value_list| xs)
+                (mapcar #'walk (strip-delimiters '(",") xs)))
+
+               ((list :|object_key_value_pair| key _ value)
+                (list (walk key) (walk value)))
+
+               ((list* :|array_expr| (list "ARRAY" _ _) xs)
+                (list :array (mapcar #'walk (strip-delimiters '("[" "]" ",") xs))))
+
+               ((list* :|array_expr| xs)
+                (list :array (mapcar #'walk (strip-delimiters '("[" "]" ",") xs))))
+
                ((list "NULL" _ _)
                 :null)
 

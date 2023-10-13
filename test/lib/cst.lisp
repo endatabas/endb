@@ -59,6 +59,16 @@
     (is (alexandria:starts-with-subseq "Error: parse error: unexpected SEL"
                                        (render-error-report report)))))
 
+(test parse-escapes
+  (let* ((sql "SELECT \"\\/f\\bo\\fo\\nb\\\\a\\\"\\tr\\r\\u03BB\"")
+         (result (caaadr (cst->ast sql (parse-sql-cst sql)))))
+    (is (equalp (format nil "/f~Ao~Ao~Ab\\a\"~Ar~Aλ" #\Backspace #\Page #\NewLine #\Tab #\Return) result)))
+
+  (let* ((sql "SELECT '\\/f\\0o\\fo\\nb\\\\a\\'\\v\\
+r\\r\\u03BB'")
+         (result (caaadr (cst->ast sql (parse-sql-cst sql)))))
+    (is (equalp (format nil "/f~Ao~Ao~Ab\\a'~Ar~Aλ" #\Nul #\Page #\NewLine #\Vt #\Return) result))))
+
 (defun is-valid (sql)
   (is (equal
        (prin1-to-string (endb/lib/parser:parse-sql sql))

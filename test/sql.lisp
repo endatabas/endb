@@ -2520,64 +2520,66 @@ SELECT s FROM x WHERE ind=0")
       (execute-sql db "SELECT AVG(x), foo.* FROM (VALUES (1, 2)) AS foo(x, y) GROUP BY y"))))
 
 (test interpret-sql-literal
-  (is (equal "foo" (interpret-sql-literal "'foo'")))
-  (is (equal "foo" (interpret-sql-literal "\"foo\"")))
-  (is (equal (format nil "fo~%o") (interpret-sql-literal "\"fo\\no\"")))
-  (is (= 2.0 (interpret-sql-literal "2.0")))
-  (is (= 9223372036854775807 (interpret-sql-literal "9223372036854775807")))
-  (is (= -9223372036854775808 (interpret-sql-literal "-9223372036854775808")))
+  (let ((endb/sql:*use-cst-parser* t))
+    (is (equal "foo" (interpret-sql-literal "'foo'")))
+    (is (equal "foo" (interpret-sql-literal "\"foo\"")))
+    (is (equal (format nil "fo~%o") (interpret-sql-literal "\"fo\\no\"")))
+    (is (= 2.0 (interpret-sql-literal "2.0")))
+    (is (= 9223372036854775807 (interpret-sql-literal "9223372036854775807")))
+    (is (= -9223372036854775808 (interpret-sql-literal "-9223372036854775808")))
 
-  (is (= 170141183460469231731687303715884105727 (interpret-sql-literal "170141183460469231731687303715884105727")))
-  (is (= -170141183460469231731687303715884105727 (interpret-sql-literal "-170141183460469231731687303715884105727")))
+    (is (= 170141183460469231731687303715884105727 (interpret-sql-literal "170141183460469231731687303715884105727")))
+    (is (= -170141183460469231731687303715884105727 (interpret-sql-literal "-170141183460469231731687303715884105727")))
 
-  (is (eq t (interpret-sql-literal "TRUE")))
-  (is (null (interpret-sql-literal "FALSE")))
-  (is (eq :null (interpret-sql-literal "NULL")))
+    (is (eq t (interpret-sql-literal "TRUE")))
+    (is (null (interpret-sql-literal "FALSE")))
+    (is (eq :null (interpret-sql-literal "NULL")))
 
-  (is (equalp #(171 205) (interpret-sql-literal "X'ABCD'")))
+    (is (equalp #(171 205) (interpret-sql-literal "X'ABCD'")))
 
-  (is (equalp (endb/arrow:parse-arrow-date-millis "2001-01-01") (interpret-sql-literal "2001-01-01")))
-  (is (equalp (endb/arrow:parse-arrow-time-micros "12:01:20") (interpret-sql-literal "12:01:20")))
-  (is (equalp (endb/arrow:parse-arrow-timestamp-micros "2023-05-16T14:43:39.970062Z") (interpret-sql-literal "2023-05-16T14:43:39.970062Z")))
-  (is (equalp (endb/arrow:parse-arrow-interval-month-day-nanos "P3Y2MT12H30M5S") (interpret-sql-literal "P3Y2MT12H30M5S")))
+    (is (equalp (endb/arrow:parse-arrow-date-millis "2001-01-01") (interpret-sql-literal "2001-01-01")))
+    (is (equalp (endb/arrow:parse-arrow-time-micros "12:01:20") (interpret-sql-literal "12:01:20")))
+    (is (equalp (endb/arrow:parse-arrow-timestamp-micros "2023-05-16T14:43:39.970062Z") (interpret-sql-literal "2023-05-16T14:43:39.970062Z")))
+    (is (equalp (endb/arrow:parse-arrow-interval-month-day-nanos "P3Y2MT12H30M5S") (interpret-sql-literal "P3Y2MT12H30M5S")))
 
-  (is (equalp (endb/arrow:parse-arrow-interval-month-day-nanos "P1Y2M") (interpret-sql-literal "INTERVAL '1-2' YEAR TO MONTH")))
+    (is (equalp (endb/arrow:parse-arrow-interval-month-day-nanos "P1Y") (interpret-sql-literal "INTERVAL '1' YEAR")))
+    (is (equalp (endb/arrow:parse-arrow-interval-month-day-nanos "P1Y2M") (interpret-sql-literal "INTERVAL '1-2' YEAR TO MONTH")))
 
-  (is (equalp (fset:map ("address" (fset:map ("street" "Street") ("number" 42)))
-                        ("friends" (fset:seq 1 2)))
-              (interpret-sql-literal "{address: {street: 'Street', number: 42}, friends: [1, 2]}")))
-  (is (equalp (fset:empty-map) (interpret-sql-literal "{}")))
+    (is (equalp (fset:map ("address" (fset:map ("street" "Street") ("number" 42)))
+                          ("friends" (fset:seq 1 2)))
+                (interpret-sql-literal "{address: {street: 'Street', number: 42}, friends: [1, 2]}")))
+    (is (equalp (fset:empty-map) (interpret-sql-literal "{}")))
 
-  (signals-with-msg endb/sql/expr:sql-runtime-error
-      "Invalid literal: 2001-01-01ASFOO"
-    (interpret-sql-literal "2001-01-01ASFOO"))
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Invalid literal: 2001-01-01ASFOO"
+      (interpret-sql-literal "2001-01-01ASFOO"))
 
-  (signals-with-msg endb/sql/expr:sql-runtime-error
-      "Invalid literal: 2001-01"
-    (interpret-sql-literal "2001-01"))
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Invalid literal: 2001-01"
+      (interpret-sql-literal "2001-01"))
 
-  (signals-with-msg endb/sql/expr:sql-runtime-error
-      "Invalid literal: 1 \\+ 2"
-    (interpret-sql-literal "1 + 2"))
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Invalid literal: 1 \\+ 2"
+      (interpret-sql-literal "1 + 2"))
 
-  (signals-with-msg endb/sql/expr:sql-runtime-error
-      "Invalid literal: INTERVAL '1-2' MONTH TO YEAR"
-    (interpret-sql-literal "INTERVAL '1-2' MONTH TO YEAR"))
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Invalid literal: INTERVAL '1-2' MONTH TO YEAR"
+      (interpret-sql-literal "INTERVAL '1-2' MONTH TO YEAR"))
 
-  (signals-with-msg endb/sql/expr:sql-runtime-error
-      "Invalid literal: INTERVAL '1-2' YEAR"
-    (interpret-sql-literal "INTERVAL '1-2' YEAR"))
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Invalid literal: INTERVAL '1-2' YEAR"
+      (interpret-sql-literal "INTERVAL '1-2' YEAR"))
 
-  (signals-with-msg endb/sql/expr:sql-runtime-error
-      "Invalid literal: \\[1 \\+ 2\\]"
-    (interpret-sql-literal "[1 + 2]"))
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Invalid literal: \\[1 \\+ 2\\]"
+      (interpret-sql-literal "[1 + 2]"))
 
-  (signals-with-msg endb/sql/expr:sql-runtime-error
-      "Invalid literal: {foo: 1 \\+ 2}"
-    (interpret-sql-literal "{foo: 1 + 2}"))
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Invalid literal: {foo: 1 \\+ 2}"
+      (interpret-sql-literal "{foo: 1 + 2}"))
 
-  (is (equalp (endb/arrow:parse-arrow-date-millis "2001-01-01")
-              (endb/json:resolve-json-ld-xsd-scalars (interpret-sql-literal "{\"@value\": \"2001-01-01\", \"@type\": \"xsd:date\"}")))))
+    (is (equalp (endb/arrow:parse-arrow-date-millis "2001-01-01")
+                (endb/json:resolve-json-ld-xsd-scalars (interpret-sql-literal "{\"@value\": \"2001-01-01\", \"@type\": \"xsd:date\"}"))))))
 
 (defun endb->sqlite (x)
   (cond
