@@ -4,6 +4,7 @@
   (:import-from :endb/lib)
   (:import-from :endb/lib/parser)
   (:import-from :endb/json)
+  (:import-from :alexandria)
   (:import-from :cffi)
   (:import-from :trivial-utf-8)
   (:import-from :trivia))
@@ -147,6 +148,10 @@
                 (binary-equal-op-tree (list :between acc (walk x) (walk y)) xs))
                ((list* (list "NOT" _ _) (list "BETWEEN" _ _) x (list "AND" _ _) y xs)
                 (binary-equal-op-tree (list :not (list :between acc (walk x) (walk y))) xs))
+               ((list* (list "LIKE" _ _) x (list "ESCAPE" _ _) y xs)
+                (binary-equal-op-tree (list :like acc (walk x) (walk y)) xs))
+               ((list* (list "NOT" _ _) (list "LIKE" _ _) x (list "ESCAPE" _ _) y xs)
+                (binary-equal-op-tree (list :not (list :like acc (walk x) (walk y))) xs))
                ((list* (list "NOT" _ _) (list "IN" _ _) (list* :|subquery| x) xs)
                 (binary-equal-op-tree (list :not (list :in-query acc (walk (cons :|subquery| x)))) xs))
                ((list* (list "IN" _ _) (list* :|subquery| x) xs)
@@ -163,6 +168,10 @@
                ((trivia:guard (list* (list "NOT" _ _) (list op _ _) x xs)
                               (stringp op))
                 (binary-equal-op-tree (list :not (list (intern op :keyword) acc (walk x))) xs))
+               ((list* (list "==" _ _) x xs)
+                (binary-equal-op-tree (list := acc (walk x)) xs))
+               ((list* (list "!=" _ _) x xs)
+                (binary-equal-op-tree (list :<> acc (walk x)) xs))
                ((trivia:guard (list* (list op _ _) x xs)
                               (stringp op))
                 (binary-equal-op-tree (list (intern op :keyword) acc (walk x)) xs))
@@ -405,8 +414,8 @@
                              ((list :|function_name| (list :|ident| (list fn _ _)))
                               (string-upcase fn)))))
                   (if (member fn '("COUNT" "AVG" "SUM" "TOTAL" "MIN" "MAX" "ARRAY_AGG" "OBJECT_AGG" "GROUP_CONCAT") :test 'equal)
-                      (cons :aggregate-function (cons (intern fn :keyword) args))
-                      (cons :function (cons (walk function-name) args)))))
+                      (cons :aggregate-function (cons (intern fn :keyword) (or args (list nil))))
+                      (cons :function (cons (walk function-name) (or args (list nil)))))))
 
                ((list* :|case_expr| _ xs)
                 (or (trivia:match (first xs)
@@ -444,7 +453,10 @@
                ((list :|empty_list| _ _))
 
                ((list :|numeric_literal| (list x _ _))
-                (read-from-string x))
+                (if (or (alexandria:starts-with-subseq "0x" x)
+                        (alexandria:starts-with-subseq "0X" x))
+                    (parse-integer x :start 2 :radix 16)
+                    (read-from-string x)))
 
                ((list :|string_literal| (list x _ _))
                 (endb/lib/parser:sql-string-to-cl (eql #\' (char x 0)) (subseq x 1 (1- (length x)))))
@@ -452,8 +464,14 @@
                ((list :|blob_literal| (list x _ _))
                 (list :blob (subseq x 2 (1- (length x)))))
 
-               ((list "NULL"  _ _)
+               ((list "NULL" _ _)
                 :null)
+
+               ((list "TRUE" _ _)
+                :true)
+
+               ((list "FALSE" _ _)
+                :false)
 
                ((trivia:guard (list kw x) (keywordp kw))
                 (walk x)))))

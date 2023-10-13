@@ -17,14 +17,14 @@ peg! {
     iso_date_literal <- #"\\d{4}-\\d{2}-\\d{2}";
     iso_timestamp_literal <- #"\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?Z?";
 
-    time_literal <- TIME ^#"('\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?'|\"\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?\")";
-    date_literal <- DATE ^#"('\\d{4}-\\d{2}-\\d{2}'|\"\\d{4}-\\d{2}-\\d{2}\")";
-    timestamp_literal <- TIMESTAMP ^#"('\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?Z?'|\"\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?Z?\")";
+    time_literal <- TIME #"('\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?'|\"\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?\")";
+    date_literal <- DATE #"('\\d{4}-\\d{2}-\\d{2}'|\"\\d{4}-\\d{2}-\\d{2}\")";
+    timestamp_literal <- TIMESTAMP #"('\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?Z?'|\"\\d{4}-\\d{2}-\\d{2}[T ]\\d{2}:\\d{2}:\\d{2}(:?\\.\\d+)?Z?\")";
 
-    iso_duration_literal <- #"P(\\d+(:?[,.]\\d+)?Y)?(:?\\d+(:?[,.]\\d+)?M)?(:?\\d+(:?[,.]\\d+)?D)?(T(\\d+(:?[,.]\\d+)?H)?(:?\\d+(:?[,.]\\d+)?M)?(:?\\d+(:?[,.]\\d+)?S)?)?";
+    iso_duration_literal <- #"P(\\d+(:?[,.]\\d+)?[YMD])+(T(\\d+(:?[,.]\\d+)?[HMS])+)?" / #"PT(\\d+(:?[,.]\\d+)?[HMS])+";
 
     datetime_field <- YEAR / MONTH / DAY / HOUR / MINUTE / SECOND;
-    interval_literal <- INTERVAL ^(#"('\\d+(:?-\\d+)?'|\"\\d+(:?-\\d+)?\")|('(:?\\d+ )?\\d{2}(:?\\:\\d{2})?(:?\\:\\d{2})?(:?\\.\\d+)?'|\"(:?\\d+ )?\\d{2}(:?\\:\\d{2})?(:?\\:\\d{2})?(:?\\.\\d+)?\")" datetime_field ( TO datetime_field )?);
+    interval_literal <- INTERVAL #"('\\d+(:?-\\d+)?'|\"\\d+(:?-\\d+)?\")|('(:?\\d+ )?\\d{2}(:?\\:\\d{2})?(:?\\:\\d{2})?(:?\\.\\d+)?'|\"(:?\\d+ )?\\d{2}(:?\\:\\d{2})?(:?\\:\\d{2})?(:?\\.\\d+)?\")" datetime_field ( TO datetime_field )?;
 
     literal <-
         iso_timestamp_literal

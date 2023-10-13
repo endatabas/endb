@@ -97,5 +97,6 @@
 (defun main ()
   ;; clingon:exit-error has a guard against existing the REPL, but clack brings in swank.
   (let ((*features* (remove :swank *features*))
-        (app (endb-command)))
+        (app (endb-command))
+        (endb/sql:*use-cst-parser* (equal "1" (uiop:getenv "ENDB_USE_CST_PARSER"))))
     (clingon:run app)))
