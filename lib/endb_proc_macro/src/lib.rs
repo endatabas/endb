@@ -277,8 +277,7 @@ impl ToTokens for PegParser {
 
 fn parse_ord(input: ParseStream) -> Result<PegParser> {
     let ord = Punctuated::<PegParser, Token![/]>::parse_separated_nonempty(input)?
-        .iter()
-        .cloned()
+        .into_iter()
         .collect::<Vec<_>>();
 
     if ord.len() == 1 {
