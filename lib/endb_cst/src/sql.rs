@@ -58,18 +58,23 @@ peg! {
     paren_expr <- "(" expr ")";
     extract_expr <- EXTRACT ^( "(" datetime_field FROM expr ")" );
     cast_expr <- CAST ^( "(" expr AS type_name ")" );
-    function_call_expr <- function_name "(" ( "*" / ( ALL / DISTINCT )? expr_list? order_by_clause? ) ")" ( FILTER ^( "(" WHERE expr ")" ) )?;
+    filter_clause <- FILTER ^( "(" WHERE expr ")" );
+    function_call_expr <- function_name "(" ( "*" / ( ALL / DISTINCT )? expr_list? order_by_clause? ) ")" filter_clause?;
     exists_expr <- EXISTS ^subquery;
     case_when_then_expr <- WHEN expr THEN expr;
     case_else_expr <- ELSE expr;
     case_expr <- CASE ^( (!WHEN expr)? case_when_then_expr+ case_else_expr? END );
     column_reference <- ( table_name "." !"." )? column_name;
 
-    array_expr <- ARRAY subquery / ARRAY? ( "[" "]" / "[" "..."? expr ( "," "..."? expr )* ","? "]" );
-    object_key_value_pair <- ( ( ident / string_literal / "["  expr "]" ) #"[:=]" expr ) / "..." expr / ( table_name "." "*" ) / column_reference / bind_parameter;
+    spread_expr <-  "..." expr;
+    array_element <- spread_expr / expr;
+    array_expr <- ARRAY subquery / ARRAY? ( "[" "]" / "[" array_element ( "," array_element )* ","? "]" );
+    computer_property_name <- "["  expr "]";
+    object_key_value_pair <- ( ( ident / string_literal / computer_property_name ) #"[:=]" expr ) / spread_expr / qualified_asterisk / column_reference / bind_parameter;
     object_key_value_list <- object_key_value_pair ( "," object_key_value_pair )* ","?;
     object_expr <- OBJECT "(" object_key_value_list? ")" / "{" object_key_value_list? "}";
-    path_expr <- "$" ( ( "." ident ) / "[" ( "#" "-" )? expr "]" / "[" "#" "]" )* ;
+    path_property_access <- ( "." ident ) / "[" ( "#" "-" )? expr "]" / "[" "#" "]";
+    path_expr <- "$" path_property_access*;
 
     atom <-
         literal
@@ -89,7 +94,8 @@ peg! {
     paren_expr_list <- "(" expr_list ")";
     empty_list <- "(" ")";
 
-    access_expr <- atom ( ( ".." / "." ) ident / "[" ( expr / "*" ) "]" )*;
+    property_access <- ( ( ".." / "." ) ident / "[" ( "*" / expr ) "]" );
+    access_expr <- atom property_access*;
     unary_expr <- ("+" / "-" / "~" )* access_expr;
     concat_expr <- unary_expr ( "||" unary_expr )*;
     mul_expr <- concat_expr ( ( "*" / "/" / "%" ) concat_expr )*;
@@ -120,7 +126,7 @@ peg! {
     invalid_column_alias <- FROM / WHERE / GROUP / HAVING / ORDER / LIMIT / UNION / INTERSECT / EXCEPT;
     result_column <- expr ( AS ^column_alias / !invalid_column_alias column_alias )? / qualified_asterisk / asterisk;
 
-    table_alias <- ident ( "(" column_alias ("," column_alias)* ")" )?;
+    table_alias <- ident ( "(" column_name_list ")" )?;
 
     join_constraint <- ON expr;
     join_operator <- "," / ( LEFT OUTER? / INNER / CROSS )? JOIN;
@@ -164,7 +170,8 @@ peg! {
         order_by_clause?
         limit_offset_clause?;
 
-    update_set_clause <- SET ( column_name / path_expr ) "=" expr ( "," ( column_name / path_expr ) "=" expr )*;
+    update_set_assignment <- ( column_name / path_expr ) "=" expr;
+    update_set_clause <- SET update_set_assignment ( "," update_set_assignment )*;
     update_remove_clause <- ( UNSET / REMOVE) ( column_name / path_expr ) ( "," ( column_name / path_expr ) )*;
     update_patch_clause <- PATCH? object_expr;
     update_where_clause <- WHERE expr;
