@@ -1,6 +1,6 @@
 (defpackage :endb/sql
   (:use :cl)
-  (:export #:*query-timing* #:make-db #:make-directory-db #:close-db #:begin-write-tx #:commit-write-tx #:execute-sql #:interpret-sql-literal)
+  (:export #:*query-timing* #:*use-cst-parser* #:make-db #:make-directory-db #:close-db #:begin-write-tx #:commit-write-tx #:execute-sql #:interpret-sql-literal)
   (:import-from :alexandria)
   (:import-from :endb/arrow)
   (:import-from :endb/json)
@@ -8,6 +8,7 @@
   (:import-from :endb/sql/compiler)
   (:import-from :endb/lib/arrow)
   (:import-from :endb/lib/parser)
+  (:import-from :endb/lib/cst)
   (:import-from :endb/storage/buffer-pool)
   (:import-from :endb/storage/object-store)
   (:import-from :endb/storage/wal)
@@ -16,6 +17,7 @@
 (in-package :endb/sql)
 
 (defvar *query-timing* nil)
+(defvar *use-cst-parser* nil)
 (defvar *tx-log-version* 1)
 
 (defun %replay-log (read-wal)
@@ -135,10 +137,20 @@
                  (t x))))
       (values (walk ast) parameters))))
 
+(defun %parse-sql (sql)
+  (let ((ast (endb/lib/parser:parse-sql sql)))
+    (if *use-cst-parser*
+        (let ((ast-via-cst (endb/lib/cst:cst->ast sql (endb/lib/cst:parse-sql-cst sql))))
+          (assert (equal
+                   (prin1-to-string ast)
+                   (prin1-to-string ast-via-cst)))
+          ast-via-cst)
+        ast)))
+
 (defun %execute-sql (db sql parameters manyp)
   (when (and manyp (not (fset:seq? parameters)))
     (error 'endb/sql/expr:sql-runtime-error :message "Many parameters must be an array"))
-  (let* ((ast (endb/lib/parser:parse-sql sql))
+  (let* ((ast (%parse-sql sql))
          (ctx (fset:map (:db db) (:sql sql)))
          (*print-length* 16)
          (sql-fn (multiple-value-bind (ast expected-parameters)
@@ -234,7 +246,7 @@
 
 (defun interpret-sql-literal (src)
   (let* ((select-list (handler-case
-                          (cadr (endb/lib/parser:parse-sql (format nil "SELECT ~A" src)))
+                          (cadr (%parse-sql (format nil "SELECT ~A" src)))
                         (endb/lib/parser:sql-parse-error (e)
                           (declare (ignore e)))))
          (ast (car select-list))
