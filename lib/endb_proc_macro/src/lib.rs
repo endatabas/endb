@@ -38,10 +38,12 @@ impl Parse for PegParser {
                 });
             }
 
-            let is_pattern = input.parse::<Token![#]>().is_ok();
-
             let parser = if let Ok(literal) = input.parse::<LitStr>() {
-                if is_pattern {
+                if literal
+                    .span()
+                    .source_text()
+                    .is_some_and(|s| s.starts_with('r'))
+                {
                     PegParser::Pattern(literal)
                 } else {
                     PegParser::Literal(literal)
