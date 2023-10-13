@@ -251,9 +251,11 @@
                ((list* :|update_clause| xs)
                 (mapcan #'walk xs))
 
+               ((list :|update_set_assignment| target _ expr)
+                (list (walk target) (walk expr)))
+
                ((list* :|update_set_clause| _ xs)
-                (list (loop for (column expr) on (strip-delimiters '("," "=") xs) by #'cddr
-                            collect (list (walk column) (walk expr)))))
+                (list (mapcar #'walk (strip-delimiters '(",") xs))))
 
                ((list :|update_where_clause| _ expr)
                 (list :where (walk expr)))
