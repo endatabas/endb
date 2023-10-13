@@ -2,7 +2,7 @@ use proc_macro2::TokenStream;
 use quote::{quote, quote_spanned, ToTokens};
 use syn::parse::{Parse, ParseStream, Result};
 use syn::punctuated::Punctuated;
-use syn::{parse_macro_input, token, Ident, LitStr, Token};
+use syn::{parse_macro_input, token, Ident, LitStr, Token, Visibility};
 
 #[derive(Clone)]
 enum PegParser {
@@ -290,12 +290,14 @@ fn parse_ord(input: ParseStream) -> Result<PegParser> {
 
 #[derive(Clone)]
 struct Rule {
+    visibility: Option<Visibility>,
     id: Ident,
     body: PegParser,
 }
 
 impl ToTokens for Rule {
     fn to_tokens(&self, tokens: &mut TokenStream) {
+        let visibility = &self.visibility;
         let id = &self.id;
         let body = &self.body;
         let id_string = id.to_string();
@@ -303,7 +305,7 @@ impl ToTokens for Rule {
         quote_spanned! {
                 id.span()=>
                 #[allow(clippy::redundant_closure_call)]
-                pub fn #id<'a, 'b: 'a>(input: &'a str, pos: usize, state: &mut ParseState<'b>) -> ParseResult {
+                #visibility fn #id<'a, 'b: 'a>(input: &'a str, pos: usize, state: &mut ParseState<'b>) -> ParseResult {
                     state.events.push(Event::Open { label: #id_string, pos });
                     if state.track_errors {
                         state.errors.push(Event::Open { label: #id_string, pos });
@@ -324,12 +326,17 @@ impl ToTokens for Rule {
 
 impl Parse for Rule {
     fn parse(input: ParseStream) -> Result<Self> {
-        let id: Ident = input.parse()?;
+        let visibility = input.parse::<Visibility>().ok();
+        let id = input.parse::<Ident>()?;
         input.parse::<Token![<]>()?;
         input.parse::<Token![-]>()?;
 
         let body = input.call(parse_ord)?;
-        Ok(Rule { id, body })
+        Ok(Rule {
+            visibility,
+            id,
+            body,
+        })
     }
 }
 
@@ -350,7 +357,7 @@ impl Parse for Grammar {
     fn parse(input: ParseStream) -> Result<Self> {
         let rules = Punctuated::<Rule, Token![;]>::parse_terminated(input)?;
         Ok(Grammar {
-            rules: rules.iter().cloned().collect::<Vec<_>>(),
+            rules: rules.into_iter().collect(),
         })
     }
 }

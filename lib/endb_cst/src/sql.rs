@@ -221,6 +221,6 @@ peg! {
         / drop_table_stmt
         / drop_view_stmt;
 
-    sql_stmt_list <- r"^" sql_stmt ( ";" sql_stmt )* ";"? !r".";
+    pub sql_stmt_list <- r"^" sql_stmt ( ";" sql_stmt )* ";"? !r".";
 
 }
