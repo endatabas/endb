@@ -14,9 +14,9 @@ repository = "https://github.com/endatabas/endb"
 rust-version = "1.70.0"
 
 [workspace.dependencies]
-chumsky = { version = "1.0.0-alpha.4", features = ["label", "regex"] }
-ariadne = "0.2.0"
-arrow2 = { version = "0.17.0", features = ["io_ipc", "io_parquet", "io_parquet_compression"] }
+chumsky = { version = "1.0.0-alpha.6", features = ["label", "regex"] }
+ariadne = "0.3.0"
+arrow2 = { version = "0.18.0", features = ["io_ipc", "io_parquet", "io_parquet_compression"] }
 
 [profile.release]
 lto = true

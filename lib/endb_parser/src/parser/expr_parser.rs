@@ -10,9 +10,9 @@ where
 {
     use super::ast::Ast::*;
 
-    text::ident().map_with_span(|_, span: SimpleSpan<_>| Id {
-        start: span.start() as i32,
-        end: span.end() as i32,
+    text::ident().map_with(|_, e| Id {
+        start: (e.span() as SimpleSpan).start() as i32,
+        end: (e.span() as SimpleSpan).end() as i32,
     })
 }
 
@@ -24,9 +24,9 @@ where
 
     text::ident()
         .then(just('.').then(text::ident()).or_not())
-        .map_with_span(|_, span: SimpleSpan<_>| Id {
-            start: span.start() as i32,
-            end: span.end() as i32,
+        .map_with(|_, e| Id {
+            start: (e.span() as SimpleSpan).start() as i32,
+            end: (e.span() as SimpleSpan).end() as i32,
         })
 }
 
@@ -69,17 +69,17 @@ where
         choice((none_of("\\'"), escape)),
     ))
     .repeated()
-    .map_with_span(|_, span: SimpleSpan<_>| String {
-        start: span.start() as i32,
-        end: span.end() as i32,
+    .map_with(|_, e| String {
+        start: (e.span() as SimpleSpan).start() as i32,
+        end: (e.span() as SimpleSpan).end() as i32,
     })
     .padded_by(just('\''));
 
     let double_quoted_string = choice((none_of("\\\""), escape))
         .repeated()
-        .map_with_span(|_, span: SimpleSpan<_>| String {
-            start: span.start() as i32,
-            end: span.end() as i32,
+        .map_with(|_, e| String {
+            start: (e.span() as SimpleSpan).start() as i32,
+            end: (e.span() as SimpleSpan).end() as i32,
         })
         .padded_by(just('"'));
 
@@ -128,20 +128,20 @@ where
         .then(digits(2, 2))
         .then(just('.').then(digits(1, 6)).or_not());
 
-    let time_ctor = |_, span: SimpleSpan<_>| kw_literal(Time, &span);
-
     let time = choice((
         kw("TIME").ignore_then(choice((
             iso_time
                 .clone()
-                .map_with_span(time_ctor)
+                .map_with(|_, e| kw_literal(Time, &e.span()))
                 .padded_by(just('\'')),
             iso_time
                 .clone()
-                .map_with_span(time_ctor)
+                .map_with(|_, e| kw_literal(Time, &e.span()))
                 .padded_by(just('"')),
         ))),
-        iso_time.clone().map_with_span(time_ctor),
+        iso_time
+            .clone()
+            .map_with(|_, e| kw_literal(Time, &e.span())),
     ));
 
     let iso_date = digits(4, 4)
@@ -150,23 +150,21 @@ where
         .then(just('-'))
         .then(digits(2, 2));
 
-    let date_ctor = |_, span: SimpleSpan<_>| kw_literal(Date, &span);
-
     let date = choice((
         kw("DATE").ignore_then(choice((
             iso_date
                 .clone()
-                .map_with_span(date_ctor)
+                .map_with(|_, e| kw_literal(Date, &e.span()))
                 .padded_by(just('\'')),
             iso_date
                 .clone()
-                .map_with_span(date_ctor)
+                .map_with(|_, e| kw_literal(Date, &e.span()))
                 .padded_by(just('"')),
         ))),
-        iso_date.clone().map_with_span(date_ctor),
+        iso_date
+            .clone()
+            .map_with(|_, e| kw_literal(Date, &e.span())),
     ));
-
-    let timestamp_ctor = |_, span: SimpleSpan<_>| kw_literal(Timestamp, &span);
 
     let iso_timestamp = iso_date
         .clone()
@@ -178,14 +176,14 @@ where
         kw("TIMESTAMP").ignore_then(choice((
             iso_timestamp
                 .clone()
-                .map_with_span(timestamp_ctor)
+                .map_with(|_, e| kw_literal(Timestamp, &e.span()))
                 .padded_by(just('\'')),
             iso_timestamp
                 .clone()
-                .map_with_span(timestamp_ctor)
+                .map_with(|_, e| kw_literal(Timestamp, &e.span()))
                 .padded_by(just('"')),
         ))),
-        iso_timestamp.map_with_span(timestamp_ctor),
+        iso_timestamp.map_with(|_, e| kw_literal(Timestamp, &e.span())),
     ));
 
     let iso_quantity = text::int(10).then(one_of(",.").then(text::digits(10)).or_not());
@@ -201,13 +199,13 @@ where
                 .then(iso_quantity.then(just('S')).or_not())
                 .or_not(),
         )
-        .map_with_span(|_, span: SimpleSpan<_>| kw_literal(Duration, &span));
+        .map_with(|_, e| kw_literal(Duration, &e.span()));
 
     let interval_field = datetime_field_ast_parser();
 
     let interval_year_month_or_single = text::int(10)
         .then(just('-').then(text::int(10)).or_not())
-        .map_with_span(|_, span: SimpleSpan<_>| kw_literal(Interval, &span));
+        .map_with(|_, e| kw_literal(Interval, &e.span()));
     let interval_time = digits(2, 2)
         .separated_by(just(':'))
         .at_least(1)
@@ -216,10 +214,10 @@ where
     let interval_day_time = text::int(10)
         .then(just(' '))
         .then(interval_time.clone())
-        .map_with_span(|_, span: SimpleSpan<_>| kw_literal(Interval, &span));
+        .map_with(|_, e| kw_literal(Interval, &e.span()));
 
     let unquoted_interval_string = choice((
-        interval_time.map_with_span(|_, span: SimpleSpan<_>| kw_literal(Interval, &span)),
+        interval_time.map_with(|_, e| kw_literal(Interval, &e.span())),
         interval_day_time,
         interval_year_month_or_single,
     ));
@@ -255,28 +253,26 @@ where
     let number = text::int(10)
         .then(frac.or_not())
         .then(exp.or_not())
-        .map_slice(|s: &str| match s.parse::<i128>() {
+        .map_with(|_, e| match (e.slice() as &str).parse::<i128>() {
             Ok(x) => Integer(x),
-            Err(_) => Float(s.parse().unwrap()),
+            Err(_) => Float((e.slice() as &str).parse().unwrap()),
         })
         .boxed();
 
     let hex =
-        just("0x").ignore_then(text::digits(16).map_slice(|s: &str| {
-            match i128::from_str_radix(s, 16) {
+        just("0x").ignore_then(text::digits(16).map_with(|_, e| {
+            match i128::from_str_radix(e.slice(), 16) {
                 Ok(x) => Integer(x),
                 Err(_) => Float(f64::NAN),
             }
         }));
 
-    let binary_ctor = |_, span: SimpleSpan<_>| kw_literal(Blob, &span);
-
     let binary = one_of("Xx").ignore_then(choice((
         text::digits(16)
-            .map_with_span(binary_ctor)
+            .map_with(|_, e| kw_literal(Blob, &e.span()))
             .padded_by(just('\'')),
         text::digits(16)
-            .map_with_span(binary_ctor)
+            .map_with(|_, e| kw_literal(Blob, &e.span()))
             .padded_by(just('"')),
     )));
 

@@ -38,11 +38,11 @@ where
 
     let positive_integer = just('0')
         .not()
-        .ignore_then(text::int(10).slice().from_str().unwrapped().map(Integer))
+        .ignore_then(text::int(10).to_slice().from_str().unwrapped().map(Integer))
         .then_ignore(ws.clone());
 
     let non_negative_integer = text::int(10)
-        .slice()
+        .to_slice()
         .from_str()
         .unwrapped()
         .map(Integer)
@@ -68,9 +68,9 @@ where
         let information_schema_table_name = kw_no_pad("INFORMATION_SCHEMA")
             .then(just('.'))
             .then(text::ident())
-            .map_with_span(|_, span: SimpleSpan<_>| Id {
-                start: span.start() as i32,
-                end: span.end() as i32,
+            .map_with(|_, e| Id {
+                start: (e.span() as SimpleSpan).start() as i32,
+                end: (e.span() as SimpleSpan).end() as i32,
             })
             .then_ignore(ws.clone());
 
@@ -1368,7 +1368,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT group_concat(DISTINCT y, ':'"), @r###"
         ---
         Err:
-          - "found '(' expected something else"
+          - "found '(' expected end of input"
         "###);
         assert_yaml_snapshot!(parse("SELECT count(*)"), @r###"
         ---
@@ -1470,7 +1470,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT x 2"), @r###"
         ---
         Err:
-          - "found '2' expected something else"
+          - "found '2' expected end of input"
         "###);
     }
 
@@ -1576,7 +1576,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT 1 from"), @r###"
         ---
         Err:
-          - "found 'f' expected something else"
+          - "found 'f' expected end of input"
         "###);
     }
 
@@ -1717,7 +1717,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT 1 FROM x LEFT JOIN y ON TRUE)"), @r###"
         ---
         Err:
-          - "found ')' expected something else"
+          - "found ')' expected end of input"
         "###);
         assert_yaml_snapshot!(parse("SELECT 1 INTERSECT SELECT 2 UNION SELECT 3"), @r###"
         ---
@@ -2293,7 +2293,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT 1; SELECT 1"), @r###"
         ---
         Err:
-          - "found 'S' expected something else"
+          - "found 'S' expected end of input"
         "###);
     }
 
@@ -2696,7 +2696,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT 2001-01"), @r###"
         ---
         Err:
-          - "found '1' expected something else"
+          - "found '1' expected end of input"
         "###);
         assert_yaml_snapshot!(parse("SELECT DATE '2001-01-01'"), @r###"
         ---
@@ -2741,7 +2741,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT 12:"), @r###"
         ---
         Err:
-          - "found ':' expected something else"
+          - "found ':' expected end of input"
         "###);
         assert_yaml_snapshot!(parse("SELECT TIME '12:01:20'"), @r###"
         ---
@@ -3420,7 +3420,7 @@ mod tests {
         assert_yaml_snapshot!(parse("SELECT * FROM foo, UNNEST(foo.bar)"), @r###"
         ---
         Err:
-          - "found '(' expected something else"
+          - "found '(' expected end of input"
         "###);
         assert_yaml_snapshot!(parse("SELECT * FROM foo, UNNEST(foo.bar) AS bar"), @r###"
         ---
