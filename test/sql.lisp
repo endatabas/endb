@@ -14,7 +14,8 @@
 (in-suite* :sql)
 
 (test create-table-and-insert
-  (let ((endb/sql/expr:*sqlite-mode* t)
+  (let ((endb/sql:*use-cst-parser* t)
+        (endb/sql/expr:*sqlite-mode* t)
         (db (begin-write-tx (make-db))))
     (multiple-value-bind (result result-code)
         (execute-sql db "CREATE TABLE t1(a INTEGER, b INTEGER, c INTEGER, d INTEGER, e INTEGER)")
@@ -63,7 +64,8 @@
       (is (null result-code)))))
 
 (test isolation
-  (let* ((endb/sql/expr:*sqlite-mode* t)
+  (let* ((endb/sql:*use-cst-parser* t)
+         (endb/sql/expr:*sqlite-mode* t)
          (db (make-db))
          (write-db (begin-write-tx db)))
 
@@ -425,7 +427,8 @@
         (setf db (commit-write-tx db write-db))))))
 
 (test constraints
-  (let* ((db (make-db))
+  (let* ((endb/sql:*use-cst-parser* t)
+         (db (make-db))
          (log-level (log4cl:logger-log-level log4cl:*root-logger*)))
 
     (unwind-protect
@@ -498,7 +501,8 @@
       (setf (log4cl:logger-log-level log4cl:*root-logger*) log-level))))
 
 (test multiple-statments
-  (let* ((db (make-db)))
+  (let* ((endb/sql:*use-cst-parser* t)
+         (db (make-db)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT 1 AS a; SELECT 2 AS b;")
@@ -543,7 +547,8 @@
                    columns))))))
 
 (test with
-  (let* ((db (make-db)))
+  (let* ((endb/sql:*use-cst-parser* t)
+         (db (make-db)))
     (multiple-value-bind (result columns)
         (execute-sql db "WITH foo(c) AS (SELECT 1), bar(a, b) AS (SELECT 2, 3) SELECT * FROM foo, bar")
       (is (equal '((1 2 3)) result))
@@ -692,7 +697,8 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("s") columns)))))
 
 (test parameters
-  (let* ((db (make-db)))
+  (let* ((endb/sql:*use-cst-parser* t)
+         (db (make-db)))
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT ? + ?" (fset:seq 1 3))
       (is (equal '((4)) result))
@@ -799,7 +805,8 @@ SELECT s FROM x WHERE ind=0")
         (is (equal '("x" "y") columns))))))
 
 (test information-schema
-  (let* ((db (make-db))
+  (let* ((endb/sql:*use-cst-parser* t)
+         (db (make-db))
          (write-db (begin-write-tx db)))
 
     (multiple-value-bind (result columns)
@@ -912,7 +919,8 @@ SELECT s FROM x WHERE ind=0")
     (is (null (execute-sql write-db "SELECT * FROM information_schema.check_constraints")))))
 
 (test temporal-scalars
-  (let* ((db (make-db)))
+  (let* ((endb/sql:*use-cst-parser* t)
+         (db (make-db)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT 2001-01-01")
@@ -1135,7 +1143,8 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))))
 
 (test temporal-current-literals
-  (let* ((db (make-db))
+  (let* ((endb/sql:*use-cst-parser* t)
+         (db (make-db))
          (now (endb/arrow:parse-arrow-timestamp-micros "2023-05-16T14:43:39.970062Z")))
 
     (setf (endb/sql/expr:db-current-timestamp db) now)
@@ -1156,7 +1165,8 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("CURRENT_DATE") columns)))))
 
 (test system-time
-  (let* ((db (make-db))
+  (let* ((endb/sql:*use-cst-parser* t)
+         (db (make-db))
          (system-time-as-of-empty (endb/sql/expr:syn-current_timestamp db)))
 
     (sleep 0.01)
