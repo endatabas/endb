@@ -189,15 +189,22 @@
                (() acc)))
            (flatten-join (acc xs)
              (trivia:ematch xs
-               ((list* x (list* :|join_operator| (list op _ _) _) y (list :|join_constraint| _ expr) xs)
-                (flatten-join (append acc (list (list :join (walk x) (walk y)
-                                                      :on (walk expr)
-                                                      :type (if (equal "LEFT" op)
-                                                                :left
-                                                                :inner))))
+               ((list* (list* :|join_operator| (list op _ _) _) x (list :|join_constraint| _ expr) xs)
+                (flatten-join (list (append (butlast acc)
+                                            (list :join (first (last acc)) (walk x)
+                                                  :on (walk expr)
+                                                  :type (if (equal "LEFT" op)
+                                                            :left
+                                                            :inner))))
                               xs))
-               ((list* x (list* :|join_operator| _) y xs)
-                (flatten-join (append acc (list (walk x) (walk y))) xs))
+               ((list* (list* :|join_operator| (list "LEFT" _ _) _) x xs)
+                (flatten-join (list (append (butlast acc)
+                                            (list :join (first (last acc)) (walk x)
+                                                  :on :true
+                                                  :type :left)))
+                              xs))
+               ((list* (list* :|join_operator| _) x xs)
+                (flatten-join (append acc (list (walk x))) xs))
                ((list x)
                 (append acc (list (walk x))))
                (() acc)))
@@ -405,8 +412,8 @@
                ((list :|from_clause| _ join-clause)
                 (list :from (walk join-clause)))
 
-               ((list* :|join_clause| xs)
-                (flatten-join () xs))
+               ((list* :|join_clause| x xs)
+                (flatten-join (list (walk x)) xs))
 
                ((list :|table_name| (list "INFORMATION_SCHEMA" start _) _ table-name)
                 (let* ((table-name (walk table-name))
@@ -449,6 +456,9 @@
 
                ((list :|table_or_subquery| table-name (list* :|system_time_clause| xs) _ alias)
                 (cons (walk table-name) (append (walk alias) (walk (cons :|system_time_clause| xs)))))
+
+               ((list :|table_or_subquery| table-name _ (list "INDEXED" _ _))
+                (list (walk table-name)))
 
                ((list :|table_or_subquery| table-name)
                 (list (walk table-name)))
@@ -556,6 +566,12 @@
                                                           (equalp "COUNT" fn))
                       _ (list "*" _ _) _)
                 (list :aggregate-function :count-star nil))
+
+               ((list :|function_call_expr| (trivia:guard (list :|function_name|
+                                                                (list :|ident| (list fn _ _)))
+                                                          (equalp "COUNT" fn))
+                      _ (list "DISTINCT" _ _) (list "*" _ _) _)
+                (list :aggregate-function :count-star nil :distinct :distinct))
 
                ((list :|function_call_expr| (trivia:guard (list :|function_name|
                                                                 (list :|ident| (list fn _ _)))

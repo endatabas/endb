@@ -59,11 +59,11 @@ peg! {
     extract_expr <- EXTRACT ^( "(" datetime_field FROM expr ")" );
     cast_expr <- CAST ^( "(" expr AS type_name ")" );
     filter_clause <- FILTER ^( "(" WHERE expr ")" );
-    function_call_expr <- function_name "(" ( "*" / ( ALL / DISTINCT )? expr_list? order_by_clause? ) ")" filter_clause?;
+    function_call_expr <- function_name "(" ( ALL / DISTINCT )? ( "*" / expr_list? order_by_clause? ) ")" filter_clause?;
     exists_expr <- EXISTS ^subquery;
     case_when_then_expr <- WHEN expr THEN expr;
     case_else_expr <- ELSE expr;
-    case_expr <- CASE ^( (!WHEN expr)? case_when_then_expr+ case_else_expr? END );
+    case_expr <- CASE ^( ( !WHEN expr )? case_when_then_expr+ case_else_expr? END );
     column_reference <- ( table_name "." !"." )? column_name;
 
     spread_expr <- ( "..." / ".." ) expr;
@@ -86,9 +86,9 @@ peg! {
         / array_expr
         / object_expr
         / path_expr
-        / function_call_expr
-        / exists_expr
         / case_expr
+        / exists_expr
+        / function_call_expr
         / column_reference;
 
     paren_expr_list <- "(" expr_list ")";
