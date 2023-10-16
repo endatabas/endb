@@ -100,7 +100,8 @@
                          (is (ppcre:scan ,msg (format nil "~A" ,e-sym)))))))))
 
 (test empty-db
-  (let* ((db (make-db))
+  (let* ((endb/sql:*use-cst-parser* t)
+         (db (make-db))
          (write-db (begin-write-tx db)))
 
     (signals-with-msg
@@ -131,7 +132,8 @@
       (is (equal '("a" "b") columns)))))
 
 (test no-ddl
-  (let* ((db (make-db))
+  (let* ((endb/sql:*use-cst-parser* t)
+         (db (make-db))
          (write-db (begin-write-tx db)))
 
     (multiple-value-bind (result result-code)
