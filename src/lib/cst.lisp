@@ -172,6 +172,8 @@
                 (binary-equal-op-tree (list := acc (walk x)) xs))
                ((list* (list "!=" _ _) x xs)
                 (binary-equal-op-tree (list :<> acc (walk x)) xs))
+               ((list* (list "@>" _ _) x xs)
+                (binary-equal-op-tree (list :match acc (walk x)) xs))
                ((trivia:guard (list* (list op _ _) x xs)
                               (stringp op))
                 (binary-equal-op-tree (list (intern op :keyword) acc (walk x)) xs))
@@ -302,6 +304,12 @@
                ((list* :|values_clause| _ xs)
                 (cons :values (list (mapcar #'walk (strip-delimiters '(",") xs)))))
 
+               ((list* :|objects_clause| (list "OBJECTS" _ _) xs)
+                (cons :objects (list (mapcar #'walk (strip-delimiters '(",") xs)))))
+
+               ((list* :|objects_clause| xs)
+                (cons :objects (list (mapcar #'walk (strip-delimiters '(",") xs)))))
+
                ((list* :|with_clause| _ xs)
                 (list :with (mapcar #'walk (strip-delimiters '(",") xs))))
 
@@ -313,6 +321,9 @@
 
                ((list :|result_column| (list :|asterisk| _))
                 (list :*))
+
+               ((list :|result_column| (list :|qualified_asterisk| table-name _  _))
+                (list (list :* (walk table-name))))
 
                ((list :|result_column| expr)
                 (list (walk expr)))
@@ -329,6 +340,18 @@
                ((list* :|join_clause| xs)
                 (flatten-join () xs))
 
+               ((list :|table_or_subquery| (list "UNNEST" _ _) paren-expr-list alias)
+                (append (list (list :unnest (walk paren-expr-list))) (walk alias)))
+
+               ((list :|table_or_subquery| (list "UNNEST" _ _) paren-expr-list _ alias)
+                (append (list (list :unnest (walk paren-expr-list))) (walk alias)))
+
+               ((list :|table_or_subquery| (list "UNNEST" _ _) paren-expr-list (list "WITH" _ _) _ alias)
+                (append (list (list :unnest (walk paren-expr-list) :with-ordinality :with-ordinality)) (walk alias)))
+
+               ((list :|table_or_subquery| (list "UNNEST" _ _) paren-expr-list (list "WITH" _ _) _ _ alias)
+                (append (list (list :unnest (walk paren-expr-list) :with-ordinality :with-ordinality)) (walk alias)))
+
                ((list :|table_or_subquery| (list "(" _ _) join-clause (list ")" _ _))
                 (append (cons :join (walk join-clause)) (list :on :true :type :inner)))
 
@@ -336,10 +359,16 @@
                 (list (walk table-name)))
 
                ((list :|table_or_subquery| table-name alias)
-                (list (walk table-name) (walk alias)))
+                (cons (walk table-name) (walk alias)))
 
                ((list :|table_or_subquery| table-name _ alias)
-                (list (walk table-name) (walk alias)))
+                (cons (walk table-name) (walk alias)))
+
+               ((list :|table_alias| alias)
+                (list (walk alias)))
+
+               ((list :|table_alias| alias _ column-name-list _)
+                (list (walk alias) (walk column-name-list)))
 
                ((list :|where_clause| _ expr)
                 (list :where (walk expr)))
@@ -353,6 +382,9 @@
                ((list* :|order_by_clause| _ _ xs)
                 (list :order-by (mapcar #'walk (strip-delimiters '(",") xs))))
 
+               ((list :|limit_offset_clause| _ limit)
+                (list :limit (walk limit)))
+
                ((list :|ordering_term| expr (list dir _ _))
                 (list (walk expr) (intern dir :keyword)))
 
@@ -362,7 +394,32 @@
                ((list :|column_reference| table-name _ column-name)
                 (make-symbol (concatenate 'string (symbol-name (walk table-name)) "." (symbol-name (walk column-name)))))
 
-               ((list* :|unary_expr| (list op _ _) xs)
+               ((list :|property_access| _ (list "*" _ _) _)
+                (list :*))
+
+               ((list :|property_access| _ expr _)
+                (list (walk expr)))
+
+               ((list :|property_access| (list ".." _ _) expr)
+                (list (walk expr) :recursive :recursive))
+
+               ((list :|property_access| (list ".." _ _) _ (list "*" _ _) _)
+                (list :* :recursive :recursive))
+
+               ((list :|property_access| (list ".." _ _) _ expr _)
+                (list (walk expr) :recursive :recursive))
+
+               ((list :|property_access| _ expr)
+                (list (walk expr)))
+
+               ((list* :|access_expr| expr xs)
+                (reduce
+                 (lambda (acc x)
+                   (append (list :access acc) x))
+                 (mapcar #'walk xs)
+                 :initial-value (walk expr)))
+
+               ((list* :|unary_expr| (trivia:guard (list op _ _) (stringp op)) xs)
                 (list (intern op :keyword) (walk (cons :|unary_expr| xs))))
 
                ((list* :|concat_expr| x xs)
@@ -392,14 +449,34 @@
                ((list* :|or_expr| x xs)
                 (binary-op-tree (walk x) xs))
 
-               ((list* :|function_call_expr| (trivia:guard (list :|function_name|
-                                                                 (list :|ident| (list fn _ _)))
-                                                           (equalp "COUNT" fn))
-                       (list _ (list "*" _ _) _))
+               ((list :|filter_clause| _ _ _ expr _)
+                (list :where (walk expr)))
+
+               ((list :|function_call_expr| (trivia:guard (list :|function_name|
+                                                                (list :|ident| (list fn _ _)))
+                                                          (equalp "COUNT" fn))
+                      _ (list "*" _ _) _)
                 (list :aggregate-function :count-star nil))
 
+               ((list :|function_call_expr| (trivia:guard (list :|function_name|
+                                                                (list :|ident| (list fn _ _)))
+                                                          (equalp "COUNT" fn))
+                      _ (list "*" _ _) _ filter-clause)
+                (append (list :aggregate-function :count-star nil) (walk filter-clause)))
+
                ((list* :|function_call_expr| function-name xs)
-                (let* ((args (strip-delimiters '("(" ")") xs))
+                (let* ((filter-clause (trivia::match (first (last xs))
+                                        ((list* :|filter_clause| _)
+                                         (walk (first (last xs))))))
+                       (args (strip-delimiters '("(" ")") (if filter-clause
+                                                              (butlast xs)
+                                                              xs)))
+                       (order-by-clause (trivia::match (first (last args))
+                                          ((list* :|order_by_clause| _)
+                                           (walk (first (last args))))))
+                       (args (if order-by-clause
+                                 (butlast args)
+                                 args))
                        (distinct-all (trivia:match (first args)
                                        ((list "DISTINCT" _ _)
                                         :distinct)
@@ -413,9 +490,12 @@
                        (fn (trivia:match function-name
                              ((list :|function_name| (list :|ident| (list fn _ _)))
                               (string-upcase fn)))))
-                  (if (member fn '("COUNT" "AVG" "SUM" "TOTAL" "MIN" "MAX" "ARRAY_AGG" "OBJECT_AGG" "GROUP_CONCAT") :test 'equal)
-                      (cons :aggregate-function (cons (intern fn :keyword) (or args (list nil))))
-                      (cons :function (cons (walk function-name) (or args (list nil)))))))
+                  (append
+                   (if (member fn '("COUNT" "AVG" "SUM" "TOTAL" "MIN" "MAX" "ARRAY_AGG" "OBJECT_AGG" "GROUP_CONCAT") :test 'equal)
+                       (cons :aggregate-function (cons (intern fn :keyword) (or args (list nil))))
+                       (cons :function (cons (walk function-name) (or args (list nil)))))
+                   order-by-clause
+                   filter-clause)))
 
                ((list* :|case_expr| _ xs)
                 (or (trivia:match (first xs)
@@ -468,19 +548,19 @@
                 (list :date x))
 
                ((list :|date_literal| _ (list x _ _))
-                (list :date x))
+                (list :date (subseq x 1 (1- (length x)))))
 
                ((list :|iso_time_literal| (list x _ _))
                 (list :time x))
 
                ((list :|time_literal| _ (list x _ _))
-                (list :time x))
+                (list :time (subseq x 1 (1- (length x)))))
 
                ((list :|iso_timestamp_literal| (list x _ _))
                 (list :timestamp x))
 
                ((list :|timestamp_literal| _ (list x _ _))
-                (list :timestamp x))
+                (list :timestamp (subseq x 1 (1- (length x)))))
 
                ((list :|iso_duration_literal| (list x _ _))
                 (list :duration x))
@@ -509,14 +589,47 @@
                ((list* :|object_key_value_list| xs)
                 (mapcar #'walk (strip-delimiters '(",") xs)))
 
+               ((list :|spread_expr| _ expr)
+                (list :spread-property (walk expr)))
+
+               ((list :|object_key_value_pair| (list :|computed_property_name| _ key _) _ value)
+                (list :computed-property (walk key) (walk value)))
+
                ((list :|object_key_value_pair| key _ value)
                 (list (walk key) (walk value)))
+
+               ((list :|object_key_value_pair| (list :|column_reference| column-reference))
+                (list :shorthand-property (walk column-reference)))
+
+               ((list :|object_key_value_pair| (list :|bind_parameter| bind-parameter))
+                (list :shorthand-property (walk bind-parameter)))
+
+               ((list :|object_key_value_pair| (list :|qualified_asterisk| table-name _ _))
+                (list :* (walk table-name)))
+
+               ((list :|array_expr| (list "ARRAY" _ _) (list :|subquery| _ query _))
+                (list :array-query (walk query)))
 
                ((list* :|array_expr| (list "ARRAY" _ _) xs)
                 (list :array (mapcar #'walk (strip-delimiters '("[" "]" ",") xs))))
 
                ((list* :|array_expr| xs)
                 (list :array (mapcar #'walk (strip-delimiters '("[" "]" ",") xs))))
+
+               ((list :|path_property_access| _ (list "#" _ _) (list "-" _ _) expr _)
+                (list :- (walk expr)))
+
+               ((list :|path_property_access| _ (list "#" _ _) _)
+                :#)
+
+               ((list :|path_property_access| _ expr _)
+                (walk expr))
+
+               ((list :|path_property_access| _ property)
+                (walk property))
+
+               ((list* :|path_expr| _ xs)
+                (list :path (mapcar #'walk xs)))
 
                ((list "NULL" _ _)
                 :null)
