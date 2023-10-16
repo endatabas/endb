@@ -156,21 +156,19 @@
                 (binary-equal-op-tree (list :like acc (walk x) (walk y)) xs))
                ((list* (list "NOT" _ _) (list "LIKE" _ _) x (list "ESCAPE" _ _) y xs)
                 (binary-equal-op-tree (list :not (list :like acc (walk x) (walk y))) xs))
-               ((list* (list "NOT" _ _) (list "IN" _ _) (list* :|subquery| x) xs)
-                (binary-equal-op-tree (list :not (list :in-query acc (walk (cons :|subquery| x)))) xs))
-               ((list* (list "IN" _ _) (list* :|subquery| x) xs)
-                (binary-equal-op-tree (list :in-query acc (walk (cons :|subquery| x))) xs))
+               ((list* (list "NOT" _ _) (list "IN" _ _) (trivia:<> (list* :|subquery| _) x x) xs)
+                (binary-equal-op-tree (list :not (list :in-query acc (walk x))) xs))
+               ((list* (list "IN" _ _) (trivia:<> (list* :|subquery| _) x x) xs)
+                (binary-equal-op-tree (list :in-query acc (walk x)) xs))
                ((list* (list "NOT" _ _) (list "IN" _ _) (list :|table_name| x) xs)
                 (binary-equal-op-tree (list :not (list :in-query acc (walk x))) xs))
                ((list* (list "IN" _ _) (list :|table_name| x) xs)
                 (binary-equal-op-tree (list :in-query acc (walk x)) xs))
                ((list* (list "NOT" _ _) (list "NULL" _ _) xs)
                 (binary-equal-op-tree (list :not (list :is acc :null)) xs))
-               ((trivia:guard (list* (list op _ _) (list "NOT" _ _) x xs)
-                              (stringp op))
+               ((list* (list (trivia:<> (type string) op op) _ _) (list "NOT" _ _) x xs)
                 (binary-equal-op-tree (list :not (list (intern op :keyword) acc (walk x))) xs))
-               ((trivia:guard (list* (list "NOT" _ _) (list op _ _) x xs)
-                              (stringp op))
+               ((list* (list "NOT" _ _) (list (trivia:<> (type string) op op) _ _) x xs)
                 (binary-equal-op-tree (list :not (list (intern op :keyword) acc (walk x))) xs))
                ((list* (list "==" _ _) x xs)
                 (binary-equal-op-tree (list := acc (walk x)) xs))
@@ -178,8 +176,7 @@
                 (binary-equal-op-tree (list :<> acc (walk x)) xs))
                ((list* (list "@>" _ _) x xs)
                 (binary-equal-op-tree (list :match acc (walk x)) xs))
-               ((trivia:guard (list* (list op _ _) x xs)
-                              (stringp op))
+               ((list* (list (trivia:<> (type string) op op) _ _) x xs)
                 (binary-equal-op-tree (list (intern op :keyword) acc (walk x)) xs))
                (() acc)))
            (binary-op-tree (acc xs)
@@ -237,11 +234,11 @@
                ((list* :|sql_stmt_list| xs)
                 (list :multiple-statments (mapcar #'walk (strip-delimiters '(";") xs))))
 
-               ((list* :|select_stmt| (list* :|with_clause| with-kw (list "RECURSIVE" _ _) with) xs)
-                (append (walk (cons :|with_clause| (cons with-kw with))) (list (walk (cons :|select_stmt| xs))) (list :recursive :recursive)))
+               ((list* :|select_stmt| (trivia:<> (list* :|with_clause| _ (list "RECURSIVE" _ _) _) with with) xs)
+                (append (walk with) (list (walk (cons :|select_stmt| xs))) (list :recursive :recursive)))
 
-               ((list* :|select_stmt| (list* :|with_clause| with) xs)
-                (append (walk (cons :|with_clause| with)) (list (walk (cons :|select_stmt| xs)))))
+               ((list* :|select_stmt| (trivia:<> (list* :|with_clause| _) with with) xs)
+                (append (walk with) (list (walk (cons :|select_stmt| xs)))))
 
                ((list* :|select_stmt| x xs)
                 (build-compound-select-stmt (walk x) xs))
@@ -278,14 +275,14 @@
                ((list :|upsert_clause| _ _ _ column-name-list _ _ _ update-clause)
                 (list :on-conflict (walk column-name-list) :update (walk update-clause)))
 
-               ((list :|insert_stmt| _ _ table-name query (list* :|upsert_clause| xs))
-                (append (list :insert (walk table-name) (walk query)) (walk (cons :|upsert_clause| xs))))
+               ((list :|insert_stmt| _ _ table-name query (trivia:<> (list* :|upsert_clause| _) upsert upsert))
+                (append (list :insert (walk table-name) (walk query)) (walk upsert)))
 
-               ((list :|insert_stmt| _ _ _ _ table-name query (list* :|upsert_clause| xs))
-                (append (list :insert (walk table-name) (walk query)) (walk (cons :|upsert_clause| xs))))
+               ((list :|insert_stmt| _ _ _ _ table-name query (trivia:<> (list* :|upsert_clause| _) upsert upsert))
+                (append (list :insert (walk table-name) (walk query)) (walk upsert)))
 
-               ((list :|insert_stmt| _ _ table-name _ column-name-list _ query (list* :|upsert_clause| xs))
-                (append (list :insert (walk table-name) (walk query) :column-names (walk column-name-list)) (walk (cons :|upsert_clause| xs))))
+               ((list :|insert_stmt| _ _ table-name _ column-name-list _ query (trivia:<> (list* :|upsert_clause| _) upsert upsert))
+                (append (list :insert (walk table-name) (walk query) :column-names (walk column-name-list)) (walk upsert)))
 
                ((list :|insert_stmt| _ _ table-name query)
                 (list :insert (walk table-name) (walk query)))
@@ -313,8 +310,8 @@
 
                ((list :|update_clause|))
 
-               ((list* :|update_clause| (list* :|update_set_clause| update-set-clause) xs)
-                (mapcan #'walk (cons (cons :|update_set_clause| update-set-clause) xs)))
+               ((list* :|update_clause| (trivia:<> (list* :|update_set_clause| _) set set) xs)
+                (mapcan #'walk (cons set xs)))
 
                ((list* :|update_clause| xs)
                 (cons nil (mapcan #'walk xs)))
@@ -382,6 +379,9 @@
                ((list* :|objects_clause| xs)
                 (cons :objects (list (mapcar #'walk (strip-delimiters '(",") xs)))))
 
+               ((list* :|with_clause| _ (list "RECURSIVE" _ _) xs)
+                (list :with (mapcar #'walk (strip-delimiters '(",") xs))))
+
                ((list* :|with_clause| _ xs)
                 (list :with (mapcar #'walk (strip-delimiters '(",") xs))))
 
@@ -448,14 +448,14 @@
                ((list :|table_or_subquery| (list "(" _ _) join-clause (list ")" _ _))
                 (append (cons :join (walk join-clause)) (list :on :true :type :inner)))
 
-               ((list :|table_or_subquery| table-name (list* :|system_time_clause| xs))
-                (cons (walk table-name) (append (list (walk table-name) nil) (walk (cons :|system_time_clause| xs)))))
+               ((list :|table_or_subquery| table-name (trivia:<> (list* :|system_time_clause| _) sys-time sys-time))
+                (cons (walk table-name) (append (list (walk table-name) nil) (walk sys-time))))
 
-               ((list :|table_or_subquery| table-name (list* :|system_time_clause| xs) alias)
-                (cons (walk table-name) (append (walk alias) (walk (cons :|system_time_clause| xs)))))
+               ((list :|table_or_subquery| table-name (trivia:<> (list* :|system_time_clause| _) sys-time sys-time) alias)
+                (cons (walk table-name) (append (walk alias) (walk sys-time))))
 
-               ((list :|table_or_subquery| table-name (list* :|system_time_clause| xs) _ alias)
-                (cons (walk table-name) (append (walk alias) (walk (cons :|system_time_clause| xs)))))
+               ((list :|table_or_subquery| table-name  (trivia:<> (list* :|system_time_clause| _) sys-time sys-time) _ alias)
+                (cons (walk table-name) (append (walk alias) (walk sys-time))))
 
                ((list :|table_or_subquery| table-name _ (list "INDEXED" _ _))
                 (list (walk table-name)))
@@ -528,7 +528,7 @@
                  (mapcar #'walk xs)
                  :initial-value (walk expr)))
 
-               ((list* :|unary_expr| (trivia:guard (list op _ _) (stringp op)) xs)
+               ((list* :|unary_expr| (list (trivia:<> (type string) op op) _ _) xs)
                 (list (intern op :keyword) (walk (cons :|unary_expr| xs))))
 
                ((list* :|concat_expr| x xs)
@@ -767,7 +767,7 @@
                ((list "CURRENT_DATE" _ _)
                 :current_date)
 
-               ((trivia:guard (list kw x) (keywordp kw))
+               ((list (type keyword) x)
                 (walk x)))))
     (let ((*read-eval* nil)
           (*read-default-float-format* 'double-float))
