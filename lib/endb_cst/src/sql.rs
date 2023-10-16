@@ -69,8 +69,8 @@ peg! {
     spread_expr <- ( "..." / ".." ) expr;
     array_element <- spread_expr / expr;
     array_expr <- ARRAY subquery / ARRAY? ( "[" "]" / "[" array_element ( "," array_element )* ","? "]" );
-    computer_property_name <- "["  expr "]";
-    object_key_value_pair <- ( ( ident / string_literal / computer_property_name ) ( ":" / "=" ) expr ) / spread_expr / qualified_asterisk / column_reference / bind_parameter;
+    computed_property_name <- "["  expr "]";
+    object_key_value_pair <- ( ( ident / string_literal / computed_property_name ) ( ":" / "=" ) expr ) / spread_expr / qualified_asterisk / column_reference / bind_parameter;
     object_key_value_list <- object_key_value_pair ( "," object_key_value_pair )* ","?;
     object_expr <- OBJECT "(" object_key_value_list? ")" / "{" object_key_value_list? "}";
     path_property_access <- ( "." ident ) / "[" ( "#" "-" )? expr "]" / "[" "#" "]";
@@ -94,7 +94,7 @@ peg! {
     paren_expr_list <- "(" expr_list ")";
     empty_list <- "(" ")";
 
-    property_access <- ( ( ".." / "." ) ident / "[" ( "*" / expr ) "]" );
+    property_access <- ( ( ".." / "." ) ident / ".."? "[" ( "*" / expr ) "]" );
     access_expr <- atom property_access*;
     unary_expr <- ("+" / "-" / "~" )* access_expr;
     concat_expr <- unary_expr ( "||" unary_expr )*;

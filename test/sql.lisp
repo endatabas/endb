@@ -1238,7 +1238,8 @@ SELECT s FROM x WHERE ind=0")
           (execute-sql write-db "INSERT INTO t1(a, b, system_time) VALUES(103, 104, {start: 2001-01-01, end: 2002-01-01})"))))))
 
 (test semi-structured
-  (let* ((db (make-db)))
+  (let* ((endb/sql:*use-cst-parser* t)
+         (db (make-db)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT []")
@@ -1577,7 +1578,8 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("x") columns)))))
 
 (test semi-structured-access
-  (let* ((db (make-db)))
+  (let* ((endb/sql:*use-cst-parser* t)
+         (db (make-db)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT [][0]")
@@ -1907,7 +1909,8 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))))
 
 (test directory-db
-  (let* ((target-dir (asdf:system-relative-pathname :endb-test "target/"))
+  (let* ((endb/sql:*use-cst-parser* t)
+         (target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-dir (merge-pathnames "endb_data_directory/" target-dir)))
     (unwind-protect
          (let ((db (make-directory-db :directory test-dir)))
@@ -1956,7 +1959,8 @@ SELECT s FROM x WHERE ind=0")
         (uiop:delete-directory-tree test-dir :validate t)))))
 
 (test wal-only-directory-db
-  (let* ((target-dir (asdf:system-relative-pathname :endb-test "target/"))
+  (let* ((endb/sql:*use-cst-parser* t)
+         (target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-dir (merge-pathnames "endb_data_wal_only/" target-dir)))
     (unwind-protect
          (let ((db (make-directory-db :directory test-dir :object-store-path nil)))
@@ -2005,7 +2009,8 @@ SELECT s FROM x WHERE ind=0")
         (uiop:delete-directory-tree test-dir :validate t)))))
 
 (test wal-only-directory-db-corrupt-archive-when-reading-appended-wal-bug
-  (let* ((target-dir (asdf:system-relative-pathname :endb-test "target/"))
+  (let* ((endb/sql:*use-cst-parser* t)
+         (target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-dir (merge-pathnames "endb_data_corrupt_archive_bug/" target-dir)))
     (unwind-protect
          (let ((db (make-directory-db :directory test-dir :object-store-path nil)))
@@ -2054,7 +2059,8 @@ SELECT s FROM x WHERE ind=0")
         (uiop:delete-directory-tree test-dir :validate t)))))
 
 (test wal-only-directory-db-tx-log-version
-  (let* ((target-dir (asdf:system-relative-pathname :endb-test "target/"))
+  (let* ((endb/sql:*use-cst-parser* t)
+         (target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-dir (merge-pathnames "endb_data_tx_log_version/" target-dir)))
     (unwind-protect
          (let ((db (make-directory-db :directory test-dir :object-store-path nil)))
@@ -2080,6 +2086,7 @@ SELECT s FROM x WHERE ind=0")
 
 (test dml
   (let ((endb/sql/expr:*sqlite-mode* t)
+        (endb/sql:*use-cst-parser* t)
         (db (begin-write-tx (make-db))))
     (multiple-value-bind (result result-code)
         (execute-sql db "CREATE TABLE t1(a INTEGER, b INTEGER)")
@@ -2112,6 +2119,7 @@ SELECT s FROM x WHERE ind=0")
 
 (test dql
   (let ((endb/sql/expr:*sqlite-mode* t)
+        (endb/sql:*use-cst-parser* t)
         (db (begin-write-tx (make-db))))
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT 1 + 1")
@@ -2194,7 +2202,7 @@ SELECT s FROM x WHERE ind=0")
     (execute-sql db "INSERT INTO t1(e,c,b,d,a) VALUES(103,102,102,101,104), (NULL,102,NULL,101,104)")
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT COUNT(*), COUNT(e), SUM(e), AVG(a), MIN(b), MAX(c), b FROM t1 GROUP BY b")
+        (execute-sql db "SELECT COUNT(*), COUNT(e), SUM(e) FILTER (WHERE TRUE), AVG(a), MIN(b), MAX(c), b FROM t1 GROUP BY b")
       (is (equal '((1 0 :null 104.0d0 :null 102 :null) (2 2 207 103.5d0 102 102 102)) result))
       (is (equal '("column1" "column2" "column3" "column4" "column5" "column6" "b") columns)))
 
