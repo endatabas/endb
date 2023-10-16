@@ -144,6 +144,10 @@
                         xs))
            (binary-equal-op-tree (acc xs)
              (trivia:ematch xs
+               ((list* (list "IMMEDIATELY" _ _) (list "PRECEDES" _ _) x xs)
+                (binary-equal-op-tree (list :immediately_precedes acc (walk x)) xs))
+               ((list* (list "IMMEDIATELY" _ _) (list "SUCCEEDS" _ _) x xs)
+                (binary-equal-op-tree (list :immediately_succeeds acc (walk x)) xs))
                ((list* (list "BETWEEN" _ _) x (list "AND" _ _) y xs)
                 (binary-equal-op-tree (list :between acc (walk x) (walk y)) xs))
                ((list* (list "NOT" _ _) (list "BETWEEN" _ _) x (list "AND" _ _) y xs)
@@ -212,11 +216,22 @@
                   (setf (get s :start) start (get s :end) end (get s :input) input)
                   s))
 
+               ((list :|bind_parameter| (list "?" _ _))
+                (list :parameter))
+
+               ((list :|bind_parameter| (list parameter start end))
+                (list :parameter (let ((s (make-symbol (subseq parameter 1))))
+                                   (setf (get s :start) start (get s :end) end (get s :input) input)
+                                   s)))
+
                ((list :|sql_stmt_list| x)
                 (walk x))
 
                ((list* :|sql_stmt_list| xs)
                 (list :multiple-statments (mapcar #'walk (strip-delimiters '(";") xs))))
+
+               ((list* :|select_stmt| (list* :|with_clause| with-kw (list "RECURSIVE" _ _) with) xs)
+                (append (walk (cons :|with_clause| (cons with-kw with))) (list (walk (cons :|select_stmt| xs))) (list :recursive :recursive)))
 
                ((list* :|select_stmt| (list* :|with_clause| with) xs)
                 (append (walk (cons :|with_clause| with)) (list (walk (cons :|select_stmt| xs)))))
@@ -241,8 +256,14 @@
                ((list :|create_view_stmt| _ _ view-name _ query)
                 (list :create-view (walk view-name) (walk query)))
 
+               ((list :|create_view_stmt| _ _ view-name _ column-name-list _ _ query)
+                (list :create-view (walk view-name) (walk query) :column-names (walk column-name-list)))
+
                ((list :|create_view_stmt| _ _ _ view-name _ query)
                 (list :create-view (walk view-name) (walk query)))
+
+               ((list :|create_assertion_stmt| _ _ assertion-name _ _ expr _)
+                (list :create-assertion (walk assertion-name) (walk expr)))
 
                ((list :|insert_stmt| _ _ table-name query)
                 (list :insert (walk table-name) (walk query)))
@@ -255,6 +276,15 @@
 
                ((list :|delete_stmt| _ _ table-name _ expr)
                 (list :delete (walk table-name) :where (walk expr)))
+
+               ((list :|delete_stmt| _ _ table-name)
+                (list :delete (walk table-name)))
+
+               ((list :|erase_stmt| _ _ table-name _ expr)
+                (list :erase (walk table-name) :where (walk expr)))
+
+               ((list :|erase_stmt| _ _ table-name)
+                (list :erase (walk table-name)))
 
                ((list :|update_stmt| _ table-name update-clause)
                 (append (list :update (walk table-name)) (walk update-clause)))
@@ -289,6 +319,12 @@
                ((list :|drop_index_stmt| _ _ _ _ index-name)
                 (list :drop-index (walk index-name) :if-exists :if-exists))
 
+               ((list :|drop_assertion_stmt| _ _ assertion-name)
+                (list :drop-assertion (walk assertion-name)))
+
+               ((list :|drop_assertion_stmt| _ _ _ _ assertion-name)
+                (list :drop-assertion (walk assertion-name) :if-exists :if-exists))
+
                ((list* :|column_name_list| xs)
                 (mapcar #'walk (strip-delimiters '(",") xs)))
 
@@ -312,6 +348,9 @@
 
                ((list* :|with_clause| _ xs)
                 (list :with (mapcar #'walk (strip-delimiters '(",") xs))))
+
+               ((list :|common_table_expression| table-name _ subquery)
+                (list (walk table-name) (walk subquery)))
 
                ((list :|common_table_expression| table-name _ column-name-list _ _ subquery)
                 (list (walk table-name) (walk subquery) (walk column-name-list)))
@@ -340,6 +379,21 @@
                ((list* :|join_clause| xs)
                 (flatten-join () xs))
 
+               ((list :|table_name| (list "INFORMATION_SCHEMA" _ _) _ table-name)
+                (make-symbol (concatenate 'string "information_schema." (symbol-name (walk table-name)))))
+
+               ((list :|system_time_clause| _ _ (list "ALL" _ _))
+                (list (list :all)))
+
+               ((list :|system_time_clause| _ _ _ from (list "TO" _ _) to)
+                (list (list :from (walk from) (walk to))))
+
+               ((list :|system_time_clause| _ _ _ from (list "AND" _ _) to)
+                (list (list :between (walk from) (walk to))))
+
+               ((list :|system_time_clause| _ _ _ _ as-of)
+                (list (list :as-of (walk as-of))))
+
                ((list :|table_or_subquery| (list "UNNEST" _ _) paren-expr-list alias)
                 (append (list (list :unnest (walk paren-expr-list))) (walk alias)))
 
@@ -354,6 +408,15 @@
 
                ((list :|table_or_subquery| (list "(" _ _) join-clause (list ")" _ _))
                 (append (cons :join (walk join-clause)) (list :on :true :type :inner)))
+
+               ((list :|table_or_subquery| table-name (list* :|system_time_clause| xs))
+                (cons (walk table-name) (append (list (walk table-name) nil) (walk (cons :|system_time_clause| xs)))))
+
+               ((list :|table_or_subquery| table-name (list* :|system_time_clause| xs) alias)
+                (cons (walk table-name) (append (walk alias) (walk (cons :|system_time_clause| xs)))))
+
+               ((list :|table_or_subquery| table-name (list* :|system_time_clause| xs) _ alias)
+                (cons (walk table-name) (append (walk alias) (walk (cons :|system_time_clause| xs)))))
 
                ((list :|table_or_subquery| table-name)
                 (list (walk table-name)))
@@ -515,6 +578,9 @@
                ((list :|exists_expr| _ query)
                 (list :exists (walk query)))
 
+               ((list :|extract_expr| _ _ field _ expr _)
+                (list :extract (walk field) (walk expr)))
+
                ((list :|cast_expr| _ _ expr _ type _)
                 (list :cast (walk expr) (walk type)))
 
@@ -589,7 +655,7 @@
                ((list* :|object_key_value_list| xs)
                 (mapcar #'walk (strip-delimiters '(",") xs)))
 
-               ((list :|spread_expr| _ expr)
+               ((list :|object_key_value_pair| (list :|spread_expr| _ expr))
                 (list :spread-property (walk expr)))
 
                ((list :|object_key_value_pair| (list :|computed_property_name| _ key _) _ value)
@@ -598,14 +664,14 @@
                ((list :|object_key_value_pair| key _ value)
                 (list (walk key) (walk value)))
 
-               ((list :|object_key_value_pair| (list :|column_reference| column-reference))
-                (list :shorthand-property (walk column-reference)))
-
-               ((list :|object_key_value_pair| (list :|bind_parameter| bind-parameter))
-                (list :shorthand-property (walk bind-parameter)))
-
                ((list :|object_key_value_pair| (list :|qualified_asterisk| table-name _ _))
                 (list :* (walk table-name)))
+
+               ((list :|object_key_value_pair| expr)
+                (list :shorthand-property (walk expr)))
+
+               ((list :|array_element| (list :|spread_expr| _ expr))
+                (list :spread-property (walk expr)))
 
                ((list :|array_expr| (list "ARRAY" _ _) (list :|subquery| _ query _))
                 (list :array-query (walk query)))
@@ -639,6 +705,15 @@
 
                ((list "FALSE" _ _)
                 :false)
+
+               ((list "CURRENT_TIMESTAMP" _ _)
+                :current_timestamp)
+
+               ((list "CURRENT_TIME" _ _)
+                :current_time)
+
+               ((list "CURRENT_DATE" _ _)
+                :current_date)
 
                ((trivia:guard (list kw x) (keywordp kw))
                 (walk x)))))
