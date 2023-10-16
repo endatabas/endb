@@ -156,9 +156,9 @@
                 (binary-equal-op-tree (list :like acc (walk x) (walk y)) xs))
                ((list* (list "NOT" _ _) (list "LIKE" _ _) x (list "ESCAPE" _ _) y xs)
                 (binary-equal-op-tree (list :not (list :like acc (walk x) (walk y))) xs))
-               ((list* (list "NOT" _ _) (list "IN" _ _) (trivia:<> (list* :|subquery| _) x x) xs)
+               ((list* (list "NOT" _ _) (list "IN" _ _) (and x (list* :|subquery| _)) xs)
                 (binary-equal-op-tree (list :not (list :in-query acc (walk x))) xs))
-               ((list* (list "IN" _ _) (trivia:<> (list* :|subquery| _) x x) xs)
+               ((list* (list "IN" _ _) (and x (list* :|subquery| _)) xs)
                 (binary-equal-op-tree (list :in-query acc (walk x)) xs))
                ((list* (list "NOT" _ _) (list "IN" _ _) (list :|table_name| x) xs)
                 (binary-equal-op-tree (list :not (list :in-query acc (walk x))) xs))
@@ -166,9 +166,9 @@
                 (binary-equal-op-tree (list :in-query acc (walk x)) xs))
                ((list* (list "NOT" _ _) (list "NULL" _ _) xs)
                 (binary-equal-op-tree (list :not (list :is acc :null)) xs))
-               ((list* (list (trivia:<> (type string) op op) _ _) (list "NOT" _ _) x xs)
+               ((list* (list (and op (type string)) _ _) (list "NOT" _ _) x xs)
                 (binary-equal-op-tree (list :not (list (intern op :keyword) acc (walk x))) xs))
-               ((list* (list "NOT" _ _) (list (trivia:<> (type string) op op) _ _) x xs)
+               ((list* (list "NOT" _ _) (list (and op (type string)) _ _) x xs)
                 (binary-equal-op-tree (list :not (list (intern op :keyword) acc (walk x))) xs))
                ((list* (list "==" _ _) x xs)
                 (binary-equal-op-tree (list := acc (walk x)) xs))
@@ -176,7 +176,7 @@
                 (binary-equal-op-tree (list :<> acc (walk x)) xs))
                ((list* (list "@>" _ _) x xs)
                 (binary-equal-op-tree (list :match acc (walk x)) xs))
-               ((list* (list (trivia:<> (type string) op op) _ _) x xs)
+               ((list* (list (and op (type string)) _ _) x xs)
                 (binary-equal-op-tree (list (intern op :keyword) acc (walk x)) xs))
                (() acc)))
            (binary-op-tree (acc xs)
@@ -234,10 +234,10 @@
                ((list* :|sql_stmt_list| xs)
                 (list :multiple-statments (mapcar #'walk (strip-delimiters '(";") xs))))
 
-               ((list* :|select_stmt| (trivia:<> (list* :|with_clause| _ (list "RECURSIVE" _ _) _) with with) xs)
+               ((list* :|select_stmt| (and with (list* :|with_clause| _ (list "RECURSIVE" _ _) _)) xs)
                 (append (walk with) (list (walk (cons :|select_stmt| xs))) (list :recursive :recursive)))
 
-               ((list* :|select_stmt| (trivia:<> (list* :|with_clause| _) with with) xs)
+               ((list* :|select_stmt| (and with (list* :|with_clause| _)) xs)
                 (append (walk with) (list (walk (cons :|select_stmt| xs)))))
 
                ((list* :|select_stmt| x xs)
@@ -275,13 +275,13 @@
                ((list :|upsert_clause| _ _ _ column-name-list _ _ _ update-clause)
                 (list :on-conflict (walk column-name-list) :update (walk update-clause)))
 
-               ((list :|insert_stmt| _ _ table-name query (trivia:<> (list* :|upsert_clause| _) upsert upsert))
+               ((list :|insert_stmt| _ _ table-name query (and upsert (list* :|upsert_clause| _)))
                 (append (list :insert (walk table-name) (walk query)) (walk upsert)))
 
-               ((list :|insert_stmt| _ _ _ _ table-name query (trivia:<> (list* :|upsert_clause| _) upsert upsert))
+               ((list :|insert_stmt| _ _ _ _ table-name query (and upsert (list* :|upsert_clause| _)))
                 (append (list :insert (walk table-name) (walk query)) (walk upsert)))
 
-               ((list :|insert_stmt| _ _ table-name _ column-name-list _ query (trivia:<> (list* :|upsert_clause| _) upsert upsert))
+               ((list :|insert_stmt| _ _ table-name _ column-name-list _ query (and upsert (list* :|upsert_clause| _)))
                 (append (list :insert (walk table-name) (walk query) :column-names (walk column-name-list)) (walk upsert)))
 
                ((list :|insert_stmt| _ _ table-name query)
@@ -310,7 +310,7 @@
 
                ((list :|update_clause|))
 
-               ((list* :|update_clause| (trivia:<> (list* :|update_set_clause| _) set set) xs)
+               ((list* :|update_clause| (and set (list* :|update_set_clause| _)) xs)
                 (mapcan #'walk (cons set xs)))
 
                ((list* :|update_clause| xs)
@@ -448,13 +448,13 @@
                ((list :|table_or_subquery| (list "(" _ _) join-clause (list ")" _ _))
                 (append (cons :join (walk join-clause)) (list :on :true :type :inner)))
 
-               ((list :|table_or_subquery| table-name (trivia:<> (list* :|system_time_clause| _) sys-time sys-time))
+               ((list :|table_or_subquery| table-name (and sys-time (list* :|system_time_clause| _)))
                 (cons (walk table-name) (append (list (walk table-name) nil) (walk sys-time))))
 
-               ((list :|table_or_subquery| table-name (trivia:<> (list* :|system_time_clause| _) sys-time sys-time) alias)
+               ((list :|table_or_subquery| table-name (and sys-time (list* :|system_time_clause| _)) alias)
                 (cons (walk table-name) (append (walk alias) (walk sys-time))))
 
-               ((list :|table_or_subquery| table-name  (trivia:<> (list* :|system_time_clause| _) sys-time sys-time) _ alias)
+               ((list :|table_or_subquery| table-name  (and sys-time (list* :|system_time_clause| _)) _ alias)
                 (cons (walk table-name) (append (walk alias) (walk sys-time))))
 
                ((list :|table_or_subquery| table-name _ (list "INDEXED" _ _))
@@ -528,7 +528,7 @@
                  (mapcar #'walk xs)
                  :initial-value (walk expr)))
 
-               ((list* :|unary_expr| (list (trivia:<> (type string) op op) _ _) xs)
+               ((list* :|unary_expr| (list (and op (type string)) _ _) xs)
                 (list (intern op :keyword) (walk (cons :|unary_expr| xs))))
 
                ((list* :|concat_expr| x xs)
