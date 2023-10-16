@@ -44,7 +44,7 @@ pub fn digits<'a, I: StrInput<'a, C>, C: Char<Str = str> + 'a, E: ParserExtra<'a
         .repeated()
         .at_least(min)
         .at_most(max)
-        .slice()
+        .to_slice()
 }
 
 pub fn kw<
@@ -80,7 +80,7 @@ where
                 Err(E::Error::expected_found(None, None, span))
             }
         })
-        .slice()
+        .to_slice()
 }
 
 pub fn add_clause(acc: &mut Vec<Ast>, kw: Keyword, c: Option<Ast>) {
