@@ -265,6 +265,21 @@
                ((list :|create_assertion_stmt| _ _ assertion-name _ _ expr _)
                 (list :create-assertion (walk assertion-name) (walk expr)))
 
+               ((list :|upsert_clause| _ _ _ column-name-list _ _ _)
+                (list :on-conflict (walk column-name-list)))
+
+               ((list :|upsert_clause| _ _ _ column-name-list _ _ _ update-clause)
+                (list :on-conflict (walk column-name-list) :update (walk update-clause)))
+
+               ((list :|insert_stmt| _ _ table-name query (list* :|upsert_clause| xs))
+                (append (list :insert (walk table-name) (walk query)) (walk (cons :|upsert_clause| xs))))
+
+               ((list :|insert_stmt| _ _ _ _ table-name query (list* :|upsert_clause| xs))
+                (append (list :insert (walk table-name) (walk query)) (walk (cons :|upsert_clause| xs))))
+
+               ((list :|insert_stmt| _ _ table-name _ column-name-list _ query (list* :|upsert_clause| xs))
+                (append (list :insert (walk table-name) (walk query) :column-names (walk column-name-list)) (walk (cons :|upsert_clause| xs))))
+
                ((list :|insert_stmt| _ _ table-name query)
                 (list :insert (walk table-name) (walk query)))
 
@@ -287,16 +302,30 @@
                 (list :erase (walk table-name)))
 
                ((list :|update_stmt| _ table-name update-clause)
-                (append (list :update (walk table-name)) (walk update-clause)))
+                (append (list :update (walk table-name)) (or (walk update-clause) (list nil))))
+
+               ((list :|update_clause|))
+
+               ((list* :|update_clause| (list* :|update_set_clause| update-set-clause) xs)
+                (mapcan #'walk (cons (cons :|update_set_clause| update-set-clause) xs)))
 
                ((list* :|update_clause| xs)
-                (mapcan #'walk xs))
+                (cons nil (mapcan #'walk xs)))
 
                ((list :|update_set_assignment| target _ expr)
                 (list (walk target) (walk expr)))
 
                ((list* :|update_set_clause| _ xs)
                 (list (mapcar #'walk (strip-delimiters '(",") xs))))
+
+               ((list* :|update_remove_clause| _ xs)
+                (cons :unset (list (mapcar #'walk (strip-delimiters '(",") xs)))))
+
+               ((list :|update_patch_clause| _ expr)
+                (list :patch (walk expr)))
+
+               ((list :|update_patch_clause| expr)
+                (list :patch (walk expr)))
 
                ((list :|update_where_clause| _ expr)
                 (list :where (walk expr)))
@@ -379,8 +408,11 @@
                ((list* :|join_clause| xs)
                 (flatten-join () xs))
 
-               ((list :|table_name| (list "INFORMATION_SCHEMA" _ _) _ table-name)
-                (make-symbol (concatenate 'string "information_schema." (symbol-name (walk table-name)))))
+               ((list :|table_name| (list "INFORMATION_SCHEMA" start _) _ table-name)
+                (let* ((table-name (walk table-name))
+                       (s (make-symbol (concatenate 'string "information_schema." (symbol-name table-name)))))
+                  (setf (get s :start) start (get s :end) (get table-name :end) (get s :input) input)
+                  s))
 
                ((list :|system_time_clause| _ _ (list "ALL" _ _))
                 (list (list :all)))
@@ -455,7 +487,11 @@
                 (list (walk expr) :asc))
 
                ((list :|column_reference| table-name _ column-name)
-                (make-symbol (concatenate 'string (symbol-name (walk table-name)) "." (symbol-name (walk column-name)))))
+                (let* ((table-name (walk table-name))
+                       (column-name (walk column-name))
+                       (s (make-symbol (concatenate 'string (symbol-name table-name) "." (symbol-name column-name)))))
+                  (setf (get s :start) (get table-name :start) (get s :end) (get column-name :end) (get s :input) input)
+                  s))
 
                ((list :|property_access| _ (list "*" _ _) _)
                 (list :*))
