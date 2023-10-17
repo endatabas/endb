@@ -2744,6 +2744,9 @@ SELECT s FROM x WHERE ind=0")
   (is-valid (expr "coalesce(NULL, 'foo', 1)"))
   (is-valid (expr "coalesce(NULL, NULL, 1)"))
 
+  (is-valid (expr "IFNULL(NULL, 'foo')"))
+  (is-valid (expr "IFNULL(NULL, NULL)"))
+
   (is-valid (expr "date('2001-01-01')"))
   (is-valid (expr "date(NULL)"))
   (is-valid (expr "strftime('%Y', date('2001-01-01'))"))
