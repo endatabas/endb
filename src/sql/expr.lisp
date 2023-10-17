@@ -13,7 +13,7 @@
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-~ #:sql-& #:sql-\|
-           #:sql-between #:sql-coalesce
+           #:sql-between #:sql-coalesce #:sql-ifnull
            #:sql-object_keys #:sql-object_values #:sql-object_entries #:sql-object_from_entries
            #:sql-\|\| #:sql-concat #:sql-cardinality #:sql-char_length #:sql-character_length #:sql-octet_length #:sql-length
            #:sql-trim #:sql-ltrim #:sql-rtrim #:sql-lower #:sql-upper
@@ -240,6 +240,9 @@
     (if tail
         (first tail)
         :null)))
+
+(defun sql-ifnull (x y)
+  (sql-coalesce x y))
 
 (defmethod sql-+ ((x (eql :null)) (y number))
   :null)
