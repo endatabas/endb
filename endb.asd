@@ -24,6 +24,7 @@
                "com.inuoe.jzon"
                "fast-io"
                "fset"
+               "ironclad"
                "local-time"
                "log4cl"
                "mmap"

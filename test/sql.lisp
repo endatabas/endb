@@ -2373,6 +2373,41 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT BASE64(x'cafe')")
+      (is (equal "yv4=" (caar result)))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT BASE64('yv4=')")
+      (is (equalp #(202 254) (caar result)))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT BASE64(NULL)")
+      (is (equal :null (caar result)))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT SHA1(x'cafe')")
+      (is (equal "ac3c34dd3b4d1c52245d8e5cad42987b5027ca3d" (caar result)))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT SHA1(2)")
+      (is (equal "da4b9237bacccdf19c760cab7aec4a8359010b0" (caar result)))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT SHA1('2')")
+      (is (equal "da4b9237bacccdf19c760cab7aec4a8359010b0" (caar result)))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT SHA1(NULL)")
+      (is (equal :null (caar result)))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT CAST([1, 'foo', {a: 2001-01-01, b: NULL}] AS VARCHAR)")
       (is (equalp `(("[1,\"foo\",{\"a\":2001-01-01,\"b\":null}]")) result))
       (is (equalp (fset:seq 1 "foo" (fset:map ("a" (endb/arrow:parse-arrow-date-millis "2001-01-01")) ("b" :null)))
