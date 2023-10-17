@@ -10,10 +10,12 @@
   (:import-from :endb/storage/buffer-pool)
   (:import-from :cl-bloom)
   (:import-from :fset)
+  (:import-from :ironclad)
+  (:import-from :qbase64)
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-~ #:sql-& #:sql-\|
-           #:sql-between #:sql-coalesce #:sql-ifnull #:sql-uuid #:sql-uuid_blob #:sql_uuid_str
+           #:sql-between #:sql-coalesce #:sql-ifnull #:sql-uuid #:sql-uuid_blob #:sql_uuid_str #:sql-base64 #:sql-sha1
            #:sql-object_keys #:sql-object_values #:sql-object_entries #:sql-object_from_entries
            #:sql-\|\| #:sql-concat #:sql-cardinality #:sql-char_length #:sql-character_length #:sql-octet_length #:sql-length
            #:sql-trim #:sql-ltrim #:sql-rtrim #:sql-lower #:sql-upper
@@ -1336,6 +1338,27 @@
                        finally (return acc))))
         (%uuid-parts-to-string high low))
       :null))
+
+(defmethod sql-base64 ((x (eql :null)))
+  :null)
+
+(defmethod sql-base64 ((x string))
+  (qbase64:decode-string x))
+
+(defmethod sql-base64 ((x vector))
+  (qbase64:encode-bytes x))
+
+(defmethod sql-sha1 ((x (eql :null)))
+  x)
+
+(defmethod sql-sha1 ((x vector))
+  (string-downcase (sql-hex (ironclad:digest-sequence :sha1 x))))
+
+(defmethod sql-sha1 ((x string))
+  (sql-sha1 (trivial-utf-8:string-to-utf-8-bytes x)))
+
+(defmethod sql-sha1 (x)
+  (sql-sha1 (syn-cast x :varchar)))
 
 (defmethod sql-typeof ((x string))
   "text")
