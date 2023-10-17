@@ -207,10 +207,10 @@
                (() acc)))
            (build-compound-select-stmt (acc xs)
              (trivia:ematch xs
-               ((list* (list :|compound_operator| (list op _ _)) x xs)
-                (build-compound-select-stmt (list (intern op :keyword) acc (walk x)) xs))
                ((list* (list :|compound_operator| (list "UNION" _ _) (list "ALL" _ _)) x xs)
                 (build-compound-select-stmt (list :union-all acc (walk x)) xs))
+               ((list* (list :|compound_operator| (list op _ _)) x xs)
+                (build-compound-select-stmt (list (intern op :keyword) acc (walk x)) xs))
                ((list* xs)
                 (append acc (mapcan #'walk xs)))))
            (walk (cst)
@@ -433,17 +433,17 @@
                ((list :|system_time_clause| _ _ _ _ as-of)
                 (list (list :as-of (walk as-of))))
 
-               ((list :|table_or_subquery| (list "UNNEST" _ _) paren-expr-list alias)
-                (append (list (list :unnest (walk paren-expr-list))) (walk alias)))
+               ((list :|unnest_table_function| _ paren-expr-list)
+                (list :unnest (walk paren-expr-list)))
 
-               ((list :|table_or_subquery| (list "UNNEST" _ _) paren-expr-list _ alias)
-                (append (list (list :unnest (walk paren-expr-list))) (walk alias)))
+               ((list :|unnest_table_function| _ paren-expr-list _ (list "ORDINALITY" _ _))
+                (list :unnest (walk paren-expr-list) :with-ordinality :with-ordinality))
 
-               ((list :|table_or_subquery| (list "UNNEST" _ _) paren-expr-list (list "WITH" _ _) _ alias)
-                (append (list (list :unnest (walk paren-expr-list) :with-ordinality :with-ordinality)) (walk alias)))
+               ((list :|table_or_subquery| (and unnest (list* :|unnest_table_function| _)) alias)
+                (cons (walk unnest) (walk alias)))
 
-               ((list :|table_or_subquery| (list "UNNEST" _ _) paren-expr-list (list "WITH" _ _) _ _ alias)
-                (append (list (list :unnest (walk paren-expr-list) :with-ordinality :with-ordinality)) (walk alias)))
+               ((list :|table_or_subquery| (and unnest (list* :|unnest_table_function| _)) _ alias)
+                (cons (walk unnest) (walk alias)))
 
                ((list :|table_or_subquery| (list "(" _ _) join-clause (list ")" _ _))
                 (append (cons :join (walk join-clause)) (list :on :true :type :inner)))
@@ -489,6 +489,9 @@
 
                ((list :|limit_offset_clause| _ limit)
                 (list :limit (walk limit)))
+
+               ((list :|limit_offset_clause| _ limit _ offset)
+                (list :limit (walk limit) :offset (walk offset)))
 
                ((list :|ordering_term| expr (list dir _ _))
                 (list (walk expr) (intern dir :keyword)))
@@ -561,24 +564,6 @@
                ((list :|filter_clause| _ _ _ expr _)
                 (list :where (walk expr)))
 
-               ((list :|function_call_expr| (trivia:guard (list :|function_name|
-                                                                (list :|ident| (list fn _ _)))
-                                                          (equalp "COUNT" fn))
-                      _ (list "*" _ _) _)
-                (list :aggregate-function :count-star nil))
-
-               ((list :|function_call_expr| (trivia:guard (list :|function_name|
-                                                                (list :|ident| (list fn _ _)))
-                                                          (equalp "COUNT" fn))
-                      _ (list "DISTINCT" _ _) (list "*" _ _) _)
-                (list :aggregate-function :count-star nil :distinct :distinct))
-
-               ((list :|function_call_expr| (trivia:guard (list :|function_name|
-                                                                (list :|ident| (list fn _ _)))
-                                                          (equalp "COUNT" fn))
-                      _ (list "*" _ _) _ filter-clause)
-                (append (list :aggregate-function :count-star nil) (walk filter-clause)))
-
                ((list* :|function_call_expr| function-name xs)
                 (let* ((filter-clause (trivia::match (first (last xs))
                                         ((list* :|filter_clause| _)
@@ -594,29 +579,35 @@
                                  args))
                        (distinct-all (trivia:match (first args)
                                        ((list "DISTINCT" _ _)
-                                        :distinct)
+                                        (list :distinct :distinct))
                                        ((list "ALL" _ _)
-                                        :all)))
-                       (args (if distinct-all
-                                 (rest args)
-                                 args))
-                       (args (append (mapcar #'walk args) (when distinct-all
-                                                            (list :distinct distinct-all))))
+                                        (list :distinct :all))))
+                       (args (first (if distinct-all
+                                        (rest args)
+                                        args)))
+                       (starp (trivia:match args
+                               ((list "*" _ _) t)))
+                       (args (list (when (and args (not starp))
+                                     (walk args))))
                        (fn (trivia:match function-name
                              ((list :|function_name| (list :|ident| (list fn _ _)))
                               (string-upcase fn)))))
                   (append
-                   (if (member fn '("COUNT" "AVG" "SUM" "TOTAL" "MIN" "MAX" "ARRAY_AGG" "OBJECT_AGG" "GROUP_CONCAT") :test 'equal)
-                       (cons :aggregate-function (cons (intern fn :keyword) (or args (list nil))))
-                       (cons :function (cons (walk function-name) (or args (list nil)))))
+                   (cond
+                     ((and starp (equalp "COUNT" fn))
+                      (cons :aggregate-function (cons :count-star args)))
+                     ((member fn '("COUNT" "AVG" "SUM" "TOTAL" "MIN" "MAX" "ARRAY_AGG" "OBJECT_AGG" "GROUP_CONCAT") :test 'equal)
+                      (cons :aggregate-function (cons (intern fn :keyword) args)))
+                     (t (cons :function (cons (walk function-name) args))))
+                   distinct-all
                    order-by-clause
                    filter-clause)))
 
-               ((list* :|case_expr| _ xs)
-                (or (trivia:match (first xs)
-                      ((list* :|case_when_then_expr| _)
-                       (cons :case (list (mapcar #'walk (strip-delimiters '("END") xs))))))
-                    (cons :case (cons (walk (first xs)) (list (mapcar #'walk (strip-delimiters '("END") (rest xs))))))))
+               ((list* :|case_expr| _ (and x (list* :|case_when_then_expr| _)) xs)
+                (cons :case (list (mapcar #'walk (strip-delimiters '("END") (cons x xs))))))
+
+               ((list* :|case_expr| _ x xs)
+                (cons :case (cons (walk x) (list (mapcar #'walk (strip-delimiters '("END") xs))))))
 
                ((list :|case_when_then_expr| _ when-expr _ then-expr)
                 (list (walk when-expr) (walk then-expr)))
@@ -650,11 +641,13 @@
 
                ((list :|empty_list| _ _))
 
+               ((list :|numeric_literal| (trivia:guard (list x _ _)
+                                                       (or (alexandria:starts-with-subseq "0x" x)
+                                                           (alexandria:starts-with-subseq "0X" x))))
+                (parse-integer x :start 2 :radix 16))
+
                ((list :|numeric_literal| (list x _ _))
-                (if (or (alexandria:starts-with-subseq "0x" x)
-                        (alexandria:starts-with-subseq "0X" x))
-                    (parse-integer x :start 2 :radix 16)
-                    (read-from-string x)))
+                (read-from-string x))
 
                ((list :|string_literal| (list x _ _))
                 (endb/lib/parser:sql-string-to-cl (eql #\' (char x 0)) (subseq x 1 (1- (length x)))))

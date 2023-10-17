@@ -2162,7 +2162,7 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("a") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT a FROM t1 LIMIT 0")
+        (execute-sql db "SELECT a FROM t1 LIMIT 0 OFFSET 0")
       (is (equal '() result))
       (is (equal '("a") columns)))
 

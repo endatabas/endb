@@ -1,6 +1,7 @@
 (defpackage :endb/sql
   (:use :cl)
-  (:export #:*query-timing* #:*use-cst-parser* #:make-db #:make-directory-db #:close-db #:begin-write-tx #:commit-write-tx #:execute-sql #:interpret-sql-literal)
+  (:export #:*query-timing* #:*use-cst-parser* #:*use-cst-parser-only*
+           #:make-db #:make-directory-db #:close-db #:begin-write-tx #:commit-write-tx #:execute-sql #:interpret-sql-literal)
   (:import-from :alexandria)
   (:import-from :endb/arrow)
   (:import-from :endb/json)
@@ -18,6 +19,7 @@
 
 (defvar *query-timing* nil)
 (defvar *use-cst-parser* nil)
+(defvar *use-cst-parser-only* nil)
 (defvar *tx-log-version* 1)
 
 (defun %replay-log (read-wal)
@@ -138,14 +140,16 @@
       (values (walk ast) parameters))))
 
 (defun %parse-sql (sql)
-  (let ((ast (endb/lib/parser:parse-sql sql)))
-    (if *use-cst-parser*
-        (let ((ast-via-cst (endb/lib/cst:cst->ast sql (endb/lib/cst:parse-sql-cst sql))))
-          (assert (equal
-                   (prin1-to-string ast)
-                   (prin1-to-string ast-via-cst)))
-          ast-via-cst)
-        ast)))
+  (if *use-cst-parser-only*
+      (endb/lib/cst:cst->ast sql (endb/lib/cst:parse-sql-cst sql))
+      (let ((ast (endb/lib/parser:parse-sql sql)))
+        (if *use-cst-parser*
+            (let ((ast-via-cst (endb/lib/cst:cst->ast sql (endb/lib/cst:parse-sql-cst sql))))
+              (assert (equal
+                       (prin1-to-string ast)
+                       (prin1-to-string ast-via-cst)))
+              ast-via-cst)
+            ast))))
 
 (defun %execute-sql (db sql parameters manyp)
   (when (and manyp (not (fset:seq? parameters)))

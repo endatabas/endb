@@ -133,8 +133,9 @@ peg! {
     join_clause <- table_or_subquery ( join_operator table_or_subquery join_constraint? )*;
     system_time_clause <- FOR ^( SYSTEM_TIME ( ALL / AS OF atom / FROM atom TO atom / BETWEEN atom AND atom ) );
     invalid_table_alias <- LEFT / INNER / CROSS / JOIN / WHERE / GROUP / HAVING / ORDER / LIMIT / ON / UNION / INTERSECT / EXCEPT;
+    unnest_table_function <- UNNEST paren_expr_list ( WITH ORDINALITY )?;
     table_or_subquery <-
-        UNNEST paren_expr_list  ( WITH ORDINALITY )? AS? table_alias
+        unnest_table_function AS? table_alias
         / table_name ( NOT INDEXED )? system_time_clause? ( AS ^table_alias / !invalid_table_alias table_alias )?
         / subquery AS? table_alias
         / "(" join_clause ")";
