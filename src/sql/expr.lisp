@@ -13,7 +13,7 @@
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-~ #:sql-& #:sql-\|
-           #:sql-between #:sql-coalesce #:sql-ifnull
+           #:sql-between #:sql-coalesce #:sql-ifnull #:sql-uuid #:sql-uuid_blob #:sql_uuid_str
            #:sql-object_keys #:sql-object_values #:sql-object_entries #:sql-object_from_entries
            #:sql-\|\| #:sql-concat #:sql-cardinality #:sql-char_length #:sql-character_length #:sql-octet_length #:sql-length
            #:sql-trim #:sql-ltrim #:sql-rtrim #:sql-lower #:sql-upper
@@ -1278,18 +1278,21 @@
 (defconstant +random-uuid-version+ 4)
 (defconstant +random-uuid-variant+ 2)
 
+(defun %uuid-parts-to-string (high low)
+  (format nil "~(~4,'0x~4,'0x-~4,'0x-~4,'0x-~4,'0x-~4,'0x~4,'0x~4,'0x~)"
+          (ldb (byte 16 48) high)
+          (ldb (byte 16 32) high)
+          (ldb (byte 16 16) high)
+          (ldb (byte 16 0) high)
+          (ldb (byte 16 48) low)
+          (ldb (byte 16 32) low)
+          (ldb (byte 16 16) low)
+          (ldb (byte 16 0) low)))
+
 (defun %random-uuid (&optional (state *random-state*))
   (let ((high (dpb +random-uuid-version+ (byte 4 12) (random +random-uuid-part-max+ state)))
         (low (dpb +random-uuid-variant+ (byte 2 62) (random +random-uuid-part-max+ state))))
-    (format nil "~(~4,'0x~4,'0x-~4,'0x-~4,'0x-~4,'0x-~4,'0x~4,'0x~4,'0x~)"
-            (ldb (byte 16 48) high)
-            (ldb (byte 16 32) high)
-            (ldb (byte 16 16) high)
-            (ldb (byte 16 0) high)
-            (ldb (byte 16 48) low)
-            (ldb (byte 16 32) low)
-            (ldb (byte 16 16) low)
-            (ldb (byte 16 0) low))))
+    (%uuid-parts-to-string high low)))
 
 (defparameter +random-uuid-scanner+
   (ppcre:create-scanner "^[\\da-f]{8}-[\\da-f]{4}-4[\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"))
@@ -1300,6 +1303,39 @@
 
 (defun sql-uuid ()
   (%random-uuid))
+
+(defmethod sql-uuid_blob ((x (eql :null)))
+  :null)
+
+(defmethod sql-uuid_blob ((x string))
+  (let ((b (sql-unhex x "-{}")))
+    (if (vectorp b)
+        (sql-uuid_blob b)
+        :null)))
+
+(defmethod sql-uuid_blob ((x vector))
+  (if (= 16 (length x))
+      x
+      :null))
+
+(defmethod sql-uuid_str ((x (eql :null)))
+  :null)
+
+(defmethod sql-uuid_str ((x string))
+  (sql-uuid_str (sql-uuid_blob x)))
+
+(defmethod sql-uuid_str ((x vector))
+  (if (= 16 (length x))
+      (let ((high (loop with acc = 0
+                        for idx below 8
+                        do (setf acc (logior (ash acc 8) (aref x idx)))
+                        finally (return acc)))
+            (low (loop with acc = 0
+                       for idx from 8 below 16
+                       do (setf acc (logior (ash acc 8) (aref x idx)))
+                       finally (return acc))))
+        (%uuid-parts-to-string high low))
+      :null))
 
 (defmethod sql-typeof ((x string))
   "text")
