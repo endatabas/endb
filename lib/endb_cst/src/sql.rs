@@ -47,19 +47,23 @@ peg! {
 
     bind_parameter <- r"(:?\?|:\p{XID_START}\p{XID_CONTINUE}*\b)";
 
-    function_name <- ident;
+    simple_func <- ident;
     type_name <- ident;
     column_name <- ident;
 
     expr_list <- expr ( "," expr )*;
     column_name_list <- column_name ( "," column_name )*;
 
+    all_distinct <- ALL / DISTINCT;
+
     subquery <- "(" select_stmt ")";
     paren_expr <- "(" expr ")";
     extract_expr <- EXTRACT ^( "(" datetime_field FROM expr ")" );
     cast_expr <- CAST ^( "(" expr AS type_name ")" );
     filter_clause <- FILTER ^( "(" WHERE expr ")" );
-    function_call_expr <- function_name "(" ( ALL / DISTINCT )? ( "*" / expr_list? order_by_clause? ) ")" filter_clause?;
+    aggregate_func <- ARRAY_AGG / AVG / COUNT / GROUP_CONCAT / MIN / MAX / OBJECT_AGG / SUM / TOTAL;
+    aggregate_function_invocation <- aggregate_func "(" all_distinct? ( "*" / expr_list order_by_clause? ) ")" filter_clause?;
+    simple_function_invocation <- simple_func "(" expr_list? ")";
     exists_expr <- EXISTS ^subquery;
     case_when_then_expr <- WHEN expr THEN expr;
     case_else_expr <- ELSE expr;
@@ -69,8 +73,10 @@ peg! {
     spread_expr <- ( "..." / ".." ) expr;
     array_element <- spread_expr / expr;
     array_expr <- ARRAY subquery / ARRAY? ( "[" "]" / "[" array_element ( "," array_element )* ","? "]" );
-    computed_property_name <- "["  expr "]";
-    object_key_value_pair <- ( ( ident / string_literal / computed_property_name ) ( ":" / "=" ) expr ) / spread_expr / qualified_asterisk / column_reference / bind_parameter;
+    computed_property <- "["  expr "]";
+    shorthand_property <- column_reference / bind_parameter;
+    object_key <- ident / string_literal / computed_property;
+    object_key_value_pair <- ( object_key ( ":" / "=" ) expr ) / spread_expr / qualified_asterisk / shorthand_property;
     object_key_value_list <- object_key_value_pair ( "," object_key_value_pair )* ","?;
     object_expr <- OBJECT "(" object_key_value_list? ")" / "{" object_key_value_list? "}";
     path_property_access <- ( "." ident ) / "[" ( "#" "-" )? expr "]" / "[" "#" "]";
@@ -88,7 +94,8 @@ peg! {
         / path_expr
         / case_expr
         / exists_expr
-        / function_call_expr
+        / aggregate_function_invocation
+        / simple_function_invocation
         / column_reference;
 
     paren_expr_list <- "(" expr_list ")";
@@ -133,10 +140,12 @@ peg! {
     join_clause <- table_or_subquery ( join_operator table_or_subquery join_constraint? )*;
     system_time_clause <- FOR ^( SYSTEM_TIME ( ALL / AS OF atom / FROM atom TO atom / BETWEEN atom AND atom ) );
     invalid_table_alias <- LEFT / INNER / CROSS / JOIN / WHERE / GROUP / HAVING / ORDER / LIMIT / ON / UNION / INTERSECT / EXCEPT;
-    unnest_table_function <- UNNEST paren_expr_list ( WITH ORDINALITY )?;
+    with_ordinality <- WITH ORDINALITY;
+    unnest_table_function <- UNNEST paren_expr_list with_ordinality?;
+    not_indexed <- NOT INDEXED;
     table_or_subquery <-
         unnest_table_function AS? table_alias
-        / table_name ( NOT INDEXED )? system_time_clause? ( AS ^table_alias / !invalid_table_alias table_alias )?
+        / table_name not_indexed? system_time_clause? ( AS ^table_alias / !invalid_table_alias table_alias )?
         / subquery AS? table_alias
         / "(" join_clause ")";
 
@@ -151,7 +160,7 @@ peg! {
     result_expr_list <- result_column ( "," result_column )*;
 
     select_core <-
-        SELECT ( ALL / DISTINCT )? result_expr_list from_clause? where_clause? group_by_clause? having_clause?
+        SELECT all_distinct? result_expr_list from_clause? where_clause? group_by_clause? having_clause?
         / values_clause
         / objects_clause;
 
@@ -179,7 +188,8 @@ peg! {
     update_clause <- update_set_clause? update_remove_clause? update_patch_clause? update_where_clause?;
     upsert_clause <- ON CONFLICT "(" column_name_list ")" DO ( NOTHING / UPDATE update_clause );
 
-    insert_stmt <- INSERT ( OR REPLACE )? INTO table_name ( "(" column_name_list ")" )? select_stmt upsert_clause?;
+    or_replace <- OR REPLACE;
+    insert_stmt <- INSERT or_replace? INTO table_name ( "(" column_name_list ")" )? select_stmt upsert_clause?;
 
     delete_stmt <- DELETE FROM table_name ( WHERE expr )?;
     erase_stmt <- ERASE FROM table_name ( WHERE expr )?;
@@ -202,10 +212,11 @@ peg! {
     assertion_name <- ident;
     create_assertion_stmt <- CREATE ASSERTION assertion_name CHECK "(" expr ")";
 
-    drop_assertion_stmt <- DROP ASSERTION ( IF EXISTS )? assertion_name;
-    drop_index_stmt <- DROP INDEX ( IF EXISTS )? index_name;
-    drop_table_stmt <- DROP TABLE ( IF EXISTS )? table_name;
-    drop_view_stmt <- DROP VIEW ( IF EXISTS )? view_name;
+    if_exists <- IF EXISTS;
+    drop_assertion_stmt <- DROP ASSERTION if_exists? assertion_name;
+    drop_index_stmt <- DROP INDEX if_exists? index_name;
+    drop_table_stmt <- DROP TABLE if_exists? table_name;
+    drop_view_stmt <- DROP VIEW if_exists? view_name;
 
     sql_stmt <-
         select_stmt
