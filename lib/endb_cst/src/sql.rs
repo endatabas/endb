@@ -62,7 +62,7 @@ peg! {
     cast_expr <- CAST ^( "(" expr AS type_name ")" );
     filter_clause <- FILTER ^( "(" WHERE expr ")" );
     aggregate_func <- ARRAY_AGG / AVG / COUNT / GROUP_CONCAT / MIN / MAX / OBJECT_AGG / SUM / TOTAL;
-    aggregate_function_invocation <- aggregate_func "(" all_distinct? ( "*" / expr_list order_by_clause? ) ")" filter_clause?;
+    aggregate_function_invocation <- aggregate_func "(" all_distinct? ( star / expr_list order_by_clause? ) ")" filter_clause?;
     simple_function_invocation <- simple_func "(" expr_list? ")";
     exists_expr <- EXISTS ^subquery;
     case_when_then_expr <- WHEN expr THEN expr;
@@ -76,11 +76,16 @@ peg! {
     computed_property <- "["  expr "]";
     shorthand_property <- column_reference / bind_parameter;
     object_key <- ident / string_literal / computed_property;
-    object_key_value_pair <- ( object_key ( ":" / "=" ) expr ) / spread_expr / qualified_asterisk / shorthand_property;
+    object_key_value_pair <- ( object_key ( ":" / "=" ) expr ) / spread_expr / qualified_star / shorthand_property;
     object_key_value_list <- object_key_value_pair ( "," object_key_value_pair )* ","?;
     object_expr <- OBJECT "(" object_key_value_list? ")" / "{" object_key_value_list? "}";
-    path_property_access <- ( "." ident ) / "[" ( "#" "-" )? expr "]" / "[" "#" "]";
-    path_expr <- "$" path_property_access*;
+
+    path_object_label <- "." ident;
+    path_array_length <- "#";
+    path_array_index <-( path_array_length "-" )? numeric_literal / path_array_length;
+    path_array_access <- "[" path_array_index "]";
+    path_element <- path_object_label / path_array_access;
+    path_expr <- "$" path_element*;
 
     atom <-
         literal
@@ -101,7 +106,13 @@ peg! {
     paren_expr_list <- "(" expr_list ")";
     empty_list <- "(" ")";
 
-    property_access <- ( ( ".." / "." ) ident / ".."? "[" ( "*" / expr ) "]" );
+    property_field_access <- "." ident;
+    property_recursive_field_access <- ".." ident;
+    property_bracket_access <- "[" expr "]";
+    property_bracket_wildcard_access <- "[" star "]";
+    property_recursive_bracket_access <- ".." ( property_bracket_access / property_bracket_wildcard_access );
+
+    property_access <- property_field_access / property_recursive_field_access / property_bracket_access / property_bracket_wildcard_access / property_recursive_bracket_access;
     access_expr <- atom property_access*;
     unary_expr <- ("+" / "-" / "~" )* access_expr;
     concat_expr <- unary_expr ( "||" unary_expr )*;
@@ -128,10 +139,10 @@ peg! {
     column_alias <- ident;
     table_name <- INFORMATION_SCHEMA "." ident / ident;
 
-    qualified_asterisk <- table_name "." "*";
-    asterisk <- "*";
+    qualified_star <- table_name "." star;
+    star <- "*";
     invalid_column_alias <- FROM / WHERE / GROUP / HAVING / ORDER / LIMIT / UNION / INTERSECT / EXCEPT;
-    result_column <- expr ( AS ^column_alias / !invalid_column_alias column_alias )? / qualified_asterisk / asterisk;
+    result_column <- expr ( AS ^column_alias / !invalid_column_alias column_alias )? / qualified_star / star;
 
     table_alias <- ident ( "(" column_name_list ")" )?;
 
