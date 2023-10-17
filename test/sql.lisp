@@ -2348,6 +2348,31 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT UUID_BLOB('d2ce21c9')")
+      (is (equal :null (caar result)))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT UUID_BLOB('d2ce21c9-d268-409a-b1e0-49e1200bfa47')")
+      (is (equalp #(210 206 33 201 210 104 64 154 177 224 73 225 32 11 250 71) (caar result)))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT UUID_BLOB(x'd2ce21c9d268409ab1e049e1200bfa47')")
+      (is (equalp #(210 206 33 201 210 104 64 154 177 224 73 225 32 11 250 71) (caar result)))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT UUID_STR(x'd2ce21c9d268409ab1e049e1200bfa47')")
+      (is (equalp "d2ce21c9-d268-409a-b1e0-49e1200bfa47" (caar result)))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT UUID_STR('d2ce21c9d268409ab1e049e1200bfa47')")
+      (is (equalp "d2ce21c9-d268-409a-b1e0-49e1200bfa47" (caar result)))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT CAST([1, 'foo', {a: 2001-01-01, b: NULL}] AS VARCHAR)")
       (is (equalp `(("[1,\"foo\",{\"a\":2001-01-01,\"b\":null}]")) result))
       (is (equalp (fset:seq 1 "foo" (fset:map ("a" (endb/arrow:parse-arrow-date-millis "2001-01-01")) ("b" :null)))
