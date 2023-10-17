@@ -397,10 +397,10 @@
                ((list* :|result_expr_list| xs)
                 (list (mapcar #'walk (strip-delimiters '(",") xs))))
 
-               ((list :|result_column| (list :|asterisk| _))
+               ((list :|result_column| (list :|star| _))
                 (list :*))
 
-               ((list :|result_column| (list :|qualified_asterisk| table-name _  _))
+               ((list :|result_column| (list :|qualified_star| table-name _  _))
                 (list (list :* (walk table-name))))
 
                ((list :|result_column| expr)
@@ -509,22 +509,19 @@
                   (setf (get s :start) (get table-name :start) (get s :end) (get column-name :end) (get s :input) input)
                   s))
 
-               ((list :|property_access| _ (list "*" _ _) _)
+               ((list :|property_bracket_wildcard_access| _ _ _)
                 (list :*))
 
-               ((list :|property_access| _ expr _)
+               ((list :|property_bracket_access| _ expr _)
                 (list (walk expr)))
 
-               ((list :|property_access| (list ".." _ _) expr)
+               ((list :|property_recursive_field_access| _ expr)
                 (list (walk expr) :recursive :recursive))
 
-               ((list :|property_access| (list ".." _ _) _ (list "*" _ _) _)
-                (list :* :recursive :recursive))
+               ((list :|property_recursive_bracket_access| _ expr)
+                (append (walk expr) (list :recursive :recursive)))
 
-               ((list :|property_access| (list ".." _ _) _ expr _)
-                (list (walk expr) :recursive :recursive))
-
-               ((list :|property_access| _ expr)
+               ((list :|property_field_access| _ expr)
                 (list (walk expr)))
 
                ((list* :|access_expr| expr xs)
@@ -576,13 +573,13 @@
                ((list :|aggregate_func| (list fn _ _))
                 (intern (string-upcase fn) :keyword))
 
-               ((list* :|aggregate_function_invocation| aggregate-func _ (and all-distinct (list :|all_distinct| _)) (list "*" _ _) xs)
+               ((list* :|aggregate_function_invocation| aggregate-func _ (and all-distinct (list :|all_distinct| _)) (list :|star| _) xs)
                 (append (list :aggregate-function (intern (string-upcase (concatenate 'string (symbol-name (walk aggregate-func)) "-star")) :keyword))
                         (list nil)
                         (mapcan #'walk (strip-delimiters '(")") xs))
                         (walk all-distinct)))
 
-               ((list* :|aggregate_function_invocation| aggregate-func _ (list "*" _ _) xs)
+               ((list* :|aggregate_function_invocation| aggregate-func _ (list :|star| _) xs)
                 (append (list :aggregate-function (intern (string-upcase (concatenate 'string (symbol-name (walk aggregate-func)) "-star")) :keyword))
                         (list nil)
                         (mapcan #'walk (strip-delimiters '(")") xs))))
@@ -702,7 +699,7 @@
                ((list :|object_key_value_pair| key _ value)
                 (list (walk key) (walk value)))
 
-               ((list :|object_key_value_pair| (list :|qualified_asterisk| table-name _ _))
+               ((list :|object_key_value_pair| (list :|qualified_star| table-name _ _))
                 (list :* (walk table-name)))
 
                ((list :|object_key_value_pair| expr)
@@ -720,16 +717,16 @@
                ((list* :|array_expr| xs)
                 (list :array (mapcar #'walk (strip-delimiters '("[" "]" ",") xs))))
 
-               ((list :|path_property_access| _ (list "#" _ _) (list "-" _ _) expr _)
+               ((list :|path_array_index| (list :|path_array_length| _) (list "-" _ _) expr)
                 (list :- (walk expr)))
 
-               ((list :|path_property_access| _ (list "#" _ _) _)
+               ((list :|path_array_index| (list :|path_array_length| _))
                 :#)
 
-               ((list :|path_property_access| _ expr _)
+               ((list :|path_array_access| _ expr _)
                 (walk expr))
 
-               ((list :|path_property_access| _ property)
+               ((list :|path_object_label| _ property)
                 (walk property))
 
                ((list* :|path_expr| _ xs)
