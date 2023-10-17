@@ -260,37 +260,37 @@
                ((list :|create_view_stmt| _ _ view-name _ query)
                 (list :create-view (walk view-name) (walk query)))
 
-               ((list :|create_view_stmt| _ _ view-name _ column-name-list _ _ query)
-                (list :create-view (walk view-name) (walk query) :column-names (walk column-name-list)))
-
-               ((list :|create_view_stmt| _ _ _ view-name _ query)
+               ((list :|create_view_stmt| _ (or (list "TEMP" _ _) (list "TEMPORARY" _ _)) _ view-name _ query)
                 (list :create-view (walk view-name) (walk query)))
+
+               ((list :|create_view_stmt| _ _ view-name column-name-list _ query)
+                (list :create-view (walk view-name) (walk query) :column-names (walk column-name-list)))
 
                ((list :|create_assertion_stmt| _ _ assertion-name _ _ expr _)
                 (list :create-assertion (walk assertion-name) (walk expr)))
 
-               ((list :|upsert_clause| _ _ _ column-name-list _ _ _)
+               ((list :|upsert_clause| _ _ column-name-list _ _)
                 (list :on-conflict (walk column-name-list)))
 
-               ((list :|upsert_clause| _ _ _ column-name-list _ _ _ update-clause)
+               ((list :|upsert_clause| _ _ column-name-list _ _ update-clause)
                 (list :on-conflict (walk column-name-list) :update (walk update-clause)))
 
                ((list :|insert_stmt| _ _ table-name query (and upsert (list* :|upsert_clause| _)))
                 (append (list :insert (walk table-name) (walk query)) (walk upsert)))
 
-               ((list :|insert_stmt| _ _ _ table-name query (and upsert (list* :|upsert_clause| _)))
+               ((list :|insert_stmt| _ (list* :|or_replace| _) _ table-name query (and upsert (list* :|upsert_clause| _)))
                 (append (list :insert (walk table-name) (walk query)) (walk upsert)))
 
-               ((list :|insert_stmt| _ _ table-name _ column-name-list _ query (and upsert (list* :|upsert_clause| _)))
+               ((list :|insert_stmt| _ _ table-name column-name-list query (and upsert (list* :|upsert_clause| _)))
                 (append (list :insert (walk table-name) (walk query) :column-names (walk column-name-list)) (walk upsert)))
 
                ((list :|insert_stmt| _ _ table-name query)
                 (list :insert (walk table-name) (walk query)))
 
-               ((list :|insert_stmt| _ _ _ table-name query)
+               ((list :|insert_stmt| _ (list* :|or_replace| _) _ table-name query)
                 (list :insert (walk table-name) (walk query)))
 
-               ((list :|insert_stmt| _ _ table-name _ column-name-list _ query)
+               ((list :|insert_stmt| _ _ table-name column-name-list query)
                 (list :insert (walk table-name) (walk query) :column-names (walk column-name-list)))
 
                ((list :|delete_stmt| _ _ table-name _ expr)
@@ -359,7 +359,7 @@
                 (list :drop-assertion (walk assertion-name) :if-exists :if-exists))
 
                ((list* :|column_name_list| xs)
-                (mapcar #'walk (strip-delimiters '(",") xs)))
+                (mapcar #'walk (strip-delimiters '("(" ")" ",") xs)))
 
                ((list :|all_distinct| (list "ALL" _ _))
                 (list :distinct :all))
@@ -391,7 +391,7 @@
                ((list :|common_table_expression| table-name _ subquery)
                 (list (walk table-name) (walk subquery)))
 
-               ((list :|common_table_expression| table-name _ column-name-list _ _ subquery)
+               ((list :|common_table_expression| table-name column-name-list _ subquery)
                 (list (walk table-name) (walk subquery) (walk column-name-list)))
 
                ((list* :|result_expr_list| xs)
@@ -475,7 +475,7 @@
                ((list :|table_alias| alias)
                 (list (walk alias)))
 
-               ((list :|table_alias| alias _ column-name-list _)
+               ((list :|table_alias| alias column-name-list)
                 (list (walk alias) (walk column-name-list)))
 
                ((list :|where_clause| _ expr)

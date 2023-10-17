@@ -52,7 +52,7 @@ peg! {
     column_name <- ident;
 
     expr_list <- expr ( "," expr )*;
-    column_name_list <- column_name ( "," column_name )*;
+    column_name_list <- "(" column_name ( "," column_name )* ")";
 
     all_distinct <- ALL / DISTINCT;
 
@@ -144,7 +144,7 @@ peg! {
     invalid_column_alias <- FROM / WHERE / GROUP / HAVING / ORDER / LIMIT / UNION / INTERSECT / EXCEPT;
     result_column <- expr ( AS ^column_alias / !invalid_column_alias column_alias )? / qualified_star / star;
 
-    table_alias <- ident ( "(" column_name_list ")" )?;
+    table_alias <- ident column_name_list?;
 
     join_constraint <- ON expr;
     join_operator <- "," / ( LEFT OUTER? / INNER / CROSS )? JOIN;
@@ -177,7 +177,7 @@ peg! {
 
     compound_operator <- UNION ALL? / INTERSECT / EXCEPT;
 
-    common_table_expression <- table_name ( "(" column_name_list ")" )? AS subquery;
+    common_table_expression <- table_name column_name_list? AS subquery;
 
     with_clause <- WITH RECURSIVE? common_table_expression ( "," common_table_expression )*;
 
@@ -197,10 +197,10 @@ peg! {
     update_patch_clause <- PATCH? object_expr;
     update_where_clause <- WHERE expr;
     update_clause <- update_set_clause? update_remove_clause? update_patch_clause? update_where_clause?;
-    upsert_clause <- ON CONFLICT "(" column_name_list ")" DO ( NOTHING / UPDATE update_clause );
+    upsert_clause <- ON CONFLICT column_name_list DO ( NOTHING / UPDATE update_clause );
 
     or_replace <- OR REPLACE;
-    insert_stmt <- INSERT or_replace? INTO table_name ( "(" column_name_list ")" )? select_stmt upsert_clause?;
+    insert_stmt <- INSERT or_replace? INTO table_name column_name_list? select_stmt upsert_clause?;
 
     delete_stmt <- DELETE FROM table_name ( WHERE expr )?;
     erase_stmt <- ERASE FROM table_name ( WHERE expr )?;
@@ -211,13 +211,13 @@ peg! {
     create_index_stmt <- CREATE UNIQUE? INDEX index_name ON table_name "(" indexed_column ( "," indexed_column )* ")";
 
     view_name <- ident;
-    create_view_stmt <- CREATE ( TEMPORARY / TEMP )? VIEW view_name ( "(" column_name_list ")" )? AS select_stmt;
+    create_view_stmt <- CREATE ( TEMPORARY / TEMP )? VIEW view_name column_name_list? AS select_stmt;
 
     signed_number <- ( "+" / "-" )? numeric_literal;
     column_constraint <- PRIMARY KEY / UNIQUE;
     column_def <- column_name !KEY type_name ( "(" signed_number ")" )? column_constraint?;
-    foreign_key_clause <- REFERENCES table_name "(" column_name_list ")";
-    table_constraint <- PRIMARY KEY "(" column_name_list ")" / FOREIGN KEY "(" column_name_list ")" foreign_key_clause;
+    foreign_key_clause <- REFERENCES table_name column_name_list;
+    table_constraint <- PRIMARY KEY column_name_list / FOREIGN KEY column_name_list foreign_key_clause;
     create_table_stmt <- CREATE TABLE table_name "(" column_def ( "," column_def )*  ( "," table_constraint )* ")";
 
     assertion_name <- ident;
