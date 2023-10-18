@@ -67,7 +67,8 @@ peg! {
     exists_expr <- EXISTS ^subquery;
     case_when_then_expr <- WHEN expr THEN expr;
     case_else_expr <- ELSE expr;
-    case_expr <- CASE ^( ( !WHEN expr )? case_when_then_expr+ case_else_expr? END );
+    case_operand <- !WHEN expr;
+    case_expr <- CASE ^( case_operand? case_when_then_expr+ case_else_expr? END );
     column_reference <- ( table_name "." !"." )? column_name;
 
     spread_expr <- ( "..." / ".." ) expr;
