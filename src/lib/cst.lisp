@@ -593,11 +593,11 @@
                 (append (list :aggregate-function (walk aggregate-func) (walk expr-list))
                         (mapcan #'walk (strip-delimiters '(")") xs))))
 
-               ((list* :|case_expr| _ (and x (list* :|case_when_then_expr| _)) xs)
-                (cons :case (list (mapcar #'walk (strip-delimiters '("END") (cons x xs))))))
+               ((list* :|case_expr| _ (list :|case_operand| case-operand) xs)
+                (cons :case (cons (walk case-operand) (list (mapcar #'walk (strip-delimiters '("END") xs))))))
 
-               ((list* :|case_expr| _ x xs)
-                (cons :case (cons (walk x) (list (mapcar #'walk (strip-delimiters '("END") xs))))))
+               ((list* :|case_expr| _ xs)
+                (cons :case (list (mapcar #'walk (strip-delimiters '("END") xs)))))
 
                ((list :|case_when_then_expr| _ when-expr _ then-expr)
                 (list (walk when-expr) (walk then-expr)))
