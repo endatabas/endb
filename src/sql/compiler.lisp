@@ -247,9 +247,11 @@
                                   for ,vars = ,(if  endb/sql/expr:*sqlite-mode*
                                                     `(endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',kw-projection)
                                                     `(append (endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',(remove :|system_time| kw-projection))
-                                                             (list (endb/arrow:arrow-get ,batch-sym ,scan-row-id-sym)
-                                                                   (fset:map ("start" (endb/arrow:arrow-get ,temporal-sym ,scan-row-id-sym))
-                                                                             ("end" (endb/sql/expr:batch-row-system-time-end ,raw-deleted-row-ids-sym ,scan-row-id-sym))))))
+                                                             (list (lambda ()
+                                                                     (endb/arrow:arrow-get ,batch-sym ,scan-row-id-sym))
+                                                                   (lambda ()
+                                                                     (fset:map ("start" (endb/arrow:arrow-get ,temporal-sym ,scan-row-id-sym))
+                                                                               ("end" (endb/sql/expr:batch-row-system-time-end ,raw-deleted-row-ids-sym ,scan-row-id-sym)))))))
                                   when (and ,(if temporal-type-p
                                                  `(eq t (,(case temporal-type
                                                             ((:as-of :between :all) 'endb/sql/expr:sql-<=)
@@ -430,12 +432,14 @@
               (t 1)))
       (t 1))))
 
-(defun %env-extension (table-alias projection)
+(defun %env-extension (table-alias projection &optional functions)
   (reduce
    (lambda (acc column)
      (let* ((qualified-column (%qualified-column-name table-alias column))
             (column-sym (gensym (concatenate 'string qualified-column "__")))
             (acc (fset:with acc column column-sym)))
+       (when (member column functions :test 'equal)
+         (setf (get column-sym :functionp) t))
        (fset:with acc qualified-column column-sym)))
    projection
    :initial-value (fset:empty-map)))
@@ -479,7 +483,9 @@
                                                                     (eq :objects (first table-or-subquery))
                                                                     (not endb/sql/expr:*sqlite-mode*))
                                                            (list "!doc"))))
-                          (env-extension (%env-extension table-alias projection))
+                          (env-extension (%env-extension table-alias projection (when (and (base-table-p table-src)
+                                                                                           (not endb/sql/expr:*sqlite-mode*))
+                                                                                  (list "!doc" "system_time"))))
                           (ctx (fset:map-union ctx env-extension))
                           (ctx (if (%recursive-select-p ctx table-or-subquery)
                                    (fset:with ctx :recursive-select t)
@@ -826,7 +832,8 @@
                  (projection (append (delete-duplicates (append projection on-conflict) :test 'equal)
                                      (unless endb/sql/expr:*sqlite-mode*
                                        (list "!doc" "system_time"))))
-                 (env-extension (%env-extension (symbol-name table-name) projection))
+                 (env-extension (%env-extension (symbol-name table-name) projection (unless endb/sql/expr:*sqlite-mode*
+                                                                                      (list "!doc" "system_time"))))
                  (vars (loop for p in projection
                              collect (fset:lookup env-extension p)))
                  (excluded-env-extension (%env-extension "excluded" excluded-projection))
@@ -1125,10 +1132,11 @@
                                               ,(ast->cl ctx (nth 2 kv)))))
                                 (:*
                                  (let* ((k (second kv))
-                                        (doc (fset:lookup ctx (%qualified-column-name (symbol-name k) "!doc")))
+                                        (doc-column (%qualified-column-name (symbol-name k) "!doc"))
+                                        (doc (fset:lookup ctx doc-column))
                                         (projection (fset:lookup (fset:lookup ctx :table-projections) (symbol-name k))))
                                    (cond
-                                     (doc `(fset:convert 'list ,doc))
+                                     (doc `(fset:convert 'list ,(ast->cl ctx (make-symbol doc-column))))
                                      (projection `(list ,@(loop for p in projection
                                                                 collect `(cons ,(%unqualified-column-name p)
                                                                                ,(ast->cl ctx (make-symbol p))))))
@@ -1470,7 +1478,9 @@
            (progn
              (dolist (cb (fset:lookup ctx :on-var-access))
                (funcall cb ctx k v))
-             v)
+             (if (get v :functionp)
+                 `(funcall ,v)
+                 v))
            (let* ((idx (position #\. k)))
              (if idx
                  (let ((column (subseq k 0 idx))
