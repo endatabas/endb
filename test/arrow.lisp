@@ -91,8 +91,8 @@
     (is (= 1 (length (arrow-buffers array))))
 
     (let* ((children (slot-value array 'endb/arrow::children))
-           (ids (cdr (elt children 0)))
-           (names (cdr (elt children 1))))
+           (ids (gethash "id" children))
+           (names (gethash "name" children)))
 
       (is (typep names 'endb/arrow::utf8-array))
       (is (= 4 (arrow-length names)))
