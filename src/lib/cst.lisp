@@ -552,7 +552,7 @@
                ((list* :|equal_expr| x xs)
                 (binary-equal-op-tree (walk x) xs))
 
-               ((list* :|not_expr| (list _ _ _) xs)
+               ((list* :|not_expr| (list "NOT" _ _) xs)
                 (list :not (walk (cons :|not_expr| xs))))
 
                ((list* :|and_expr| x xs)
