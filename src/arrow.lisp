@@ -9,7 +9,7 @@
            #:arrow-push #:arrow-valid-p #:arrow-get #:arrow-value
            #:arrow-length #:arrow-null-count #:arrow-data-type #:arrow-lisp-type
            #:arrow-children #:arrow-buffers
-           #:arrow-struct-projection #:arrow-struct-children #:arrow-struct-row-get #:arrow-struct-row-push
+           #:arrow-struct-projection
            #:arrow-array #:validity-array #:null-array #:int32-array #:int64-array #:float64-array
            #:date-millis-array #:timestamp-micros-array #:time-micros-array #:binary-array #:utf8-array #:list-array #:struct-array #:dense-union-array)
   (:import-from :alexandria)
@@ -950,11 +950,18 @@
 
 (defun %same-struct-fields-p (array x)
   (with-slots (children) array
-    (equal (fset:convert 'list (fset:domain x))
-           (mapcar #'car children))))
+    (when (= (fset:size x) (hash-table-count children))
+      (fset:do-map-domain (k x)
+        (unless (gethash k children)
+          (return-from %same-struct-fields-p nil)))
+      t)))
 
 (defclass struct-array (validity-array)
-  ((children :initarg :children :initform () :type list)))
+  ((children :type hash-table)))
+
+(defmethod initialize-instance :after ((array struct-array) &key children)
+  (setf (slot-value array 'children)
+        (alexandria:alist-hash-table children :test 'equal)))
 
 (defmethod arrow-push ((array struct-array) (x fset:map))
   (if (and (%same-struct-fields-p array x)
@@ -963,29 +970,35 @@
         (%push-valid array)
         (fset:do-map (k v x)
           (assert (stringp k))
-          (let ((kv-pair (assoc k children :test 'equal)))
-            (setf (cdr kv-pair) (arrow-push (cdr kv-pair) v))))
+          (setf (gethash k children) (arrow-push (gethash k children) v)))
         array)
       (call-next-method)))
 
 (defmethod arrow-push ((array struct-array) (x (eql :null)))
   (with-slots (children) array
     (%push-invalid array)
-    (loop for kv-pair in children
-          do (setf (cdr kv-pair) (arrow-push (cdr kv-pair) :null)))
+    (maphash
+     (lambda (k v)
+       (setf (gethash k children) (arrow-push v :null)))
+     children)
     array))
 
 (defmethod arrow-value ((array struct-array) (n fixnum))
   (with-slots (children) array
-    (reduce
-     (lambda (acc kv)
-       (fset:with acc (car kv) (arrow-get (cdr kv) n)))
-     children
-     :initial-value (fset:empty-map))))
+    (let ((acc (fset:empty-map)))
+      (maphash
+       (lambda (k v)
+         (setf acc (fset:with acc k (arrow-get v n))))
+       children)
+      acc)))
 
 (defmethod arrow-length ((array struct-array))
   (with-slots (children validity) array
-    (let ((first-array (cdr (first children))))
+    (let ((first-array (block nil
+                         (maphash (lambda (k v)
+                                    (declare (ignore k))
+                                    (return v))
+                                  children))))
       (if first-array
           (arrow-length first-array)
           (length validity)))))
@@ -998,37 +1011,19 @@
 
 (defmethod arrow-children ((array struct-array))
   (with-slots (children) array
-    children))
-
-(defun arrow-struct-children (array projection)
-  (with-slots (children) array
-    (loop with len = (arrow-length array)
-          with missing-column = (make-instance 'null-array :null-count len :length len)
-          with children = children
-          for c in projection
-          collect (or (cdr (assoc c children :test 'equal)) missing-column))))
+    (sort (alexandria:hash-table-alist children) #'string< :key #'car)))
 
 (defun arrow-struct-projection (array n projection)
-  (loop with row = (arrow-get array n)
-        for c in projection
-        collect (multiple-value-bind (v vp)
-                    (fset:lookup row c)
-                  (if vp
-                      v
-                      :null))))
-
-(defun arrow-struct-row-get (array n)
-  (with-slots (children) array
-    (loop for (nil . v) in children
-          collect (arrow-get v n))))
-
-(defun arrow-struct-row-push (array row)
-  (with-slots (children) array
-    (%push-valid array)
-    (loop for kv-pair in children
-          for v in row
-          do (setf (cdr kv-pair) (arrow-push (cdr kv-pair) v)))
-    array))
+  (if (typep array 'dense-union-array)
+      (with-slots (type-ids offsets children) array
+        (arrow-struct-projection (aref children (aref type-ids n)) (aref offsets n) projection))
+      (with-slots (children) array
+        (loop for c in projection
+              collect (multiple-value-bind (v vp)
+                          (gethash c children)
+                        (if vp
+                            (arrow-get v n)
+                            :null))))))
 
 (defclass dense-union-array (arrow-array)
   ((type-ids :initarg :type-ids :initform nil :type (or null (vector int8)))
