@@ -213,7 +213,9 @@
                  (batch-sym (or (fset:lookup ctx :batch-sym) batch-sym))
                  (scan-row-id-sym (or (fset:lookup ctx :scan-row-id-sym) scan-row-id-sym))
                  (scan-batch-idx-sym (or (fset:lookup ctx :scan-batch-idx-sym) scan-batch-idx-sym))
-                 (scan-arrow-file-sym (or (fset:lookup ctx :scan-arrow-file-sym) scan-arrow-file-sym)))
+                 (scan-arrow-file-sym (or (fset:lookup ctx :scan-arrow-file-sym) scan-arrow-file-sym))
+                 (kw-projection (loop for c in projection
+                                      collect (intern c :keyword))))
             (destructuring-bind (&optional (temporal-type :as-of temporal-type-p) (temporal-start :current_timestamp) (temporal-end temporal-start))
                 (base-table-temporal from-src)
               `(let ((,table-md-sym (endb/sql/expr:base-table-meta ,(fset:lookup ctx :db-sym) ,table-name))
@@ -243,8 +245,8 @@
                                                        (fset:empty-seq))
                          do (loop for ,scan-row-id-sym of-type fixnum below (endb/arrow:arrow-length ,batch-sym)
                                   for ,vars = ,(if  endb/sql/expr:*sqlite-mode*
-                                                    `(endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',projection)
-                                                    `(append (endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',(remove "system_time" projection :test 'equal))
+                                                    `(endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',kw-projection)
+                                                    `(append (endb/arrow:arrow-struct-projection ,batch-sym ,scan-row-id-sym ',(remove :|system_time| kw-projection))
                                                              (list (endb/arrow:arrow-get ,batch-sym ,scan-row-id-sym)
                                                                    (fset:map ("start" (endb/arrow:arrow-get ,temporal-sym ,scan-row-id-sym))
                                                                              ("end" (endb/sql/expr:batch-row-system-time-end ,raw-deleted-row-ids-sym ,scan-row-id-sym))))))

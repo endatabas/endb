@@ -952,7 +952,7 @@
   (with-slots (children) array
     (when (= (fset:size x) (hash-table-count children))
       (fset:do-map-domain (k x)
-        (unless (gethash k children)
+        (unless (gethash (intern k :keyword) children)
           (return-from %same-struct-fields-p nil)))
       t)))
 
@@ -961,7 +961,10 @@
 
 (defmethod initialize-instance :after ((array struct-array) &key children)
   (setf (slot-value array 'children)
-        (alexandria:alist-hash-table children :test 'equal)))
+        (loop with acc = (make-hash-table)
+              for (k . v) in children
+              do (setf (gethash (intern k :keyword) acc) v)
+              finally (return acc))))
 
 (defmethod arrow-push ((array struct-array) (x fset:map))
   (if (and (%same-struct-fields-p array x)
@@ -970,7 +973,8 @@
         (%push-valid array)
         (fset:do-map (k v x)
           (assert (stringp k))
-          (setf (gethash k children) (arrow-push (gethash k children) v)))
+          (let ((k (intern k :keyword)))
+            (setf (gethash k children) (arrow-push (gethash k children) v))))
         array)
       (call-next-method)))
 
@@ -988,7 +992,7 @@
     (let ((acc (fset:empty-map)))
       (maphash
        (lambda (k v)
-         (setf acc (fset:with acc k (arrow-get v n))))
+         (setf acc (fset:with acc (symbol-name k) (arrow-get v n))))
        children)
       acc)))
 
@@ -1011,7 +1015,11 @@
 
 (defmethod arrow-children ((array struct-array))
   (with-slots (children) array
-    (sort (alexandria:hash-table-alist children) #'string< :key #'car)))
+    (let ((acc))
+      (maphash (lambda (k v)
+                 (push (cons (symbol-name k) v) acc))
+               children)
+      (sort acc #'string< :key #'car))))
 
 (defun arrow-struct-projection (array n projection)
   (if (typep array 'dense-union-array)
@@ -1019,11 +1027,10 @@
         (arrow-struct-projection (aref children (aref type-ids n)) (aref offsets n) projection))
       (with-slots (children) array
         (loop for c in projection
-              collect (multiple-value-bind (v vp)
-                          (gethash c children)
-                        (if vp
-                            (arrow-get v n)
-                            :null))))))
+              for v = (gethash c children)
+              collect (if v
+                          (arrow-get v n)
+                          :null)))))
 
 (defclass dense-union-array (arrow-array)
   ((type-ids :initarg :type-ids :initform nil :type (or null (vector int8)))

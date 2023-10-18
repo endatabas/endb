@@ -2126,7 +2126,8 @@
 
 (defun base-table-visible-rows (db table-name &key arrow-file-idx-row-id-p)
   (let ((table-md (base-table-meta db table-name))
-        (projection (table-columns db table-name))
+        (kw-projection (loop for c in (table-columns db table-name)
+                             collect (intern c :keyword)))
         (acc))
     (fset:do-map (arrow-file arrow-file-md table-md acc)
       (loop with deleted-md = (or (fset:lookup arrow-file-md "deleted") (fset:empty-map))
@@ -2143,8 +2144,8 @@
                                                       (fset:find row-id batch-erased))
                                              collect (if arrow-file-idx-row-id-p
                                                          (cons (list arrow-file batch-idx row-id)
-                                                               (endb/arrow:arrow-struct-projection batch row-id projection))
-                                                         (endb/arrow:arrow-struct-projection batch row-id projection)))))))))
+                                                               (endb/arrow:arrow-struct-projection batch row-id kw-projection))
+                                                         (endb/arrow:arrow-struct-projection batch row-id kw-projection)))))))))
 
 (defun batch-row-system-time-end (batch-deleted row-id)
   (fset:lookup (or (fset:find-if (lambda (x)
