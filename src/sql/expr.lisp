@@ -2112,7 +2112,13 @@
 
 (defvar *default-schema* "main")
 
-(defstruct db wal object-store buffer-pool (meta-data (fset:map ("_last_tx" 0))) current-timestamp)
+(defstruct db
+  wal
+  object-store
+  buffer-pool
+  (meta-data (fset:map ("_last_tx" 0)))
+  current-timestamp
+  (information-schema-cache (make-hash-table :weakness :key :test 'eq)))
 
 (defun base-table-meta (db table-name)
   (with-slots (meta-data) db
@@ -2124,27 +2130,35 @@
       (endb/storage/buffer-pool:buffer-pool-get buffer-pool arrow-file-key))))
 
 (defun base-table-visible-rows (db table-name &key arrow-file-idx-row-id-p)
-  (let ((table-md (base-table-meta db table-name))
-        (kw-projection (loop for c in (table-columns db table-name)
-                             collect (intern c :keyword)))
-        (acc))
-    (fset:do-map (arrow-file arrow-file-md table-md acc)
-      (loop with deleted-md = (or (fset:lookup arrow-file-md "deleted") (fset:empty-map))
-            with erased-md = (or (fset:lookup arrow-file-md "erased") (fset:empty-map))
-            for batch-row in (base-table-arrow-batches db table-name arrow-file)
-            for batch = (endb/arrow:arrow-struct-column-array batch-row (intern table-name :keyword))
-            for batch-idx from 0
-            for batch-deleted = (or (fset:lookup deleted-md (prin1-to-string batch-idx)) (fset:empty-seq))
-            for batch-erased = (or (fset:lookup erased-md (prin1-to-string batch-idx)) (fset:empty-seq))
-            do (setf acc (append acc (loop for row-id below (endb/arrow:arrow-length batch)
-                                           unless (or (fset:find row-id batch-deleted
-                                                                 :key (lambda (x)
-                                                                        (fset:lookup x "row_id")))
-                                                      (fset:find row-id batch-erased))
-                                             collect (if arrow-file-idx-row-id-p
-                                                         (cons (list arrow-file batch-idx row-id)
-                                                               (endb/arrow:arrow-struct-projection batch row-id kw-projection))
-                                                         (endb/arrow:arrow-struct-projection batch row-id kw-projection)))))))))
+  (with-slots (information-schema-cache) db
+    (let ((table-md (base-table-meta db table-name))
+          (cachep (and (%information-schema-table-p table-name)
+                       (not arrow-file-idx-row-id-p))))
+      (or (when cachep
+            (gethash table-md information-schema-cache))
+          (let ((kw-projection (loop for c in (table-columns db table-name)
+                                     collect (intern c :keyword)))
+                (acc))
+            (fset:do-map (arrow-file arrow-file-md table-md)
+              (loop with deleted-md = (or (fset:lookup arrow-file-md "deleted") (fset:empty-map))
+                    with erased-md = (or (fset:lookup arrow-file-md "erased") (fset:empty-map))
+                    for batch-row in (base-table-arrow-batches db table-name arrow-file)
+                    for batch = (endb/arrow:arrow-struct-column-array batch-row (intern table-name :keyword))
+                    for batch-idx from 0
+                    for batch-deleted = (or (fset:lookup deleted-md (prin1-to-string batch-idx)) (fset:empty-seq))
+                    for batch-erased = (or (fset:lookup erased-md (prin1-to-string batch-idx)) (fset:empty-seq))
+                    do (setf acc (append acc (loop for row-id below (endb/arrow:arrow-length batch)
+                                                   unless (or (fset:find row-id batch-deleted
+                                                                         :key (lambda (x)
+                                                                                (fset:lookup x "row_id")))
+                                                              (fset:find row-id batch-erased))
+                                                     collect (if arrow-file-idx-row-id-p
+                                                                 (cons (list arrow-file batch-idx row-id)
+                                                                       (endb/arrow:arrow-struct-projection batch row-id kw-projection))
+                                                                 (endb/arrow:arrow-struct-projection batch row-id kw-projection)))))))
+            (when cachep
+              (setf (gethash table-md information-schema-cache) acc))
+            acc)))))
 
 (defun batch-row-system-time-end (batch-deleted row-id)
   (fset:lookup (or (fset:find-if (lambda (x)
