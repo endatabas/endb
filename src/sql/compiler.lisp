@@ -192,9 +192,8 @@
 (defun %table-scan->cl (ctx vars projection from-src where-clauses nested-src)
   (let* ((where-src (cons 'and (loop for clause in where-clauses
                                      collect `(eq t ,(where-clause-src clause)))))
-         (where-vars (loop for x in (alexandria:flatten where-src)
-                           when (find x vars)
-                             collect x)))
+         (where-vars (delete-duplicates (loop for clause in where-clauses
+                                              append (where-clause-free-vars clause)))))
     (if (base-table-p from-src)
         (alexandria:with-gensyms (table-md-sym
                                   arrow-file-md-sym
@@ -395,7 +394,7 @@
                              (append scan-clauses pushdown-clauses)
                              nested-src))))))
 
-(defun %group-by->cl (ctx from-tables where-clauses selected-src limit offset group-by having-src correlated-vars selected-vars)
+(defun %group-by->cl (ctx from-tables where-clauses selected-src limit offset group-by having-src correlated-vars selected-non-aggregate-columns)
   (alexandria:with-gensyms (group-acc-sym group-key-sym group-sym)
     (let* ((aggregate-table (fset:lookup ctx :aggregate-table))
            (group-by-projection (loop for g in group-by
@@ -422,7 +421,7 @@
                               (setf (gethash ,empty-group-key-form ,group-acc-sym)
                                     (list ,@init-srcs)))
                             ,group-acc-sym))
-           (non-group-selected-vars (loop for v in selected-vars
+           (non-group-selected-vars (loop for v in selected-non-aggregate-columns
                                           unless (find (fset:lookup ctx v) group-by-projection)
                                             collect v)))
       (when non-group-selected-vars
@@ -534,14 +533,14 @@
                                 (full-projection (loop for from-table in from-tables-acc
                                                        append (from-table-projection from-table)))
                                 (table-projections (fset:lookup ctx :table-projections))
-                                (selected-vars ())
+                                (selected-non-aggregate-columns ())
                                 (selected-ctx (fset:with
                                                ctx
                                                :on-var-access
                                                (cons (lambda (inner-ctx k v)
                                                        (when (and (eq v (fset:lookup ctx k))
                                                                   (not (fset:lookup inner-ctx :aggregate)))
-                                                         (pushnew k selected-vars)))
+                                                         (pushnew k selected-non-aggregate-columns)))
                                                      (fset:lookup ctx :on-var-access))))
                                 (selected-src (loop for (expr) in select-list
                                                     append (cond
@@ -588,7 +587,7 @@
                                                                append (cte-free-vars cte)))))
                            (values
                             (if group-by-needed-p
-                                (%group-by->cl ctx from-tables where-clauses selected-src limit offset group-by having-src correlated-vars selected-vars)
+                                (%group-by->cl ctx from-tables where-clauses selected-src limit offset group-by having-src correlated-vars selected-non-aggregate-columns)
                                 (%from->cl ctx from-tables where-clauses (%selection-with-limit-offset->cl ctx selected-src limit offset) correlated-vars))
                             select-projection))))))))
       (alexandria:with-gensyms (block-sym acc-sym rows-sym row-sym)
@@ -872,8 +871,12 @@
                  (where-clauses (loop for clause in (if upsertp
                                                         conflict-clauses
                                                         (%and-clauses where))
-                                      collect (make-where-clause :src (ast->cl ctx clause)
-                                                                 :ast clause)))
+                                      collect (multiple-value-bind (src projection free-vars)
+                                                  (%ast->cl-with-free-vars ctx clause)
+                                                (declare (ignore projection))
+                                                (make-where-clause :src src
+                                                                   :free-vars free-vars
+                                                                   :ast clause))))
                  (update-paths (loop for (update-col expr) in update-cols
                                      append (list (if (symbolp update-col)
                                                       `(fset:seq ,(symbol-name update-col))
@@ -978,8 +981,12 @@
                  (vars (loop for p in projection
                              collect (fset:lookup env-extension p)))
                  (where-clauses (loop for clause in (%and-clauses where)
-                                      collect (make-where-clause :src (ast->cl ctx clause)
-                                                                 :ast clause))))
+                                      collect (multiple-value-bind (src projection free-vars)
+                                                  (%ast->cl-with-free-vars ctx clause)
+                                                (declare (ignore projection))
+                                                (make-where-clause :src src
+                                                                   :free-vars free-vars
+                                                                   :ast clause)))))
             `(let ((,deleted-row-ids-sym))
                ,(%table-scan->cl ctx vars projection from-src where-clauses
                                  `(do (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym)))
@@ -1001,8 +1008,12 @@
                  (vars (loop for p in projection
                              collect (fset:lookup env-extension p)))
                  (where-clauses (loop for clause in (%and-clauses where)
-                                      collect (make-where-clause :src (ast->cl ctx clause)
-                                                                 :ast clause))))
+                                      collect (multiple-value-bind (src projection free-vars)
+                                                  (%ast->cl-with-free-vars ctx clause)
+                                                (declare (ignore projection))
+                                                (make-where-clause :src src
+                                                                   :free-vars free-vars
+                                                                   :ast clause)))))
             `(let ((,erased-row-ids-sym))
                ,(%table-scan->cl ctx vars projection from-src where-clauses
                                  `(do (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,erased-row-ids-sym)))

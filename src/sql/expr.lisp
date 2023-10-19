@@ -2374,8 +2374,8 @@
                     (lambda (stats array)
                       (loop for idx below (endb/arrow:arrow-length array)
                             for row = (endb/arrow:arrow-get array idx)
-                            do (when (typep row 'endb/arrow:arrow-struct)
-                                 (fset:reduce #'calculate-col-stats row :initial-value stats))
+                            when (typep row 'endb/arrow:arrow-struct)
+                              do (fset:reduce #'calculate-col-stats row :initial-value stats)
                             finally (return stats)))
                     arrays
                     :initial-value (make-hash-table :test 'equal)))
@@ -2442,10 +2442,11 @@
                  (system-time-start-array (gethash :|system_time_start| batch-children))
                  (table-array (gethash kw-table-name batch-children)))
             (labels ((row-to-map (row)
-                       (fset:convert 'fset:map
-                                     (loop for idx in permutation
-                                           for cn in kw-columns
-                                           collect (cons cn (nth idx row))))))
+                       (loop with acc = (fset:empty-map)
+                             for idx in permutation
+                             for cn in kw-columns
+                             do (setf acc (fset:with acc cn (nth idx row)))
+                             finally (return acc))))
 
               (dotimes (n (length values))
                 (endb/arrow:arrow-push system-time-start-array current-timestamp))
