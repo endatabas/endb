@@ -9,7 +9,7 @@
            #:arrow-push #:arrow-valid-p #:arrow-get #:arrow-value
            #:arrow-length #:arrow-null-count #:arrow-data-type #:arrow-lisp-type
            #:arrow-children #:arrow-buffers
-           #:arrow-struct-projection
+           #:arrow-struct-column #:arrow-struct-column-array #:arrow-struct-projection
            #:arrow-array #:validity-array #:null-array #:int32-array #:int64-array #:float64-array
            #:date-millis-array #:timestamp-micros-array #:time-micros-array #:binary-array #:utf8-array #:list-array #:struct-array #:dense-union-array)
   (:import-from :alexandria)
@@ -271,6 +271,9 @@
 
 (defmethod fset:compare ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-millis))
   (fset:compare x (endb/arrow:local-time-to-arrow-timestamp-micros (endb/arrow:arrow-date-millis-to-local-time y))))
+
+(defmethod fset:lookup ((collection (eql nil)) key)
+  (values nil nil))
 
 (deftype arrow-binary ()
   '(vector uint8))
@@ -1020,6 +1023,23 @@
                  (push (cons (symbol-name k) v) acc))
                children)
       (sort acc #'string< :key #'car))))
+
+(defun arrow-struct-column (array n column &optional column-array)
+  (if column-array
+      (arrow-get column-array n)
+      (if (typep array 'dense-union-array)
+          (with-slots (type-ids offsets children) array
+            (arrow-struct-column (aref children (aref type-ids n)) (aref offsets n) column))
+          (with-slots (children) array
+            (let ((v (gethash column children)))
+              (if v
+                  (arrow-get v n)
+                  :null))))))
+
+(defun arrow-struct-column-array (array column)
+  (when (typep array 'struct-array)
+    (with-slots (children) array
+      (gethash column children))))
 
 (defun arrow-struct-projection (array n projection)
   (if (typep array 'dense-union-array)

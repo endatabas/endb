@@ -2121,8 +2121,7 @@
 (defun base-table-arrow-batches (db table-name arrow-file)
   (with-slots (buffer-pool) db
     (let ((arrow-file-key (format nil "~A/~A" table-name arrow-file)))
-      (loop for batch in (endb/storage/buffer-pool:buffer-pool-get buffer-pool arrow-file-key)
-            collect (endb/arrow:arrow-children batch)))))
+      (endb/storage/buffer-pool:buffer-pool-get buffer-pool arrow-file-key))))
 
 (defun base-table-visible-rows (db table-name &key arrow-file-idx-row-id-p)
   (let ((table-md (base-table-meta db table-name))
@@ -2133,7 +2132,7 @@
       (loop with deleted-md = (or (fset:lookup arrow-file-md "deleted") (fset:empty-map))
             with erased-md = (or (fset:lookup arrow-file-md "erased") (fset:empty-map))
             for batch-row in (base-table-arrow-batches db table-name arrow-file)
-            for batch = (cdr (assoc table-name batch-row :test 'equal))
+            for batch = (endb/arrow:arrow-struct-column-array batch-row (intern table-name :keyword))
             for batch-idx from 0
             for batch-deleted = (or (fset:lookup deleted-md (prin1-to-string batch-idx)) (fset:empty-seq))
             for batch-erased = (or (fset:lookup erased-md (prin1-to-string batch-idx)) (fset:empty-seq))
