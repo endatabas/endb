@@ -2349,38 +2349,47 @@
   (cffi:with-pointer-to-vector-data (ptr (cl-bloom::filter-array agg))
     (endb/lib/arrow:buffer-to-vector ptr (endb/lib/arrow:vector-byte-size (cl-bloom::filter-array agg)))))
 
+(defstruct col-stats count_star count min max bloom)
+
 (defun calculate-stats (arrays)
   (let* ((total-length (reduce #'+ (mapcar #'endb/arrow:arrow-length arrays)))
          (bloom-order (* 8 (endb/lib/arrow:vector-byte-size #* (cl-bloom::opt-order total-length)))))
-    (labels ((make-col-stats ()
-               (fset:map ("count_star" (make-agg :count-star))
-                         ("count" (make-agg :count))
-                         ("min" (make-agg :min))
-                         ("max" (make-agg :max))
-                         ("bloom" (make-instance 'cl-bloom::bloom-filter :order bloom-order))))
-             (calculate-col-stats (stats k v)
-               (let ((col-stats (or (fset:lookup stats k) (make-col-stats))))
-                 (fset:with stats k (fset:image
-                                     (lambda (agg-k agg-v)
-                                       (values agg-k (agg-accumulate agg-v v)))
-                                     col-stats)))))
+    (labels ((calculate-col-stats (stats k v)
+               (let ((col-stats (or (gethash k stats)
+                                    (make-col-stats
+                                     :count_star (make-agg :count-star)
+                                     :count (make-agg :count)
+                                     :min (make-agg :min)
+                                     :max (make-agg :max)
+                                     :bloom (make-instance 'cl-bloom::bloom-filter :order bloom-order)))))
+                 (with-slots (count_star count min max bloom) col-stats
+                   (agg-accumulate count_star v)
+                   (agg-accumulate count v)
+                   (agg-accumulate min v)
+                   (agg-accumulate max v)
+                   (agg-accumulate bloom v))
+                 (setf (gethash k stats) col-stats)
+                 stats)))
       (let ((stats (reduce
                     (lambda (stats array)
                       (loop for idx below (endb/arrow:arrow-length array)
                             for row = (endb/arrow:arrow-get array idx)
-                            do (setf stats (if (typep row 'endb/arrow:arrow-struct)
-                                               (fset:reduce #'calculate-col-stats row :initial-value stats)
-                                               stats))
+                            do (when (typep row 'endb/arrow:arrow-struct)
+                                 (fset:reduce #'calculate-col-stats row :initial-value stats))
                             finally (return stats)))
                     arrays
-                    :initial-value (fset:empty-map))))
-        (fset:image
+                    :initial-value (make-hash-table :test 'equal)))
+            (acc (fset:empty-map)))
+        (maphash
          (lambda (k v)
-           (values k (fset:image
-                      (lambda (k v)
-                        (values k (agg-finish v)))
-                      v)))
-         stats)))))
+           (setf acc (fset:with acc k (with-slots (count_star count min max bloom) v
+                                        (fset:map ("count_star" (agg-finish count_star))
+                                                  ("count" (agg-finish count))
+                                                  ("min" (agg-finish min))
+                                                  ("max" (agg-finish max))
+                                                  ("bloom" (agg-finish bloom)))))))
+         stats)
+        acc))))
 
 (defparameter +ident-scanner+ (ppcre:create-scanner "^[a-zA-Z_][a-zA-Z0-9_]*$"))
 
