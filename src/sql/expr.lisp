@@ -2366,13 +2366,12 @@
                                      col-stats)))))
       (let ((stats (reduce
                     (lambda (stats array)
-                      (reduce
-                       (lambda (stats row)
-                         (if (typep row 'endb/arrow:arrow-struct)
-                             (fset:reduce #'calculate-col-stats row :initial-value stats)
-                             stats))
-                       array
-                       :initial-value stats))
+                      (loop for idx below (endb/arrow:arrow-length array)
+                            for row = (endb/arrow:arrow-get array idx)
+                            do (setf stats (if (typep row 'endb/arrow:arrow-struct)
+                                               (fset:reduce #'calculate-col-stats row :initial-value stats)
+                                               stats))
+                            finally (return stats)))
                     arrays
                     :initial-value (fset:empty-map))))
         (fset:image
@@ -2410,13 +2409,11 @@
                                                           collect (list :null *default-schema* table-name c 0))))
 
       (if columns
-          (let* ((values (if (and created-p column-names)
-                             (loop with idxs = (loop for column in columns
-                                                     collect (position column column-names :test 'equal))
-                                   for row in values
-                                   collect (loop for idx in idxs
-                                                 collect (nth idx row)))
-                             values))
+          (let* ((permutation (if (and created-p column-names)
+                                (loop for column in columns
+                                      collect (position column column-names :test 'equal))
+                                (loop for idx below number-of-columns
+                                      collect idx)))
                  (tx-id (1+ (or (fset:lookup meta-data "_last_tx") 0)))
                  (batch-file (format nil "~(~16,'0x~).arrow" tx-id))
                  (batch-key (format nil "~A/~A" table-name batch-file))
@@ -2426,24 +2423,47 @@
                  (batch (if batch-md
                             (car (endb/storage/buffer-pool:buffer-pool-get buffer-pool batch-key))
                             (endb/arrow:make-arrow-array-for (fset:map (table-name :null)
-                                                                       ("system_time_start" current-timestamp))))))
-            (loop for row in values
-                  do (endb/arrow:arrow-push batch (fset:map (table-name
-                                                             (fset:convert 'fset:map
-                                                                           (loop for v in row
-                                                                                 for cn in (if created-p
-                                                                                               columns
-                                                                                               column-names)
-                                                                                 collect (cons cn v))))
-                                                            ("system_time_start" current-timestamp))))
+                                                                       ("system_time_start" current-timestamp)))))
+                 (batch-children (slot-value batch 'endb/arrow::children))
+                 (kw-columns (loop for cn in (if created-p
+                                                 columns
+                                                 column-names)
+                                   collect (intern cn :keyword)))
+                 (kw-table-name (intern table-name :keyword))
+                 (system-time-start-array (gethash :|system_time_start| batch-children))
+                 (table-array (gethash kw-table-name batch-children)))
+            (labels ((row-to-map (row)
+                       (fset:convert 'fset:map
+                                     (loop for idx in permutation
+                                           for cn in kw-columns
+                                           collect (cons cn (nth idx row))))))
 
+              (dotimes (n (length values))
+                (endb/arrow:arrow-push system-time-start-array current-timestamp))
+
+              (let ((row (first values)))
+                (setf table-array (endb/arrow:arrow-push table-array (row-to-map row))))
+
+              (if (typep table-array 'endb/arrow:dense-union-array)
+                  (dolist (row (rest values))
+                    (setf table-array (endb/arrow:arrow-push table-array (row-to-map row))))
+
+                  (loop with children = (slot-value table-array 'endb/arrow::children)
+                        with values = (rest values)
+                        for idx in permutation
+                        for cn in kw-columns
+                        for a = (gethash cn children)
+                        do (dolist (row values)
+                             (setf a (endb/arrow:arrow-push a (nth idx row))))
+                        finally (setf (gethash cn children) a))))
+
+            (setf (gethash kw-table-name batch-children) table-array)
             (endb/storage/buffer-pool:buffer-pool-put buffer-pool batch-key (list batch))
 
-            (let* ((inner-batch (cdr (assoc table-name (endb/arrow:arrow-children batch) :test 'equal)))
-                   (batch-md (fset:map-union (or batch-md (fset:empty-map))
-                                             (fset:map
-                                              ("length" (endb/arrow:arrow-length inner-batch))
-                                              ("stats" (calculate-stats (list inner-batch)))))))
+            (let ((batch-md (fset:map-union (or batch-md (fset:empty-map))
+                                            (fset:map
+                                             ("length" (endb/arrow:arrow-length table-array))
+                                             ("stats" (calculate-stats (list table-array)))))))
               (setf meta-data (fset:with meta-data table-name (fset:with table-md batch-file batch-md))))
 
             (values nil (length values)))

@@ -955,7 +955,10 @@
   (with-slots (children) array
     (when (= (fset:size x) (hash-table-count children))
       (fset:do-map-domain (k x)
-        (unless (gethash (intern k :keyword) children)
+        (unless (gethash (if (keywordp k)
+                             k
+                             (intern k :keyword))
+                         children)
           (return-from %same-struct-fields-p nil)))
       t)))
 
@@ -966,7 +969,11 @@
   (setf (slot-value array 'children)
         (loop with acc = (make-hash-table)
               for (k . v) in children
-              do (setf (gethash (intern k :keyword) acc) v)
+              do (setf (gethash (if (keywordp k)
+                                    k
+                                    (intern k :keyword))
+                                acc)
+                       v)
               finally (return acc))))
 
 (defmethod arrow-push ((array struct-array) (x fset:map))
@@ -975,8 +982,10 @@
       (with-slots (children) array
         (%push-valid array)
         (fset:do-map (k v x)
-          (assert (stringp k))
-          (let ((k (intern k :keyword)))
+          (assert (or (keywordp k) (stringp k)))
+          (let ((k (if (keywordp k)
+                       k
+                       (intern k :keyword))))
             (setf (gethash k children) (arrow-push (gethash k children) v))))
         array)
       (call-next-method)))
