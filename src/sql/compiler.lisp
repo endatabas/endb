@@ -306,23 +306,24 @@
                 collect rhs into in-vars
               finally
                  (return (values in-vars out-vars)))
-      (alexandria:with-gensyms (index-table-sym index-key-sym index-key-form-sym)
+      (alexandria:with-gensyms (index-table-sym index-key-form-sym)
         (let* ((new-free-vars (set-difference free-vars in-vars))
                (index-sym (fset:lookup ctx :index-sym))
                (index-key-form `(list ',index-key-form-sym ,@new-free-vars)))
           `(gethash (list ,@in-vars)
-                    (let ((,index-key-sym ,index-key-form))
-                      (or (gethash ,index-key-sym ,index-sym)
-                          (let ((,index-table-sym (setf (gethash ,index-key-sym ,index-sym)
-                                                        (make-hash-table :test endb/sql/expr:+hash-table-test+))))
-                            ,(%table-scan->cl ctx
-                                              vars
-                                              (mapcar #'%unqualified-column-name (from-table-projection from-table))
-                                              src
-                                              scan-where-clauses
-                                              `(do (push (list ,@vars)
-                                                         (gethash (list ,@out-vars) ,index-table-sym))))
-                            ,index-table-sym)))))))))
+                    (endb/sql/expr:ra-compute-index-if-absent
+                     ,index-sym
+                     ,index-key-form
+                     (lambda ()
+                       (let ((,index-table-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
+                         ,(%table-scan->cl ctx
+                                           vars
+                                           (mapcar #'%unqualified-column-name (from-table-projection from-table))
+                                           src
+                                           scan-where-clauses
+                                           `(do (push (list ,@vars)
+                                                      (gethash (list ,@out-vars) ,index-table-sym))))
+                         ,index-table-sym)))))))))
 
 (defun %selection-with-limit-offset->cl (ctx selected-src &optional limit offset)
   (let ((acc-sym (fset:lookup ctx :acc-sym)))
@@ -687,17 +688,11 @@
     (multiple-value-bind (src projection free-vars)
         (%ast->cl-with-free-vars ctx query)
       (declare (ignore projection))
-      (alexandria:with-gensyms (index-key-sym index-key-form-sym)
+      (alexandria:with-gensyms (index-key-form-sym)
         (let* ((index-sym (fset:lookup ctx :index-sym))
                (index-key-form `(list ',index-key-form-sym ,@free-vars)))
-          `(let* ((,index-key-sym ,index-key-form))
-             (endb/sql/expr:ra-scalar-subquery
-              (multiple-value-bind (result resultp)
-                  (gethash ,index-key-sym ,index-sym)
-                (if resultp
-                    result
-                    (setf (gethash ,index-key-sym ,index-sym)
-                          ,src))))))))))
+          `(endb/sql/expr:ra-scalar-subquery
+            (endb/sql/expr:ra-compute-index-if-absent ,index-sym ,index-key-form (lambda () ,src))))))))
 
 (defmethod sql->cl (ctx (type (eql :unnest)) &rest args)
   (destructuring-bind (exprs &key with-ordinality)
@@ -1033,24 +1028,16 @@
             (%ast->cl-with-free-vars ctx query))
       (unless (= 1 (length projection))
         (error 'endb/sql/expr:sql-runtime-error :message "IN query must return single column"))
-      (alexandria:with-gensyms (in-var-sym expr-sym index-table-sym index-key-sym index-key-form-sym)
-        (let* ((index-key-form `(list ',index-key-form-sym ,@free-vars)))
-          `(let* ((,index-key-sym ,index-key-form)
-                  (,index-table-sym (or (gethash ,index-key-sym ,(fset:lookup ctx :index-sym))
-                                        (loop with ,index-table-sym = (setf (gethash ,index-key-sym ,(fset:lookup ctx :index-sym))
-                                                                            (make-hash-table :test endb/sql/expr:+hash-table-test+))
-                                              for (,in-var-sym) in ,src
-                                              do (setf (gethash ,in-var-sym ,index-table-sym)
-                                                       (if (eq :null ,in-var-sym)
-                                                           :null
-                                                           t))
-                                              finally (return ,index-table-sym))))
-                  (,expr-sym ,(ast->cl ctx expr)))
-             (or (gethash ,expr-sym ,index-table-sym)
-                 (gethash :null ,index-table-sym)
-                 (when (and (eq :null ,expr-sym)
-                            (plusp (hash-table-count ,index-table-sym)))
-                   :null))))))))
+      (alexandria:with-gensyms (index-key-form-sym)
+        (let* ((index-sym (fset:lookup ctx :index-sym))
+               (index-key-form `(list ',index-key-form-sym ,@free-vars)))
+          `(endb/sql/expr:ra-in-query
+            (endb/sql/expr:ra-compute-index-if-absent
+             ,index-sym
+             ,index-key-form
+             (lambda ()
+               (endb/sql/expr:ra-in-query-index ,src)))
+            ,(ast->cl ctx expr)))))))
 
 (defmethod sql->cl (ctx (type (eql :subquery)) &rest args)
   (destructuring-bind (query)
