@@ -314,7 +314,7 @@
                     (let ((,index-key-sym ,index-key-form))
                       (or (gethash ,index-key-sym ,index-sym)
                           (let ((,index-table-sym (setf (gethash ,index-key-sym ,index-sym)
-                                                        (make-hash-table :test 'equalp))))
+                                                        (make-hash-table :test endb/sql/expr:+hash-table-test+))))
                             ,(%table-scan->cl ctx
                                               vars
                                               (mapcar #'%unqualified-column-name (from-table-projection from-table))
@@ -415,7 +415,7 @@
                                                    collect `(when (eq t ,(aggregate-where-src v))
                                                               (endb/sql/expr:agg-accumulate ,(aggregate-var v) ,@(aggregate-src v))))))))
            (empty-group-key-form `(list ,@(loop repeat (length group-by-projection) collect :null)))
-           (group-by-src `(let ((,group-acc-sym (make-hash-table :test 'equalp)))
+           (group-by-src `(let ((,group-acc-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
                             ,(%from->cl ctx from-tables where-clauses group-by-selected-src correlated-vars)
                             (when (zerop (hash-table-count ,group-acc-sym))
                               (setf (gethash ,empty-group-key-form ,group-acc-sym)
@@ -918,7 +918,7 @@
                                                 (unless (= (length ,object-sym)
                                                            (length (delete-duplicates
                                                                     ,object-sym
-                                                                    :test 'equalp
+                                                                    :test endb/sql/expr:+hash-table-test+
                                                                     :key (lambda (,object-sym)
                                                                            (loop for ,key-sym in ',on-conflict
                                                                                  collect (endb/sql/expr:syn-access-finish ,object-sym ,key-sym nil))))))
@@ -1038,7 +1038,7 @@
           `(let* ((,index-key-sym ,index-key-form)
                   (,index-table-sym (or (gethash ,index-key-sym ,(fset:lookup ctx :index-sym))
                                         (loop with ,index-table-sym = (setf (gethash ,index-key-sym ,(fset:lookup ctx :index-sym))
-                                                                            (make-hash-table :test 'equalp))
+                                                                            (make-hash-table :test endb/sql/expr:+hash-table-test+))
                                               for (,in-var-sym) in ,src
                                               do (setf (gethash ,in-var-sym ,index-table-sym)
                                                        (if (eq :null ,in-var-sym)
@@ -1571,7 +1571,7 @@
                            (error 'endb/sql/expr:sql-runtime-error :message (format nil "Required parameters: ~A does not match given: ~A"
                                                                                     (fset:convert 'list (fset:convert 'fset:set ',parameters))
                                                                                     (or (fset:convert 'list (fset:domain ,param-sym)) "()"))))
-                         (let ((,index-sym (make-hash-table :test 'equalp)))
+                         (let ((,index-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
                            (declare (ignorable ,index-sym))
                            ,src))))
             #+sbcl (let ((sb-ext:*evaluator-mode* (if (%interpretp ast)

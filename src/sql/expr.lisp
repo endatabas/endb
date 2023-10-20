@@ -41,10 +41,18 @@
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
            #:view-definition #:calculate-stats
-           #:sql-runtime-error #:*sqlite-mode* #:+unix-epoch-time+ #:+end-of-time+))
+           #:sql-runtime-error #:*sqlite-mode* #:+unix-epoch-time+ #:+end-of-time+ #:+hash-table-test+ #:equalp-case-sensitive))
 (in-package :endb/sql/expr)
 
 (defvar *sqlite-mode* nil)
+
+(defun equalp-case-sensitive (x y)
+  (if (and (stringp x) (stringp y))
+      (string= x y)
+      (equalp x y)))
+
+#+sbcl (sb-impl::define-hash-table-test equalp-case-sensitive sb-int:psxhash)
+(defparameter +hash-table-test+ #+sbcl 'endb/sql/expr:equalp-case-sensitive #-sbcl 'equalp)
 
 (defparameter +unix-epoch-time+ (endb/arrow:parse-arrow-timestamp-micros "1970-01-01"))
 (defparameter +end-of-time+ (endb/arrow:parse-arrow-timestamp-micros "9999-01-01"))
@@ -1807,7 +1815,7 @@
 
 (defun ra-distinct (rows &optional (distinct :distinct))
   (if (eq :distinct distinct)
-      (delete-duplicates rows :test 'equalp)
+      (delete-duplicates rows :test +hash-table-test+)
       rows))
 
 (defun ra-in (item xs)
@@ -1824,16 +1832,16 @@
   (not (null rows)))
 
 (defun ra-union (lhs rhs)
-  (ra-distinct (nunion lhs rhs :test 'equalp)))
+  (ra-distinct (nunion lhs rhs :test +hash-table-test+)))
 
 (defun ra-union-all (lhs rhs)
   (nconc lhs rhs))
 
 (defun ra-except (lhs rhs)
-  (ra-distinct (nset-difference lhs rhs :test 'equalp)))
+  (ra-distinct (nset-difference lhs rhs :test +hash-table-test+)))
 
 (defun ra-intersect (lhs rhs)
-  (ra-distinct (nintersection lhs rhs :test 'equalp)))
+  (ra-distinct (nintersection lhs rhs :test +hash-table-test+)))
 
 (defun ra-scalar-subquery (rows)
   (when (> 1 (length rows))
@@ -2058,7 +2066,7 @@
   (with-slots (acc seen distinct) agg
     (when (and (eq :distinct distinct) args)
       (error 'sql-runtime-error :message "GROUP_CONCAT with argument doesn't support DISTINCT"))
-    (if (member x seen :test 'equalp)
+    (if (member x seen :test +hash-table-test+)
         agg
         (let ((separator (syn-cast (or (first args) ",") :varchar)))
           (when distinct
@@ -2091,7 +2099,7 @@
                                               (ra-order-by acc order-by)
                                               (reverse acc))))))
 
-(defstruct agg-object_agg (acc (make-hash-table :test 'equalp)))
+(defstruct agg-object_agg (acc (make-hash-table :test +hash-table-test+)))
 
 (defmethod make-agg ((type (eql :object_agg)) &key distinct)
   (declare (ignore distinct))
