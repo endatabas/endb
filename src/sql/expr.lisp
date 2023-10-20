@@ -47,9 +47,14 @@
 (defvar *sqlite-mode* nil)
 
 (defun equalp-case-sensitive (x y)
-  (if (and (stringp x) (stringp y))
-      (string= x y)
-      (equalp x y)))
+  (etypecase x
+    (string
+     (and (stringp y)
+          (string= x y)))
+    (fset:collection
+     (and (fset:collection? y)
+          (fset:equal? x y)))
+    (t (equalp x y))))
 
 #+sbcl (sb-impl::define-hash-table-test equalp-case-sensitive sb-int:psxhash)
 (defparameter +hash-table-test+ #+sbcl 'endb/sql/expr:equalp-case-sensitive #-sbcl 'equalp)
