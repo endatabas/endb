@@ -222,23 +222,25 @@
   (let* ((s (if single-quote-p
                 (ppcre:regex-replace-all +double-single-quote-scanner+ s "'")
                 s)))
-    (ppcre:regex-replace-all +backslash-escape-scanner+
-                             s
-                             (lambda (target-string start end match-start match-end reg-starts reg-ends)
-                               (declare (ignore start end match-end reg-starts reg-ends))
-                               (let ((c (char target-string (1+ match-start))))
-                                 (string
-                                  (case c
-                                    ((#\" #\' #\\ #\/) c)
-                                    ((#\Newline #\Return #\Line_Separator #\Paragraph_Separator) "")
-                                    (#\0 #\Nul)
-                                    (#\t #\Tab)
-                                    (#\n #\Newline)
-                                    (#\r #\Return)
-                                    (#\f #\Page)
-                                    (#\b #\Backspace)
-                                    (#\v #\Vt)
-                                    (#\u (code-char (parse-integer (subseq target-string (+ 2 match-start) (+ 6 match-start)) :radix 16))))))))))
+    (if (find #\\ s)
+        (ppcre:regex-replace-all +backslash-escape-scanner+
+                                 s
+                                 (lambda (target-string start end match-start match-end reg-starts reg-ends)
+                                   (declare (ignore start end match-end reg-starts reg-ends))
+                                   (let ((c (char target-string (1+ match-start))))
+                                     (string
+                                      (case c
+                                        ((#\" #\' #\\ #\/) c)
+                                        ((#\Newline #\Return #\Line_Separator #\Paragraph_Separator) "")
+                                        (#\0 #\Nul)
+                                        (#\t #\Tab)
+                                        (#\n #\Newline)
+                                        (#\r #\Return)
+                                        (#\f #\Page)
+                                        (#\b #\Backspace)
+                                        (#\v #\Vt)
+                                        (#\u (code-char (parse-integer (subseq target-string (+ 2 match-start) (+ 6 match-start)) :radix 16))))))))
+        s)))
 
 (defun visit-ast (input builder ast)
   (loop with input-bytes = (trivial-utf-8:string-to-utf-8-bytes input)
