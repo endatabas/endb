@@ -31,7 +31,7 @@
            #:syn-access #:syn-access-finish #:syn-interval #:syn-cast #:syn-extract
 
            #:ra-distinct #:ra-unnest #:ra-union-all #:ra-union #:ra-except #:ra-intersect
-           #:ra-scalar-subquery #:ra-in  #:ra-exists #:ra-limit #:ra-order-by
+           #:ra-scalar-subquery #:ra-in  #:ra-in-query #:ra-in-query-index #:ra-exists #:ra-limit #:ra-order-by #:ra-compute-index-if-absent
 
            #:make-agg #:agg-accumulate #:agg-finish
            #:ddl-create-table #:ddl-drop-table #:ddl-create-view #:ddl-drop-view #:ddl-create-index #:ddl-drop-index #:ddl-create-assertion #:ddl-drop-assertion
@@ -1833,6 +1833,22 @@
             xs
             :initial-value nil)))
 
+(defun ra-in-query (index item)
+  (or (gethash item index)
+      (gethash :null index)
+      (when (and (eq :null item)
+                 (plusp (hash-table-count index)))
+        :null)))
+
+(defun ra-in-query-index (rows)
+  (loop with index-table = (make-hash-table :test +hash-table-test+)
+        for (in) in rows
+        do (setf (gethash in index-table)
+                 (if (eq :null in)
+                     :null
+                     t))
+        finally (return index-table)))
+
 (defun ra-exists (rows)
   (not (null rows)))
 
@@ -1854,6 +1870,14 @@
   (if (null rows)
       :null
       (caar rows)))
+
+(defun ra-compute-index-if-absent (index k f)
+  (multiple-value-bind (result resultp)
+      (gethash k index)
+    (if resultp
+        result
+        (setf (gethash k index)
+              (funcall f)))))
 
 (defun ra-unnest (arrays &key with-ordinality)
   (let ((arrays (loop for a in arrays
