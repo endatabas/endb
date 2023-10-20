@@ -2388,6 +2388,24 @@
 
 (defstruct col-stats count_star count min max bloom)
 
+(defmethod agg-accumulate ((agg col-stats) x &rest args)
+  (declare (ignore args))
+  (with-slots (count_star count min max bloom) agg
+    (agg-accumulate count_star x)
+    (agg-accumulate count x)
+    (agg-accumulate min x)
+    (agg-accumulate max x)
+    (agg-accumulate bloom x))
+  agg)
+
+(defmethod agg-finish ((agg col-stats))
+  (with-slots (count_star count min max bloom) agg
+    (fset:map ("count_star" (agg-finish count_star))
+              ("count" (agg-finish count))
+              ("min" (agg-finish min))
+              ("max" (agg-finish max))
+              ("bloom" (agg-finish bloom)))))
+
 (defun calculate-stats (arrays)
   (let* ((total-length (reduce #'+ (mapcar #'endb/arrow:arrow-length arrays)))
          (bloom-order (* 8 (endb/lib/arrow:vector-byte-size #* (cl-bloom::opt-order total-length))))
@@ -2401,36 +2419,24 @@
                           :count (make-agg :count)
                           :min (make-agg :min)
                           :max (make-agg :max)
-                          :bloom (make-instance 'cl-bloom::bloom-filter :order bloom-order)))))
-             (accumulate-col-stats (col-stats v)
-               (with-slots (count_star count min max bloom) col-stats
-                 (agg-accumulate count_star v)
-                 (agg-accumulate count v)
-                 (agg-accumulate min v)
-                 (agg-accumulate max v)
-                 (agg-accumulate bloom v))))
+                          :bloom (make-instance 'cl-bloom::bloom-filter :order bloom-order))))))
       (dolist (array arrays)
         (if (typep array 'endb/arrow:dense-union-array)
             (loop for idx below (endb/arrow:arrow-length array)
                   for row = (endb/arrow:arrow-get array idx)
                   when (typep row 'endb/arrow:arrow-struct)
                     do (fset:do-map (k v row)
-                         (accumulate-col-stats (get-col-stats k) v)))
+                         (agg-accumulate (get-col-stats k) v)))
             (maphash
              (lambda (k v)
                (loop with col-stats = (get-col-stats (symbol-name k))
                      for idx below (endb/arrow:arrow-length v)
                      when (endb/arrow:arrow-valid-p array idx)
-                       do (accumulate-col-stats col-stats (endb/arrow:arrow-get v idx))))
+                       do (agg-accumulate col-stats (endb/arrow:arrow-get v idx))))
              (slot-value array 'endb/arrow::children))))
       (maphash
        (lambda (k v)
-         (setf acc (fset:with acc k (with-slots (count_star count min max bloom) v
-                                      (fset:map ("count_star" (agg-finish count_star))
-                                                ("count" (agg-finish count))
-                                                ("min" (agg-finish min))
-                                                ("max" (agg-finish max))
-                                                ("bloom" (agg-finish bloom)))))))
+         (setf acc (fset:with acc k (agg-finish v))))
        stats)
       acc)))
 
