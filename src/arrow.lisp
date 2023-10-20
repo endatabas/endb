@@ -623,7 +623,7 @@
   (arrow-push array (arrow-time-micros-us x)))
 
 (defmethod arrow-value ((array time-micros-array) (n fixnum))
-  (make-arrow-time-micros :us  (aref (slot-value array 'values) n)))
+  (make-arrow-time-micros :us (aref (slot-value array 'values) n)))
 
 (defmethod arrow-data-type ((array time-micros-array))
   "ttu")
@@ -888,7 +888,7 @@
 (defmethod arrow-push ((array list-array) (x (eql :null)))
   (with-slots (offsets values) array
     (%push-invalid array)
-    (vector-push-extend (length values) offsets)
+    (vector-push-extend (arrow-length values) offsets)
     array))
 
 (defmethod arrow-value ((array list-array) (n fixnum))
@@ -1085,7 +1085,7 @@
 
 (defmethod arrow-valid-p ((array dense-union-array) (n fixnum))
   (with-slots (type-ids offsets children) array
-    (arrow-valid-p (nth (aref type-ids n) children) (aref offsets n))))
+    (arrow-valid-p (aref children (aref type-ids n)) (aref offsets n))))
 
 (defmethod arrow-push ((array dense-union-array) x)
   (with-slots (type-ids offsets children) array
