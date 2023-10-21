@@ -264,18 +264,13 @@
                                         collect `(,v (endb/arrow:arrow-struct-column-array ,batch-sym ,p))))
                            (declare (ignorable ,temporal-sym ,@array-vars))
                            (dotimes (,scan-row-id-sym (endb/arrow:arrow-length ,batch-sym))
-                             (when (and ,(if temporal-type-p
-                                             `(eq t (,(case temporal-type
+                             (when (and ,@(when temporal-type-p
+                                            `((eq t (,(case temporal-type
                                                         ((:as-of :between :all) 'endb/sql/expr:sql-<=)
                                                         (:from 'endb/sql/expr:sql-<))
                                                      (endb/arrow:arrow-get ,temporal-sym ,scan-row-id-sym)
-                                                     ,system-time-end-sym))
-                                             t)
-                                        (not (fset:find ,scan-row-id-sym
-                                                        ,deleted-row-ids-sym
-                                                        :key (lambda (,lambda-sym)
-                                                               (fset:lookup ,lambda-sym "row_id"))))
-                                        (not (fset:find ,scan-row-id-sym ,erased-row-ids-sym))
+                                                     ,system-time-end-sym))))
+                                        (endb/sql/expr:ra-visible-row-p ,deleted-row-ids-sym ,erased-row-ids-sym ,scan-row-id-sym)
                                         ,where-src)
                                ,nested-src)))))))))))
         (alexandria:with-gensyms (row-sym)
