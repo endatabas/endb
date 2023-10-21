@@ -2227,12 +2227,12 @@
     (endb/lib/parser:parse-sql (nth 3 view-row))))
 
 (defun constraint-definitions (db)
-  (let ((*read-eval* nil)
-        (*read-default-float-format* 'double-float))
-    (fset:convert 'fset:map
-                  (loop for constraint-row in (base-table-visible-rows db "information_schema.check_constraints")
-                        collect (cons (nth 2 constraint-row)
-                                      (endb/lib/parser:parse-sql (format nil "SELECT ~A" (nth 3 constraint-row))))))))
+  (if *sqlite-mode*
+      (fset:empty-map)
+      (fset:convert 'fset:map
+                    (loop for constraint-row in (base-table-visible-rows db "information_schema.check_constraints")
+                          collect (cons (nth 2 constraint-row)
+                                        (endb/lib/parser:parse-sql (format nil "SELECT ~A" (nth 3 constraint-row))))))))
 
 (defun table-columns (db table-name)
   (cond
