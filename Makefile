@@ -129,6 +129,7 @@ slt-test-select: SLT_TESTS = $(SLT_SELECT_TESTS)
 slt-test-select: slt-test
 
 slt-test-random: SLT_TESTS = $(SLT_RANDOM_TESTS)
+slt-test-random: SLT_ENV += SB_INTERPRET=1
 slt-test-random: slt-test
 
 slt-test-index: SLT_TESTS = $(SLT_INDEX_TESTS)
@@ -140,7 +141,6 @@ slt-test-evidence: SLT_ENV += ENDB_ENGINE_REPORTED_NAME=sqlite
 slt-test-evidence: slt-test
 
 slt-test-all: SLT_TESTS = $(shell find sqllogictest/test -iname *.test | grep -v evidence)
-slt-test-all: SLT_ENV += SB_INTERPRET=1
 slt-test-all: slt-test
 
 TPCH_SCHEMA_FILE = test/tpch/tpch_schema.test

@@ -1522,16 +1522,16 @@
         (ast->cl ctx ast)
       (values src projection vars))))
 
-(defvar *interpreter-from-limit* 8)
+(defparameter +interpreter-from-limit+ 10)
 
 (defun %interpretp (ast)
   (when (listp ast)
     (case (first ast)
       ((:create-table :create-index :drop-table :drop-view :create-assertion :drop-assertion) t)
       (:insert (member (first (third ast)) '(:values :objects)))
-      (:select (let ((from (cdr (getf ast :from))))
+      (:select (let ((from (getf ast :from)))
                  (or (> (length from)
-                        *interpreter-from-limit*)
+                        +interpreter-from-limit+)
                      (null from)))))))
 
 (defun compile-sql (ctx ast &optional parameters)
