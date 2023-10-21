@@ -327,8 +327,9 @@
           (let ((exit-code 0)
                 (args (cons (uiop:argv0) (uiop:command-line-arguments))))
             #+sbcl (if (uiop:getenv "SB_SPROF")
-                       (progn (sb-sprof:with-profiling (:max-samples 1000
-                                                        :report :flat
+                       (progn (sb-sprof:with-profiling (:max-samples 10000
+                                                        :report :graph
+                                                        :sample-interval 0.001
                                                         :loop nil)
                                 (setq exit-code (%slt-main args)))
                               exit-code)

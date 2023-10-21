@@ -75,22 +75,14 @@
 
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value fset:map))
   (com.inuoe.jzon:with-object writer
-    (fset:reduce
-     (lambda (w k v)
-       (com.inuoe.jzon:write-key w k)
-       (com.inuoe.jzon:write-value w v)
-       w)
-     value
-     :initial-value writer)))
+    (fset:do-map (k v value)
+      (com.inuoe.jzon:write-key writer k)
+      (com.inuoe.jzon:write-value writer v))))
 
 (defmethod com.inuoe.jzon:write-value ((writer com.inuoe.jzon:writer) (value fset:seq))
   (com.inuoe.jzon:with-array writer
-    (fset:reduce
-     (lambda (w v)
-       (com.inuoe.jzon:write-value w v)
-       w)
-     value
-     :initial-value writer)))
+    (fset:do-seq (v value)
+      (com.inuoe.jzon:write-value writer v))))
 
 (defvar *json-ld-scalars* t)
 

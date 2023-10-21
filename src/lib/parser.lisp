@@ -219,7 +219,7 @@
 (defparameter +backslash-escape-scanner+ (ppcre:create-scanner "(?s)(\\\\u[0-9a-fA-F]{4}|\\\\.)"))
 
 (defun sql-string-to-cl (single-quote-p s)
-  (let* ((s (if single-quote-p
+  (let* ((s (if (and single-quote-p (find #\' s))
                 (ppcre:regex-replace-all +double-single-quote-scanner+ s "'")
                 s)))
     (if (find #\\ s)
