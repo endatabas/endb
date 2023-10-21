@@ -1371,14 +1371,20 @@
                                   (symbol-name ast))
                                  (t (ast->cl ctx ast)))))))
 
+(defparameter +impure-functions+ '(endb/sql/expr:sql-random endb/sql/expr:sql-randomblob endb/sql/expr:sql-uuid))
+
 (defmethod sql->cl (ctx (type (eql :function)) &rest args)
   (destructuring-bind (fn args)
       args
     (let ((fn-sym (%find-expr-symbol fn "sql-")))
       (unless (and fn-sym (%valid-sql-fn-call-p fn-sym fn args))
         (error 'endb/sql/expr:sql-runtime-error :message (format nil "Unknown built-in function: ~A" fn)))
-      `(,fn-sym ,@(loop for ast in args
-                        collect (ast->cl ctx ast))))))
+      (if (and (not (member fn-sym +impure-functions+))
+               (not (macro-function fn-sym))
+               (every #'constantp args))
+          (apply fn-sym args)
+          `(,fn-sym ,@(loop for ast in args
+                            collect (ast->cl ctx ast)))))))
 
 (defmethod sql->cl (ctx (type (eql :aggregate-function)) &rest args)
   (destructuring-bind (fn args &key distinct (where :true) order-by)
