@@ -31,7 +31,7 @@
            #:syn-access #:syn-access-finish #:syn-interval #:syn-cast #:syn-extract
 
            #:ra-distinct #:ra-unnest #:ra-union-all #:ra-union #:ra-except #:ra-intersect
-           #:ra-scalar-subquery #:ra-in  #:ra-in-query #:ra-in-query-index #:ra-exists #:ra-limit #:ra-order-by #:ra-compute-index-if-absent
+           #:ra-scalar-subquery #:ra-in  #:ra-in-query #:ra-in-query-index #:ra-exists #:ra-limit #:ra-order-by #:ra-compute-index-if-absent #:ra-visible-row-p
 
            #:make-agg #:agg-accumulate #:agg-finish
            #:ddl-create-table #:ddl-drop-table #:ddl-create-view #:ddl-drop-view #:ddl-create-index #:ddl-drop-index #:ddl-create-assertion #:ddl-drop-assertion
@@ -1848,6 +1848,15 @@
                      :null
                      t))
         finally (return index-table)))
+
+(defun ra-visible-row-p (deleted-rows erased-row-ids row-id)
+  (not (or (when deleted-rows
+             (fset:find row-id
+                        deleted-rows
+                        :key (lambda (x)
+                               (fset:lookup x "row_id"))))
+           (when erased-row-ids
+             (fset:find row-id erased-row-ids)))))
 
 (defun ra-exists (rows)
   (not (null rows)))
