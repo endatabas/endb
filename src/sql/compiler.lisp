@@ -284,12 +284,16 @@
                                              unless (find v where-vars)
                                                collect `(,v ,p)))
                                  (declare (ignorable ,@(set-difference vars where-vars)))
-                                 (loop for _ below 1
-                                       ,@nested-src)))))))))))))
-        `(loop for ,vars
-                 in ,from-src
-               when ,where-src
-                 ,@nested-src))))
+                                 ,nested-src))))))))))))
+        (alexandria:with-gensyms (row-sym)
+          `(dolist (,row-sym ,from-src)
+             (let (,@(loop for v in (%unique-vars vars)
+                           for idx from 0
+                           when v
+                             collect `(,v (nth ,idx ,row-sym))))
+               (declare (ignorable ,@(set-difference vars where-vars)))
+               (when ,where-src
+                 ,nested-src)))))))
 
 (defun %join->cl (ctx from-table scan-where-clauses equi-join-clauses)
   (with-slots (src vars free-vars)
@@ -321,8 +325,8 @@
                                            (mapcar #'%unqualified-column-name (from-table-projection from-table))
                                            src
                                            scan-where-clauses
-                                           `(do (push (list ,@vars)
-                                                      (gethash (list ,@out-vars) ,index-table-sym))))
+                                           `(push (list ,@vars)
+                                                  (gethash (list ,@out-vars) ,index-table-sym)))
                          ,index-table-sym)))))))))
 
 (defun %selection-with-limit-offset->cl (ctx selected-src &optional limit offset)
@@ -334,14 +338,14 @@
                           (+ offset limit)
                           limit))
                (offset (or offset 0)))
-          `(when (and (>= ,rows-sym ,offset)
-                      (not (eql ,rows-sym ,limit)))
-             do (progn
-                  (incf ,rows-sym)
-                  (push (list ,@selected-src) ,acc-sym))
-             when (eql ,rows-sym ,limit)
-             do (return-from ,block-sym ,acc-sym)))
-        `(do (push (list ,@selected-src) ,acc-sym)))))
+          `(progn
+             (when (and (>= ,rows-sym ,offset)
+                        (not (eql ,rows-sym ,limit)))
+               (incf ,rows-sym)
+               (push (list ,@selected-src) ,acc-sym))
+             (when (eql ,rows-sym ,limit)
+               (return-from ,block-sym ,acc-sym))))
+        `(push (list ,@selected-src) ,acc-sym))))
 
 (defun %scan-where-clause-p (ast)
   (if (listp ast)
@@ -377,9 +381,9 @@
       (let* ((new-where-clauses (append scan-clauses equi-join-clauses pushdown-clauses))
              (where-clauses (set-difference where-clauses new-where-clauses))
              (nested-src (if from-tables
-                             `(do ,(%from->cl ctx from-tables where-clauses selected-src vars))
-                             (append `(,@(loop for clause in where-clauses append `(when (eq t ,(where-clause-src clause)))))
-                                     selected-src)))
+                             (%from->cl ctx from-tables where-clauses selected-src vars)
+                             `(when (and ,@(loop for clause in where-clauses collect `(eq t ,(where-clause-src clause))))
+                                ,selected-src)))
              (projection (mapcar #'%unqualified-column-name (from-table-projection from-table))))
         (if equi-join-clauses
             (%table-scan->cl ctx
@@ -405,16 +409,17 @@
            (group-key-form `(list ,@group-by-projection))
            (init-srcs (loop for v being the hash-value of aggregate-table
                             collect (aggregate-init-src v)))
-           (group-by-selected-src `(do (let* ((,group-key-sym ,group-key-form)
-                                              (,group-sym  (gethash ,group-key-sym ,group-acc-sym)))
-                                         (unless ,group-sym
-                                           (setf ,group-sym (list ,@init-srcs))
-                                           (setf (gethash ,group-key-sym ,group-acc-sym) ,group-sym))
-                                         (destructuring-bind ,group-by-exprs-projection
-                                             ,group-sym
-                                           ,@(loop for v being the hash-value of aggregate-table
-                                                   collect `(when (eq t ,(aggregate-where-src v))
-                                                              (endb/sql/expr:agg-accumulate ,(aggregate-var v) ,@(aggregate-src v))))))))
+           (group-by-selected-src `(let* ((,group-key-sym ,group-key-form)
+                                          (,group-sym  (gethash ,group-key-sym ,group-acc-sym)))
+                                     (unless ,group-sym
+                                       (setf ,group-sym (list ,@init-srcs))
+                                       (setf (gethash ,group-key-sym ,group-acc-sym) ,group-sym))
+                                     (let (,@(loop for v in group-by-exprs-projection
+                                                   for idx from 0
+                                                   collect `(,v (nth ,idx ,group-sym))))
+                                       ,@(loop for v being the hash-value of aggregate-table
+                                               collect `(when (eq t ,(aggregate-where-src v))
+                                                          (endb/sql/expr:agg-accumulate ,(aggregate-var v) ,@(aggregate-src v)))))))
            (empty-group-key-form `(list ,@(loop repeat (length group-by-projection) collect :null)))
            (group-by-src `(let ((,group-acc-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
                             ,(%from->cl ctx from-tables where-clauses group-by-selected-src correlated-vars)
@@ -429,11 +434,21 @@
         (error 'endb/sql/expr:sql-runtime-error :message (format nil "Selecting columns: ~A that does not match group by: ~A"
                                                                  non-group-selected-vars
                                                                  (or group-by "()"))))
-      (append `(loop for ,(%unique-vars group-by-projection) being the hash-key
-                       using (hash-value ,group-by-exprs-projection)
-                         of ,group-by-src
-                     when (eq t ,having-src))
-              (%selection-with-limit-offset->cl ctx selected-src limit offset)))))
+      (alexandria:with-gensyms (key-sym val-sym)
+        `(maphash
+          (lambda (,key-sym ,val-sym)
+            (declare (ignorable ,key-sym ,val-sym))
+            (let (,@(loop for v in (%unique-vars group-by-projection)
+                          for idx from 0
+                          when v
+                            collect `(,v (nth ,idx ,key-sym)))
+                  ,@(loop for v in group-by-exprs-projection
+                          for idx from 0
+                          collect `(,v (nth ,idx ,val-sym))))
+              (declare (ignorable ,@(remove nil (%unique-vars group-by-projection))))
+              (when (eq t ,having-src)
+                ,(%selection-with-limit-offset->cl ctx selected-src limit offset))))
+          ,group-by-src)))))
 
 (defun %where-clause-selectivity-factor (clause)
   (let ((ast (where-clause-ast clause)))
@@ -929,13 +944,13 @@
                                (list (%table-scan->cl ctx vars projection from-src where-clauses
                                                       `(if (and ,@(loop for clause in (%and-clauses where)
                                                                         collect `(eq t ,(ast->cl ctx clause))))
-                                                           do (setf ,insertp-sym nil)
-                                                           ,@update-src
-                                                           else
-                                                           do (setf ,insertp-sym nil)))))
+                                                           (progn
+                                                             (setf ,insertp-sym nil)
+                                                             ,@update-src)
+                                                           (setf ,insertp-sym nil)))))
                              (when ,insertp-sym
                                (push ,object-sym ,updated-rows-sym)))
-                    (%table-scan->cl ctx vars projection from-src where-clauses `(do ,@update-src)))
+                    (%table-scan->cl ctx vars projection from-src where-clauses `(progn ,@update-src)))
                (endb/sql/expr:dml-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,updated-rows-sym)
                (endb/sql/expr:dml-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)
                (values nil (length ,updated-rows-sym)))))))))
@@ -984,7 +999,7 @@
                                                                    :ast clause)))))
             `(let ((,deleted-row-ids-sym))
                ,(%table-scan->cl ctx vars projection from-src where-clauses
-                                 `(do (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym)))
+                                 `(push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym))
                (endb/sql/expr:dml-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym))))))))
 
 (defmethod sql->cl (ctx (type (eql :erase)) &rest args)
@@ -1011,7 +1026,7 @@
                                                                    :ast clause)))))
             `(let ((,erased-row-ids-sym))
                ,(%table-scan->cl ctx vars projection from-src where-clauses
-                                 `(do (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,erased-row-ids-sym)))
+                                 `(push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,erased-row-ids-sym))
                (endb/sql/expr:dml-erase ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,erased-row-ids-sym))))))))
 
 (defmethod sql->cl (ctx (type (eql :update)) &rest args)
