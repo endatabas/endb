@@ -41,7 +41,7 @@
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
            #:view-definition #:calculate-stats
-           #:sql-runtime-error #:*sqlite-mode* #:+unix-epoch-time+ #:+end-of-time+ #:+hash-table-test+ #:equalp-case-sensitive))
+           #:sql-runtime-error #:*sqlite-mode* #:+unix-epoch-time+ #:+end-of-time+ #:+hash-table-test+ #:equalp-case-sensitive #:+impure-functions+))
 (in-package :endb/sql/expr)
 
 (defvar *sqlite-mode* nil)
@@ -61,6 +61,8 @@
 
 (defparameter +unix-epoch-time+ (endb/arrow:parse-arrow-timestamp-micros "1970-01-01"))
 (defparameter +end-of-time+ (endb/arrow:parse-arrow-timestamp-micros "9999-01-01"))
+
+(defparameter +impure-functions+ '(sql-random sql-randomblob sql-uuid))
 
 (define-condition sql-runtime-error (error)
   ((message :initarg :message :reader sql-runtime-error-message))
