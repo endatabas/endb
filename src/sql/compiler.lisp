@@ -217,7 +217,7 @@
                  (scan-arrow-file-sym (or (fset:lookup ctx :scan-arrow-file-sym) scan-arrow-file-sym))
                  (kw-projection (remove :|system_time| (loop for c in projection
                                                              collect (intern c :keyword))))
-                 (array-vars (loop for nil in kw-projection
+                 (array-vars (loop repeat (length kw-projection)
                                    collect (gensym))))
             (destructuring-bind (&optional (temporal-type :as-of temporal-type-p) (temporal-start :current_timestamp) (temporal-end temporal-start))
                 (base-table-temporal from-src)
@@ -407,7 +407,8 @@
                                        ,@(loop for v being the hash-value of aggregate-table
                                                collect `(when (eq t ,(aggregate-where-src v))
                                                           (endb/sql/expr:agg-accumulate ,(aggregate-var v) ,@(aggregate-src v)))))))
-           (empty-group-key-form `(list ,@(loop repeat (length group-by-projection) collect :null)))
+           (empty-group-key-form `(list ,@(loop repeat (length group-by-projection)
+                                                collect :null)))
            (group-by-src `(let ((,group-acc-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
                             ,(%from->cl ctx from-tables where-clauses group-by-selected-src correlated-vars)
                             (when (zerop (hash-table-count ,group-acc-sym))
