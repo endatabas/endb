@@ -2539,6 +2539,16 @@ SELECT s FROM x WHERE ind=0")
       (is (equalp '(("foo") ("bar") ("food")) result))
       (is (equal '("x") columns)))
 
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT COUNT(x) FROM (VALUES (1), (2)) AS foo(x) WHERE FALSE")
+      (is (equalp '((0)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT COUNT(x) FROM (VALUES (1), (2)) AS foo(x) WHERE FALSE GROUP BY x")
+      (is (null result))
+      (is (equal '("column1") columns)))
+
     (signals-with-msg endb/sql/expr:sql-runtime-error
         "Unknown column"
       (execute-sql db "SELECT x AS y FROM (VALUES (1), (2)) AS foo(x) ORDER BY -y"))
