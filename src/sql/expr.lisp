@@ -2445,7 +2445,7 @@
                      for idx below (endb/arrow:arrow-length v)
                      when (endb/arrow:arrow-valid-p array idx)
                        do (agg-accumulate col-stats (endb/arrow:arrow-get v idx))))
-             (slot-value array 'endb/arrow::children))))
+             (endb/arrow:arrow-struct-children array))))
       (maphash
        (lambda (k v)
          (setf acc (fset:with acc k (agg-finish v))))
@@ -2494,7 +2494,7 @@
                             (car (endb/storage/buffer-pool:buffer-pool-get buffer-pool batch-key))
                             (endb/arrow:make-arrow-array-for (fset:map (table-name :null)
                                                                        ("system_time_start" current-timestamp)))))
-                 (batch-children (slot-value batch 'endb/arrow::children))
+                 (batch-children (endb/arrow:arrow-struct-children batch))
                  (kw-columns (loop for cn in (if created-p
                                                  columns
                                                  column-names)
@@ -2519,7 +2519,7 @@
                   (dolist (row (rest values))
                     (setf table-array (endb/arrow:arrow-push table-array (row-to-map row))))
 
-                  (loop with children = (slot-value table-array 'endb/arrow::children)
+                  (loop with children = (endb/arrow:arrow-struct-children table-array)
                         with values = (rest values)
                         for idx in permutation
                         for cn in kw-columns

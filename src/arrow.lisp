@@ -9,7 +9,7 @@
            #:arrow-push #:arrow-valid-p #:arrow-get #:arrow-value
            #:arrow-length #:arrow-null-count #:arrow-data-type #:arrow-lisp-type
            #:arrow-children #:arrow-buffers
-           #:arrow-struct-column-value #:arrow-struct-column-array #:arrow-struct-projection
+           #:arrow-struct-column-value #:arrow-struct-column-array #:arrow-struct-projection #:arrow-struct-children
            #:arrow-array #:validity-array #:null-array #:int32-array #:int64-array #:float64-array
            #:date-millis-array #:timestamp-micros-array #:time-micros-array #:binary-array #:utf8-array #:list-array #:struct-array #:dense-union-array)
   (:import-from :alexandria)
@@ -1032,6 +1032,9 @@
                  (push (cons (symbol-name k) v) acc))
                children)
       (sort acc #'string< :key #'car))))
+
+(defun arrow-struct-children (array)
+  (slot-value array 'children))
 
 (defun arrow-struct-column-value (array n column)
   (if (typep array 'dense-union-array)
