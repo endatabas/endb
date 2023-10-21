@@ -239,10 +239,21 @@
   (murmurhash:murmurhash (arrow-interval-month-day-nanos-uint128 x) :seed seed :mix-only mix-only))
 
 (defmethod murmurhash:murmurhash ((x fset:seq) &key (seed murmurhash:*default-seed*) mix-only)
-  (murmurhash:murmurhash (fset:convert 'list x) :seed seed :mix-only mix-only))
+  (let ((hash seed))
+    (fset:do-seq (v x)
+      (murmurhash::mixf hash (murmurhash:murmurhash v :seed hash :mix-only t)))
+    (if mix-only
+        hash
+        (murmurhash::finalize hash (fset:size x)))))
 
 (defmethod murmurhash:murmurhash ((x fset:map) &key (seed murmurhash:*default-seed*) mix-only)
-  (murmurhash:murmurhash (fset:convert 'hash-table x) :seed seed :mix-only mix-only))
+  (let ((hash seed))
+    (fset:do-map (k v x)
+      (murmurhash::mixf hash (murmurhash:murmurhash k :seed hash :mix-only t))
+      (murmurhash::mixf hash (murmurhash:murmurhash v :seed hash :mix-only t)))
+    (if mix-only
+        hash
+        (murmurhash::finalize hash (fset:size x)))))
 
 (fset:define-cross-type-compare-methods endb/arrow:arrow-date-millis)
 (fset:define-cross-type-compare-methods endb/arrow:arrow-timestamp-micros)
