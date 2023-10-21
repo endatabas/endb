@@ -225,7 +225,9 @@
                                          for p in (append
                                                    (loop for p in kw-projection
                                                          for v in array-vars
-                                                         collect `(endb/arrow:arrow-struct-column ,batch-sym ,scan-row-id-sym ,p ,v))
+                                                         collect `(if ,v
+                                                                      (endb/arrow:arrow-get ,v ,scan-row-id-sym)
+                                                                      (endb/arrow:arrow-struct-column-value ,batch-sym ,scan-row-id-sym ,p)))
                                                    (unless endb/sql/expr:*sqlite-mode*
                                                      (list `(endb/arrow:arrow-get ,batch-sym ,scan-row-id-sym)
                                                            `(fset:map ("start" (endb/arrow:arrow-get ,temporal-sym ,scan-row-id-sym))
