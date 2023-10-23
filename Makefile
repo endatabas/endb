@@ -57,7 +57,7 @@ SLT_TESTS = $(SLT_SELECT_TESTS)
 TPCH_SF ?= 001
 TPCH_REFERENCE_ENGINE = sqlite
 
-default: quicklisp-update-dist test target/endb
+default: test target/endb
 
 endb_data:
 	mkdir -p endb_data
@@ -80,7 +80,7 @@ run-binary: target/endb
 quicklisp-update-dist:
 	$(LISP) --non-interactive --eval '(ql:update-dist "quicklisp" :prompt nil)'
 
-test: lib-test target/libendb$(SHARED_LIB_EXT) quicklisp-update-dist
+test: lib-test target/libendb$(SHARED_LIB_EXT)
 	$(LISP) --non-interactive \
 		--eval '(ql:quickload :endb-test :silent t)' \
 		--eval '(uiop:quit (if (fiveam:run-all-tests) 0 1))'
