@@ -1,11 +1,14 @@
 (defpackage :endb-test/tpch/core
+  (:use :cl)
+  (:export #:main)
   (:import-from :ppcre)
   (:import-from :uiop))
 
 ;; https://github.com/gregrahn/tpch-kit
 
-;; TPCH_SF=1 ./dbgen -vf -s $TPCH_SF
-;; TPCH_SF=1 DSS_QUERY=queries ./qgen -s $TPCH_SF -v
+;; export TPCH_SF=1
+;; ./dbgen -vf -s $TPCH_SF
+;; DSS_QUERY=queries ./qgen -s $TPCH_SF -v
 
 ;; New queries currently needs manual editing.
 
@@ -14,12 +17,6 @@
 (defvar *pipe-scanner* (ppcre:create-scanner "\\|"))
 
 (defvar *chunk-size* 1024)
-(setf *chunk-size* 128)
-
-(defun %partition (xs n)
-  (loop for xs-part on xs by (lambda (x)
-                               (nthcdr n x))
-        collect (subseq xs-part 0 (min (length xs-part) n))))
 
 (defun tpch-pipe-delimited-to-slt (file)
   (with-open-file (in file)
@@ -28,11 +25,12 @@
                          :direction :output
                          :if-exists :supersede
                          :if-does-not-exist :create)
-      (let* ((table-name (ppcre:regex-replace ".tbl$" (file-namestring file) ""))
-             (rows (loop for line = (read-line in nil)
-                         while line
-                         collect line)))
-        (loop for row-chunk in (%partition rows *chunk-size*)
+      (let* ((table-name (ppcre:regex-replace ".tbl$" (file-namestring file) "")))
+        (loop for row-chunk = (loop for idx below *chunk-size*
+                                     for line = (read-line in nil)
+                                     while line
+                                     collect line)
+              while row-chunk
               do (format out "~%statement ok~%")
                  (format out "INSERT INTO ~a VALUES " table-name)
                  (loop for row in row-chunk
@@ -57,6 +55,6 @@
         (format out "~%~%")))))
 
 (defun main ()
-  (let ((tbl-dir (or (uiop:getenv "ENDB_TPCH_TBL_DIR") "test/tpch/01/")))
+  (let ((tbl-dir (or (uiop:getenv "ENDB_TPCH_TBL_DIR") "test/tpch/1/")))
     (dolist (file (uiop:directory-files tbl-dir "*.tbl"))
       (tpch-pipe-delimited-to-slt file))))

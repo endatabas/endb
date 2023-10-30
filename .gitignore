@@ -4,3 +4,4 @@ target
 perf.data*
 endb_data
 __pycache__
+test/tpch/1/*_tbl.test.gz

@@ -411,10 +411,10 @@
                                                 collect :null)))
            (group-by-src `(let ((,group-acc-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
                             ,(%from->cl ctx from-tables where-clauses group-by-selected-src correlated-vars)
-                            (when (and (zerop (hash-table-count ,group-acc-sym))
-                                       ,(null group-by))
-                              (setf (gethash ,empty-group-key-form ,group-acc-sym)
-                                    (list ,@init-srcs)))
+                            ,(unless group-by
+                               `(when (zerop (hash-table-count ,group-acc-sym))
+                                  (setf (gethash ,empty-group-key-form ,group-acc-sym)
+                                        (list ,@init-srcs))))
                             ,group-acc-sym))
            (non-group-selected-vars (loop for v in selected-non-aggregate-columns
                                           unless (find (fset:lookup ctx v) group-by-projection)
