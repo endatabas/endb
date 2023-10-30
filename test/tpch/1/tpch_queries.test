@@ -13,7 +13,7 @@ select
 from
 	lineitem
 where
-	l_shipdate <= date('1998-08-29')
+	l_shipdate <= date('1998-09-07')
 group by
 	l_returnflag,
 	l_linestatus
@@ -41,11 +41,11 @@ from
 where
 	p_partkey = ps_partkey
 	and s_suppkey = ps_suppkey
-	and p_size = 32
+	and p_size = 38
 	and p_type like '%COPPER'
 	and s_nationkey = n_nationkey
 	and n_regionkey = r_regionkey
-	and r_name = 'ASIA'
+	and r_name = 'AFRICA'
 	and ps_supplycost = (
 		select
 			min(ps_supplycost)
@@ -59,7 +59,7 @@ where
 			and s_suppkey = ps_suppkey
 			and s_nationkey = n_nationkey
 			and n_regionkey = r_regionkey
-			and r_name = 'ASIA'
+			and r_name = 'AFRICA'
 	)
 order by
 	s_acctbal desc,
@@ -80,11 +80,11 @@ from
 	orders,
 	lineitem
 where
-	c_mktsegment = 'BUILDING'
+	c_mktsegment = 'FURNITURE'
 	and c_custkey = o_custkey
 	and l_orderkey = o_orderkey
-	and o_orderdate < date('1995-03-14')
-	and l_shipdate > date('1995-03-14')
+	and o_orderdate < date('1995-03-01')
+	and l_shipdate > date('1995-03-01')
 group by
 	l_orderkey,
 	o_orderdate,
@@ -102,8 +102,8 @@ select
 from
 	orders
 where
-	o_orderdate >= date('1995-01-01')
-	and o_orderdate < date('1995-04-01')
+	o_orderdate >= date('1993-01-01')
+	and o_orderdate < date('1993-04-01')
 	and exists (
 		select
 			*
@@ -137,9 +137,9 @@ where
 	and c_nationkey = s_nationkey
 	and s_nationkey = n_nationkey
 	and n_regionkey = r_regionkey
-	and r_name = 'MIDDLE EAST'
-	and o_orderdate >= date('1993-01-01')
-	and o_orderdate < date('1994-01-01')
+	and r_name = 'EUROPE'
+	and o_orderdate >= date('1994-01-01')
+	and o_orderdate < date('1995-01-01')
 group by
 	n_name
 order by
@@ -152,10 +152,10 @@ select
 from
 	lineitem
 where
-	l_shipdate >= date('1993-01-01')
-	and l_shipdate < date('1994-01-01')
+	l_shipdate >= date('1994-01-01')
+	and l_shipdate < date('1995-01-01')
 	and l_discount between 0.02 - 0.01 and 0.02 + 0.01
-	and l_quantity < 24
+	and l_quantity < 25
 ----
 
 query TTTR nosort tpch-07
@@ -185,8 +185,8 @@ from
 			and s_nationkey = n1.n_nationkey
 			and c_nationkey = n2.n_nationkey
 			and (
-				(n1.n_name = 'ARGENTINA' and n2.n_name = 'ETHIOPIA')
-				or (n1.n_name = 'ETHIOPIA' and n2.n_name = 'ARGENTINA')
+				(n1.n_name = 'ALGERIA' and n2.n_name = 'UNITED STATES')
+				or (n1.n_name = 'UNITED STATES' and n2.n_name = 'ALGERIA')
 			)
 			and l_shipdate between date('1995-01-01') and date('1996-12-31')
 	) as shipping
@@ -204,7 +204,7 @@ query TR nosort tpch-08
 select
 	o_year,
 	sum(case
-		when nation = 'ETHIOPIA' then volume
+		when nation = 'UNITED STATES' then volume
 		else 0
 	end) / sum(volume) as mkt_share
 from
@@ -229,10 +229,10 @@ from
 			and o_custkey = c_custkey
 			and c_nationkey = n1.n_nationkey
 			and n1.n_regionkey = r_regionkey
-			and r_name = 'AFRICA'
+			and r_name = 'AMERICA'
 			and s_nationkey = n2.n_nationkey
 			and o_orderdate between date('1995-01-01') and date('1996-12-31')
-			and p_type = 'PROMO PLATED BRASS'
+			and p_type = 'SMALL BRUSHED COPPER'
 	) as all_nations
 group by
 	o_year
@@ -265,7 +265,7 @@ from
 			and p_partkey = l_partkey
 			and o_orderkey = l_orderkey
 			and s_nationkey = n_nationkey
-			and p_name like '%green%'
+			and p_name like '%gainsboro%'
 	) as profit
 group by
 	nation,
@@ -293,8 +293,8 @@ from
 where
 	c_custkey = o_custkey
 	and l_orderkey = o_orderkey
-	and o_orderdate >= date('1994-05-01')
-	and o_orderdate < date('1994-08-01')
+	and o_orderdate >= date('1994-02-01')
+	and o_orderdate < date('1994-05-01')
 	and l_returnflag = 'R'
 	and c_nationkey = n_nationkey
 group by
@@ -307,6 +307,7 @@ group by
 	c_comment
 order by
 	revenue desc
+limit 20
 ----
 
 query IR nosort tpch-11
@@ -320,12 +321,12 @@ from
 where
 	ps_suppkey = s_suppkey
 	and s_nationkey = n_nationkey
-	and n_name = 'FRANCE'
+	and n_name = 'ALGERIA'
 group by
 	ps_partkey having
 		sum(ps_supplycost * ps_availqty) > (
 			select
-				sum(ps_supplycost * ps_availqty) * 100000000.0
+				sum(ps_supplycost * ps_availqty) * 0.0001000000
 			from
 				partsupp,
 				supplier,
@@ -333,7 +334,7 @@ group by
 			where
 				ps_suppkey = s_suppkey
 				and s_nationkey = n_nationkey
-				and n_name = 'FRANCE'
+				and n_name = 'ALGERIA'
 		)
 order by
 	value desc
@@ -359,11 +360,11 @@ from
 	lineitem
 where
 	o_orderkey = l_orderkey
-	and l_shipmode in ('RAIL', 'SHIP')
+	and l_shipmode in ('MAIL', 'AIR')
 	and l_commitdate < l_receiptdate
 	and l_shipdate < l_commitdate
-	and l_receiptdate >= date('1996-01-01')
-	and l_receiptdate < date('1997-01-01')
+	and l_receiptdate >= date('1997-01-01')
+	and l_receiptdate < date('1998-01-01')
 group by
 	l_shipmode
 order by
@@ -405,8 +406,8 @@ from
 	part
 where
 	l_partkey = p_partkey
-	and l_shipdate >= date('1997-09-01')
-	and l_shipdate < date('1997-10-01')
+	and l_shipdate >= date('1997-08-01')
+	and l_shipdate < date('1997-09-01')
 ----
 
 statement ok
@@ -417,8 +418,8 @@ create view revenue0 as
 	from
 		lineitem
 	where
-		l_shipdate >= date('1996-10-01')
-		and l_shipdate < date('1997-01-01')
+		l_shipdate >= date('1994-11-01')
+		and l_shipdate < date('1995-02-01')
 	group by
 		l_suppkey
 
@@ -458,9 +459,9 @@ from
 	part
 where
 	p_partkey = ps_partkey
-	and p_brand <> 'Brand#11'
-	and p_type not like 'MEDIUM POLISHED%'
-	and p_size in (43, 40, 25, 14, 34, 47, 26, 8)
+	and p_brand <> 'Brand#21'
+	and p_type not like 'ECONOMY BURNISHED%'
+	and p_size in (28, 29, 12, 13, 45, 43, 46, 37)
 	and ps_suppkey not in (
 		select
 			s_suppkey
@@ -488,8 +489,8 @@ from
 	part
 where
 	p_partkey = l_partkey
-	and p_brand = 'Brand#13'
-	and p_container = 'WRAP BOX'
+	and p_brand = 'Brand#14'
+	and p_container = 'MED CAN'
 	and l_quantity < (
 		select
 			0.2 * avg(l_quantity)
@@ -520,7 +521,7 @@ where
 			lineitem
 		group by
 			l_orderkey having
-				sum(l_quantity) > 313
+				sum(l_quantity) > 314
 	)
 	and c_custkey = o_custkey
 	and o_orderkey = l_orderkey
@@ -545,9 +546,9 @@ from
 where
 	(
 		p_partkey = l_partkey
-		and p_brand = 'Brand#54'
+		and p_brand = 'Brand#33'
 		and p_container in ('SM CASE', 'SM BOX', 'SM PACK', 'SM PKG')
-		and l_quantity >= 5 and l_quantity <= 5 + 10
+		and l_quantity >= 10 and l_quantity <= 10 + 10
 		and p_size between 1 and 5
 		and l_shipmode in ('AIR', 'AIR REG')
 		and l_shipinstruct = 'DELIVER IN PERSON'
@@ -555,9 +556,9 @@ where
 	or
 	(
 		p_partkey = l_partkey
-		and p_brand = 'Brand#32'
+		and p_brand = 'Brand#11'
 		and p_container in ('MED BAG', 'MED BOX', 'MED PKG', 'MED PACK')
-		and l_quantity >= 10 and l_quantity <= 10 + 10
+		and l_quantity >= 17 and l_quantity <= 17 + 10
 		and p_size between 1 and 10
 		and l_shipmode in ('AIR', 'AIR REG')
 		and l_shipinstruct = 'DELIVER IN PERSON'
@@ -565,9 +566,9 @@ where
 	or
 	(
 		p_partkey = l_partkey
-		and p_brand = 'Brand#45'
+		and p_brand = 'Brand#55'
 		and p_container in ('LG CASE', 'LG BOX', 'LG PACK', 'LG PKG')
-		and l_quantity >= 22 and l_quantity <= 22 + 10
+		and l_quantity >= 30 and l_quantity <= 30 + 10
 		and p_size between 1 and 15
 		and l_shipmode in ('AIR', 'AIR REG')
 		and l_shipinstruct = 'DELIVER IN PERSON'
@@ -594,7 +595,7 @@ where
 				from
 					part
 				where
-					p_name like 'royal%'
+					p_name like 'midnight%'
 			)
 			and ps_availqty > (
 				select
@@ -604,12 +605,12 @@ where
 				where
 					l_partkey = ps_partkey
 					and l_suppkey = ps_suppkey
-					and l_shipdate >= date('1995-01-01')
-					and l_shipdate < date('1996-01-01')
+					and l_shipdate >= date('1993-01-01')
+					and l_shipdate < date('1994-01-01')
 			)
 	)
 	and s_nationkey = n_nationkey
-	and n_name = 'ETHIOPIA'
+	and n_name = 'EGYPT'
 order by
 	s_name
 ----
@@ -648,12 +649,13 @@ where
 			and l3.l_receiptdate > l3.l_commitdate
 	)
 	and s_nationkey = n_nationkey
-	and n_name = 'IRAQ'
+	and n_name = 'EGYPT'
 group by
 	s_name
 order by
 	numwait desc,
 	s_name
+limit 100
 ----
 
 query TIR nosort tpch-22
@@ -670,7 +672,7 @@ from
 			customer
 		where
 			substring(c_phone, 1, 2) in
-				('15', '26', '33', '22', '14', '20', '28')
+				('14', '32', '30', '11', '28', '34', '22')
 			and c_acctbal > (
 				select
 					avg(c_acctbal)
@@ -679,7 +681,7 @@ from
 				where
 					c_acctbal > 0.00
 					and substring(c_phone, 1, 2) in
-						('15', '26', '33', '22', '14', '20', '28')
+						('14', '32', '30', '11', '28', '34', '22')
 			)
 			and not exists (
 				select
