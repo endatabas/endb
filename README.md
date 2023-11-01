@@ -110,6 +110,12 @@ Make sure to initialise ASDF source registry in the current REPL via:
 Note, this will disable all other source registries in the current Lisp process.
 All Common Lisp dependencies are stored as submodules under `_build`. This directory is normally ignored by ASDF.
 
+To ensure the submodules are up-to-date one can for example use `git pull --recurse-submodules` or:
+
+```bash
+make update-submodules
+```
+
 
 See https://lispcookbook.github.io/cl-cookbook/getting-started.html for details about Common Lisp development in general.
 

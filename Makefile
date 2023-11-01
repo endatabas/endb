@@ -82,6 +82,9 @@ test: lib-test target/libendb$(SHARED_LIB_EXT)
 		--eval '(asdf:load-system :endb-test)' \
 		--eval '(uiop:quit (if (fiveam:run-all-tests) 0 1))'
 
+update-sudmodules:
+	git submodule update --init --recursive --force --jobs 4
+
 lib-check:
 	(cd lib; $(CARGO) check)
 
@@ -199,6 +202,6 @@ clean:
 	(cd lib; $(CARGO) clean)
 	rm -rf target $(FASL_FILES)
 
-.PHONY: repl run run-binary test lib-check lib-lint lib-update lib-test lib-microbench \
+.PHONY: repl run run-binary test lib-check lib-lint lib-update lib-test lib-microbench update-submodules \
 	slt-test slt-test-select slt-test-random slt-test-index slt-test-evidence slt-test-all slt-test-tpch slt-test-ci \
 	docker docker-alpine run-docker push-docker clean
