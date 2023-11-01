@@ -1,4 +1,5 @@
 (register-system-packages "clack-handler-hunchentoot" '(:clack.handler.hunchentoot))
+(register-system-packages "lack-request" '(:lack.request))
 (push :hunchentoot-no-ssl *features*)
 
 (defsystem "endb"
@@ -9,8 +10,7 @@
   :homepage "https://www.endatabas.com/"
   :source-control "https://github.com/endatabas/endb"
   :class :package-inferred-system
-  :depends-on ("lack-request" ;; register-system-packages
-               "endb/core"
+  :depends-on ("endb/core"
                "alexandria"
                "archive"
                "bordeaux-threads"
@@ -25,6 +25,7 @@
                "fast-io"
                "fset"
                "ironclad"
+               "lack"
                "local-time"
                "log4cl"
                "mmap"

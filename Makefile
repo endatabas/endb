@@ -1,4 +1,4 @@
-LISP ?= sbcl --noinform --dynamic-space-size 4096
+LISP ?= sbcl --noinform --dynamic-space-size 4096 --no-userinit --no-sysinit --load _build/setup.lisp
 
 SOURCES = $(shell find src -iname \*.lisp)
 FASL_FILES = $(shell find . -iname \*.fasl)
@@ -65,24 +65,21 @@ endb_data:
 target/endb: Makefile *.asd $(SOURCES) target/libendb$(SHARED_LIB_EXT)
 	mkdir -p target
 	$(LISP) --non-interactive \
-		--eval '(ql:quickload :endb :silent t)' \
+		--eval '(asdf:load-system :endb)' \
 		--eval '(asdf:make :endb)'
 
 repl:
-	rlwrap $(LISP) --eval '(ql:quickload :endb :silent t)' --eval '(in-package :endb/core)'
+	rlwrap $(LISP) --eval '(asdf:load-system :endb)' --eval '(in-package :endb/core)'
 
 run:
-	$(LISP) --non-interactive --eval '(ql:quickload :endb :silent t)' --eval '(endb/core:main)'
+	$(LISP) --non-interactive --eval '(asdf:load-system :endb)' --eval '(endb/core:main)'
 
 run-binary: target/endb
 	@rlwrap ./$<
 
-quicklisp-update-dist:
-	$(LISP) --non-interactive --eval '(ql:update-dist "quicklisp" :prompt nil)'
-
 test: lib-test target/libendb$(SHARED_LIB_EXT)
 	$(LISP) --non-interactive \
-		--eval '(ql:quickload :endb-test :silent t)' \
+		--eval '(asdf:load-system :endb-test)' \
 		--eval '(uiop:quit (if (fiveam:run-all-tests) 0 1))'
 
 lib-check:
@@ -119,7 +116,7 @@ target/libsqllogictest$(SHARED_LIB_EXT): Makefile target/sqllogictest_src
 
 target/slt: Makefile *.asd $(SOURCES) slt/*.lisp target/libsqllogictest$(SHARED_LIB_EXT) lib/target/$(LIB_PROFILE_DIR)/libendb$(SHARED_LIB_EXT)
 	$(LISP) --non-interactive \
-		--eval '(ql:quickload :endb-slt :silent t)' \
+		--eval '(asdf:load-system :endb-slt)' \
 		--eval '(asdf:make :endb-slt)'
 
 slt-test: target/slt
@@ -202,6 +199,6 @@ clean:
 	(cd lib; $(CARGO) clean)
 	rm -rf target $(FASL_FILES)
 
-.PHONY: repl run run-binary quicklisp-update-dist test lib-check lib-lint lib-update lib-test lib-microbench \
+.PHONY: repl run run-binary test lib-check lib-lint lib-update lib-test lib-microbench \
 	slt-test slt-test-select slt-test-random slt-test-index slt-test-evidence slt-test-all slt-test-tpch slt-test-ci \
 	docker docker-alpine run-docker push-docker clean
