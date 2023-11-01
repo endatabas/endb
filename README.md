@@ -27,35 +27,18 @@ Learn more by reading our [roadmap](ROADMAP.md).
 
 ## Building
 
-Install https://www.quicklisp.org/ and https://www.sbcl.org/
+Install https://www.sbcl.org/
 
 On Ubuntu:
 
 ```bash
-sudo apt install sbcl cl-quicklisp
-sbcl --load /usr/share/common-lisp/source/quicklisp/quicklisp.lisp
+sudo apt install sbcl
 ```
 
 On MacOS:
 
 ```bash
 brew install sbcl
-# For full instructions, see https://www.quicklisp.org/beta/#installation
-curl -O https://beta.quicklisp.org/quicklisp.lisp
-sbcl --load quicklisp.lisp
-```
-
-Initialise Quicklisp:
-
-```cl
-(quicklisp-quickstart:install)
-(ql:add-to-init-file)
-```
-
-Clone or link this project under `~/quicklisp/local-projects`:
-
-```bash
-ln -s $PWD ~/quicklisp/local-projects
 ```
 
 Initialise submodules:
@@ -118,7 +101,17 @@ make run-docker
 
 ## Development Environment
 
-See https://lispcookbook.github.io/cl-cookbook/getting-started.html for details.
+Make sure to initialise ASDF source registry in the current REPL via:
+
+```lisp
+(load "_build/setup.lisp")
+```
+
+Note, this will disable all other source registries in the current Lisp process.
+All Common Lisp dependencies are stored as submodules under `_build`. This directory is normally ignored by ASDF.
+
+
+See https://lispcookbook.github.io/cl-cookbook/getting-started.html for details about Common Lisp development in general.
 
 ## Copyright and License
 
