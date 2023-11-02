@@ -176,9 +176,6 @@
 [submodule "_build/archive"]
 	path = _build/archive
 	url = https://github.com/sharplispers/archive
-[submodule "_build/ironclad"]
-	path = _build/ironclad
-	url = https://github.com/sharplispers/ironclad
 [submodule "_build/trivia"]
 	path = _build/trivia
 	url = https://github.com/guicho271828/trivia
@@ -206,3 +203,6 @@
 [submodule "_build/cl-sqlite"]
 	path = _build/cl-sqlite
 	url = https://github.com/TeMPOraL/cl-sqlite
+[submodule "_build/sha1"]
+	path = _build/sha1
+	url = https://github.com/massung/sha1

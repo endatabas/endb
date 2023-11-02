@@ -25,12 +25,12 @@
                "com.inuoe.jzon"
                "fast-io"
                "fset"
-               "ironclad"
                "lack"
                "local-time"
                "log4cl"
                "mmap"
                "periods"
+               "sha1"
                "trivial-gray-streams"
                "trivial-utf-8"
                "trivia")

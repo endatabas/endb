@@ -2394,12 +2394,12 @@ SELECT s FROM x WHERE ind=0")
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT SHA1(2)")
-      (is (equal "da4b9237bacccdf19c760cab7aec4a8359010b0" (caar result)))
+      (is (equal "da4b9237bacccdf19c0760cab7aec4a8359010b0" (caar result)))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT SHA1('2')")
-      (is (equal "da4b9237bacccdf19c760cab7aec4a8359010b0" (caar result)))
+      (is (equal "da4b9237bacccdf19c0760cab7aec4a8359010b0" (caar result)))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
