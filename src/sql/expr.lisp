@@ -11,7 +11,7 @@
   (:import-from :endb/storage/buffer-pool)
   (:import-from :cl-bloom)
   (:import-from :fset)
-  (:import-from :ironclad)
+  (:import-from :sha1)
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-~ #:sql-& #:sql-\|
@@ -677,7 +677,7 @@
   (sql-hex (trivial-utf-8:string-to-utf-8-bytes x)))
 
 (defmethod sql-hex ((x vector))
-  (format nil "~{~X~}" (coerce x 'list)))
+  (format nil "~{~16,2,'0r~}" (coerce x 'list)))
 
 (defmethod sql-patch ((x (eql :null)) y)
   :null)
@@ -1367,10 +1367,10 @@
   (cl-base64:usb8-array-to-base64-string x))
 
 (defmethod sql-sha1 ((x (eql :null)))
-  x)
+  :null)
 
 (defmethod sql-sha1 ((x vector))
-  (string-downcase (sql-hex (ironclad:digest-sequence :sha1 x))))
+  (string-downcase (sha1:sha1-hex x)))
 
 (defmethod sql-sha1 ((x string))
   (sql-sha1 (trivial-utf-8:string-to-utf-8-bytes x)))
