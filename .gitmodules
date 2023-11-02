@@ -32,9 +32,6 @@
 [submodule "_build/split-sequence"]
 	path = _build/split-sequence
 	url = https://github.com/sharplispers/split-sequence
-[submodule "_build/slime"]
-	path = _build/slime
-	url = https://github.com/slime/slime
 [submodule "_build/hunchentoot"]
 	path = _build/hunchentoot
 	url = https://github.com/edicl/hunchentoot
