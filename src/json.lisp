@@ -11,7 +11,7 @@
   (:import-from :endb/arrow)
   (:import-from :endb/lib/arrow)
   (:import-from :fset)
-  (:import-from :qbase64)
+  (:import-from :cl-base64)
   (:import-from :cl-bloom))
 (in-package :endb/json)
 
@@ -54,7 +54,7 @@
               (endb/arrow:parse-arrow-interval-month-day-nanos v))
              ((or (equal "xsd:base64Binary" k)
                   (equal "http://www.w3.org/2001/XMLSchema#base64Binary" k))
-              (qbase64:decode-string v))
+              (cl-base64:base64-string-to-usb8-array v))
              ((or (equal "xsd:integer" k)
                   (equal "http://www.w3.org/2001/XMLSchema#integer" k))
               (let ((x (parse-integer v)))
@@ -127,10 +127,10 @@
       (if *json-ld-scalars*
           (com.inuoe.jzon:with-object writer
             (com.inuoe.jzon:write-key writer "@value")
-            (com.inuoe.jzon:write-value writer (qbase64:encode-bytes value))
+            (com.inuoe.jzon:write-value writer (cl-base64:usb8-array-to-base64-string value))
             (com.inuoe.jzon:write-key writer "@type")
             (com.inuoe.jzon:write-value writer "xsd:base64Binary"))
-          (com.inuoe.jzon:write-value writer (qbase64:encode-bytes value)))
+          (com.inuoe.jzon:write-value writer (cl-base64:usb8-array-to-base64-string value)))
       (call-next-method)))
 
 (defparameter +max-safe-integer+ (1- (ash 1 53)))

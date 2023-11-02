@@ -1,6 +1,7 @@
 (defpackage :endb/sql/expr
   (:use :cl)
   (:import-from :alexandria)
+  (:import-from :cl-base64)
   (:import-from :cl-ppcre)
   (:import-from :local-time)
   (:import-from :periods)
@@ -11,7 +12,6 @@
   (:import-from :cl-bloom)
   (:import-from :fset)
   (:import-from :ironclad)
-  (:import-from :qbase64)
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-~ #:sql-& #:sql-\|
@@ -1361,10 +1361,10 @@
   :null)
 
 (defmethod sql-base64 ((x string))
-  (qbase64:decode-string x))
+  (cl-base64:base64-string-to-usb8-array x))
 
 (defmethod sql-base64 ((x vector))
-  (qbase64:encode-bytes x))
+  (cl-base64:usb8-array-to-base64-string x))
 
 (defmethod sql-sha1 ((x (eql :null)))
   x)
