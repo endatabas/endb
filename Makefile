@@ -82,7 +82,7 @@ test: lib-test target/libendb$(SHARED_LIB_EXT)
 		--eval '(asdf:load-system :endb-test)' \
 		--eval '(uiop:quit (if (fiveam:run-all-tests) 0 1))'
 
-update-sudmodules:
+update-submodules:
 	git submodule update --init --recursive --force --jobs 4
 
 lib-check:
