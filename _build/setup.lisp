@@ -15,8 +15,8 @@
 (require :asdf)
 
 (unless (equal "1" (uiop:getenv "ENDB_COMPILE_VERBOSE"))
-  (setf *compile-verbose* nil)
-  (setf uiop:*uninteresting-conditions* '(warning)))
+  (setf uiop:*uninteresting-conditions* (cons 'warning uiop:*usual-uninteresting-conditions*))
+  (setf *compile-verbose* nil))
 
 (let ((inherit-config (if (equal "1" (uiop:getenv "ENDB_ASDF_INHERIT_CONFIGURATION"))
                           :inherit-configuration
