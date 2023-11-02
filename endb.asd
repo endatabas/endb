@@ -15,6 +15,7 @@
                "archive"
                "bordeaux-threads"
                "cffi"
+               "cl-base64"
                "cl-bloom"
                "cl-murmurhash"
                "cl-ppcre"
@@ -30,7 +31,6 @@
                "log4cl"
                "mmap"
                "periods"
-               "qbase64"
                "trivial-gray-streams"
                "trivial-utf-8"
                "trivia")
