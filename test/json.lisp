@@ -120,7 +120,7 @@
 
     (let* ((sql-null :null)
            (json "null"))
-      (is (eql 'null (json-parse json)))
+      (is (eql :null (json-parse json)))
       (is (equal json (json-stringify sql-null))))
 
     (let* ((long 9007199254740992)

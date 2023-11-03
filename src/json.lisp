@@ -29,6 +29,7 @@
            finally (return acc)))
     ((and (vectorp x) (not (stringp x)))
      (fset:convert 'fset:seq (map 'vector #'%json-to-fset x)))
+    ((eql 'null x) :null)
     (t x)))
 
 (defun resolve-json-ld-xsd-scalars (x)
@@ -163,7 +164,7 @@
   (if (fset:map? patch)
       (fset:reduce
        (lambda (target k v)
-         (if (or (eq 'null v) (eq :null v))
+         (if (eq :null v)
              (fset:less target k)
              (let ((target-v (fset:lookup target k)))
                (fset:with target k (json-merge-patch target-v v)))))
@@ -186,7 +187,7 @@
        :initial-value
        (fset:reduce
         (lambda (diff k)
-          (fset:with diff k 'null))
+          (fset:with diff k :null))
         (fset:set-difference (fset:domain version-a)
                              (fset:domain version-b))
         :initial-value (fset:empty-map)))
