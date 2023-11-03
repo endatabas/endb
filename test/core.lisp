@@ -12,8 +12,8 @@
   (:import-from :endb/core))
 (in-package :endb-test/core)
 
-(setf fiveam:*run-test-when-defined* t
-      fiveam:*on-error* (when (find :slynk *features*)
-                            :debug)
-      fiveam:*on-failure* (when (find :slynk *features*)
-                            :debug))
+(setf fiveam:*run-test-when-defined* t)
+
+(when (intersection '(:slynk :swank) *features*)
+  (setf fiveam:*on-error* :debug
+        fiveam:*on-failure* :debug))
