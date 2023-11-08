@@ -30,13 +30,13 @@ jobs:
 
           {
             echo "### Workflow variables"
-            echo "| Variable          | Value              |"
-            echo "| ----------------- | ------------------ |"
-            echo "| ENDB_GIT_DESCRIBE | $ENDB_GIT_DESCRIBE |"
-            echo "| RUST_OS           | $RUST_OS           |"
-            echo "| SBCL_OS           | $SBCL_OS           |"
-            echo "| ENDB_OS           | $ENDB_OS           |"
-            echo "| DOCKER_TAG        | $DOCKER_TAG        |"
+            echo "| Variable          | Value                                        |"
+            echo "| ----------------- | -------------------------------------------- |"
+            echo "| ENDB_GIT_DESCRIBE | ${{ steps.setup.outputs.ENDB_GIT_DESCRIBE }} |"
+            echo "| RUST_OS           | ${{ steps.setup.outputs.RUST_OS }}           |"
+            echo "| SBCL_OS           | ${{ steps.setup.outputs.SBCL_OS }}           |"
+            echo "| ENDB_OS           | ${{ steps.setup.outputs.ENDB_OS }}           |"
+            echo "| DOCKER_TAG        | ${{ steps.setup.outputs.DOCKER_TAG }}        |"
           } >> $GITHUB_STEP_SUMMARY
 
       - name: Build and Push
@@ -47,9 +47,9 @@ jobs:
           context: .
           file: ./Dockerfile
           build-args: |
-            ENDB_GIT_DESCRIBE=$ENDB_GIT_DESCRIBE
-            RUST_OS=$RUST_OS
-            SBCL_OS=$SBCL_OS
-            ENDB_OS=$ENDB_OS
+            ENDB_GIT_DESCRIBE=${{ steps.setup.outputs.ENDB_GIT_DESCRIBE }}
+            RUST_OS=${{ steps.setup.outputs.RUST_OS }}
+            SBCL_OS=${{ steps.setup.outputs.SBCL_OS }}
+            ENDB_OS=${{ steps.setup.outputs.ENDB_OS }}
           tags: ${{ steps.setup.outputs.DOCKER_TAG }} # this is circuitous, but consistent.
                                                       # not currently building all 3 tags, as we only push one.
