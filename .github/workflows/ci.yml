@@ -18,7 +18,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Setup Environment File
-        id: env
+        id: setup
         run: |
           {
             echo "ENDB_GIT_DESCRIBE=$(git describe --always --dirty)"
@@ -51,5 +51,5 @@ jobs:
             RUST_OS=$RUST_OS
             SBCL_OS=$SBCL_OS
             ENDB_OS=$ENDB_OS
-          tags: $DOCKER_TAG # this is circuitous, but consistent.
-                            # not currently building all 3 tags, as we only push one.
+          tags: ${{ steps.setup.outputs.DOCKER_TAG }} # this is circuitous, but consistent.
+                                                      # not currently building all 3 tags, as we only push one.
