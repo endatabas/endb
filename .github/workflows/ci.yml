@@ -1,0 +1,61 @@
+name: CI
+on: push
+
+jobs:
+  test:
+    name: Run tests and build Docker image
+    runs-on: ubuntu-latest
+
+    concurrency:
+      group: ${{ github.ref }}
+      cancel-in-progress: true
+
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+        with:
+          ref: 'main'
+          submodules: recursive
+
+      - name: Setup
+        id: setup
+        run: |
+          {
+            echo "ENDB_GIT_DESCRIBE=$(git describe --always --dirty)"
+            echo "RUST_OS=bullseye"
+            echo "SBCL_OS=debian"
+            echo "ENDB_OS=debian"
+            echo "DOCKER_TAG=endatabas/endb:latest"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Print Setup
+        id: print_setup
+        run: |
+          {
+            echo "### Workflow variables"
+            echo "| Variable          | Value                                        |"
+            echo "| ----------------- | -------------------------------------------- |"
+            echo "| ENDB_GIT_DESCRIBE | ${{ steps.setup.outputs.ENDB_GIT_DESCRIBE }} |"
+            echo "| RUST_OS           | ${{ steps.setup.outputs.RUST_OS }}           |"
+            echo "| SBCL_OS           | ${{ steps.setup.outputs.SBCL_OS }}           |"
+            echo "| ENDB_OS           | ${{ steps.setup.outputs.ENDB_OS }}           |"
+            echo "| DOCKER_TAG        | ${{ steps.setup.outputs.DOCKER_TAG }}        |"
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Build Docker
+        uses: docker/build-push-action@v5
+        with:
+          pull: true # equivalent to --pull, not --pull-always / --pull=always
+          push: false
+          context: .
+          # https://docs.docker.com/build/ci/github-actions/multi-platform/
+          # https://dev.to/cloudx/multi-arch-docker-images-the-easy-way-with-github-actions-4k54
+          platforms: linux/amd64 # ,linux/arm64
+          file: ./Dockerfile
+          build-args: |
+            ENDB_GIT_DESCRIBE=${{ steps.setup.outputs.ENDB_GIT_DESCRIBE }}
+            RUST_OS=${{ steps.setup.outputs.RUST_OS }}
+            SBCL_OS=${{ steps.setup.outputs.SBCL_OS }}
+            ENDB_OS=${{ steps.setup.outputs.ENDB_OS }}
+          tags: ${{ steps.setup.outputs.DOCKER_TAG }} # not required, but maintains
+                                                      # symmetry with build-push-docker.yml
