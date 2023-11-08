@@ -21,11 +21,11 @@ jobs:
         id: env
         run: |
           {
-            "ENDB_GIT_DESCRIBE=$(git describe --always --dirty)"
-            "RUST_OS=bullseye"
-            "SBCL_OS=debian"
-            "ENDB_OS=debian"
-            "DOCKER_TAG=endatabas/endb:latest"
+            echo "ENDB_GIT_DESCRIBE=$(git describe --always --dirty)"
+            echo "RUST_OS=bullseye"
+            echo "SBCL_OS=debian"
+            echo "ENDB_OS=debian"
+            echo "DOCKER_TAG=endatabas/endb:latest"
           } >> "$GITHUB_ENV"
 
           {
