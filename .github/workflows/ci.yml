@@ -20,11 +20,13 @@ jobs:
       - name: Setup Environment File
         id: setup
         run: |
-          echo "ENDB_GIT_DESCRIBE=$(git describe --always --dirty)" >> "$GITHUB_ENV"
-          echo "RUST_OS=bullseye" >> "$GITHUB_ENV"
-          echo "SBCL_OS=debian" >> "$GITHUB_ENV"
-          echo "ENDB_OS=debian" >> "$GITHUB_ENV"
-          echo "DOCKER_TAG=endatabas/endb:latest" >> "$GITHUB_ENV"
+          {
+            "ENDB_GIT_DESCRIBE=$(git describe --always --dirty)"
+            "RUST_OS=bullseye"
+            "SBCL_OS=debian"
+            "ENDB_OS=debian"
+            "DOCKER_TAG=endatabas/endb:latest"
+          } >> "$GITHUB_OUTPUT"
 
           {
             echo "### Workflow variables"
