@@ -57,6 +57,7 @@ jobs:
           pull: true # equivalent to --pull, not --pull-always / --pull=always
           push: true
           context: .
+          platforms: linux/amd64 # ,linux/arm64
           file: ./Dockerfile
           build-args: |
             ENDB_GIT_DESCRIBE=${{ steps.setup.outputs.ENDB_GIT_DESCRIBE }}
