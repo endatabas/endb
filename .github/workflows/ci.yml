@@ -17,7 +17,7 @@ jobs:
           ref: 'main'
           submodules: recursive
 
-      - name: Setup Environment File
+      - name: Setup
         id: setup
         run: |
           {
@@ -28,6 +28,9 @@ jobs:
             echo "DOCKER_TAG=endatabas/endb:latest"
           } >> "$GITHUB_OUTPUT"
 
+      - name: Print Setup
+        id: print_setup
+        run: |
           {
             echo "### Workflow variables"
             echo "| Variable          | Value                                        |"
