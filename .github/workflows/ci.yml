@@ -9,6 +9,7 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v4
         with:
+          ref: 'main'
           submodules: recursive
 
       - name: Login to Docker Hub
