@@ -1,7 +1,3 @@
-(register-system-packages "clack-handler-hunchentoot" '(:clack.handler.hunchentoot))
-(register-system-packages "lack-request" '(:lack.request))
-(push :hunchentoot-no-ssl *features*)
-
 (defsystem "endb"
   :version "0.1.0"
   :author "Håkan Råberg <hakan.raberg@gmail.com>, Steven Deobald <steven@deobald.ca>"
@@ -19,18 +15,14 @@
                "cl-bloom"
                "cl-murmurhash"
                "cl-ppcre"
-               "clack"
-               "clack-handler-hunchentoot"
-               "clingon"
                "com.inuoe.jzon"
                "fast-io"
                "fset"
-               "lack"
                "local-time"
-               "log4cl"
                "mmap"
                "periods"
                "sha1"
+               "trivial-backtrace"
                "trivial-gray-streams"
                "trivial-utf-8"
                "trivia")

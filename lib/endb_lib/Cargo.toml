@@ -17,8 +17,10 @@ libc = "0.2.0"
 endb_parser = { path = "../endb_parser/" }
 endb_arrow = { path = "../endb_arrow/" }
 endb_cst = { path = "../endb_cst/" }
+endb_server = { path = "../endb_server/" }
 arrow2.workspace = true
 chumsky.workspace = true
+log.workspace = true
 
 [build-dependencies]
 cbindgen = "0.24.3"

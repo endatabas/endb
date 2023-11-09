@@ -254,3 +254,22 @@ void endb_parse_sql_cst(const char *filename,
 void endb_render_json_error_report(const char *report_json,
                                    void (*on_success)(const char*),
                                    void (*on_error)(const char*));
+
+void endb_init_logger(void);
+
+void endb_log_debug(const char *target, const char *message);
+
+void endb_log_info(const char *target, const char *message);
+
+void endb_log_warn(const char *target, const char *message);
+
+void endb_log_error(const char *target, const char *message);
+
+void endb_start_server(void (*on_init)(const char*), void (*on_query)(const char*,
+                                                                      const char*,
+                                                                      const char*,
+                                                                      const char*,
+                                                                      const char*,
+                                                                      void(*)(uint16_t,
+                                                                              const char*,
+                                                                              const char*)));

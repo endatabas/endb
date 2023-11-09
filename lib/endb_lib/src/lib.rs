@@ -11,8 +11,8 @@ use endb_parser::{SQL_AST_PARSER_NO_ERRORS, SQL_AST_PARSER_WITH_ERRORS};
 use std::panic;
 
 fn string_callback(s: String, cb: extern "C" fn(*const c_char)) {
-    let c_str = CString::new(s).unwrap();
-    cb(c_str.as_ptr());
+    let c_string = CString::new(s).unwrap();
+    cb(c_string.as_ptr());
 }
 
 #[no_mangle]
@@ -32,9 +32,9 @@ pub extern "C" fn endb_parse_sql(
             } else {
                 SQL_AST_PARSER_WITH_ERRORS.with(|parser| {
                     let result = parser.parse(input_str);
-                    let error_str =
+                    let error_string =
                         sql_parser::parse_errors_to_string(input_str, result.into_errors());
-                    string_callback(error_str, on_error);
+                    string_callback(error_string, on_error);
                 });
             }
         })
@@ -61,8 +61,9 @@ pub extern "C" fn endb_annotate_input_with_error(
         let c_str = unsafe { CStr::from_ptr(message) };
         let message_str = c_str.to_str().unwrap();
 
-        let error_str = sql_parser::annotate_input_with_error(input_str, message_str, start, end);
-        string_callback(error_str, on_success);
+        let error_string =
+            sql_parser::annotate_input_with_error(input_str, message_str, start, end);
+        string_callback(error_string, on_success);
     }) {
         let msg = err.downcast_ref::<&str>().unwrap_or(&"unknown panic!!");
         string_callback(msg.to_string(), on_error);
@@ -221,4 +222,96 @@ pub extern "C" fn endb_render_json_error_report(
         let msg = err.downcast_ref::<&str>().unwrap_or(&"unknown panic!!");
         string_callback(msg.to_string(), on_error);
     }
+}
+
+#[no_mangle]
+pub extern "C" fn endb_init_logger() {
+    endb_server::init_logger();
+}
+
+fn do_log(level: log::Level, target: *const c_char, message: *const c_char) {
+    let c_str = unsafe { CStr::from_ptr(target) };
+    let target_str = c_str.to_str().unwrap();
+    let c_str = unsafe { CStr::from_ptr(message) };
+    let message_str = c_str.to_str().unwrap();
+
+    log::log!(target: target_str, level, "{}", message_str);
+}
+
+#[no_mangle]
+pub extern "C" fn endb_log_debug(target: *const c_char, message: *const c_char) {
+    do_log(log::Level::Debug, target, message);
+}
+
+#[no_mangle]
+pub extern "C" fn endb_log_info(target: *const c_char, message: *const c_char) {
+    do_log(log::Level::Info, target, message);
+}
+
+#[no_mangle]
+pub extern "C" fn endb_log_warn(target: *const c_char, message: *const c_char) {
+    do_log(log::Level::Warn, target, message);
+}
+
+#[no_mangle]
+pub extern "C" fn endb_log_error(target: *const c_char, message: *const c_char) {
+    do_log(log::Level::Error, target, message);
+}
+
+thread_local! {
+    #[allow(clippy::type_complexity)]
+    pub static ON_RESPONSE: std::cell::RefCell<Option<Box<dyn FnMut(u16, String, String)>>> = std::cell::RefCell::default();
+}
+
+#[no_mangle]
+pub extern "C" fn endb_start_server(
+    on_init: extern "C" fn(*const c_char),
+    on_query: extern "C" fn(
+        *const c_char,
+        *const c_char,
+        *const c_char,
+        *const c_char,
+        *const c_char,
+        extern "C" fn(u16, *const c_char, *const c_char),
+    ),
+) {
+    endb_server::start_server(
+        |config_json| {
+            string_callback(config_json, on_init);
+        },
+        move |method, media_type, q, p, m, on_response| {
+            let method_cstring = CString::new(method).unwrap();
+            let media_type_cstring = CString::new(media_type).unwrap();
+            let q_cstring = CString::new(q).unwrap();
+            let p_cstring = CString::new(p).unwrap();
+            let m_cstring = CString::new(m).unwrap();
+
+            ON_RESPONSE.set(Some(on_response));
+
+            extern "C" fn on_response_callback(
+                status: u16,
+                content_type: *const c_char,
+                body: *const c_char,
+            ) {
+                let c_str = unsafe { CStr::from_ptr(content_type) };
+                let content_type_str = c_str.to_str().unwrap();
+                let c_str = unsafe { CStr::from_ptr(body) };
+                let body_str = c_str.to_str().unwrap();
+
+                ON_RESPONSE.with_borrow_mut(|on_response| {
+                    if let Some(f) = on_response.as_mut().take() {
+                        f(status, content_type_str.to_string(), body_str.to_string());
+                    }
+                });
+            }
+            on_query(
+                method_cstring.as_ptr(),
+                media_type_cstring.as_ptr(),
+                q_cstring.as_ptr(),
+                p_cstring.as_ptr(),
+                m_cstring.as_ptr(),
+                on_response_callback,
+            );
+        },
+    );
 }

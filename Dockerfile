@@ -29,12 +29,12 @@ RUN if [ "$SBCL_OS" = "alpine" ]; then \
       apt-get update && apt-get install -y --no-install-recommends build-essential libsqlite3-0; \
     fi;
 
-WORKDIR /root/.roswell/local-projects/endb
-COPY . /root/.roswell/local-projects/endb
+WORKDIR /root/endb
+COPY . /root/endb
 
-COPY --from=rust-build-env /root/endb/target/release/libendb.so /root/.roswell/local-projects/endb/target/libendb.so
+COPY --from=rust-build-env /root/endb/target/release/libendb.so /root/endb/target/libendb.so
 
-RUN make -e ENDB_GIT_DESCRIBE="$ENDB_GIT_DESCRIBE" test slt-test target/endb -e CARGO=echo
+RUN make -e ENDB_GIT_DESCRIBE="$ENDB_GIT_DESCRIBE" -e CARGO=echo test slt-test target/endb
 
 FROM docker.io/$ENDB_OS
 
@@ -46,7 +46,7 @@ RUN if [ "$ENDB_OS" = "alpine" ]; then \
 
 WORKDIR /app
 COPY --from=rust-build-env /root/endb/target/release/libendb.so /app
-COPY --from=sbcl-build-env /root/.roswell/local-projects/endb/target/endb /app
+COPY --from=sbcl-build-env /root/endb/target/endb /app
 
 EXPOSE 3803
 VOLUME /app/endb_data

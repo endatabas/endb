@@ -8,8 +8,9 @@
   (:import-from :endb/sql/expr)
   (:import-from :endb/sql/compiler)
   (:import-from :endb/lib/arrow)
-  (:import-from :endb/lib/parser)
   (:import-from :endb/lib/cst)
+  (:import-from :endb/lib/parser)
+  (:import-from :endb/lib)
   (:import-from :endb/storage/buffer-pool)
   (:import-from :endb/storage/object-store)
   (:import-from :endb/storage/wal)
@@ -94,7 +95,7 @@
       (when (equal '((nil)) (handler-case
                                 (funcall (endb/sql/compiler:compile-sql ctx v) db (fset:empty-seq))
                               (endb/sql/expr:sql-runtime-error (e)
-                                (log:warn "Constraint ~A raised an error, ignoring: ~A" k e))))
+                                (endb/lib:log-warn "Constraint ~A raised an error, ignoring: ~A" k e))))
         (error 'endb/sql/expr:sql-runtime-error :message (format nil "Constraint failed: ~A" k))))))
 
 (defun commit-write-tx (current-db write-db &key (fsyncp t))

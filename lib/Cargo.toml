@@ -1,5 +1,5 @@
 [workspace]
-members = ["endb_parser", "endb_arrow", "endb_lib", "endb_cst", "endb_proc_macro"]
+members = ["endb_parser", "endb_arrow", "endb_lib", "endb_cst", "endb_proc_macro", "endb_server"]
 resolver = "2"
 
 [workspace.package]
@@ -17,6 +17,9 @@ rust-version = "1.70.0"
 chumsky = { version = "1.0.0-alpha.6", features = ["label", "regex"] }
 ariadne = "0.3.0"
 arrow2 = { version = "0.18.0", features = ["io_ipc", "io_parquet", "io_parquet_compression"] }
+log = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 [profile.release]
 lto = true

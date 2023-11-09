@@ -14,7 +14,7 @@ crate-type = ["rlib"]
 [dependencies]
 chumsky.workspace = true
 ariadne.workspace = true
-serde = { version = "1.0", features = ["derive"] }
+serde.workspace = true
 
 [dev-dependencies]
 insta = { version = "1.29.0", features = ["yaml"] }

@@ -26,7 +26,7 @@ else
   DOCKER_PULL_ALWAYS = =always
 endif
 DOCKER_ID = $(shell docker images -q $(DOCKER_IMAGE))
-PODMAN_USER = $(shell grep "^unqualified-search-registries = \[\"docker.io\"\]" /etc/containers/registries.conf || grep "^unqualified-search-registries = \[\"docker.io\"\]" ~/.config/containers/registries.conf)
+PODMAN_USER = $(shell grep -sq "^unqualified-search-registries = \[\"docker.io\"\]" /etc/containers/registries.conf || grep -sq "^unqualified-search-registries = \[\"docker.io\"\]" ~/.config/containers/registries.conf)
 
 LIB_PROFILE = release
 LIB_PROFILE_DIR = $(LIB_PROFILE)
@@ -34,7 +34,7 @@ ifeq ($(LIB_PROFILE),dev)
 	LIB_PROFILE_DIR = debug
 endif
 
-LIB_SOURCES = lib/Cargo.lock $(shell find lib/ -iname \*.toml) $(shell find lib/*/src -iname \*.rs)
+LIB_SOURCES = lib/Cargo.lock $(shell find lib/ -iname \*.toml) $(shell find lib/*/src -iname \*.rs) $(shell find lib/ -iname build.rs)
 
 SLT_SOURCES = sqllogictest.c md5.c sqlite3.c
 SLT_ENGINE = endb

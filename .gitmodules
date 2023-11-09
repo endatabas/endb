@@ -17,27 +17,6 @@
 [submodule "_build/trivial-garbage"]
 	path = _build/trivial-garbage
 	url = https://github.com/trivial-garbage/trivial-garbage
-[submodule "_build/clack"]
-	path = _build/clack
-	url = https://github.com/fukamachi/clack
-[submodule "_build/lack"]
-	path = _build/lack
-	url = https://github.com/fukamachi/lack
-[submodule "_build/cl-isaac"]
-	path = _build/cl-isaac
-	url = https://github.com/thephoeron/cl-isaac
-[submodule "_build/usocket"]
-	path = _build/usocket
-	url = https://github.com/usocket/usocket
-[submodule "_build/split-sequence"]
-	path = _build/split-sequence
-	url = https://github.com/sharplispers/split-sequence
-[submodule "_build/hunchentoot"]
-	path = _build/hunchentoot
-	url = https://github.com/edicl/hunchentoot
-[submodule "_build/chunga"]
-	path = _build/chunga
-	url = https://github.com/edicl/chunga
 [submodule "_build/trivial-gray-streams"]
 	path = _build/trivial-gray-streams
 	url = https://github.com/trivial-gray-streams/trivial-gray-streams
@@ -53,69 +32,15 @@
 [submodule "_build/flexi-streams"]
 	path = _build/flexi-streams
 	url = https://github.com/edicl/flexi-streams
-[submodule "_build/md5"]
-	path = _build/md5
-	url = https://github.com/pmai/md5
-[submodule "_build/rfc2388"]
-	path = _build/rfc2388
-	url = https://github.com/jdz/rfc2388
 [submodule "_build/trivial-backtrace"]
 	path = _build/trivial-backtrace
 	url = https://github.com/gwkkwg/trivial-backtrace
-[submodule "_build/clingon"]
-	path = _build/clingon
-	url = https://github.com/dnaeon/clingon
-[submodule "_build/bobbin"]
-	path = _build/bobbin
-	url = https://github.com/sjl/bobbin
-[submodule "_build/cl-reexport"]
-	path = _build/cl-reexport
-	url = https://github.com/takagi/cl-reexport
-[submodule "_build/with-user-abort"]
-	path = _build/with-user-abort
-	url = https://github.com/theZacAttacks/with-user-abort
-[submodule "_build/log4cl"]
-	path = _build/log4cl
-	url = https://github.com/sharplispers/log4cl
-[submodule "_build/quri"]
-	path = _build/quri
-	url = https://github.com/fukamachi/quri
 [submodule "_build/babel"]
 	path = _build/babel
 	url = https://github.com/cl-babel/babel
-[submodule "_build/cl-utilities"]
-	path = _build/cl-utilities
-	url = https://gitlab.common-lisp.net/cl-utilities/cl-utilities.git
-[submodule "_build/http-body"]
-	path = _build/http-body
-	url = https://github.com/fukamachi/http-body
-[submodule "_build/fast-http"]
-	path = _build/fast-http
-	url = https://github.com/fukamachi/fast-http
-[submodule "_build/proc-parse"]
-	path = _build/proc-parse
-	url = https://github.com/fukamachi/proc-parse
-[submodule "_build/xsubseq"]
-	path = _build/xsubseq
-	url = https://github.com/fukamachi/xsubseq
-[submodule "_build/smart-buffer"]
-	path = _build/smart-buffer
-	url = https://github.com/fukamachi/smart-buffer
-[submodule "_build/jonathan"]
-	path = _build/jonathan
-	url = https://github.com/Rudolph-Miller/jonathan
-[submodule "_build/cl-syntax"]
-	path = _build/cl-syntax
-	url = https://github.com/m2ym/cl-syntax
-[submodule "_build/trivial-types"]
-	path = _build/trivial-types
-	url = https://github.com/m2ym/trivial-types
 [submodule "_build/named-readtables"]
 	path = _build/named-readtables
 	url = https://github.com/melisgl/named-readtables
-[submodule "_build/cl-annot"]
-	path = _build/cl-annot
-	url = https://github.com/m2ym/cl-annot
 [submodule "_build/fast-io"]
 	path = _build/fast-io
 	url = https://github.com/rpav/fast-io
@@ -125,9 +50,6 @@
 [submodule "_build/cffi"]
 	path = _build/cffi
 	url = https://github.com/cffi/cffi
-[submodule "_build/circular-streams"]
-	path = _build/circular-streams
-	url = https://github.com/fukamachi/circular-streams
 [submodule "_build/jzon"]
 	path = _build/jzon
 	url = https://github.com/Zulu-Inuoe/jzon
