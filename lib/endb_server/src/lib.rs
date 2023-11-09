@@ -618,6 +618,81 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn parameters() {
+        assert_debug_snapshot!(
+            service(None, ok("[[3]]\n"))
+                .call(post("http://localhost:3803/sql", "application/json", "{\"q\":\"SELECT :a + :b\",\"p\":{\"a\":1,\"b\":2}}"))
+            .await
+        , @r###"
+        Ok(
+            Response {
+                status: 200,
+                version: HTTP/1.1,
+                headers: {
+                    "content-type": "application/json",
+                    "x-q": "SELECT :a + :b",
+                    "x-p": "{\"a\":1,\"b\":2}",
+                    "x-m": "false",
+                },
+                body: Body(
+                    Full(
+                        b"[[3]]\n",
+                    ),
+                ),
+            },
+        )
+        "###);
+
+        assert_debug_snapshot!(
+            service(None, ok("[[1]]\n"))
+            .call(post("http://localhost:3803/sql", "application/x-www-form-urlencoded", "q=SELECT%20?&p=[[1]]&m=true"))
+            .await
+        , @r###"
+        Ok(
+            Response {
+                status: 200,
+                version: HTTP/1.1,
+                headers: {
+                    "content-type": "application/json",
+                    "x-q": "SELECT ?",
+                    "x-p": "[[1]]",
+                    "x-m": "true",
+                },
+                body: Body(
+                    Full(
+                        b"[[1]]\n",
+                    ),
+                ),
+            },
+        )
+        "###);
+
+        assert_debug_snapshot!(
+            service(None, ok("[[3]]\n"))
+            .call(post("http://localhost:3803/sql", "multipart/form-data; boundary=12345", "--12345\r\nContent-Disposition: form-data; name=\"q\"\r\n\r\nSELECT ?, ?\r\n--12345\r\nContent-Disposition: form-data; name=\"p\"\r\n\r\n[1,2]\r\n--12345--"))
+            .await
+        , @r###"
+        Ok(
+            Response {
+                status: 200,
+                version: HTTP/1.1,
+                headers: {
+                    "content-type": "application/json",
+                    "x-q": "SELECT ?, ?",
+                    "x-p": "[1,2]",
+                    "x-m": "false",
+                },
+                body: Body(
+                    Full(
+                        b"[[3]]\n",
+                    ),
+                ),
+            },
+        )
+        "###);
+    }
+
+    #[tokio::test]
     async fn errors() {
         assert_debug_snapshot!(
             service(None, unreachable())
@@ -706,76 +781,3 @@ mod tests {
         "###);
     }
 }
-
-// (test parameters
-//   (let* ((db (endb/sql:make-db))
-//          (write-db (endb/sql:begin-write-tx db))
-//          (app (make-api-handler write-db)))
-
-//     (is (equal (list +http-ok+
-//                      '(:content-type "application/json")
-//                      (format nil "[[\"2001-01-01\",{\"b\":1}]]~%"))
-//                (%req app
-//                      :post "/sql"
-//                      :body "{\"q\":\"SELECT ?, ?\",\"p\":[{\"@value\":\"2001-01-01\",\"@type\":\"xsd:date\"},{\"b\":1}]}"
-//                      :content-type "application/ld+json")))
-
-//     (is (equal (list +http-ok+
-//                      '(:content-type "application/json")
-//                      (format nil "[[\"2001-01-01\",{\"b\":1}]]~%"))
-//                (%req app
-//                      :post "/sql"
-//                      :body (format nil "--12345~AContent-Disposition: form-data; name=\"q\"~A~ASELECT ?, ?~A--12345~AContent-Disposition: form-data; name=\"p\"~A~A[2001-01-01,{b:1}]~A--12345--"
-//                                    endb/http::+crlf+ endb/http::+crlf+ endb/http::+crlf+ endb/http::+crlf+ endb/http::+crlf+ endb/http::+crlf+ endb/http::+crlf+ endb/http::+crlf+)
-//                      :content-type "multipart/form-data; boundary=12345")))
-
-//     (is (equal (list +http-ok+
-//                      '(:content-type "application/json")
-//                      (format nil "[[3]]~%"))
-//                (%req app
-//                      :post "/sql"
-//                      :body "{\"q\":\"SELECT :a + :b\",\"p\":{\"a\":1,\"b\":2}}"
-//                      :content-type "application/json")))
-
-//     (is (equal (list +http-created+
-//                      '(:content-type "application/json")
-//                      (format nil "[[2]]~%"))
-//                (%req app
-//                      :post "/sql"
-//                      :body "{\"q\":\"INSERT INTO foo {:a, :b}\",\"p\":[{\"a\":1,\"b\":2},{\"a\":3,\"b\":4}],\"m\":true}"
-//                      :content-type "application/json")))
-
-//     (is (equal (list +http-ok+
-//                      '(:content-type "application/json")
-//                      (format nil "[[1,2],[3,4]]~%"))
-//                (%req app
-//                      :get "/sql"
-//                      :query "q=SELECT%20a%2Cb%20FROM%20foo%20ORDER%20BY%20a")))))
-
-// (test errors
-//   (let* ((db (endb/sql:make-db))
-//          (write-db (endb/sql:begin-write-tx db))
-//          (app (make-api-handler write-db)))
-
-//     (is (equal (list +http-created+
-//                      '(:content-type "application/json")
-//                      (format nil "[[1]]~%"))
-//                (%req app
-//                      :post "/sql"
-//                      :body "{\"q\":\"INSERT INTO foo {a: 1, b: 2}\"}"
-//                      :content-type "application/json")))
-
-//     (is (equal (list +http-bad-request+
-//                      '(:content-type "text/plain"
-//                        :content-length 0)
-//                      '(""))
-//                (%req app
-//                      :get "/sql"
-//                      :query "q=DELETE%20FROM%20foo")))
-
-//     (is (equal (list +http-bad-request+
-//                      '(:content-type "text/plain")
-//                      (list (format nil "Invalid argument types: SIN(\"foo\")~%")))
-//                (%req app
-//                      :get "/sql"
-//                      :query "q=SELECT%20SIN%28%27foo%27%29"))))
