@@ -58,7 +58,7 @@ fn empty_response(status_code: StatusCode) -> Response<Body> {
 }
 
 fn sql_response(
-    method: &str,
+    method: Method,
     media_type: &str,
     params: HashMap<String, String>,
     on_query: OnQueryFn,
@@ -68,7 +68,7 @@ fn sql_response(
         let m = params.get("m").map(|x| x.as_str()).unwrap_or("false");
 
         RESPONSE.set(None);
-        on_query(method, media_type, q, p, m);
+        on_query(method.as_str(), media_type, q, p, m);
         if let Some(response) = RESPONSE.take() {
             Ok(response)
         } else {
@@ -146,7 +146,7 @@ impl Service<Request<Body>> for EndbService {
                 HashMap::default()
             };
 
-            let method = req.method().to_string();
+            let method = req.method().clone();
 
             match (
                 req.method(),
@@ -156,7 +156,7 @@ impl Service<Request<Body>> for EndbService {
                     .map(|x| x.essence_str().to_string())
                     .as_deref(),
             ) {
-                (&Method::GET, "/sql", _) => sql_response(&method, media_type, params, on_query),
+                (&Method::GET, "/sql", _) => sql_response(method, media_type, params, on_query),
                 (&Method::POST, "/sql", Some("application/json" | "application/ld+json")) => {
                     let body = hyper::body::to_bytes(req).await?;
                     if let Ok(serde_json::Value::Object(json)) =
@@ -169,7 +169,7 @@ impl Service<Request<Body>> for EndbService {
                                 params.insert(k, v.to_string());
                             }
                         }
-                        sql_response(&method, media_type, params, on_query)
+                        sql_response(method, media_type, params, on_query)
                     } else {
                         Ok(empty_response(StatusCode::UNPROCESSABLE_ENTITY))
                     }
@@ -178,7 +178,7 @@ impl Service<Request<Body>> for EndbService {
                     let body = hyper::body::to_bytes(req).await?;
                     if let Ok(q) = std::str::from_utf8(&body) {
                         params.insert("q".to_string(), q.to_string());
-                        sql_response(&method, media_type, params, on_query)
+                        sql_response(method, media_type, params, on_query)
                     } else {
                         Ok(empty_response(StatusCode::UNPROCESSABLE_ENTITY))
                     }
@@ -188,7 +188,7 @@ impl Service<Request<Body>> for EndbService {
                     for (k, v) in url::form_urlencoded::parse(body.as_ref()) {
                         params.insert(k.to_string(), v.to_string());
                     }
-                    sql_response(&method, media_type, params, on_query)
+                    sql_response(method, media_type, params, on_query)
                 }
                 (&Method::POST, "/sql", Some("multipart/form-data")) => {
                     if let Some(boundary) = content_type
@@ -205,7 +205,7 @@ impl Service<Request<Body>> for EndbService {
                                 }
                             }
                         }
-                        sql_response(&method, media_type, params, on_query)
+                        sql_response(method, media_type, params, on_query)
                     } else {
                         Ok(empty_response(StatusCode::BAD_REQUEST))
                     }
