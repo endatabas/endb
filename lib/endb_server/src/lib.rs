@@ -1,8 +1,12 @@
 use base64::Engine;
 use clap::Parser;
+use hyper::service::Service;
 use hyper::{Body, Method, Request, Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
+use std::sync::Arc;
 
 const ENDB_FULL_VERSION: &str = env!("ENDB_FULL_VERSION");
 
@@ -23,13 +27,215 @@ thread_local! {
     pub static RESPONSE: std::cell::RefCell<Option<Response<Body>>> = std::cell::RefCell::default();
 }
 
+const REALM: &str = "restricted area";
+
+type OnResponseFn = Box<dyn FnMut(u16, String, String)>;
+
+struct EndbService {
+    basic_auth: Option<String>,
+    #[allow(clippy::type_complexity)]
+    on_query: Arc<
+        dyn Fn(String, String, String, String, String, OnResponseFn)
+            + std::marker::Sync
+            + std::marker::Send,
+    >,
+}
+
+fn empty_response(status_code: StatusCode) -> Response<Body> {
+    Response::builder()
+        .status(status_code)
+        .body(Body::from(""))
+        .unwrap()
+}
+
+impl Service<Request<Body>> for EndbService {
+    type Response = Response<Body>;
+    type Error = hyper::Error;
+    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+
+    fn poll_ready(
+        &mut self,
+        _cx: &mut core::task::Context<'_>,
+    ) -> core::task::Poll<Result<(), Self::Error>> {
+        core::task::Poll::Ready(Ok(()))
+    }
+
+    fn call(&mut self, req: Request<Body>) -> Self::Future {
+        let on_query = self.on_query.clone();
+        let unauthorized = self.basic_auth.is_some()
+            && self.basic_auth.as_deref()
+                != req
+                    .headers()
+                    .get(hyper::header::AUTHORIZATION)
+                    .and_then(|x| x.to_str().ok());
+        Box::pin(async move {
+            if unauthorized {
+                return Ok(Response::builder()
+                    .status(StatusCode::UNAUTHORIZED)
+                    .header(
+                        hyper::header::WWW_AUTHENTICATE,
+                        format!("Basic realm=\"{}\"", REALM),
+                    )
+                    .body("".into())
+                    .unwrap());
+            }
+
+            let accept = req
+                .headers()
+                .get(hyper::header::ACCEPT)
+                .and_then(|x| x.to_str().ok())
+                .and_then(|x| x.split(',').next())
+                .and_then(|x| x.parse::<mime::Mime>().ok())
+                .unwrap_or(mime::STAR_STAR);
+
+            let media_type = match accept.essence_str() {
+                "*/*" | "application/*" | "applicatio/json" => "application/json",
+                "application/ld+json" => "application/ld+json",
+                "application/x-ndjson" => "application/x-ndjson",
+                "text/*" | "text/csv" => "text/csv",
+                _ => {
+                    return Ok(Response::builder()
+                        .status(StatusCode::NOT_ACCEPTABLE)
+                        .body("".into())
+                        .unwrap())
+                }
+            }
+            .to_string();
+
+            let content_type = req
+                .headers()
+                .get(hyper::header::CONTENT_TYPE)
+                .and_then(|x| x.to_str().ok())
+                .and_then(|x| x.parse::<mime::Mime>().ok());
+
+            let mut params = if let Some(query) = req.uri().query() {
+                url::form_urlencoded::parse(query.as_bytes())
+                    .into_owned()
+                    .collect::<HashMap<String, String>>()
+            } else {
+                HashMap::default()
+            };
+
+            let method = req.method().to_string();
+
+            let responder = |params: HashMap<String, String>| {
+                if let Some(q) = params.get("q") {
+                    let q = q.to_string();
+                    let p = params.get("p").map_or("[]".to_string(), |x| x.to_string());
+                    let m = params
+                        .get("m")
+                        .map_or("false".to_string(), |x| x.to_string());
+
+                    on_query(
+                        method,
+                        media_type,
+                        q,
+                        p,
+                        m,
+                        Box::new(|status, content_type, body| {
+                            RESPONSE.with_borrow_mut(|response| {
+                                *response = Some(
+                                    Response::builder()
+                                        .status(status)
+                                        .header(hyper::header::CONTENT_TYPE, content_type)
+                                        .body(Body::from(body))
+                                        .unwrap(),
+                                )
+                            })
+                        }),
+                    );
+                    if let Some(response) = RESPONSE.take() {
+                        Ok(response)
+                    } else {
+                        Ok(empty_response(StatusCode::INTERNAL_SERVER_ERROR))
+                    }
+                } else {
+                    Ok(empty_response(StatusCode::UNPROCESSABLE_ENTITY))
+                }
+            };
+
+            match (
+                req.method(),
+                req.uri().path(),
+                content_type
+                    .clone()
+                    .map(|x| x.essence_str().to_string())
+                    .as_deref(),
+            ) {
+                (&Method::GET, "/sql", _) => responder(params),
+                (&Method::POST, "/sql", Some("application/json" | "application/ld+json")) => {
+                    let body = hyper::body::to_bytes(req).await?;
+                    if let Ok(serde_json::Value::Object(json)) =
+                        serde_json::from_slice::<serde_json::Value>(body.as_ref())
+                    {
+                        for (k, v) in json {
+                            if let serde_json::Value::String(v) = v {
+                                params.insert(k, v);
+                            } else {
+                                params.insert(k, v.to_string());
+                            }
+                        }
+                        responder(params)
+                    } else {
+                        Ok(empty_response(StatusCode::UNPROCESSABLE_ENTITY))
+                    }
+                }
+                (&Method::POST, "/sql", Some("application/sql")) => {
+                    let body = hyper::body::to_bytes(req).await?;
+                    if let Ok(q) = std::str::from_utf8(&body) {
+                        params.insert("q".to_string(), q.to_string());
+                        responder(params)
+                    } else {
+                        Ok(empty_response(StatusCode::UNPROCESSABLE_ENTITY))
+                    }
+                }
+                (&Method::POST, "/sql", Some("application/x-www-form-urlencoded")) => {
+                    let body = hyper::body::to_bytes(req).await?;
+                    for (k, v) in url::form_urlencoded::parse(body.as_ref()) {
+                        params.insert(k.to_string(), v.to_string());
+                    }
+                    responder(params)
+                }
+                (&Method::POST, "/sql", Some("multipart/form-data")) => {
+                    if let Some(boundary) = content_type
+                        .and_then(|x| x.get_param(mime::BOUNDARY).map(|x| x.to_string()))
+                    {
+                        let body = hyper::body::to_bytes(req).await?;
+                        let mut mult = multer::Multipart::new(Body::from(body), boundary);
+
+                        while let Ok(Some(field)) = mult.next_field().await {
+                            if let Some(k) = field.name() {
+                                let k = k.to_string();
+                                if let Ok(v) = field.text().await {
+                                    params.insert(k, v.to_string());
+                                }
+                            }
+                        }
+                        responder(params)
+                    } else {
+                        Ok(empty_response(StatusCode::BAD_REQUEST))
+                    }
+                }
+                (&Method::POST, "/sql", _) => {
+                    Ok(empty_response(StatusCode::UNSUPPORTED_MEDIA_TYPE))
+                }
+                (_, "/sql", _) => Ok(Response::builder()
+                    .status(StatusCode::METHOD_NOT_ALLOWED)
+                    .header(hyper::header::ALLOW, "GET, POST")
+                    .body("".into())
+                    .unwrap()),
+                _ => Ok(empty_response(StatusCode::NOT_FOUND)),
+            }
+        })
+    }
+}
+
 pub fn start_server(
     on_init: impl Fn(String),
-    on_query: impl Fn(String, String, String, String, String, Box<dyn FnMut(u16, String, String)>)
+    on_query: impl Fn(String, String, String, String, String, OnResponseFn)
         + std::marker::Sync
         + std::marker::Send
-        + 'static
-        + Clone,
+        + 'static,
 ) {
     let args = CommandLineArguments::parse();
 
@@ -38,7 +244,6 @@ pub fn start_server(
 
     on_init(serde_json::to_string(&args).unwrap());
 
-    let realm = "restricted area";
     let basic_auth: Option<String> = if let (Some(username), Some(password)) =
         (args.username, args.password)
     {
@@ -50,203 +255,15 @@ pub fn start_server(
         None
     };
 
+    let on_query = Arc::new(on_query);
     let make_svc = hyper::service::make_service_fn(|_conn| {
         let basic_auth = basic_auth.clone();
         let on_query = on_query.clone();
-        let www_authenticate = format!("Basic realm=\"{}\"", realm);
-        async {
-            Ok::<_, hyper::Error>(hyper::service::service_fn(move |req: Request<Body>| {
-                let basic_auth = basic_auth.clone();
-                let on_query = on_query.clone();
-                let www_authenticate = www_authenticate.clone();
-                async move {
-                    if basic_auth.is_some()
-                        && basic_auth.as_deref()
-                            != req
-                                .headers()
-                                .get(hyper::header::AUTHORIZATION)
-                                .and_then(|x| x.to_str().ok())
-                    {
-                        return Ok(Response::builder()
-                            .status(StatusCode::UNAUTHORIZED)
-                            .header(hyper::header::WWW_AUTHENTICATE, www_authenticate)
-                            .body("".into())
-                            .unwrap());
-                    }
-
-                    let accept = req
-                        .headers()
-                        .get(hyper::header::ACCEPT)
-                        .and_then(|x| x.to_str().ok())
-                        .and_then(|x| x.split(',').next())
-                        .and_then(|x| x.parse::<mime::Mime>().ok())
-                        .unwrap_or(mime::STAR_STAR);
-
-                    let media_type = match accept.essence_str() {
-                        "*/*" | "application/*" | "applicatio/json" => "application/json",
-                        "application/ld+json" => "application/ld+json",
-                        "application/x-ndjson" => "application/x-ndjson",
-                        "text/*" | "text/csv" => "text/csv",
-                        _ => {
-                            return Ok(Response::builder()
-                                .status(StatusCode::NOT_ACCEPTABLE)
-                                .body("".into())
-                                .unwrap())
-                        }
-                    }
-                    .to_string();
-
-                    let content_type = req
-                        .headers()
-                        .get(hyper::header::CONTENT_TYPE)
-                        .and_then(|x| x.to_str().ok())
-                        .and_then(|x| x.parse::<mime::Mime>().ok());
-
-                    let mut params = if let Some(query) = req.uri().query() {
-                        url::form_urlencoded::parse(query.as_bytes())
-                            .into_owned()
-                            .collect::<HashMap<String, String>>()
-                    } else {
-                        HashMap::default()
-                    };
-
-                    let method = req.method().to_string();
-
-                    let responder = |params: HashMap<String, String>| {
-                        if let Some(q) = params.get("q") {
-                            let p = params.get("p").map_or("[]".to_string(), |x| x.to_string());
-                            let m = params
-                                .get("m")
-                                .map_or("false".to_string(), |x| x.to_string());
-
-                            on_query(
-                                method,
-                                media_type,
-                                q.to_string(),
-                                p,
-                                m,
-                                Box::new(|status, content_type, body| {
-                                    RESPONSE.with_borrow_mut(|response| {
-                                        *response = Some(
-                                            Response::builder()
-                                                .status(status)
-                                                .header(hyper::header::CONTENT_TYPE, content_type)
-                                                .body(Body::from(body))
-                                                .unwrap(),
-                                        )
-                                    })
-                                }),
-                            );
-                            if let Some(response) = RESPONSE.take() {
-                                Ok(response)
-                            } else {
-                                Ok(Response::builder()
-                                    .status(StatusCode::INTERNAL_SERVER_ERROR)
-                                    .body(Body::from(""))
-                                    .unwrap())
-                            }
-                        } else {
-                            Ok(Response::builder()
-                                .status(StatusCode::UNPROCESSABLE_ENTITY)
-                                .body("".into())
-                                .unwrap())
-                        }
-                    };
-
-                    match (
-                        req.method(),
-                        req.uri().path(),
-                        content_type
-                            .clone()
-                            .map(|x| x.essence_str().to_string())
-                            .as_deref(),
-                    ) {
-                        (&Method::GET, "/sql", _) => responder(params),
-                        (
-                            &Method::POST,
-                            "/sql",
-                            Some("application/json" | "application/ld+json"),
-                        ) => {
-                            let body = hyper::body::to_bytes(req).await?;
-                            if let Ok(serde_json::Value::Object(json)) =
-                                serde_json::from_slice::<serde_json::Value>(body.as_ref())
-                            {
-                                for (k, v) in json {
-                                    if let serde_json::Value::String(v) = v {
-                                        params.insert(k, v);
-                                    } else {
-                                        params.insert(k, v.to_string());
-                                    }
-                                }
-
-                                responder(params)
-                            } else {
-                                Ok(Response::builder()
-                                    .status(StatusCode::BAD_REQUEST)
-                                    .body("".into())
-                                    .unwrap())
-                            }
-                        }
-                        (&Method::POST, "/sql", Some("application/sql")) => {
-                            let body = hyper::body::to_bytes(req).await?;
-                            if let Ok(q) = std::str::from_utf8(&body) {
-                                params.insert("q".to_string(), q.to_string());
-                                responder(params)
-                            } else {
-                                Ok(Response::builder()
-                                    .status(StatusCode::UNPROCESSABLE_ENTITY)
-                                    .body("".into())
-                                    .unwrap())
-                            }
-                        }
-                        (&Method::POST, "/sql", Some("application/x-www-form-urlencoded")) => {
-                            let body = hyper::body::to_bytes(req).await?;
-                            for (k, v) in url::form_urlencoded::parse(body.as_ref()) {
-                                params.insert(k.to_string(), v.to_string());
-                            }
-                            responder(params)
-                        }
-                        (&Method::POST, "/sql", Some("multipart/form-data")) => {
-                            if let Some(boundary) = content_type
-                                .and_then(|x| x.get_param(mime::BOUNDARY).map(|x| x.to_string()))
-                            {
-                                let body = hyper::body::to_bytes(req).await?;
-                                let mut mult = multer::Multipart::new(Body::from(body), boundary);
-
-                                while let Ok(Some(field)) = mult.next_field().await {
-                                    if let Some(k) = field.name() {
-                                        let k = k.to_string();
-                                        if let Ok(v) = field.text().await {
-                                            params.insert(k, v.to_string());
-                                        }
-                                    }
-                                }
-                                responder(params)
-                            } else {
-                                Ok(Response::builder()
-                                    .status(StatusCode::BAD_REQUEST)
-                                    .body("".into())
-                                    .unwrap())
-                            }
-                        }
-                        (&Method::POST, "/sql", _) => Ok(Response::builder()
-                            .status(StatusCode::UNSUPPORTED_MEDIA_TYPE)
-                            .body("".into())
-                            .unwrap()),
-                        (_, "/sql", _) => Ok(Response::builder()
-                            .status(StatusCode::METHOD_NOT_ALLOWED)
-                            .header(hyper::header::ALLOW, "GET, POST")
-                            .body("".into())
-                            .unwrap()),
-                        _ => Ok::<_, hyper::Error>(
-                            Response::builder()
-                                .status(StatusCode::NOT_FOUND)
-                                .body("".into())
-                                .unwrap(),
-                        ),
-                    }
-                }
-            }))
+        async move {
+            Ok::<_, hyper::Error>(EndbService {
+                basic_auth,
+                on_query: on_query.clone(),
+            })
         }
     });
 
