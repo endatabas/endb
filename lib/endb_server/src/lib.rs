@@ -314,10 +314,10 @@ mod tests {
         }
     }
 
-    fn get(uri: &str, accept: &str, body: &str) -> Request<Body> {
+    fn get(uri: &str, accept: &str) -> Request<Body> {
         Request::get(uri)
             .header(hyper::header::ACCEPT, accept)
-            .body(body.to_string().into())
+            .body("".into())
             .unwrap()
     }
 
@@ -341,7 +341,7 @@ mod tests {
     async fn content_type() {
         assert_debug_snapshot!(
             service(None, ok("[[1]]\n"))
-            .call(get("http://localhost:3803/sql?q=SELECT%201", "*/*", ""))
+            .call(get("http://localhost:3803/sql?q=SELECT%201", "*/*"))
             .await
         , @r###"
         Ok(
@@ -365,7 +365,7 @@ mod tests {
 
         assert_debug_snapshot!(
             service(None, ok("[[1]]\n"))
-            .call(get("http://localhost:3803/sql?q=SELECT%201", "application/json", ""))
+            .call(get("http://localhost:3803/sql?q=SELECT%201", "application/json"))
             .await
         , @r###"
         Ok(
@@ -389,7 +389,7 @@ mod tests {
 
         assert_debug_snapshot!(
             service(None, ok("{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}\n"))
-            .call(get("http://localhost:3803/sql?q=SELECT%201", "application/ld+json", ""))
+            .call(get("http://localhost:3803/sql?q=SELECT%201", "application/ld+json"))
             .await
         , @r###"
         Ok(
@@ -413,7 +413,7 @@ mod tests {
 
         assert_debug_snapshot!(
             service(None, ok("{\"column1\":1}\n"))
-            .call(get("http://localhost:3803/sql?q=SELECT%201", "application/x-ndjson", ""))
+            .call(get("http://localhost:3803/sql?q=SELECT%201", "application/x-ndjson"))
             .await
         , @r###"
         Ok(
@@ -437,7 +437,7 @@ mod tests {
 
         assert_debug_snapshot!(
             service(None, ok("\"column1\"\r\n1~\r\n"))
-            .call(get("http://localhost:3803/sql?q=SELECT%201", "text/csv", ""))
+            .call(get("http://localhost:3803/sql?q=SELECT%201", "text/csv"))
             .await
         , @r###"
         Ok(
@@ -461,7 +461,7 @@ mod tests {
 
         assert_debug_snapshot!(
             service(None, unreachable())
-            .call(get("http://localhost:3803/sql?q=SELECT%201", "text/xml", ""))
+            .call(get("http://localhost:3803/sql?q=SELECT%201", "text/xml"))
             .await
         , @r###"
         Ok(
@@ -616,6 +616,95 @@ mod tests {
         )
         "###);
     }
+
+    #[tokio::test]
+    async fn errors() {
+        assert_debug_snapshot!(
+            service(None, unreachable())
+            .call(Request::head("http://localhost:3803/sql")
+            .body("".into())
+            .unwrap())
+            .await
+        , @r###"
+        Ok(
+            Response {
+                status: 405,
+                version: HTTP/1.1,
+                headers: {
+                    "allow": "GET, POST",
+                },
+                body: Body(
+                    Empty,
+                ),
+            },
+        )
+        "###);
+
+        assert_debug_snapshot!(
+            service(None, unreachable())
+            .call(get("http://localhost:3803/foo", "*/*"))
+            .await
+        , @r###"
+        Ok(
+            Response {
+                status: 404,
+                version: HTTP/1.1,
+                headers: {},
+                body: Body(
+                    Empty,
+                ),
+            },
+        )
+        "###);
+    }
+
+    #[tokio::test]
+    async fn basic_auth() {
+        let basic_auth =
+            crate::make_basic_auth_header(Some("foo".to_string()), Some("foo".to_string()));
+        assert_debug_snapshot!(
+            service(basic_auth.clone(), unreachable())
+                .call(get("http://localhost:3803/sql?q=SELECT%201", "*/*"))
+            .await
+        , @r###"
+        Ok(
+            Response {
+                status: 401,
+                version: HTTP/1.1,
+                headers: {
+                    "www-authenticate": "Basic realm=\"restricted area\"",
+                },
+                body: Body(
+                    Empty,
+                ),
+            },
+        )
+        "###);
+
+        assert_debug_snapshot!(
+            service(basic_auth, ok("[[1]]\n"))
+                .call(add_header(get("http://localhost:3803/sql?q=SELECT%201", "*/*"), hyper::header::AUTHORIZATION, "Basic Zm9vOmZvbw=="))
+            .await
+        , @r###"
+        Ok(
+            Response {
+                status: 200,
+                version: HTTP/1.1,
+                headers: {
+                    "content-type": "application/json",
+                    "x-q": "SELECT 1",
+                    "x-p": "[]",
+                    "x-m": "false",
+                },
+                body: Body(
+                    Full(
+                        b"[[1]]\n",
+                    ),
+                ),
+            },
+        )
+        "###);
+    }
 }
 
 // (test parameters
@@ -689,34 +778,4 @@ mod tests {
 //                      (list (format nil "Invalid argument types: SIN(\"foo\")~%")))
 //                (%req app
 //                      :get "/sql"
-//                      :query "q=SELECT%20SIN%28%27foo%27%29")))
-
-//     (is (equal (list +http-method-not-allowed+
-//                      '(:allow "GET, POST"
-//                        :content-type "text/plain"
-//                        :content-length 0)
-//                      '(""))
-//                (%req app :head "/sql")))
-
-//     (is (equal (list +http-not-found+
-//                      '(:content-type "text/plain"
-//                        :content-length 0)
-//                      '(""))
-//                (%req app :get "/foo")))))
-
-// (test basic-auth
-//   (let* ((db (endb/sql:make-db))
-//          (write-db (endb/sql:begin-write-tx db))
-//          (app (make-api-handler write-db :username "foo" :password "foo" :realm "test realm")))
-
-//     (is (equal (list +http-unauthorized+
-//                      '(:www-authenticate "Basic realm=\"test realm\""
-//                        :content-type "text/plain"
-//                        :content-length 0)
-//                      '(""))
-//                (%req app :get "/sql" :query "q=SELECT%201")))
-
-//     (is (equal (list +http-ok+
-//                      '(:content-type "application/json")
-//                      (format nil "[[1]]~%"))
-//                (%req app :get "/sql" :query "q=SELECT%201" :headers '("authorization" "Basic Zm9vOmZvbw=="))))))
+//                      :query "q=SELECT%20SIN%28%27foo%27%29"))))
