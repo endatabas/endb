@@ -3,8 +3,10 @@ use clap::Parser;
 use hyper::service::Service;
 use hyper::{Body, Method, Request, Response, StatusCode};
 use serde::{Deserialize, Serialize};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::future::Future;
+use std::marker::{Send, Sync};
 use std::pin::Pin;
 use std::sync::Arc;
 
@@ -24,21 +26,28 @@ pub struct CommandLineArguments {
 }
 
 thread_local! {
-    pub static RESPONSE: std::cell::RefCell<Option<Response<Body>>> = std::cell::RefCell::default();
+    static RESPONSE: RefCell<Option<Response<Body>>> = RefCell::default();
+}
+
+pub fn on_response(status_code: u16, content_type: &str, body: &str) {
+    RESPONSE.with_borrow_mut(|response| {
+        *response = Some(
+            Response::builder()
+                .status(status_code)
+                .header(hyper::header::CONTENT_TYPE, content_type)
+                .body(Body::from(body.to_string()))
+                .unwrap(),
+        )
+    });
 }
 
 const REALM: &str = "restricted area";
 
-type OnResponseFn = Box<dyn FnMut(u16, String, String)>;
+type OnQueryFn = Arc<dyn Fn(&str, &str, &str, &str, &str) + Sync + Send>;
 
 struct EndbService {
     basic_auth: Option<String>,
-    #[allow(clippy::type_complexity)]
-    on_query: Arc<
-        dyn Fn(String, String, String, String, String, OnResponseFn)
-            + std::marker::Sync
-            + std::marker::Send,
-    >,
+    on_query: OnQueryFn,
 }
 
 fn empty_response(status_code: StatusCode) -> Response<Body> {
@@ -46,6 +55,28 @@ fn empty_response(status_code: StatusCode) -> Response<Body> {
         .status(status_code)
         .body(Body::from(""))
         .unwrap()
+}
+
+fn sql_response(
+    method: &str,
+    media_type: &str,
+    params: HashMap<String, String>,
+    on_query: OnQueryFn,
+) -> Result<Response<Body>, hyper::Error> {
+    if let Some(q) = params.get("q") {
+        let p = params.get("p").map(|x| x.as_str()).unwrap_or("[]");
+        let m = params.get("m").map(|x| x.as_str()).unwrap_or("false");
+
+        RESPONSE.set(None);
+        on_query(method, media_type, q, p, m);
+        if let Some(response) = RESPONSE.take() {
+            Ok(response)
+        } else {
+            Ok(empty_response(StatusCode::INTERNAL_SERVER_ERROR))
+        }
+    } else {
+        Ok(empty_response(StatusCode::UNPROCESSABLE_ENTITY))
+    }
 }
 
 impl Service<Request<Body>> for EndbService {
@@ -99,8 +130,7 @@ impl Service<Request<Body>> for EndbService {
                         .body("".into())
                         .unwrap())
                 }
-            }
-            .to_string();
+            };
 
             let content_type = req
                 .headers()
@@ -118,42 +148,6 @@ impl Service<Request<Body>> for EndbService {
 
             let method = req.method().to_string();
 
-            let responder = |params: HashMap<String, String>| {
-                if let Some(q) = params.get("q") {
-                    let q = q.to_string();
-                    let p = params.get("p").map_or("[]".to_string(), |x| x.to_string());
-                    let m = params
-                        .get("m")
-                        .map_or("false".to_string(), |x| x.to_string());
-
-                    on_query(
-                        method,
-                        media_type,
-                        q,
-                        p,
-                        m,
-                        Box::new(|status, content_type, body| {
-                            RESPONSE.with_borrow_mut(|response| {
-                                *response = Some(
-                                    Response::builder()
-                                        .status(status)
-                                        .header(hyper::header::CONTENT_TYPE, content_type)
-                                        .body(Body::from(body))
-                                        .unwrap(),
-                                )
-                            })
-                        }),
-                    );
-                    if let Some(response) = RESPONSE.take() {
-                        Ok(response)
-                    } else {
-                        Ok(empty_response(StatusCode::INTERNAL_SERVER_ERROR))
-                    }
-                } else {
-                    Ok(empty_response(StatusCode::UNPROCESSABLE_ENTITY))
-                }
-            };
-
             match (
                 req.method(),
                 req.uri().path(),
@@ -162,7 +156,7 @@ impl Service<Request<Body>> for EndbService {
                     .map(|x| x.essence_str().to_string())
                     .as_deref(),
             ) {
-                (&Method::GET, "/sql", _) => responder(params),
+                (&Method::GET, "/sql", _) => sql_response(&method, media_type, params, on_query),
                 (&Method::POST, "/sql", Some("application/json" | "application/ld+json")) => {
                     let body = hyper::body::to_bytes(req).await?;
                     if let Ok(serde_json::Value::Object(json)) =
@@ -175,7 +169,7 @@ impl Service<Request<Body>> for EndbService {
                                 params.insert(k, v.to_string());
                             }
                         }
-                        responder(params)
+                        sql_response(&method, media_type, params, on_query)
                     } else {
                         Ok(empty_response(StatusCode::UNPROCESSABLE_ENTITY))
                     }
@@ -184,7 +178,7 @@ impl Service<Request<Body>> for EndbService {
                     let body = hyper::body::to_bytes(req).await?;
                     if let Ok(q) = std::str::from_utf8(&body) {
                         params.insert("q".to_string(), q.to_string());
-                        responder(params)
+                        sql_response(&method, media_type, params, on_query)
                     } else {
                         Ok(empty_response(StatusCode::UNPROCESSABLE_ENTITY))
                     }
@@ -194,7 +188,7 @@ impl Service<Request<Body>> for EndbService {
                     for (k, v) in url::form_urlencoded::parse(body.as_ref()) {
                         params.insert(k.to_string(), v.to_string());
                     }
-                    responder(params)
+                    sql_response(&method, media_type, params, on_query)
                 }
                 (&Method::POST, "/sql", Some("multipart/form-data")) => {
                     if let Some(boundary) = content_type
@@ -211,7 +205,7 @@ impl Service<Request<Body>> for EndbService {
                                 }
                             }
                         }
-                        responder(params)
+                        sql_response(&method, media_type, params, on_query)
                     } else {
                         Ok(empty_response(StatusCode::BAD_REQUEST))
                     }
@@ -230,41 +224,36 @@ impl Service<Request<Body>> for EndbService {
     }
 }
 
-pub fn start_server(
-    on_init: impl Fn(String),
-    on_query: impl Fn(String, String, String, String, String, OnResponseFn)
-        + std::marker::Sync
-        + std::marker::Send
-        + 'static,
-) {
-    let args = CommandLineArguments::parse();
-
-    let full_version = env!("ENDB_FULL_VERSION");
-    log::info!(target: "endb", "{}", full_version);
-
-    on_init(serde_json::to_string(&args).unwrap());
-
-    let basic_auth: Option<String> = if let (Some(username), Some(password)) =
-        (args.username, args.password)
-    {
+fn make_basic_auth_header(username: Option<String>, password: Option<String>) -> Option<String> {
+    if let (Some(username), Some(password)) = (username, password) {
         Some(format!(
             "Basic {}",
             base64::engine::general_purpose::STANDARD.encode(format!("{}:{}", username, password))
         ))
     } else {
         None
-    };
+    }
+}
 
+pub fn start_server(
+    on_init: impl Fn(&str),
+    on_query: impl Fn(&str, &str, &str, &str, &str) + Sync + Send + 'static,
+) {
+    let args = CommandLineArguments::parse();
+
+    let full_version = env!("ENDB_FULL_VERSION");
+    log::info!(target: "endb", "{}", full_version);
+
+    on_init(&serde_json::to_string(&args).unwrap());
+
+    let basic_auth = make_basic_auth_header(args.username, args.password);
     let on_query = Arc::new(on_query);
     let make_svc = hyper::service::make_service_fn(|_conn| {
-        let basic_auth = basic_auth.clone();
-        let on_query = on_query.clone();
-        async move {
-            Ok::<_, hyper::Error>(EndbService {
-                basic_auth,
-                on_query: on_query.clone(),
-            })
-        }
+        let svc = EndbService {
+            basic_auth: basic_auth.clone(),
+            on_query: on_query.clone(),
+        };
+        async move { Ok::<_, hyper::Error>(svc) }
     });
 
     let addr = ([0, 0, 0, 0], args.http_port).into();

@@ -10,7 +10,7 @@ use endb_parser::{SQL_AST_PARSER_NO_ERRORS, SQL_AST_PARSER_WITH_ERRORS};
 
 use std::panic;
 
-fn string_callback(s: String, cb: extern "C" fn(*const c_char)) {
+fn string_callback<T: Into<Vec<u8>>>(s: T, cb: extern "C" fn(*const c_char)) {
     let c_string = CString::new(s).unwrap();
     cb(c_string.as_ptr());
 }
@@ -258,11 +258,6 @@ pub extern "C" fn endb_log_error(target: *const c_char, message: *const c_char) 
     do_log(log::Level::Error, target, message);
 }
 
-thread_local! {
-    #[allow(clippy::type_complexity)]
-    pub static ON_RESPONSE: std::cell::RefCell<Option<Box<dyn FnMut(u16, String, String)>>> = std::cell::RefCell::default();
-}
-
 #[no_mangle]
 pub extern "C" fn endb_start_server(
     on_init: extern "C" fn(*const c_char),
@@ -279,14 +274,12 @@ pub extern "C" fn endb_start_server(
         |config_json| {
             string_callback(config_json, on_init);
         },
-        move |method, media_type, q, p, m, on_response| {
+        move |method, media_type, q, p, m| {
             let method_cstring = CString::new(method).unwrap();
             let media_type_cstring = CString::new(media_type).unwrap();
             let q_cstring = CString::new(q).unwrap();
             let p_cstring = CString::new(p).unwrap();
             let m_cstring = CString::new(m).unwrap();
-
-            ON_RESPONSE.set(Some(on_response));
 
             extern "C" fn on_response_callback(
                 status: u16,
@@ -298,11 +291,7 @@ pub extern "C" fn endb_start_server(
                 let c_str = unsafe { CStr::from_ptr(body) };
                 let body_str = c_str.to_str().unwrap();
 
-                ON_RESPONSE.with_borrow_mut(|on_response| {
-                    if let Some(f) = on_response.as_mut().take() {
-                        f(status, content_type_str.to_string(), body_str.to_string());
-                    }
-                });
+                endb_server::on_response(status, content_type_str, body_str);
             }
             on_query(
                 method_cstring.as_ptr(),
