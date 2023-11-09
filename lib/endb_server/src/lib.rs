@@ -26,7 +26,7 @@ pub struct CommandLineArguments {
 }
 
 thread_local! {
-    static RESPONSE: RefCell<Option<Response<Body>>> = RefCell::default();
+    pub(crate) static RESPONSE: RefCell<Option<Response<Body>>> = RefCell::default();
 }
 
 pub fn on_response(status_code: u16, content_type: &str, body: &str) {
@@ -287,8 +287,14 @@ mod tests {
 
     fn ok(body: &str) -> crate::OnQueryFn {
         Arc::new(
-            move |_method: &str, media_type: &str, _q: &str, _p: &str, _m: &str| {
+            move |_method: &str, media_type: &str, q: &str, p: &str, m: &str| {
                 crate::on_response(StatusCode::OK.into(), media_type, body);
+                crate::RESPONSE.with_borrow_mut(|response| {
+                    let headers = response.as_mut().unwrap().headers_mut();
+                    headers.insert("X-q", q.parse().unwrap());
+                    headers.insert("X-p", p.parse().unwrap());
+                    headers.insert("X-m", m.parse().unwrap());
+                })
             },
         )
     }
@@ -315,6 +321,22 @@ mod tests {
             .unwrap()
     }
 
+    fn post(uri: &str, content_type: &str, body: &str) -> Request<Body> {
+        Request::post(uri)
+            .header(hyper::header::CONTENT_TYPE, content_type)
+            .body(body.to_string().into())
+            .unwrap()
+    }
+
+    fn add_header(
+        mut request: Request<Body>,
+        key: hyper::header::HeaderName,
+        value: &str,
+    ) -> Request<Body> {
+        request.headers_mut().insert(key, value.parse().unwrap());
+        request
+    }
+
     #[tokio::test]
     async fn content_type() {
         assert_debug_snapshot!(
@@ -328,6 +350,9 @@ mod tests {
                 version: HTTP/1.1,
                 headers: {
                     "content-type": "application/json",
+                    "x-q": "SELECT 1",
+                    "x-p": "[]",
+                    "x-m": "false",
                 },
                 body: Body(
                     Full(
@@ -349,6 +374,9 @@ mod tests {
                 version: HTTP/1.1,
                 headers: {
                     "content-type": "application/json",
+                    "x-q": "SELECT 1",
+                    "x-p": "[]",
+                    "x-m": "false",
                 },
                 body: Body(
                     Full(
@@ -370,6 +398,9 @@ mod tests {
                 version: HTTP/1.1,
                 headers: {
                     "content-type": "application/ld+json",
+                    "x-q": "SELECT 1",
+                    "x-p": "[]",
+                    "x-m": "false",
                 },
                 body: Body(
                     Full(
@@ -391,6 +422,9 @@ mod tests {
                 version: HTTP/1.1,
                 headers: {
                     "content-type": "application/x-ndjson",
+                    "x-q": "SELECT 1",
+                    "x-p": "[]",
+                    "x-m": "false",
                 },
                 body: Body(
                     Full(
@@ -412,6 +446,9 @@ mod tests {
                 version: HTTP/1.1,
                 headers: {
                     "content-type": "text/csv",
+                    "x-q": "SELECT 1",
+                    "x-p": "[]",
+                    "x-m": "false",
                 },
                 body: Body(
                     Full(
@@ -439,63 +476,147 @@ mod tests {
         )
         "###);
     }
+
+    #[tokio::test]
+    async fn media_type() {
+        assert_debug_snapshot!(
+            service(None, ok("[[1]]\n"))
+            .call(post("http://localhost:3803/sql", "application/sql", "SELECT 1"))
+            .await
+        , @r###"
+        Ok(
+            Response {
+                status: 200,
+                version: HTTP/1.1,
+                headers: {
+                    "content-type": "application/json",
+                    "x-q": "SELECT 1",
+                    "x-p": "[]",
+                    "x-m": "false",
+                },
+                body: Body(
+                    Full(
+                        b"[[1]]\n",
+                    ),
+                ),
+            },
+        )
+        "###);
+
+        assert_debug_snapshot!(
+            service(None, ok("[[1]]\n"))
+            .call(post("http://localhost:3803/sql", "application/x-www-form-urlencoded", "q=SELECT%201"))
+            .await
+        , @r###"
+        Ok(
+            Response {
+                status: 200,
+                version: HTTP/1.1,
+                headers: {
+                    "content-type": "application/json",
+                    "x-q": "SELECT 1",
+                    "x-p": "[]",
+                    "x-m": "false",
+                },
+                body: Body(
+                    Full(
+                        b"[[1]]\n",
+                    ),
+                ),
+            },
+        )
+        "###);
+
+        assert_debug_snapshot!(
+            service(None, ok("[[1]]\n"))
+            .call(post("http://localhost:3803/sql", "multipart/form-data; boundary=12345", "--12345\r\nContent-Disposition: form-data; name=\"q\"\r\n\r\nSELECT 1\r\n--12345--"))
+            .await
+        , @r###"
+        Ok(
+            Response {
+                status: 200,
+                version: HTTP/1.1,
+                headers: {
+                    "content-type": "application/json",
+                    "x-q": "SELECT 1",
+                    "x-p": "[]",
+                    "x-m": "false",
+                },
+                body: Body(
+                    Full(
+                        b"[[1]]\n",
+                    ),
+                ),
+            },
+        )
+        "###);
+
+        assert_debug_snapshot!(
+            service(None, ok("[[1]]\n"))
+            .call(post("http://localhost:3803/sql", "application/json", "{\"q\":\"SELECT 1\"}"))
+            .await
+        , @r###"
+        Ok(
+            Response {
+                status: 200,
+                version: HTTP/1.1,
+                headers: {
+                    "content-type": "application/json",
+                    "x-q": "SELECT 1",
+                    "x-p": "[]",
+                    "x-m": "false",
+                },
+                body: Body(
+                    Full(
+                        b"[[1]]\n",
+                    ),
+                ),
+            },
+        )
+        "###);
+
+        assert_debug_snapshot!(
+            service(None, ok("{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}\n"))
+                .call(add_header(post("http://localhost:3803/sql", "application/ld+json", "{\"q\":\"SELECT 1\"}"), hyper::header::ACCEPT, "application/ld+json"))
+            .await
+        , @r###"
+        Ok(
+            Response {
+                status: 200,
+                version: HTTP/1.1,
+                headers: {
+                    "content-type": "application/ld+json",
+                    "x-q": "SELECT 1",
+                    "x-p": "[]",
+                    "x-m": "false",
+                },
+                body: Body(
+                    Full(
+                        b"{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}\n",
+                    ),
+                ),
+            },
+        )
+        "###);
+
+        assert_debug_snapshot!(
+            service(None, unreachable())
+            .call(post("http://localhost:3803/sql", "text/plain", "SELECT 1"))
+            .await
+        , @r###"
+        Ok(
+            Response {
+                status: 415,
+                version: HTTP/1.1,
+                headers: {},
+                body: Body(
+                    Empty,
+                ),
+            },
+        )
+        "###);
+    }
 }
-
-// (test media-type
-//   (let* ((db (endb/sql:make-db))
-//          (write-db (endb/sql:begin-write-tx db))
-//          (app (make-api-handler write-db)))
-
-//     (is (equal (list +http-ok+
-//                      '(:content-type "application/json")
-//                      (format nil "[[1]]~%"))
-//                (%req app
-//                      :post "/sql"
-//                      :body "SELECT 1"
-//                      :content-type "application/sql")))
-
-//     (is (equal (list +http-ok+
-//                      '(:content-type "application/json")
-//                      (format nil "[[1]]~%"))
-//                (%req app
-//                      :post "/sql"
-//                      :body "q=SELECT%201"
-//                      :content-type "application/x-www-form-urlencoded")))
-
-//     (is (equal (list +http-ok+
-//                      '(:content-type "application/json")
-//                      (format nil "[[1]]~%"))
-//                (%req app
-//                      :post "/sql"
-//                      :body (format nil "--12345~AContent-Disposition: form-data; name=\"q\"~A~ASELECT 1~A--12345--"
-//                                    endb/http::+crlf+ endb/http::+crlf+ endb/http::+crlf+ endb/http::+crlf+)
-//                      :content-type "multipart/form-data; boundary=12345")))
-
-//     (is (equal (list +http-ok+
-//                      '(:content-type "application/json")
-//                      (format nil "[[1]]~%"))
-//                (%req app
-//                      :post "/sql"
-//                      :body "{\"q\":\"SELECT 1\"}"
-//                      :content-type "application/json")))
-
-//     (is (equal (list +http-ok+
-//                      '(:content-type "application/ld+json")
-//                      (format nil "{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}~%"))
-//                (%req app
-//                      :post "/sql"
-//                      :body "{\"q\":\"SELECT 1\"}"
-//                      :content-type "application/ld+json"
-//                      :accept "application/ld+json")))
-
-//     (is (equal (list +http-unsupported-media-type+
-//                      '(:content-type "text/plain"
-//                        :content-length 0)
-//                      '(""))
-//                (%req app
-//                      :post "/sql"
-//                      :body "SELECT 1"
-//                      :content-type "text/plain")))))
 
 // (test parameters
 //   (let* ((db (endb/sql:make-db))
