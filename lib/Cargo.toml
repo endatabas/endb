@@ -20,6 +20,7 @@ arrow2 = { version = "0.18.0", features = ["io_ipc", "io_parquet", "io_parquet_c
 log = "0.4"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+insta = { version = "1.29.0", features = ["yaml"] }
 
 [profile.release]
 lto = true

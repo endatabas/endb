@@ -43,11 +43,11 @@ pub fn on_response(status_code: u16, content_type: &str, body: &str) {
 
 const REALM: &str = "restricted area";
 
-type OnQueryFn = Arc<dyn Fn(&str, &str, &str, &str, &str) + Sync + Send>;
+type OnQueryFn<'a> = Arc<dyn Fn(&str, &str, &str, &str, &str) + Sync + Send + 'a>;
 
-struct EndbService {
+struct EndbService<'a> {
     basic_auth: Option<String>,
-    on_query: OnQueryFn,
+    on_query: OnQueryFn<'a>,
 }
 
 fn empty_response(status_code: StatusCode) -> Response<Body> {
@@ -79,7 +79,7 @@ fn sql_response(
     }
 }
 
-impl Service<Request<Body>> for EndbService {
+impl Service<Request<Body>> for EndbService<'static> {
     type Response = Response<Body>;
     type Error = hyper::Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
@@ -120,7 +120,7 @@ impl Service<Request<Body>> for EndbService {
                 .unwrap_or(mime::STAR_STAR);
 
             let media_type = match accept.essence_str() {
-                "*/*" | "application/*" | "applicatio/json" => "application/json",
+                "*/*" | "application/*" | "application/json" => "application/json",
                 "application/ld+json" => "application/ld+json",
                 "application/x-ndjson" => "application/x-ndjson",
                 "text/*" | "text/csv" => "text/csv",
@@ -281,81 +281,165 @@ pub fn init_logger() {
 #[cfg(test)]
 mod tests {
     use hyper::service::Service;
-    use hyper::{Request, StatusCode};
+    use hyper::{Body, Request, StatusCode};
+    use insta::assert_debug_snapshot;
     use std::sync::Arc;
+
+    fn ok(body: &str) -> crate::OnQueryFn {
+        Arc::new(
+            move |_method: &str, media_type: &str, _q: &str, _p: &str, _m: &str| {
+                crate::on_response(StatusCode::OK.into(), media_type, body);
+            },
+        )
+    }
+
+    fn unreachable<'a>() -> crate::OnQueryFn<'a> {
+        Arc::new(
+            move |_method: &str, _media_type: &str, _q: &str, _p: &str, _m: &str| {
+                unreachable!("should not been called");
+            },
+        )
+    }
+
+    fn service(basic_auth: Option<String>, on_query: crate::OnQueryFn) -> crate::EndbService {
+        crate::EndbService {
+            basic_auth,
+            on_query,
+        }
+    }
+
+    fn get(uri: &str, accept: &str, body: &str) -> Request<Body> {
+        Request::get(uri)
+            .header(hyper::header::ACCEPT, accept)
+            .body(body.to_string().into())
+            .unwrap()
+    }
 
     #[tokio::test]
     async fn content_type() {
-        let on_query = Arc::new(
-            |_method: &str, _media_type: &str, _q: &str, _p: &str, _m: &str| {
-                let json = serde_json::json!([[1]]);
-                crate::on_response(
-                    StatusCode::OK.into(),
-                    "application/json",
-                    format!("{}\n", json).as_str(),
-                );
-            },
-        );
-
-        let mut svc = crate::EndbService {
-            basic_auth: None,
-            on_query,
-        };
-
-        let res = svc
-            .call(
-                Request::get("http://localhost:3803/sql?q=SELECT%201")
-                    .body("".into())
-                    .unwrap(),
-            )
+        assert_debug_snapshot!(
+            service(None, ok("[[1]]\n"))
+            .call(get("http://localhost:3803/sql?q=SELECT%201", "*/*", ""))
             .await
-            .unwrap();
+        , @r###"
+        Ok(
+            Response {
+                status: 200,
+                version: HTTP/1.1,
+                headers: {
+                    "content-type": "application/json",
+                },
+                body: Body(
+                    Full(
+                        b"[[1]]\n",
+                    ),
+                ),
+            },
+        )
+        "###);
 
-        assert_eq!(StatusCode::OK, res.status());
-        assert_eq!(
-            "application/json",
-            res.headers().get(hyper::header::CONTENT_TYPE).unwrap()
-        );
-        let body = hyper::body::to_bytes(res).await.unwrap();
-        assert_eq!("[[1]]\n", body);
+        assert_debug_snapshot!(
+            service(None, ok("[[1]]\n"))
+            .call(get("http://localhost:3803/sql?q=SELECT%201", "application/json", ""))
+            .await
+        , @r###"
+        Ok(
+            Response {
+                status: 200,
+                version: HTTP/1.1,
+                headers: {
+                    "content-type": "application/json",
+                },
+                body: Body(
+                    Full(
+                        b"[[1]]\n",
+                    ),
+                ),
+            },
+        )
+        "###);
+
+        assert_debug_snapshot!(
+            service(None, ok("{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}\n"))
+            .call(get("http://localhost:3803/sql?q=SELECT%201", "application/ld+json", ""))
+            .await
+        , @r###"
+        Ok(
+            Response {
+                status: 200,
+                version: HTTP/1.1,
+                headers: {
+                    "content-type": "application/ld+json",
+                },
+                body: Body(
+                    Full(
+                        b"{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}\n",
+                    ),
+                ),
+            },
+        )
+        "###);
+
+        assert_debug_snapshot!(
+            service(None, ok("{\"column1\":1}\n"))
+            .call(get("http://localhost:3803/sql?q=SELECT%201", "application/x-ndjson", ""))
+            .await
+        , @r###"
+        Ok(
+            Response {
+                status: 200,
+                version: HTTP/1.1,
+                headers: {
+                    "content-type": "application/x-ndjson",
+                },
+                body: Body(
+                    Full(
+                        b"{\"column1\":1}\n",
+                    ),
+                ),
+            },
+        )
+        "###);
+
+        assert_debug_snapshot!(
+            service(None, ok("\"column1\"\r\n1~\r\n"))
+            .call(get("http://localhost:3803/sql?q=SELECT%201", "text/csv", ""))
+            .await
+        , @r###"
+        Ok(
+            Response {
+                status: 200,
+                version: HTTP/1.1,
+                headers: {
+                    "content-type": "text/csv",
+                },
+                body: Body(
+                    Full(
+                        b"\"column1\"\r\n1~\r\n",
+                    ),
+                ),
+            },
+        )
+        "###);
+
+        assert_debug_snapshot!(
+            service(None, unreachable())
+            .call(get("http://localhost:3803/sql?q=SELECT%201", "text/xml", ""))
+            .await
+        , @r###"
+        Ok(
+            Response {
+                status: 406,
+                version: HTTP/1.1,
+                headers: {},
+                body: Body(
+                    Empty,
+                ),
+            },
+        )
+        "###);
     }
 }
-
-// (test content-type
-//   (let* ((db (endb/sql:make-db))
-//          (write-db (endb/sql:begin-write-tx db))
-//          (app (make-api-handler write-db)))
-
-//     (is (equal (list +http-ok+
-//                      '(:content-type "application/json")
-//                      (format nil "[[1]]~%"))
-//                (%req app :get "/sql" :query "q=SELECT%201")))
-
-//     (is (equal (list +http-ok+
-//                      '(:content-type "application/json")
-//                      (format nil "[[1]]~%"))
-//                (%req app :get "/sql" :query "q=SELECT%201" :accept "application/json")))
-
-//     (is (equal (list +http-ok+
-//                      '(:content-type "application/ld+json")
-//                      (format nil "{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}~%"))
-//                (%req app :get "/sql" :query "q=SELECT%201" :accept "application/ld+json")))
-
-//     (is (equal (list +http-ok+
-//                      '(:content-type "application/x-ndjson")
-//                      (format nil "{\"column1\":1}~%"))
-//                (%req app :get "/sql" :query "q=SELECT%201" :accept "application/x-ndjson")))
-
-//     (is (equal (list +http-ok+
-//                      '(:content-type "text/csv")
-//                      (format nil "\"column1\"~A1~A" endb/http::+crlf+ endb/http::+crlf+))
-//                (%req app :get "/sql" :query "q=SELECT%201" :accept "text/csv")))
-
-//     (is (equal (list +http-not-acceptable+
-//                      '(:content-type "text/plain"
-//                        :content-length 0)
-//                      '(""))
-//                (%req app :get "/sql" :query "q=SELECT%201" :accept "text/xml")))))
 
 // (test media-type
 //   (let* ((db (endb/sql:make-db))
