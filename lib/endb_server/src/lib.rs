@@ -278,6 +278,49 @@ pub fn init_logger() {
         .init();
 }
 
+#[cfg(test)]
+mod tests {
+    use hyper::service::Service;
+    use hyper::{Request, StatusCode};
+    use std::sync::Arc;
+
+    #[tokio::test]
+    async fn content_type() {
+        let on_query = Arc::new(
+            |_method: &str, _media_type: &str, _q: &str, _p: &str, _m: &str| {
+                let json = serde_json::json!([[1]]);
+                crate::on_response(
+                    StatusCode::OK.into(),
+                    "application/json",
+                    format!("{}\n", json).as_str(),
+                );
+            },
+        );
+
+        let mut svc = crate::EndbService {
+            basic_auth: None,
+            on_query,
+        };
+
+        let res = svc
+            .call(
+                Request::get("http://localhost:3803/sql?q=SELECT%201")
+                    .body("".into())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(StatusCode::OK, res.status());
+        assert_eq!(
+            "application/json",
+            res.headers().get(hyper::header::CONTENT_TYPE).unwrap()
+        );
+        let body = hyper::body::to_bytes(res).await.unwrap();
+        assert_eq!("[[1]]\n", body);
+    }
+}
+
 // (test content-type
 //   (let* ((db (endb/sql:make-db))
 //          (write-db (endb/sql:begin-write-tx db))
