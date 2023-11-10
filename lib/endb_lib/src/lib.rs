@@ -239,13 +239,8 @@ fn do_log(level: log::Level, target: *const c_char, message: *const c_char) {
 }
 
 #[no_mangle]
-pub extern "C" fn endb_log_debug(target: *const c_char, message: *const c_char) {
-    do_log(log::Level::Debug, target, message);
-}
-
-#[no_mangle]
-pub extern "C" fn endb_log_info(target: *const c_char, message: *const c_char) {
-    do_log(log::Level::Info, target, message);
+pub extern "C" fn endb_log_error(target: *const c_char, message: *const c_char) {
+    do_log(log::Level::Error, target, message);
 }
 
 #[no_mangle]
@@ -254,8 +249,18 @@ pub extern "C" fn endb_log_warn(target: *const c_char, message: *const c_char) {
 }
 
 #[no_mangle]
-pub extern "C" fn endb_log_error(target: *const c_char, message: *const c_char) {
-    do_log(log::Level::Error, target, message);
+pub extern "C" fn endb_log_info(target: *const c_char, message: *const c_char) {
+    do_log(log::Level::Info, target, message);
+}
+
+#[no_mangle]
+pub extern "C" fn endb_log_debug(target: *const c_char, message: *const c_char) {
+    do_log(log::Level::Debug, target, message);
+}
+
+#[no_mangle]
+pub extern "C" fn endb_log_trace(target: *const c_char, message: *const c_char) {
+    do_log(log::Level::Trace, target, message);
 }
 
 #[no_mangle]

@@ -11,7 +11,7 @@
   (t (:default "libendb")))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defparameter +log-levels+ '(:error :warn :info :debug)))
+  (defparameter +log-levels+ '(:off :error :warn :info :debug :trace)))
 
 (defun resolve-log-level (&optional level)
   (or (position level +log-levels+)
@@ -43,11 +43,13 @@
       ,(string-downcase (package-name *package*))
       (format nil ,control-string ,@format-arguments))))
 
-(cffi:defcfun "endb_log_debug" :void
-  (target :string)
-  (message :string))
+(defmacro log-trace (control-string &rest format-arguments)
+  `(when (<= ,(position :trace +log-levels+) *log-level*)
+     (endb-log-trace
+      ,(string-downcase (package-name *package*))
+      (format nil ,control-string ,@format-arguments))))
 
-(cffi:defcfun "endb_log_info" :void
+(cffi:defcfun "endb_log_error" :void
   (target :string)
   (message :string))
 
@@ -55,7 +57,15 @@
   (target :string)
   (message :string))
 
-(cffi:defcfun "endb_log_error" :void
+(cffi:defcfun "endb_log_info" :void
+  (target :string)
+  (message :string))
+
+(cffi:defcfun "endb_log_debug" :void
+  (target :string)
+  (message :string))
+
+(cffi:defcfun "endb_log_trace" :void
   (target :string)
   (message :string))
 

@@ -257,13 +257,15 @@ void endb_render_json_error_report(const char *report_json,
 
 void endb_init_logger(void);
 
-void endb_log_debug(const char *target, const char *message);
-
-void endb_log_info(const char *target, const char *message);
+void endb_log_error(const char *target, const char *message);
 
 void endb_log_warn(const char *target, const char *message);
 
-void endb_log_error(const char *target, const char *message);
+void endb_log_info(const char *target, const char *message);
+
+void endb_log_debug(const char *target, const char *message);
+
+void endb_log_trace(const char *target, const char *message);
 
 void endb_start_server(void (*on_init)(const char*), void (*on_query)(const char*,
                                                                       const char*,

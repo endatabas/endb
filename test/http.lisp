@@ -64,7 +64,7 @@
       (is (eq +http-bad-request+ status-code))
       (is (equal '(:content-type "text/plain") headers)))
 
-    (let ((endb/lib:*log-level* -1)
+    (let ((endb/lib:*log-level* (endb/lib:resolve-log-level :off))
           (calls 0))
       (is (equal (list +http-internal-server-error+ '(:content-type "text/plain")
                        (format nil "common lisp error~%"))
