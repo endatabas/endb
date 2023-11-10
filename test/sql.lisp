@@ -2092,6 +2092,18 @@ SELECT s FROM x WHERE ind=0")
       (when (probe-file test-dir)
         (uiop:delete-directory-tree test-dir :validate t)))))
 
+(test join-bug-projecting-system-time
+  (let ((db (begin-write-tx (make-db))))
+    (multiple-value-bind (result result-code)
+        (execute-sql db "INSERT INTO products {name: 'Mangoes'}")
+      (is (null result))
+      (is (= 1 result-code)))
+    (multiple-value-bind (result result-code)
+        (execute-sql db "INSERT INTO sales {name: 'Mangoes'}")
+      (is (null result))
+      (is (= 1 result-code)))
+    (is (equal '(("Mangoes")) (execute-sql db "SELECT s.name FROM sales s JOIN products p ON s.name = p.name")))))
+
 (test dml
   (let ((endb/sql/expr:*sqlite-mode* t)
         (endb/sql:*use-cst-parser* t)

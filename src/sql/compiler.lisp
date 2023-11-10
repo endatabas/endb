@@ -190,8 +190,8 @@
     (t x)))
 
 (defun %table-scan->cl (ctx vars projection from-src where-clauses nested-src)
-  (let* ((where-src (cons 'and (loop for clause in where-clauses
-                                     collect `(eq t ,(where-clause-src clause))))))
+  (let* ((where-src (loop for clause in where-clauses
+                          collect `(eq t ,(where-clause-src clause)))))
     (if (base-table-p from-src)
         (alexandria:with-gensyms (table-md-sym
                                   arrow-file-md-sym
@@ -248,8 +248,7 @@
                        (dolist (,batch-row-sym (endb/sql/expr:base-table-arrow-batches ,(fset:lookup ctx :db-sym) ,table-name ,scan-arrow-file-sym))
                          (incf ,scan-batch-idx-sym)
                          (let* ((,batch-sym (endb/arrow:arrow-struct-column-array ,batch-row-sym ,(intern table-name :keyword)))
-                                (,temporal-sym ,(when temporal-type-p
-                                                  `(endb/arrow:arrow-struct-column-array ,batch-row-sym :|system_time_start|)))
+                                (,temporal-sym (endb/arrow:arrow-struct-column-array ,batch-row-sym :|system_time_start|))
                                 (,scan-batch-idx-string-sym (prin1-to-string ,scan-batch-idx-sym))
                                 (,raw-deleted-row-ids-sym (fset:lookup ,deleted-md-sym ,scan-batch-idx-string-sym))
                                 (,deleted-row-ids-sym ,(if temporal-type-p
@@ -271,7 +270,7 @@
                                                      (endb/arrow:arrow-get ,temporal-sym ,scan-row-id-sym)
                                                      ,system-time-end-sym))))
                                         (endb/sql/expr:ra-visible-row-p ,deleted-row-ids-sym ,erased-row-ids-sym ,scan-row-id-sym)
-                                        ,where-src)
+                                        ,@where-src)
                                ,nested-src)))))))))))
         (alexandria:with-gensyms (row-sym)
           `(symbol-macrolet (,@(loop for v in (%unique-vars vars)
@@ -279,8 +278,10 @@
                                      when v
                                        collect `(,v (nth ,idx ,row-sym))))
              (dolist (,row-sym ,from-src)
-               (when ,where-src
-                 ,nested-src)))))))
+               ,(if where-src
+                    `(when (and ,@where-src)
+                       ,nested-src)
+                    nested-src)))))))
 
 (defun %join->cl (ctx from-table scan-where-clauses equi-join-clauses)
   (with-slots (src vars free-vars)
@@ -367,10 +368,13 @@
                  (return (values scan-clauses equi-join-clauses pushdown-clauses)))
       (let* ((new-where-clauses (append scan-clauses equi-join-clauses pushdown-clauses))
              (where-clauses (set-difference where-clauses new-where-clauses))
-             (nested-src (if from-tables
-                             (%from->cl ctx from-tables where-clauses selected-src vars)
-                             `(when (and ,@(loop for clause in where-clauses collect `(eq t ,(where-clause-src clause))))
-                                ,selected-src)))
+             (nested-src (cond
+                           (from-tables
+                            (%from->cl ctx from-tables where-clauses selected-src vars))
+                           (where-clauses
+                            `(when (and ,@(loop for clause in where-clauses collect `(eq t ,(where-clause-src clause))))
+                               ,selected-src))
+                           (t selected-src)))
              (projection (mapcar #'%unqualified-column-name (from-table-projection from-table))))
         (if equi-join-clauses
             (%table-scan->cl ctx
