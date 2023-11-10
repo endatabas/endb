@@ -6,6 +6,7 @@ ARG ENDB_GIT_DESCRIBE="<unknown revision>"
 FROM docker.io/rust:$RUST_OS AS rust-build-env
 
 ARG RUST_OS
+ARG ENDB_GIT_DESCRIBE
 
 RUN if [ "$RUST_OS" = "alpine" ]; then \
       apk add --no-cache musl-dev; \
