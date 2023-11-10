@@ -10,18 +10,6 @@
 (cffi:define-foreign-library libendb
   (t (:default "libendb")))
 
-(defvar *initialized* nil)
-
-(defun init-lib ()
-  (unless *initialized*
-    (pushnew (or (uiop:pathname-directory-pathname (uiop:argv0))
-                 (asdf:system-relative-pathname :endb "target/"))
-             cffi:*foreign-library-directories*)
-    (cffi:use-foreign-library libendb)
-    (endb-init-logger)
-    (setf *log-level* (resolve-log-level (intern (string-upcase (uiop:getenv "ENDB_LOG_LEVEL")) :keyword)))
-    (setf *initialized* t)))
-
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter +log-levels+ '(:error :warn :info :debug)))
 
@@ -72,3 +60,17 @@
   (message :string))
 
 (cffi:defcfun "endb_init_logger" :void)
+
+(defvar *initialized* nil)
+
+(defun init-lib ()
+  (unless *initialized*
+    (pushnew (or (uiop:pathname-directory-pathname (uiop:argv0))
+                 (asdf:system-relative-pathname :endb "target/"))
+             cffi:*foreign-library-directories*)
+    (cffi:use-foreign-library libendb)
+    (endb-init-logger)
+    (let ((log-level (uiop:getenv "ENDB_LOG_LEVEL")))
+      (when log-level
+        (setf *log-level* (resolve-log-level (intern (string-upcase log-level) :keyword)))))
+    (setf *initialized* t)))

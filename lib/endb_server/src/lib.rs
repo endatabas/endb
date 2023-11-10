@@ -31,13 +31,13 @@ thread_local! {
 
 pub fn on_response(status_code: u16, content_type: &str, body: &str) {
     RESPONSE.with_borrow_mut(|response| {
-        *response = Some(
-            Response::builder()
-                .status(status_code)
-                .header(hyper::header::CONTENT_TYPE, content_type)
-                .body(Body::from(body.to_string()))
-                .unwrap(),
-        )
+        let builder = Response::builder().status(status_code);
+        let builder = if content_type.is_empty() {
+            builder
+        } else {
+            builder.header(hyper::header::CONTENT_TYPE, content_type)
+        };
+        *response = Some(builder.body(Body::from(body.to_string())).unwrap())
     });
 }
 
@@ -242,7 +242,7 @@ pub fn start_server(
     let args = CommandLineArguments::parse();
 
     let full_version = env!("ENDB_FULL_VERSION");
-    log::info!(target: "endb", "{}", full_version);
+    log::info!("version {}", full_version);
 
     on_init(&serde_json::to_string(&args).unwrap());
 

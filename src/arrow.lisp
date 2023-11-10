@@ -37,13 +37,16 @@
     (+ (* 1000000 sec) (/ nsec 1000))))
 
 (defun parse-arrow-timestamp-micros (s)
-  (let ((s (if (and (> (length s) 10)
-                    (eq #\Space (char s 10)))
-               (let ((s (copy-seq s)))
-                 (setf (char s 10) #\T)
-                 s)
-               s)))
-    (local-time-to-arrow-timestamp-micros (local-time:parse-timestring s))))
+  (let* ((s (if (and (> (length s) 10)
+                     (eq #\Space (char s 10)))
+                (let ((s (copy-seq s)))
+                  (setf (char s 10) #\T)
+                  s)
+                s))
+         (timestamp (local-time:parse-timestring s :fail-on-error nil)))
+    (if timestamp
+        (local-time-to-arrow-timestamp-micros timestamp)
+        :null)))
 
 (defun %micros-to-timestamp (us)
   (let* ((ns (* 1000 us)))
@@ -90,7 +93,10 @@
        (local-time:format-rfc3339-timestring stream date :omit-time-part t :omit-timezone-part t :timezone local-time:+utc-zone+)))))
 
 (defun parse-arrow-date-millis (s)
-  (local-time-to-arrow-date-millis (local-time:parse-timestring s :allow-missing-time-part t)))
+  (let ((date (local-time:parse-timestring s :allow-missing-time-part t :fail-on-error nil)))
+    (if date
+        (local-time-to-arrow-date-millis date)
+        :null)))
 
 (defstruct arrow-time-micros (us 0 :type int64))
 
@@ -100,7 +106,10 @@
     (+ (* 1000000 sec) (/ nsec 1000))))
 
 (defun parse-arrow-time-micros (s)
-  (local-time-to-arrow-time-micros (local-time:parse-timestring s :allow-missing-date-part t)))
+  (let ((time (local-time:parse-timestring s :allow-missing-date-part t :fail-on-error nil)))
+    (if time
+        (local-time-to-arrow-time-micros time)
+        :null)))
 
 (defun %micros-to-time (us)
   (let* ((ns (* 1000 us)))
@@ -153,7 +162,7 @@
                    (read-from-string (subseq x 0 (1- (length x))))
                    0)))
       (multiple-value-bind (matchp parts) (ppcre:scan-to-strings +iso-duration-scanner+ s)
-        (when matchp
+        (if matchp
           (destructuring-bind (years months days hours minutes seconds)
               (coerce parts 'list)
             (let ((years (parse-number years))
@@ -166,7 +175,8 @@
                                                    :day days
                                                    :ns (round (+ (* hours 60 60 1000000000)
                                                                  (* minutes 60 1000000000)
-                                                                 (* seconds 1000000000)))))))))))
+                                                                 (* seconds 1000000000))))))
+          :null)))))
 
 (defun arrow-interval-month-day-nanos-to-periods-duration (x)
   (with-slots (month day ns) x

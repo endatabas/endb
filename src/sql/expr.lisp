@@ -980,11 +980,7 @@
   :null)
 
 (defmethod sql-duration ((x string))
-  (let ((duration (endb/arrow:parse-arrow-interval-month-day-nanos x)))
-    (if duration
-        duration
-        (error 'sql-runtime-error
-               :message (format nil "Invalid duration: ~A" x)))))
+  (endb/arrow:parse-arrow-interval-month-day-nanos x))
 
 (defmethod sql-like ((x (eql :null)) y &optional z)
   (declare (ignore z))

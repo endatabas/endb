@@ -20,7 +20,7 @@
   (on_error :pointer))
 
 (cffi:defcfun "endb_render_json_error_report" :void
-  (report_json (:pointer :char))
+  (report_json :string)
   (on_success :pointer)
   (on_error :pointer))
 
@@ -128,10 +128,9 @@
          (*render-json-error-report-on-success* (lambda (report)
                                                   (setf result report)))
          (report-json (endb/json:json-stringify report)))
-    (cffi:with-foreign-string (report-json-ptr report-json)
-      (endb-render-json-error-report report-json-ptr
-                                     (cffi:callback render-json-error-report-on-success)
-                                     (cffi:callback render-json-error-report-on-error)))
+    (endb-render-json-error-report report-json
+                                   (cffi:callback render-json-error-report-on-success)
+                                   (cffi:callback render-json-error-report-on-error))
     (endb/lib/parser:strip-ansi-escape-codes result)))
 
 (defun cst->ast (input cst)

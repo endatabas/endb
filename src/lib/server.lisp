@@ -1,11 +1,13 @@
 (defpackage :endb/lib/server
   (:use :cl)
-  (:export #:start-server)
+  (:export #:start-server #:*db*)
   (:import-from :cffi)
   (:import-from :endb/json)
   (:import-from :endb/lib)
   (:import-from :uiop))
 (in-package :endb/lib/server)
+
+(defvar *db*)
 
 (cffi:defcfun "endb_start_server" :void
   (on-init :pointer)

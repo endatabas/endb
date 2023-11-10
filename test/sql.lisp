@@ -2815,6 +2815,7 @@ SELECT s FROM x WHERE ind=0")
 
   (is-valid (expr "date('2001-01-01')"))
   (is-valid (expr "date(NULL)"))
+  (is-valid (expr "date('foo')"))
   (is-valid (expr "strftime('%Y', date('2001-01-01'))"))
   (is-valid (expr "strftime('%Y', NULL)"))
   (is-valid (expr "strftime(NULL, date('2001-01-01'))"))
