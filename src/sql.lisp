@@ -201,16 +201,20 @@
           (time (%execute-sql db sql parameters manyp))
           (%execute-sql db sql parameters manyp))
     #+sbcl (sb-pcl::effective-method-condition (e)
-             (error 'endb/sql/expr:sql-runtime-error
-                    :message (format nil "Invalid argument types: ~A(~{~A~^, ~})"
-                                     (ppcre:regex-replace "^SQL-(UNARY)?"
-                                                          (symbol-name (sb-pcl::generic-function-name
-                                                                        (sb-pcl::effective-method-condition-generic-function e)))
-                                                          "")
-                                     (loop for arg in (sb-pcl::effective-method-condition-args e)
-                                           collect (if (stringp arg)
-                                                       (prin1-to-string arg)
-                                                       (endb/sql/expr:syn-cast arg :varchar))))))))
+             (let ((fn (sb-pcl::generic-function-name
+                        (sb-pcl::effective-method-condition-generic-function e))))
+               (if (equal (find-package 'endb/sql/expr)
+                          (symbol-package fn))
+                   (error 'endb/sql/expr:sql-runtime-error
+                          :message (format nil "Invalid argument types: ~A(~{~A~^, ~})"
+                                           (ppcre:regex-replace "^SQL-(UNARY)?"
+                                                                (symbol-name fn)
+                                                                "")
+                                           (loop for arg in (sb-pcl::effective-method-condition-args e)
+                                                 collect (if (stringp arg)
+                                                             (prin1-to-string arg)
+                                                             (endb/sql/expr:syn-cast arg :varchar)))))
+                   (error e))))))
 
 (defun %interpret-sql-literal (ast)
   (cond
