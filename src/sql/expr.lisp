@@ -1571,10 +1571,14 @@
     (format out "}")))
 
 (defmethod syn-cast ((x (eql t)) (type (eql :varchar)))
-  "1")
+  (if *sqlite-mode*
+      "1"
+      "true"))
 
 (defmethod syn-cast ((x (eql nil)) (type (eql :varchar)))
-  "0")
+  (if *sqlite-mode*
+      "0"
+      "false"))
 
 (defmethod syn-cast ((x string) (type (eql :varchar)))
   x)
