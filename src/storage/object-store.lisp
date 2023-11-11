@@ -3,7 +3,7 @@
   (:export #:open-tar-object-store #:object-store-get #:object-store-put #:object-store-list #:object-store-close #:make-directory-object-store #:make-memory-object-store)
   (:import-from :alexandria)
   (:import-from :archive)
-  (:import-from :fast-io)
+  (:import-from :flexi-streams)
   (:import-from :uiop)
   (:import-from :bordeaux-threads))
 (in-package :endb/storage/object-store)
@@ -15,16 +15,15 @@
 
 (defvar *tar-object-store-lock* (bt:make-lock))
 
-(defun open-tar-object-store (&key (stream (make-instance 'fast-io:fast-input-stream)))
+(defun open-tar-object-store (&key (stream (flex:make-in-memory-input-stream (make-array 0 :element-type '(unsigned-byte 8)))))
   (let ((archive (archive:open-archive 'archive:tar-archive stream)))
-    (when (typep stream 'fast-io:fast-input-stream)
+    (when (typep stream 'flex:vector-stream)
       (setf (slot-value archive 'archive::skippable-p) t))
     archive))
 
 (defun %extract-entry (archive entry)
-  (let* ((out (make-instance 'fast-io:fast-output-stream :buffer-size (archive::size entry))))
-    (archive::transfer-entry-data-to-stream archive entry out)
-    (fast-io:finish-output-stream out)))
+  (flex:with-output-to-sequence (out)
+    (archive::transfer-entry-data-to-stream archive entry out)))
 
 (defun %wal-read-entry-safe (archive)
   (when (listen (archive::archive-stream archive))

@@ -3,7 +3,7 @@
   (:import-from :endb/arrow)
   (:import-from :endb/lib/arrow)
   (:import-from :archive)
-  (:import-from :fast-io)
+  (:import-from :flexi-streams)
   (:import-from :fset)
   (:import-from :trivial-gray-streams)
   (:import-from :trivial-utf-8)
@@ -13,17 +13,8 @@
 
 (in-suite* :storage)
 
-(defmethod trivial-gray-streams:stream-listen ((stream fast-io:fast-input-stream))
-  (not (eq :eof (fast-io::peek-byte stream nil nil :eof))))
-
-(test fast-io-gray-stream-listen
-  (let ((in (make-instance 'fast-io:fast-input-stream :vector (make-array 1 :initial-element 42 :element-type '(unsigned-byte 8)))))
-    (is (listen in))
-    (is (= 42 (read-byte in)))
-    (is (null (listen in)))))
-
 (test tar-wal-and-object-store
-  (let* ((out (make-instance 'fast-io:fast-output-stream))
+  (let* ((out (flex:make-in-memory-output-stream))
          (wal (open-tar-wal :stream out)))
 
     (wal-append-entry wal "foo.txt" (trivial-utf-8:string-to-utf-8-bytes "foo"))
@@ -31,47 +22,48 @@
     (wal-fsync wal)
     (wal-close wal)
 
-    (let* ((in (make-instance 'fast-io:fast-input-stream :vector (fast-io:finish-output-stream out)))
-           (wal (open-tar-wal :stream in :direction :input))
-           (skip-pred (lambda (path)
-                        (equal "foo.txt" path))))
+    (let ((out-buffer (flex:get-output-stream-sequence out)))
+      (let* ((in (flex:make-in-memory-input-stream out-buffer))
+             (wal (open-tar-wal :stream in :direction :input))
+             (skip-pred (lambda (path)
+                          (equal "foo.txt" path))))
 
-      (is (archive::skippable-p wal))
+        (is (archive::skippable-p wal))
 
-      (multiple-value-bind (buffer name pos)
-          (wal-read-next-entry wal :skip-if skip-pred)
-        (is (null buffer))
-        (is (equal "foo.txt" name))
-        (is (= 1024 pos)))
+        (multiple-value-bind (buffer name pos)
+            (wal-read-next-entry wal :skip-if skip-pred)
+          (is (null buffer))
+          (is (equal "foo.txt" name))
+          (is (= 1024 pos)))
 
-      (multiple-value-bind (buffer name pos)
-          (wal-read-next-entry wal :skip-if skip-pred)
-        (is (equalp (trivial-utf-8:string-to-utf-8-bytes "bar") buffer))
-        (is (equal "bar.txt" name))
-        (is (= 2048 pos)))
+        (multiple-value-bind (buffer name pos)
+            (wal-read-next-entry wal :skip-if skip-pred)
+          (is (equalp (trivial-utf-8:string-to-utf-8-bytes "bar") buffer))
+          (is (equal "bar.txt" name))
+          (is (= 2048 pos)))
 
-      (multiple-value-bind (buffer name pos)
-          (wal-read-next-entry wal :skip-if skip-pred)
-        (is (null buffer))
-        (is (null name))
-        (is (= 2560 pos))))
+        (multiple-value-bind (buffer name pos)
+            (wal-read-next-entry wal :skip-if skip-pred)
+          (is (null buffer))
+          (is (null name))
+          (is (= 2560 pos))))
 
-    (let* ((in (make-instance 'fast-io:fast-input-stream :vector (fast-io:finish-output-stream out)))
-           (wal (open-tar-object-store :stream in)))
+      (let* ((in (flex:make-in-memory-input-stream out-buffer))
+             (wal (open-tar-object-store :stream in)))
 
-      (is (archive::skippable-p wal))
+        (is (archive::skippable-p wal))
 
-      (is (equalp (trivial-utf-8:string-to-utf-8-bytes "bar")
-                  (object-store-get wal "bar.txt")))
+        (is (equalp (trivial-utf-8:string-to-utf-8-bytes "bar")
+                    (object-store-get wal "bar.txt")))
 
-      (is (equalp (trivial-utf-8:string-to-utf-8-bytes "foo")
-                  (object-store-get wal "foo.txt")))
+        (is (equalp (trivial-utf-8:string-to-utf-8-bytes "foo")
+                    (object-store-get wal "foo.txt")))
 
-      (is (null (object-store-get wal "baz.txt")))
+        (is (null (object-store-get wal "baz.txt")))
 
-      (is (equal '("bar.txt" "foo.txt") (object-store-list wal)))
-      (is (equal '("foo.txt") (object-store-list wal :prefix "foo")))
-      (is (equal '("foo.txt") (object-store-list wal :start-after "bar.txt"))))))
+        (is (equal '("bar.txt" "foo.txt") (object-store-list wal)))
+        (is (equal '("foo.txt") (object-store-list wal :prefix "foo")))
+        (is (equal '("foo.txt") (object-store-list wal :start-after "bar.txt")))))))
 
 (test tar-wal-reopen-and-append
   (let* ((target-dir (asdf:system-relative-pathname :endb-test "target/"))
@@ -156,7 +148,7 @@
         (uiop:delete-directory-tree test-dir :validate t)))))
 
 (test buffer-pool
-  (let* ((out (make-instance 'fast-io:fast-output-stream))
+  (let* ((out (flex:make-in-memory-output-stream))
          (wal (open-tar-wal :stream out))
          (batches (list (list (fset:map ("x" 1))
                               (fset:map ("x" 2))
@@ -174,7 +166,7 @@
                        (mapcar #'endb/arrow:to-arrow batches)))
     (wal-close wal)
 
-    (let* ((in (make-instance 'fast-io:fast-input-stream :vector (fast-io:finish-output-stream out)))
+    (let* ((in (flex:make-in-memory-input-stream (flex:get-output-stream-sequence out)))
            (os (open-tar-object-store :stream in))
            (bp (make-buffer-pool :object-store os))
            (actual (buffer-pool-get bp "foo.arrow")))
@@ -186,11 +178,11 @@
       (is (null (buffer-pool-get bp "bar.arrow"))))))
 
 (test writable-buffer-pool
-  (let* ((out (make-instance 'fast-io:fast-output-stream))
+  (let* ((out (flex:make-in-memory-output-stream))
          (batches (list (list (fset:map ("x" 1))
                               (fset:map ("x" 2))
                               (fset:map ("x" 3)))))
-         (in (make-instance 'fast-io:fast-input-stream :vector (fast-io:finish-output-stream out)))
+         (in (flex:make-in-memory-input-stream (flex:get-output-stream-sequence out)))
          (os (open-tar-object-store :stream in))
          (bp (make-buffer-pool :object-store os))
          (wbp (make-writeable-buffer-pool :parent-pool bp)))

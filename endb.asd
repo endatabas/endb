@@ -16,7 +16,7 @@
                "cl-murmurhash"
                "cl-ppcre"
                "com.inuoe.jzon"
-               "fast-io"
+               "flexi-streams"
                "fset"
                "local-time"
                "periods"

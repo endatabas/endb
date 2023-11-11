@@ -255,7 +255,8 @@
 (defun buffer-to-vector (buffer-ptr buffer-size &optional out)
   (let ((out (or out (make-array buffer-size :element-type '(unsigned-byte 8)))))
     (assert (<= buffer-size (vector-byte-size out)))
-    (cffi:with-pointer-to-vector-data (out-ptr out)
+    (cffi:with-pointer-to-vector-data (out-ptr #+sbcl (sb-ext:array-storage-vector out)
+                                               #-sbcl out)
       (memcpy out-ptr buffer-ptr buffer-size))
     out))
 
@@ -382,7 +383,8 @@
 
 (defun read-arrow-arrays-from-ipc-buffer (buffer)
   (check-type buffer (vector (unsigned-byte 8)))
-  (cffi:with-pointer-to-vector-data (buffer-ptr buffer)
+  (cffi:with-pointer-to-vector-data (buffer-ptr #+sbcl (sb-ext:array-storage-vector buffer)
+                                                #-sbcl buffer)
     (read-arrow-arrays-from-ipc-pointer buffer-ptr (length buffer))))
 
 (defun read-arrow-arrays-from-ipc-file (file)

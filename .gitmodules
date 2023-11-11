@@ -41,9 +41,6 @@
 [submodule "_build/named-readtables"]
 	path = _build/named-readtables
 	url = https://github.com/melisgl/named-readtables
-[submodule "_build/fast-io"]
-	path = _build/fast-io
-	url = https://github.com/rpav/fast-io
 [submodule "_build/static-vectors"]
 	path = _build/static-vectors
 	url = https://github.com/sionescu/static-vectors

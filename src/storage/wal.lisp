@@ -2,7 +2,7 @@
   (:use :cl)
   (:export #:open-tar-wal #:tar-wal-position-stream-at-end #:wal-append-entry #:wal-read-next-entry #:wal-find-entry #:wal-fsync #:wal-close #:make-memory-wal)
   (:import-from :archive)
-  (:import-from :fast-io)
+  (:import-from :flexi-streams)
   (:import-from :local-time))
 (in-package :endb/storage/wal)
 
@@ -11,9 +11,9 @@
 (defgeneric wal-fsync (wal))
 (defgeneric wal-close (wal))
 
-(defun open-tar-wal (&key (stream (make-instance 'fast-io:fast-output-stream)) (direction :output))
+(defun open-tar-wal (&key (stream (flex:make-in-memory-output-stream)) (direction :output))
   (let ((archive (archive:open-archive 'archive:tar-archive stream :direction direction)))
-    (when (input-stream-p stream)
+    (when (typep stream 'flex:vector-stream)
       (setf (slot-value archive 'archive::skippable-p) t))
     archive))
 
@@ -36,14 +36,13 @@
                                :mode +wal-file-mode+
                                :typeflag archive::+tar-regular-file+
                                :size (length buffer)
-                               :mtime (local-time:timestamp-to-unix (local-time:now))))
-         (stream (make-instance 'fast-io:fast-input-stream :vector buffer)))
-    (archive:write-entry-to-archive archive entry :stream stream)))
+                               :mtime (local-time:timestamp-to-unix (local-time:now)))))
+    (flex:with-input-from-sequence (in buffer)
+      (archive:write-entry-to-archive archive entry :stream in))))
 
 (defun %extract-entry (archive entry)
-  (let* ((out (make-instance 'fast-io:fast-output-stream :buffer-size (archive::size entry))))
-    (archive::transfer-entry-data-to-stream archive entry out)
-    (fast-io:finish-output-stream out)))
+  (flex:with-output-to-sequence (out)
+    (archive::transfer-entry-data-to-stream archive entry out)))
 
 (defmethod wal-read-next-entry ((archive archive:tar-archive) &key skip-if)
   (let* ((entry (archive:read-entry-from-archive archive))
