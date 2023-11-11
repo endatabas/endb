@@ -9,9 +9,10 @@
 
 (defvar *db*)
 
-(cffi:defcfun "endb_start_server" :void
+(cffi:defcfun "endb_start_server" :int
   (on-init :pointer)
-  (on-query :pointer))
+  (on-query :pointer)
+  (on-error :pointer))
 
 (defvar *start-server-on-init*)
 
@@ -31,8 +32,23 @@
   (funcall *start-server-on-query* method media-type q p m (lambda (status-code content-type body)
                                                              (cffi:foreign-funcall-pointer on-response () :short status-code :string content-type :string body :void))))
 
+(defvar *start-server-on-error*)
+
+(cffi:defcallback start-server-on-error :void
+    ((err :string))
+  (funcall *start-server-on-error* err))
+
 (defun start-server (on-init on-query)
   (endb/lib:init-lib)
-  (let ((*start-server-on-init* on-init))
+  (let* ((errorp nil)
+         (*start-server-on-init* on-init)
+         (*start-server-on-error* (lambda (err)
+                                    (setf errorp t)
+                                    (endb/lib:log-error err))))
     (setf *start-server-on-query* on-query)
-    (endb-start-server (cffi:callback start-server-on-init) (cffi:callback start-server-on-query))))
+    (endb-start-server (cffi:callback start-server-on-init)
+                       (cffi:callback start-server-on-query)
+                       (cffi:callback start-server-on-error))
+    (if errorp
+        1
+        0)))

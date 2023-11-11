@@ -238,7 +238,7 @@ fn make_basic_auth_header(username: Option<String>, password: Option<String>) ->
 pub fn start_server(
     on_init: impl Fn(&str),
     on_query: impl Fn(&str, &str, &str, &str, &str) + Sync + Send + 'static,
-) {
+) -> Result<(), hyper::Error> {
     let args = CommandLineArguments::parse();
 
     let full_version = env!("ENDB_FULL_VERSION");
@@ -263,12 +263,15 @@ pub fn start_server(
         .build()
         .unwrap()
         .block_on(async {
-            let server = hyper::Server::bind(&addr).serve(make_svc);
-            log::info!("listening on port {}", args.http_port);
-
-            server.await
+            match hyper::Server::try_bind(&addr) {
+                Ok(builder) => {
+                    let server = builder.serve(make_svc);
+                    log::info!("listening on port {}", args.http_port);
+                    server.await
+                }
+                Err(err) => Err(err),
+            }
         })
-        .unwrap();
 }
 
 pub fn init_logger() {

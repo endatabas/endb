@@ -14,10 +14,11 @@
 
 (defun main ()
   (let ((endb/sql:*use-cst-parser* (equal "1" (uiop:getenv "ENDB_USE_CST_PARSER"))))
-    (handler-case
-        (unwind-protect
-          (endb/lib/server:start-server #'%endb-init #'endb/http:endb-query)
-          (when endb/lib/server:*db*
-            (endb/sql:close-db endb/lib/server:*db*)))
-      (#+sbcl sb-sys:interactive-interrupt ()
-              (uiop:quit 130)))))
+    (uiop:quit
+     (handler-case
+         (unwind-protect
+              (endb/lib/server:start-server #'%endb-init #'endb/http:endb-query)
+           (when endb/lib/server:*db*
+             (endb/sql:close-db endb/lib/server:*db*)))
+       (#+sbcl sb-sys:interactive-interrupt ()
+         130)))))

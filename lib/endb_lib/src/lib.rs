@@ -274,38 +274,50 @@ pub extern "C" fn endb_start_server(
         *const c_char,
         extern "C" fn(u16, *const c_char, *const c_char),
     ),
+    on_error: extern "C" fn(*const c_char),
 ) {
-    endb_server::start_server(
-        |config_json| {
-            string_callback(config_json, on_init);
-        },
-        move |method, media_type, q, p, m| {
-            let method_cstring = CString::new(method).unwrap();
-            let media_type_cstring = CString::new(media_type).unwrap();
-            let q_cstring = CString::new(q).unwrap();
-            let p_cstring = CString::new(p).unwrap();
-            let m_cstring = CString::new(m).unwrap();
+    match panic::catch_unwind(|| {
+        endb_server::start_server(
+            |config_json| {
+                string_callback(config_json, on_init);
+            },
+            move |method, media_type, q, p, m| {
+                let method_cstring = CString::new(method).unwrap();
+                let media_type_cstring = CString::new(media_type).unwrap();
+                let q_cstring = CString::new(q).unwrap();
+                let p_cstring = CString::new(p).unwrap();
+                let m_cstring = CString::new(m).unwrap();
 
-            extern "C" fn on_response_callback(
-                status: u16,
-                content_type: *const c_char,
-                body: *const c_char,
-            ) {
-                let c_str = unsafe { CStr::from_ptr(content_type) };
-                let content_type_str = c_str.to_str().unwrap();
-                let c_str = unsafe { CStr::from_ptr(body) };
-                let body_str = c_str.to_str().unwrap();
+                extern "C" fn on_response_callback(
+                    status: u16,
+                    content_type: *const c_char,
+                    body: *const c_char,
+                ) {
+                    let c_str = unsafe { CStr::from_ptr(content_type) };
+                    let content_type_str = c_str.to_str().unwrap();
+                    let c_str = unsafe { CStr::from_ptr(body) };
+                    let body_str = c_str.to_str().unwrap();
 
-                endb_server::on_response(status, content_type_str, body_str);
-            }
-            on_query(
-                method_cstring.as_ptr(),
-                media_type_cstring.as_ptr(),
-                q_cstring.as_ptr(),
-                p_cstring.as_ptr(),
-                m_cstring.as_ptr(),
-                on_response_callback,
-            );
-        },
-    );
+                    endb_server::on_response(status, content_type_str, body_str);
+                }
+                on_query(
+                    method_cstring.as_ptr(),
+                    media_type_cstring.as_ptr(),
+                    q_cstring.as_ptr(),
+                    p_cstring.as_ptr(),
+                    m_cstring.as_ptr(),
+                    on_response_callback,
+                );
+            },
+        )
+    }) {
+        Err(err) => {
+            let msg = err.downcast_ref::<&str>().unwrap_or(&"unknown panic!!");
+            string_callback(msg.to_string(), on_error);
+        }
+        Ok(Err(err)) => {
+            string_callback(err.to_string(), on_error);
+        }
+        _ => {}
+    }
 }
