@@ -16,6 +16,7 @@ WORKDIR /root/endb
 COPY ./lib /root/endb
 
 ENV RUSTFLAGS="-C target-feature=-crt-static"
+ENV ENDB_GIT_DESCRIBE=$ENDB_GIT_DESCRIBE
 
 RUN cargo test; cargo build --release
 
@@ -35,7 +36,7 @@ COPY . /root/endb
 
 COPY --from=rust-build-env /root/endb/target/release/libendb.so /root/endb/target/libendb.so
 
-RUN make -e ENDB_GIT_DESCRIBE="$ENDB_GIT_DESCRIBE" -e CARGO=echo test slt-test target/endb
+RUN make -e CARGO=echo test slt-test target/endb
 
 FROM docker.io/$ENDB_OS
 
