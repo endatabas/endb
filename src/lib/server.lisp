@@ -9,7 +9,7 @@
 
 (defvar *db*)
 
-(cffi:defcfun "endb_start_server" :int
+(cffi:defcfun "endb_start_server" :void
   (on-init :pointer)
   (on-query :pointer)
   (on-error :pointer))
