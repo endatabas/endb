@@ -64,40 +64,41 @@
                do (write-string (format nil "~{~A~^,~}~A" (mapcar #'%format-csv row) +crlf+) out)))))))
 
 (defun endb-query (request-method content-type sql parameters manyp on-response)
-  (handler-case
-      (let* ((write-db (endb/sql:begin-write-tx endb/lib/server:*db*))
-             (original-md (endb/sql/expr:db-meta-data write-db))
-             (original-parameters parameters)
-             (parameters (endb/json:resolve-json-ld-xsd-scalars (endb/sql:interpret-sql-literal parameters)))
-             (original-manyp manyp)
-             (manyp (endb/sql:interpret-sql-literal manyp)))
-        (cond
-          ((not (fset:collection? parameters))
-           (funcall on-response +http-bad-request+ "text/plain" (format nil "Invalid parameters: ~A~%" original-parameters)))
-          ((not (typep manyp 'boolean))
-           (funcall on-response +http-bad-request+ "text/plain" (format nil "Invalid many: ~A~%" original-manyp)))
-          (t (multiple-value-bind (result result-code)
-                 (endb/sql:execute-sql write-db sql parameters manyp)
-               (cond
-                 ((or result (and (listp result-code)
-                                  (not (null result-code))))
-                  (funcall on-response +http-ok+ content-type
-                           (%stream-response content-type result-code result)))
-                 (result-code (if (equal "POST" request-method)
-                                  (bt:with-lock-held (*write-lock*)
-                                    (if (eq original-md (endb/sql/expr:db-meta-data endb/lib/server:*db*))
-                                        (progn
-                                          (setf endb/lib/server:*db* (endb/sql:commit-write-tx endb/lib/server:*db* write-db))
-                                          (funcall on-response +http-created+ content-type
-                                                   (%stream-response content-type '("result") (list (list result-code)))))
-                                        (funcall on-response +http-conflict+ "" "")))
-                                  (funcall on-response +http-bad-request+ "" "")))
-                 (t (funcall on-response +http-conflict+ "" "")))))))
-    (endb/lib/parser:sql-parse-error (e)
-      (funcall on-response +http-bad-request+ "text/plain" (format nil "~A~%" e)))
-    (endb/sql/expr:sql-runtime-error (e)
-      (funcall on-response +http-bad-request+ "text/plain" (format nil "~A~%" e)))
-    (error (e)
-      (let ((backtrace (rest (rest (ppcre:split "[\\n\\r]+" (trivial-backtrace:print-backtrace e :output nil))))))
-        (endb/lib:log-error "~A~%~{~A~^~%~}" (string-trim " " (first backtrace)) (rest backtrace))
-        (funcall on-response +http-internal-server-error+ "text/plain" (format nil "~A~%" e))))))
+  (handler-bind ((error (lambda (e)
+                          (let ((backtrace (rest (ppcre:split "[\\n\\r]+" (trivial-backtrace:print-backtrace e :output nil)))))
+                            (endb/lib:log-error "~A~%~{~A~^~%~}" (string-trim " " (first backtrace)) (rest backtrace))
+                            (return-from endb-query
+                              (funcall on-response +http-internal-server-error+ "text/plain" (format nil "~A~%" e)))))))
+    (handler-case
+        (let* ((write-db (endb/sql:begin-write-tx endb/lib/server:*db*))
+               (original-md (endb/sql/expr:db-meta-data write-db))
+               (original-parameters parameters)
+               (parameters (endb/json:resolve-json-ld-xsd-scalars (endb/sql:interpret-sql-literal parameters)))
+               (original-manyp manyp)
+               (manyp (endb/sql:interpret-sql-literal manyp)))
+          (cond
+            ((not (fset:collection? parameters))
+             (funcall on-response +http-bad-request+ "text/plain" (format nil "Invalid parameters: ~A~%" original-parameters)))
+            ((not (typep manyp 'boolean))
+             (funcall on-response +http-bad-request+ "text/plain" (format nil "Invalid many: ~A~%" original-manyp)))
+            (t (multiple-value-bind (result result-code)
+                   (endb/sql:execute-sql write-db sql parameters manyp)
+                 (cond
+                   ((or result (and (listp result-code)
+                                    (not (null result-code))))
+                    (funcall on-response +http-ok+ content-type
+                             (%stream-response content-type result-code result)))
+                   (result-code (if (equal "POST" request-method)
+                                    (bt:with-lock-held (*write-lock*)
+                                      (if (eq original-md (endb/sql/expr:db-meta-data endb/lib/server:*db*))
+                                          (progn
+                                            (setf endb/lib/server:*db* (endb/sql:commit-write-tx endb/lib/server:*db* write-db))
+                                            (funcall on-response +http-created+ content-type
+                                                     (%stream-response content-type '("result") (list (list result-code)))))
+                                          (funcall on-response +http-conflict+ "" "")))
+                                    (funcall on-response +http-bad-request+ "" "")))
+                   (t (funcall on-response +http-conflict+ "" "")))))))
+      (endb/lib/parser:sql-parse-error (e)
+        (funcall on-response +http-bad-request+ "text/plain" (format nil "~A~%" e)))
+      (endb/sql/expr:sql-runtime-error (e)
+        (funcall on-response +http-bad-request+ "text/plain" (format nil "~A~%" e))))))
