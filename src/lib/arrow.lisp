@@ -3,10 +3,10 @@
   (:export #:write-arrow-arrays-to-ipc-buffer #:write-arrow-arrays-to-ipc-file
            #:read-arrow-arrays-from-ipc-pointer #:read-arrow-arrays-from-ipc-buffer #:read-arrow-arrays-from-ipc-file
            #:vector-byte-size #:buffer-to-vector)
+  (:import-from :alexandria)
   (:import-from :endb/arrow)
   (:import-from :endb/lib)
-  (:import-from :cffi)
-  (:import-from :mmap))
+  (:import-from :cffi))
 (in-package :endb/lib/arrow)
 
 (cffi:defbitfield (arrow-flags :int64)
@@ -312,12 +312,9 @@
         (cffi:foreign-free last-error)))))
 
 (defun write-arrow-arrays-to-ipc-file (file arrays)
-  (with-open-file (out file :direction :output
-                            :if-exists :supersede
-                            :if-does-not-exist :create
-                            :element-type '(unsigned-byte 8))
-    (write-sequence (write-arrow-arrays-to-ipc-buffer arrays) out)
-    file))
+  (alexandria:write-byte-vector-into-file
+   (write-arrow-arrays-to-ipc-buffer arrays) file :if-exists :supersede :if-does-not-exist :create)
+  file)
 
 (defun import-arrow-array (schema c-array)
   (cffi:with-foreign-slots ((length null_count n_buffers buffers n_children children) c-array (:struct ArrowArray))
@@ -389,5 +386,4 @@
     (read-arrow-arrays-from-ipc-pointer buffer-ptr (length buffer))))
 
 (defun read-arrow-arrays-from-ipc-file (file)
-  (mmap:with-mmap (addr fd size file)
-    (read-arrow-arrays-from-ipc-pointer addr size)))
+  (read-arrow-arrays-from-ipc-buffer (alexandria:read-file-into-byte-vector file)))

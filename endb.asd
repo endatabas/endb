@@ -19,7 +19,6 @@
                "fast-io"
                "fset"
                "local-time"
-               "mmap"
                "periods"
                "sha1"
                "trivial-backtrace"

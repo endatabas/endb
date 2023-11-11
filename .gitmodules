@@ -86,9 +86,6 @@
 [submodule "_build/periods"]
 	path = _build/periods
 	url = https://github.com/jwiegley/periods
-[submodule "_build/mmap"]
-	path = _build/mmap
-	url = https://github.com/Shinmera/mmap
 [submodule "_build/cl-bloom"]
 	path = _build/cl-bloom
 	url = https://github.com/ruricolist/cl-bloom
