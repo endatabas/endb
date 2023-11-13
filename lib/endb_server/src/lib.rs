@@ -3,7 +3,6 @@ use clap::Parser;
 use hyper::service::Service;
 use hyper::{Body, Method, Request, Response, StatusCode};
 use serde::{Deserialize, Serialize};
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::future::Future;
 use std::marker::{Send, Sync};
@@ -25,25 +24,22 @@ pub struct CommandLineArguments {
     password: Option<String>,
 }
 
-thread_local! {
-    pub(crate) static RESPONSE: RefCell<Option<Response<Body>>> = RefCell::default();
-}
+pub type HttpResponse = Response<Body>;
 
-pub fn on_response(status_code: u16, content_type: &str, body: &str) {
-    RESPONSE.with_borrow_mut(|response| {
-        let builder = Response::builder().status(status_code);
-        let builder = if content_type.is_empty() {
-            builder
-        } else {
-            builder.header(hyper::header::CONTENT_TYPE, content_type)
-        };
-        *response = Some(builder.body(Body::from(body.to_string())).unwrap())
-    });
+pub fn on_response(response: &mut HttpResponse, status_code: u16, content_type: &str, body: &str) {
+    let builder = Response::builder().status(status_code);
+    let builder = if content_type.is_empty() {
+        builder
+    } else {
+        builder.header(hyper::header::CONTENT_TYPE, content_type)
+    };
+    *response = builder.body(Body::from(body.to_string())).unwrap();
 }
 
 const REALM: &str = "restricted area";
 
-type OnQueryFn<'a> = Arc<dyn Fn(&str, &str, &str, &str, &str) + Sync + Send + 'a>;
+type OnQueryFn<'a> =
+    Arc<dyn Fn(&mut HttpResponse, &str, &str, &str, &str, &str) + Sync + Send + 'a>;
 
 struct EndbService<'a> {
     basic_auth: Option<String>,
@@ -67,13 +63,9 @@ fn sql_response(
         let p = params.get("p").map(|x| x.as_str()).unwrap_or("[]");
         let m = params.get("m").map(|x| x.as_str()).unwrap_or("false");
 
-        RESPONSE.set(None);
-        on_query(method.as_str(), media_type, q, p, m);
-        if let Some(response) = RESPONSE.take() {
-            Ok(response)
-        } else {
-            Ok(empty_response(StatusCode::INTERNAL_SERVER_ERROR))
-        }
+        let mut response = empty_response(StatusCode::INTERNAL_SERVER_ERROR);
+        on_query(&mut response, method.as_str(), media_type, q, p, m);
+        Ok(response)
     } else {
         Ok(empty_response(StatusCode::UNPROCESSABLE_ENTITY))
     }
@@ -237,7 +229,7 @@ fn make_basic_auth_header(username: Option<String>, password: Option<String>) ->
 
 pub fn start_server(
     on_init: impl Fn(&str),
-    on_query: impl Fn(&str, &str, &str, &str, &str) + Sync + Send + 'static,
+    on_query: impl Fn(&mut HttpResponse, &str, &str, &str, &str, &str) + Sync + Send + 'static,
 ) -> Result<(), hyper::Error> {
     let args = CommandLineArguments::parse();
 
@@ -290,21 +282,29 @@ mod tests {
 
     fn ok(body: &str) -> crate::OnQueryFn {
         Arc::new(
-            move |_method: &str, media_type: &str, q: &str, p: &str, m: &str| {
-                crate::on_response(StatusCode::OK.into(), media_type, body);
-                crate::RESPONSE.with_borrow_mut(|response| {
-                    let headers = response.as_mut().unwrap().headers_mut();
-                    headers.insert("X-q", q.parse().unwrap());
-                    headers.insert("X-p", p.parse().unwrap());
-                    headers.insert("X-m", m.parse().unwrap());
-                })
+            move |response: &mut crate::HttpResponse,
+                  _method: &str,
+                  media_type: &str,
+                  q: &str,
+                  p: &str,
+                  m: &str| {
+                crate::on_response(response, StatusCode::OK.into(), media_type, body);
+                let headers = response.headers_mut();
+                headers.insert("X-q", q.parse().unwrap());
+                headers.insert("X-p", p.parse().unwrap());
+                headers.insert("X-m", m.parse().unwrap());
             },
         )
     }
 
     fn unreachable<'a>() -> crate::OnQueryFn<'a> {
         Arc::new(
-            move |_method: &str, _media_type: &str, _q: &str, _p: &str, _m: &str| {
+            move |_response: &mut crate::HttpResponse,
+                  _method: &str,
+                  _media_type: &str,
+                  _q: &str,
+                  _p: &str,
+                  _m: &str| {
                 unreachable!("should not been called");
             },
         )

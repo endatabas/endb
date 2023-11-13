@@ -1,4 +1,4 @@
-use libc::c_char;
+use libc::{c_char, c_void};
 use std::ffi::{CStr, CString};
 
 use arrow2::ffi::ArrowArrayStream;
@@ -267,12 +267,13 @@ pub extern "C" fn endb_log_trace(target: *const c_char, message: *const c_char) 
 pub extern "C" fn endb_start_server(
     on_init: extern "C" fn(*const c_char),
     on_query: extern "C" fn(
+        *mut c_void,
         *const c_char,
         *const c_char,
         *const c_char,
         *const c_char,
         *const c_char,
-        extern "C" fn(u16, *const c_char, *const c_char),
+        extern "C" fn(*mut c_void, u16, *const c_char, *const c_char),
     ),
     on_error: extern "C" fn(*const c_char),
 ) {
@@ -281,7 +282,7 @@ pub extern "C" fn endb_start_server(
             |config_json| {
                 string_callback(config_json, on_init);
             },
-            move |method, media_type, q, p, m| {
+            move |response, method, media_type, q, p, m| {
                 let method_cstring = CString::new(method).unwrap();
                 let media_type_cstring = CString::new(media_type).unwrap();
                 let q_cstring = CString::new(q).unwrap();
@@ -289,6 +290,7 @@ pub extern "C" fn endb_start_server(
                 let m_cstring = CString::new(m).unwrap();
 
                 extern "C" fn on_response_callback(
+                    response: *mut c_void,
                     status: u16,
                     content_type: *const c_char,
                     body: *const c_char,
@@ -298,9 +300,12 @@ pub extern "C" fn endb_start_server(
                     let c_str = unsafe { CStr::from_ptr(body) };
                     let body_str = c_str.to_str().unwrap();
 
-                    endb_server::on_response(status, content_type_str, body_str);
+                    let response = unsafe { &mut *(response as *mut endb_server::HttpResponse) };
+
+                    endb_server::on_response(response, status, content_type_str, body_str);
                 }
                 on_query(
+                    response as *mut _ as *mut c_void,
                     method_cstring.as_ptr(),
                     media_type_cstring.as_ptr(),
                     q_cstring.as_ptr(),

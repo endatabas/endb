@@ -268,10 +268,11 @@ void endb_log_debug(const char *target, const char *message);
 void endb_log_trace(const char *target, const char *message);
 
 void endb_start_server(void (*on_init)(const char*),
-                       void (*on_query)(const char*,
+                       void (*on_query)(void*,
                                         const char*,
                                         const char*,
                                         const char*,
                                         const char*,
-                                        void(*)(uint16_t, const char*, const char*)),
+                                        const char*,
+                                        void(*)(void*, uint16_t, const char*, const char*)),
                        void (*on_error)(const char*));

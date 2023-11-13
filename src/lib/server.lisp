@@ -23,14 +23,15 @@
 (defvar *start-server-on-query*)
 
 (cffi:defcallback start-server-on-query :void
-    ((method :string)
+    ((response :pointer)
+     (method :string)
      (media-type :string)
      (q :string)
      (p :string)
      (m :string)
      (on-response :pointer))
   (funcall *start-server-on-query* method media-type q p m (lambda (status-code content-type body)
-                                                             (cffi:foreign-funcall-pointer on-response () :short status-code :string content-type :string body :void))))
+                                                             (cffi:foreign-funcall-pointer on-response () :pointer response :short status-code :string content-type :string body :void))))
 
 (defvar *start-server-on-error*)
 
