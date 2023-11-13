@@ -39,10 +39,6 @@
 * compiler and performance
 * compaction, erasure
 * object store, local separation-of-storage-from-compute
-* refine SQL dialect
-    * better control of schema-on-read
-    * consolidate path languages
-    * etc.
 * Beta Open Source Release
 
 ## 2024 Q1
@@ -53,6 +49,10 @@
 * API authentication
 * monitoring
 * cloud separation-of-storage-from-compute
+* refine SQL dialect
+    * better control of schema-on-read
+    * consolidate path languages
+    * etc.
 
 ## 2024 Q2
 
