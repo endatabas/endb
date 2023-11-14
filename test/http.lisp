@@ -8,11 +8,24 @@
 
 (in-suite* :http)
 
-(defun %on-response (status-code content-type body)
-  (list status-code
-        (unless (equalp "" content-type)
-          (list :content-type content-type))
-        body))
+(defvar *current-response*)
+
+(defun %on-response-init (status-code content-type)
+  (setf *current-response* (list status-code
+                                 (unless (equalp "" content-type)
+                                   (list :content-type content-type))
+                                 ""))
+  nil)
+
+(defun %on-response-send (body)
+  (setf *current-response* (append (butlast *current-response*)
+                                   (list (concatenate 'string (car (last *current-response*)) body))))
+  nil)
+
+(defun %do-query (request-method content-type sql parameters manyp &optional (on-response-init #'%on-response-init) (on-response-send #'%on-response-send))
+  (let ((*current-response*))
+    (endb-query request-method content-type sql parameters manyp on-response-init on-response-send)
+    *current-response*))
 
 (test parameters
   (let* ((endb/lib/server:*db* (endb/sql:make-db)))
@@ -20,23 +33,23 @@
          (list +http-ok+
                '(:content-type "application/json")
                (format nil "[[\"2001-01-01\",{\"b\":1}]]~%"))
-         (endb-query "POST" "application/json" "SELECT ?, ?" "[{\"@value\":\"2001-01-01\",\"@type\":\"xsd:date\"},{\"b\":1}]" "false"
-                     #'%on-response)))
+         (%do-query "POST" "application/json" "SELECT ?, ?" "[{\"@value\":\"2001-01-01\",\"@type\":\"xsd:date\"},{\"b\":1}]" "false")))
+
 
     (is (equal (list +http-ok+
                      '(:content-type "application/json")
                      (format nil "[[3]]~%"))
-               (endb-query "POST" "application/json" "SELECT :a + :b" "{\"a\":1,\"b\":2}" "false" #'%on-response)))
+               (%do-query "POST" "application/json" "SELECT :a + :b" "{\"a\":1,\"b\":2}" "false")))
 
     (is (equal (list +http-created+
                      '(:content-type "application/json")
                      (format nil "[[2]]~%"))
-               (endb-query "POST" "application/json" "INSERT INTO foo {:a, :b}" "[{\"a\":1,\"b\":2},{\"a\":3,\"b\":4}]" "true" #'%on-response)))
+               (%do-query "POST" "application/json" "INSERT INTO foo {:a, :b}" "[{\"a\":1,\"b\":2},{\"a\":3,\"b\":4}]" "true")))
 
     (is (equal (list +http-ok+
                      '(:content-type "application/json")
                      (format nil "[[1,2],[3,4]]~%"))
-               (endb-query "GET" "application/json" "SELECT * FROM foo ORDER BY a" "[]" "false" #'%on-response)))))
+               (%do-query "GET" "application/json" "SELECT * FROM foo ORDER BY a" "[]" "false")))))
 
 (test errors
   (let* ((endb/lib/server:*db* (endb/sql:make-db)))
@@ -44,22 +57,23 @@
     (is (equal (list +http-created+
                      '(:content-type "application/json")
                      (format nil "[[1]]~%"))
-               (endb-query "POST" "application/json" "INSERT INTO foo {a: 1, b: 2}" "[]" "false" #'%on-response)))
+               (%do-query "POST" "application/json" "INSERT INTO foo {a: 1, b: 2}" "[]" "false")))
 
     (is (equal (list +http-bad-request+ () "")
-               (endb-query "GET" "application/json" "DELETE FROM foo" "[]" "false" #'%on-response)))
+               (%do-query "GET" "application/json" "DELETE FROM foo" "[]" "false")))
 
     (is (equal (list +http-bad-request+ '(:content-type "text/plain") (format nil "Invalid argument types: SIN(\"foo\")~%"))
-               (endb-query "GET" "application/json" "SELECT SIN(\"foo\")" "[]" "false" #'%on-response)))
+               (%do-query "GET" "application/json" "SELECT SIN(\"foo\")" "[]" "false")))
 
     (is (equal (list +http-bad-request+ '(:content-type "text/plain") (format nil "Invalid parameters: 1~%"))
-               (endb-query "GET" "application/json" "SELECT 1" "1" "false" #'%on-response)))
+               (%do-query "GET" "application/json" "SELECT 1" "1" "false")))
 
     (is (equal (list +http-bad-request+ '(:content-type "text/plain") (format nil "Invalid many: 1~%"))
-               (endb-query "GET" "application/json" "SELECT 1" "[]" "1" #'%on-response)))
+               (%do-query "GET" "application/json" "SELECT 1" "[]" "1")))
+
 
     (destructuring-bind (status-code headers body)
-        (endb-query "GET" "application/json" "SELECT" "[]" "false" #'%on-response)
+        (%do-query "GET" "application/json" "SELECT" "[]" "false")
       (declare (ignore body))
       (is (eq +http-bad-request+ status-code))
       (is (equal '(:content-type "text/plain") headers)))
@@ -68,11 +82,13 @@
           (calls 0))
       (is (equal (list +http-internal-server-error+ '(:content-type "text/plain")
                        (format nil "common lisp error~%"))
-                 (endb-query "GET" "application/json" "SELECT 1" "[]" "false" (lambda (status-code content-type body)
-                                                                                (incf calls)
-                                                                                (if (= 1 calls)
-                                                                                    (error "common lisp error")
-                                                                                    (%on-response status-code content-type body)))))))))
+                 (%do-query "GET" "application/json" "SELECT 1" "[]" "false"
+                            (lambda (status-code content-type)
+                              (incf calls)
+                              (if (= 1 calls)
+                                  (error "common lisp error")
+                                  (%on-response-init status-code content-type)))
+                            #'%on-response-send))))))
 
 (test conflict
   (setf endb/lib/server:*db* (endb/sql:make-db))
@@ -81,7 +97,7 @@
     (is (bt:acquire-lock endb/http::*write-lock*))
     (let ((thread (bt:make-thread
                    (lambda ()
-                     (endb-query "POST" "application/json" "INSERT INTO foo {a: 1, b: 2}" "[]" "false" #'%on-response)))))
+                     (%do-query "POST" "application/json" "INSERT INTO foo {a: 1, b: 2}" "[]" "false")))))
 
       (multiple-value-bind (result result-code)
           (endb/sql:execute-sql write-db "INSERT INTO foo {a: 1, b: 2}")

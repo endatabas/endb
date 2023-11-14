@@ -24,16 +24,21 @@ pub struct CommandLineArguments {
     password: Option<String>,
 }
 
-pub type HttpResponse = Response<Body>;
+pub type HttpResponse = Response<String>;
 
-pub fn on_response(response: &mut HttpResponse, status_code: u16, content_type: &str, body: &str) {
-    let builder = Response::builder().status(status_code);
-    let builder = if content_type.is_empty() {
-        builder
-    } else {
-        builder.header(hyper::header::CONTENT_TYPE, content_type)
-    };
-    *response = builder.body(Body::from(body.to_string())).unwrap();
+pub fn on_response_init(response: &mut HttpResponse, status_code: u16, content_type: &str) {
+    if let Ok(status_code) = StatusCode::from_u16(status_code) {
+        *response.status_mut() = status_code;
+    }
+    if !content_type.is_empty() {
+        response
+            .headers_mut()
+            .insert(hyper::header::CONTENT_TYPE, content_type.parse().unwrap());
+    }
+}
+
+pub fn on_response_send(response: &mut HttpResponse, chunk: &str) {
+    response.body_mut().push_str(chunk);
 }
 
 const REALM: &str = "restricted area";
@@ -46,10 +51,10 @@ struct EndbService<'a> {
     on_query: OnQueryFn<'a>,
 }
 
-fn empty_response(status_code: StatusCode) -> Response<Body> {
+fn empty_response(status_code: StatusCode) -> Response<String> {
     Response::builder()
         .status(status_code)
-        .body(Body::from(""))
+        .body("".to_string())
         .unwrap()
 }
 
@@ -58,12 +63,13 @@ fn sql_response(
     media_type: &str,
     params: HashMap<String, String>,
     on_query: OnQueryFn,
-) -> Result<Response<Body>, hyper::Error> {
+) -> Result<Response<String>, hyper::Error> {
     if let Some(q) = params.get("q") {
         let p = params.get("p").map(|x| x.as_str()).unwrap_or("[]");
         let m = params.get("m").map(|x| x.as_str()).unwrap_or("false");
 
         let mut response = empty_response(StatusCode::INTERNAL_SERVER_ERROR);
+
         on_query(&mut response, method.as_str(), media_type, q, p, m);
         Ok(response)
     } else {
@@ -72,7 +78,7 @@ fn sql_response(
 }
 
 impl Service<Request<Body>> for EndbService<'static> {
-    type Response = Response<Body>;
+    type Response = Response<String>;
     type Error = hyper::Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
@@ -99,7 +105,7 @@ impl Service<Request<Body>> for EndbService<'static> {
                         hyper::header::WWW_AUTHENTICATE,
                         format!("Basic realm=\"{}\"", REALM),
                     )
-                    .body("".into())
+                    .body("".to_string())
                     .unwrap());
             }
 
@@ -119,7 +125,7 @@ impl Service<Request<Body>> for EndbService<'static> {
                 _ => {
                     return Ok(Response::builder()
                         .status(StatusCode::NOT_ACCEPTABLE)
-                        .body("".into())
+                        .body("".to_string())
                         .unwrap())
                 }
             };
@@ -208,7 +214,7 @@ impl Service<Request<Body>> for EndbService<'static> {
                 (_, "/sql", _) => Ok(Response::builder()
                     .status(StatusCode::METHOD_NOT_ALLOWED)
                     .header(hyper::header::ALLOW, "GET, POST")
-                    .body("".into())
+                    .body("".to_string())
                     .unwrap()),
                 _ => Ok(empty_response(StatusCode::NOT_FOUND)),
             }
@@ -288,7 +294,9 @@ mod tests {
                   q: &str,
                   p: &str,
                   m: &str| {
-                crate::on_response(response, StatusCode::OK.into(), media_type, body);
+                crate::on_response_init(response, StatusCode::OK.into(), media_type);
+                crate::on_response_send(response, body);
+
                 let headers = response.headers_mut();
                 headers.insert("X-q", q.parse().unwrap());
                 headers.insert("X-p", p.parse().unwrap());
@@ -320,14 +328,14 @@ mod tests {
     fn get(uri: &str, accept: &str) -> Request<Body> {
         Request::get(uri)
             .header(hyper::header::ACCEPT, accept)
-            .body("".into())
+            .body(Body::empty())
             .unwrap()
     }
 
     fn post(uri: &str, content_type: &str, body: &str) -> Request<Body> {
         Request::post(uri)
             .header(hyper::header::CONTENT_TYPE, content_type)
-            .body(body.to_string().into())
+            .body(Body::from(body.to_string()))
             .unwrap()
     }
 
@@ -357,11 +365,7 @@ mod tests {
                     "x-p": "[]",
                     "x-m": "false",
                 },
-                body: Body(
-                    Full(
-                        b"[[1]]\n",
-                    ),
-                ),
+                body: "[[1]]\n",
             },
         )
         "###);
@@ -381,11 +385,7 @@ mod tests {
                     "x-p": "[]",
                     "x-m": "false",
                 },
-                body: Body(
-                    Full(
-                        b"[[1]]\n",
-                    ),
-                ),
+                body: "[[1]]\n",
             },
         )
         "###);
@@ -405,11 +405,7 @@ mod tests {
                     "x-p": "[]",
                     "x-m": "false",
                 },
-                body: Body(
-                    Full(
-                        b"{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}\n",
-                    ),
-                ),
+                body: "{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}\n",
             },
         )
         "###);
@@ -429,11 +425,7 @@ mod tests {
                     "x-p": "[]",
                     "x-m": "false",
                 },
-                body: Body(
-                    Full(
-                        b"{\"column1\":1}\n",
-                    ),
-                ),
+                body: "{\"column1\":1}\n",
             },
         )
         "###);
@@ -453,11 +445,7 @@ mod tests {
                     "x-p": "[]",
                     "x-m": "false",
                 },
-                body: Body(
-                    Full(
-                        b"\"column1\"\r\n1~\r\n",
-                    ),
-                ),
+                body: "\"column1\"\r\n1~\r\n",
             },
         )
         "###);
@@ -472,9 +460,7 @@ mod tests {
                 status: 406,
                 version: HTTP/1.1,
                 headers: {},
-                body: Body(
-                    Empty,
-                ),
+                body: "",
             },
         )
         "###);
@@ -497,11 +483,7 @@ mod tests {
                     "x-p": "[]",
                     "x-m": "false",
                 },
-                body: Body(
-                    Full(
-                        b"[[1]]\n",
-                    ),
-                ),
+                body: "[[1]]\n",
             },
         )
         "###);
@@ -521,11 +503,7 @@ mod tests {
                     "x-p": "[]",
                     "x-m": "false",
                 },
-                body: Body(
-                    Full(
-                        b"[[1]]\n",
-                    ),
-                ),
+                body: "[[1]]\n",
             },
         )
         "###);
@@ -545,11 +523,7 @@ mod tests {
                     "x-p": "[]",
                     "x-m": "false",
                 },
-                body: Body(
-                    Full(
-                        b"[[1]]\n",
-                    ),
-                ),
+                body: "[[1]]\n",
             },
         )
         "###);
@@ -569,11 +543,7 @@ mod tests {
                     "x-p": "[]",
                     "x-m": "false",
                 },
-                body: Body(
-                    Full(
-                        b"[[1]]\n",
-                    ),
-                ),
+                body: "[[1]]\n",
             },
         )
         "###);
@@ -593,11 +563,7 @@ mod tests {
                     "x-p": "[]",
                     "x-m": "false",
                 },
-                body: Body(
-                    Full(
-                        b"{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}\n",
-                    ),
-                ),
+                body: "{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}\n",
             },
         )
         "###);
@@ -612,9 +578,7 @@ mod tests {
                 status: 415,
                 version: HTTP/1.1,
                 headers: {},
-                body: Body(
-                    Empty,
-                ),
+                body: "",
             },
         )
         "###);
@@ -637,11 +601,7 @@ mod tests {
                     "x-p": "{\"a\":1,\"b\":2}",
                     "x-m": "false",
                 },
-                body: Body(
-                    Full(
-                        b"[[3]]\n",
-                    ),
-                ),
+                body: "[[3]]\n",
             },
         )
         "###);
@@ -661,11 +621,7 @@ mod tests {
                     "x-p": "[[1]]",
                     "x-m": "true",
                 },
-                body: Body(
-                    Full(
-                        b"[[1]]\n",
-                    ),
-                ),
+                body: "[[1]]\n",
             },
         )
         "###);
@@ -685,11 +641,7 @@ mod tests {
                     "x-p": "[1,2]",
                     "x-m": "false",
                 },
-                body: Body(
-                    Full(
-                        b"[[3]]\n",
-                    ),
-                ),
+                body: "[[3]]\n",
             },
         )
         "###);
@@ -700,7 +652,7 @@ mod tests {
         assert_debug_snapshot!(
             service(None, unreachable())
             .call(Request::head("http://localhost:3803/sql")
-            .body("".into())
+            .body(Body::empty())
             .unwrap())
             .await
         , @r###"
@@ -711,9 +663,7 @@ mod tests {
                 headers: {
                     "allow": "GET, POST",
                 },
-                body: Body(
-                    Empty,
-                ),
+                body: "",
             },
         )
         "###);
@@ -728,9 +678,7 @@ mod tests {
                 status: 404,
                 version: HTTP/1.1,
                 headers: {},
-                body: Body(
-                    Empty,
-                ),
+                body: "",
             },
         )
         "###);
@@ -752,9 +700,7 @@ mod tests {
                 headers: {
                     "www-authenticate": "Basic realm=\"restricted area\"",
                 },
-                body: Body(
-                    Empty,
-                ),
+                body: "",
             },
         )
         "###);
@@ -774,11 +720,7 @@ mod tests {
                     "x-p": "[]",
                     "x-m": "false",
                 },
-                body: Body(
-                    Full(
-                        b"[[1]]\n",
-                    ),
-                ),
+                body: "[[1]]\n",
             },
         )
         "###);

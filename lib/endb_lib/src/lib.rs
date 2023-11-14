@@ -273,7 +273,8 @@ pub extern "C" fn endb_start_server(
         *const c_char,
         *const c_char,
         *const c_char,
-        extern "C" fn(*mut c_void, u16, *const c_char, *const c_char),
+        extern "C" fn(*mut c_void, u16, *const c_char),
+        extern "C" fn(*mut c_void, *const c_char),
     ),
     on_error: extern "C" fn(*const c_char),
 ) {
@@ -289,20 +290,28 @@ pub extern "C" fn endb_start_server(
                 let p_cstring = CString::new(p).unwrap();
                 let m_cstring = CString::new(m).unwrap();
 
-                extern "C" fn on_response_callback(
+                extern "C" fn on_response_init_callback(
                     response: *mut c_void,
                     status: u16,
                     content_type: *const c_char,
-                    body: *const c_char,
                 ) {
                     let c_str = unsafe { CStr::from_ptr(content_type) };
                     let content_type_str = c_str.to_str().unwrap();
+
+                    let response = unsafe { &mut *(response as *mut endb_server::HttpResponse) };
+
+                    endb_server::on_response_init(response, status, content_type_str);
+                }
+                extern "C" fn on_response_send_callback(
+                    response: *mut c_void,
+                    body: *const c_char,
+                ) {
                     let c_str = unsafe { CStr::from_ptr(body) };
                     let body_str = c_str.to_str().unwrap();
 
                     let response = unsafe { &mut *(response as *mut endb_server::HttpResponse) };
 
-                    endb_server::on_response(response, status, content_type_str, body_str);
+                    endb_server::on_response_send(response, body_str);
                 }
                 on_query(
                     response as *mut _ as *mut c_void,
@@ -311,7 +320,8 @@ pub extern "C" fn endb_start_server(
                     q_cstring.as_ptr(),
                     p_cstring.as_ptr(),
                     m_cstring.as_ptr(),
-                    on_response_callback,
+                    on_response_init_callback,
+                    on_response_send_callback,
                 );
             },
         )

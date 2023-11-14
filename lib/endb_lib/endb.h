@@ -274,5 +274,6 @@ void endb_start_server(void (*on_init)(const char*),
                                         const char*,
                                         const char*,
                                         const char*,
-                                        void(*)(void*, uint16_t, const char*, const char*)),
+                                        void(*)(void*, uint16_t, const char*),
+                                        void(*)(void*, const char*)),
                        void (*on_error)(const char*));

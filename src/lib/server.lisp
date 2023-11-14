@@ -29,9 +29,13 @@
      (q :string)
      (p :string)
      (m :string)
-     (on-response :pointer))
-  (funcall *start-server-on-query* method media-type q p m (lambda (status-code content-type body)
-                                                             (cffi:foreign-funcall-pointer on-response () :pointer response :short status-code :string content-type :string body :void))))
+     (on-response-init :pointer)
+     (on-response-send :pointer))
+  (funcall *start-server-on-query* method media-type q p m
+           (lambda (status-code content-type)
+             (cffi:foreign-funcall-pointer on-response-init () :pointer response :short status-code :string content-type :void))
+           (lambda (body)
+             (cffi:foreign-funcall-pointer on-response-send () :pointer response :string body :void))))
 
 (defvar *start-server-on-error*)
 

@@ -6,7 +6,7 @@ fn parse(sql: &str) -> String {
         ..crate::ParseState::default()
     };
     match crate::sql::sql_stmt_list(sql, 0, &mut state) {
-        Ok(_) => crate::events_to_sexp(&sql, &state.events).unwrap(),
+        Ok(_) => crate::events_to_sexp(sql, &state.events).unwrap(),
         Err(_) => {
             crate::parse_errors_to_string("/sql", sql, &crate::events_to_errors(&state.errors))
                 .unwrap()
