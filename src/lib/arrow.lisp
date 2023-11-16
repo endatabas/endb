@@ -120,7 +120,7 @@
   (buffer-size :size)
   (on-error :pointer))
 
-(defvar *arrow-array-stream-consumer-init-stream*
+(defvar *arrow-array-stream-consumer-on-init-stream*
   (lambda (c-stream)
     (cffi:with-foreign-slots ((get_schema get_next get_last_error release) c-stream (:struct ArrowArrayStream))
       (setf get_schema (cffi:callback arrow-array-stream-get-schema))
@@ -128,9 +128,9 @@
       (setf get_last_error (cffi:callback arrow-array-stream-get-last-error))
       (setf release (cffi:callback arrow-array-stream-release)))))
 
-(cffi:defcallback arrow-array-stream-consumer-init-stream :void
+(cffi:defcallback arrow-array-stream-consumer-on-init-stream :void
     ((stream (:pointer (:struct ArrowArrayStream))))
-  (funcall *arrow-array-stream-consumer-init-stream* stream))
+  (funcall *arrow-array-stream-consumer-on-init-stream* stream))
 
 (defvar *arrow-array-stream-consumer-on-success*)
 
@@ -144,7 +144,7 @@
   (error err))
 
 (cffi:defcfun "endb_arrow_array_stream_consumer" :void
-  (init-stream :pointer)
+  (on-init-stream :pointer)
   (on-success :pointer)
   (on-error :pointer))
 
@@ -305,7 +305,7 @@
                                                         last-error))
                  (*arrow-array-stream-consumer-on-success* (lambda (buffer-ptr buffer-size)
                                                              (setf result (funcall on-success buffer-ptr buffer-size)))))
-            (endb-arrow-array-stream-consumer (cffi:callback arrow-array-stream-consumer-init-stream)
+            (endb-arrow-array-stream-consumer (cffi:callback arrow-array-stream-consumer-on-init-stream)
                                               (cffi:callback arrow-array-stream-consumer-on-success)
                                               (cffi:callback arrow-array-stream-consumer-on-error))
             result))

@@ -63,7 +63,11 @@
              do (funcall on-response-send (format nil "~{~A~^,~}~A" (mapcar #'%format-csv row) +crlf+)))))))
 
 (defun endb-query (request-method content-type sql parameters manyp on-response-init on-response-send)
-  (handler-bind ((error (lambda (e)
+  (handler-bind ((endb/lib/server:sql-abort-query-error
+                   (lambda (e)
+                     (declare (ignore e))
+                     (return-from endb-query)))
+                 (error (lambda (e)
                           (let ((backtrace (rest (ppcre:split "[\\n\\r]+" (trivial-backtrace:print-backtrace e :output nil)))))
                             (endb/lib:log-error "~A~%~{~A~^~%~}" (string-trim " " (first backtrace)) (rest backtrace))
                             (funcall on-response-init +http-internal-server-error+ "text/plain")

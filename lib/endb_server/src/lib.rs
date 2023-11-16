@@ -9,6 +9,8 @@ use std::marker::{Send, Sync};
 use std::pin::Pin;
 use std::sync::Arc;
 
+type Error = Box<dyn std::error::Error + Send + Sync>;
+
 const ENDB_FULL_VERSION: &str = env!("ENDB_FULL_VERSION");
 
 #[derive(Serialize, Deserialize, Debug, Parser)]
@@ -24,69 +26,107 @@ pub struct CommandLineArguments {
     password: Option<String>,
 }
 
-pub type HttpResponse = Response<String>;
+pub type HttpResponse = Response<Body>;
+pub type HttpSender = hyper::body::Sender;
+pub type OneShotSender = tokio::sync::oneshot::Sender<HttpResponse>;
 
-pub fn on_response_init(response: &mut HttpResponse, status_code: u16, content_type: &str) {
+pub fn on_response_init(
+    mut response: HttpResponse,
+    tx: OneShotSender,
+    status_code: u16,
+    content_type: &str,
+) -> Result<(), Response<Body>> {
     if let Ok(status_code) = StatusCode::from_u16(status_code) {
         *response.status_mut() = status_code;
     }
     if !content_type.is_empty() {
-        response
-            .headers_mut()
-            .insert(hyper::header::CONTENT_TYPE, content_type.parse().unwrap());
+        if let Ok(content_type) = content_type.parse() {
+            response
+                .headers_mut()
+                .insert(hyper::header::CONTENT_TYPE, content_type);
+        }
     }
+    tx.send(response)
 }
 
-pub fn on_response_send(response: &mut HttpResponse, chunk: &str) {
-    response.body_mut().push_str(chunk);
+pub fn on_response_send(sender: &mut HttpSender, chunk: &str) -> Result<(), Error> {
+    tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(async move {
+            sender
+                .send_data(chunk.to_string().into())
+                .await
+                .map_err(|e| e.into())
+        })
+    })
 }
 
 const REALM: &str = "restricted area";
 
-type OnQueryFn<'a> =
-    Arc<dyn Fn(&mut HttpResponse, &str, &str, &str, &str, &str) + Sync + Send + 'a>;
+type OnQueryFn<'a> = Arc<
+    dyn Fn(HttpResponse, &mut HttpSender, OneShotSender, &str, &str, &str, &str, &str)
+        + Sync
+        + Send
+        + 'a,
+>;
 
 struct EndbService<'a> {
     basic_auth: Option<String>,
     on_query: OnQueryFn<'a>,
 }
 
-fn empty_response(status_code: StatusCode) -> Response<String> {
+fn empty_response(status_code: StatusCode) -> Result<Response<Body>, Error> {
     Response::builder()
         .status(status_code)
-        .body("".to_string())
-        .unwrap()
+        .body("".into())
+        .map_err(|e| e.into())
 }
 
-fn sql_response(
+async fn sql_response(
     method: Method,
     media_type: &str,
-    params: HashMap<String, String>,
-    on_query: OnQueryFn,
-) -> Result<Response<String>, hyper::Error> {
-    if let Some(q) = params.get("q") {
-        let p = params.get("p").map(|x| x.as_str()).unwrap_or("[]");
-        let m = params.get("m").map(|x| x.as_str()).unwrap_or("false");
+    mut params: HashMap<String, String>,
+    on_query: OnQueryFn<'static>,
+) -> Result<Response<Body>, Error> {
+    if let Some(q) = params.remove("q") {
+        let media_type = media_type.to_string();
+        let p = params.remove("p").unwrap_or_else(|| "[]".to_string());
+        let m = params.remove("m").unwrap_or_else(|| "false".to_string());
 
-        let mut response = empty_response(StatusCode::INTERNAL_SERVER_ERROR);
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        let mut response = empty_response(StatusCode::INTERNAL_SERVER_ERROR)?;
 
-        on_query(&mut response, method.as_str(), media_type, q, p, m);
-        Ok(response)
+        tokio::spawn(async move {
+            let (mut sender, body) = Body::channel();
+            *response.body_mut() = body;
+
+            on_query(
+                response,
+                &mut sender,
+                tx,
+                method.as_str(),
+                media_type.as_str(),
+                q.as_str(),
+                p.as_str(),
+                m.as_str(),
+            );
+        });
+
+        rx.await.map_err(|e| e.into())
     } else {
-        Ok(empty_response(StatusCode::UNPROCESSABLE_ENTITY))
+        empty_response(StatusCode::UNPROCESSABLE_ENTITY)
     }
 }
 
 impl Service<Request<Body>> for EndbService<'static> {
-    type Response = Response<String>;
-    type Error = hyper::Error;
+    type Response = Response<Body>;
+    type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
     fn poll_ready(
         &mut self,
         _cx: &mut core::task::Context<'_>,
     ) -> core::task::Poll<Result<(), Self::Error>> {
-        core::task::Poll::Ready(Ok(()))
+        Ok(()).into()
     }
 
     fn call(&mut self, req: Request<Body>) -> Self::Future {
@@ -99,14 +139,14 @@ impl Service<Request<Body>> for EndbService<'static> {
                     .and_then(|x| x.to_str().ok());
         Box::pin(async move {
             if unauthorized {
-                return Ok(Response::builder()
+                return Response::builder()
                     .status(StatusCode::UNAUTHORIZED)
                     .header(
                         hyper::header::WWW_AUTHENTICATE,
                         format!("Basic realm=\"{}\"", REALM),
                     )
-                    .body("".to_string())
-                    .unwrap());
+                    .body("".into())
+                    .map_err(|e| e.into());
             }
 
             let accept = req
@@ -123,10 +163,10 @@ impl Service<Request<Body>> for EndbService<'static> {
                 "application/x-ndjson" => "application/x-ndjson",
                 "text/*" | "text/csv" => "text/csv",
                 _ => {
-                    return Ok(Response::builder()
+                    return Response::builder()
                         .status(StatusCode::NOT_ACCEPTABLE)
-                        .body("".to_string())
-                        .unwrap())
+                        .body("".into())
+                        .map_err(|e| e.into())
                 }
             };
 
@@ -154,7 +194,9 @@ impl Service<Request<Body>> for EndbService<'static> {
                     .map(|x| x.essence_str().to_string())
                     .as_deref(),
             ) {
-                (&Method::GET, "/sql", _) => sql_response(method, media_type, params, on_query),
+                (&Method::GET, "/sql", _) => {
+                    sql_response(method, media_type, params, on_query).await
+                }
                 (&Method::POST, "/sql", Some("application/json" | "application/ld+json")) => {
                     let body = hyper::body::to_bytes(req).await?;
                     if let Ok(serde_json::Value::Object(json)) =
@@ -167,18 +209,18 @@ impl Service<Request<Body>> for EndbService<'static> {
                                 params.insert(k, v.to_string());
                             }
                         }
-                        sql_response(method, media_type, params, on_query)
+                        sql_response(method, media_type, params, on_query).await
                     } else {
-                        Ok(empty_response(StatusCode::UNPROCESSABLE_ENTITY))
+                        empty_response(StatusCode::UNPROCESSABLE_ENTITY)
                     }
                 }
                 (&Method::POST, "/sql", Some("application/sql")) => {
                     let body = hyper::body::to_bytes(req).await?;
                     if let Ok(q) = std::str::from_utf8(&body) {
                         params.insert("q".to_string(), q.to_string());
-                        sql_response(method, media_type, params, on_query)
+                        sql_response(method, media_type, params, on_query).await
                     } else {
-                        Ok(empty_response(StatusCode::UNPROCESSABLE_ENTITY))
+                        empty_response(StatusCode::UNPROCESSABLE_ENTITY)
                     }
                 }
                 (&Method::POST, "/sql", Some("application/x-www-form-urlencoded")) => {
@@ -186,7 +228,7 @@ impl Service<Request<Body>> for EndbService<'static> {
                     for (k, v) in url::form_urlencoded::parse(body.as_ref()) {
                         params.insert(k.to_string(), v.to_string());
                     }
-                    sql_response(method, media_type, params, on_query)
+                    sql_response(method, media_type, params, on_query).await
                 }
                 (&Method::POST, "/sql", Some("multipart/form-data")) => {
                     if let Some(boundary) = content_type
@@ -203,20 +245,18 @@ impl Service<Request<Body>> for EndbService<'static> {
                                 }
                             }
                         }
-                        sql_response(method, media_type, params, on_query)
+                        sql_response(method, media_type, params, on_query).await
                     } else {
-                        Ok(empty_response(StatusCode::BAD_REQUEST))
+                        empty_response(StatusCode::BAD_REQUEST)
                     }
                 }
-                (&Method::POST, "/sql", _) => {
-                    Ok(empty_response(StatusCode::UNSUPPORTED_MEDIA_TYPE))
-                }
-                (_, "/sql", _) => Ok(Response::builder()
+                (&Method::POST, "/sql", _) => empty_response(StatusCode::UNSUPPORTED_MEDIA_TYPE),
+                (_, "/sql", _) => Response::builder()
                     .status(StatusCode::METHOD_NOT_ALLOWED)
                     .header(hyper::header::ALLOW, "GET, POST")
-                    .body("".to_string())
-                    .unwrap()),
-                _ => Ok(empty_response(StatusCode::NOT_FOUND)),
+                    .body("".into())
+                    .map_err(|e| e.into()),
+                _ => empty_response(StatusCode::NOT_FOUND),
             }
         })
     }
@@ -235,8 +275,11 @@ fn make_basic_auth_header(username: Option<String>, password: Option<String>) ->
 
 pub fn start_server(
     on_init: impl Fn(&str),
-    on_query: impl Fn(&mut HttpResponse, &str, &str, &str, &str, &str) + Sync + Send + 'static,
-) -> Result<(), hyper::Error> {
+    on_query: impl Fn(HttpResponse, &mut HttpSender, OneShotSender, &str, &str, &str, &str, &str)
+        + Sync
+        + Send
+        + 'static,
+) -> Result<(), Error> {
     let args = CommandLineArguments::parse();
 
     let full_version = env!("ENDB_FULL_VERSION");
@@ -251,7 +294,7 @@ pub fn start_server(
             basic_auth: basic_auth.clone(),
             on_query: on_query.clone(),
         };
-        async move { Ok::<_, hyper::Error>(svc) }
+        async move { Ok::<_, Error>(svc) }
     });
 
     let addr = ([0, 0, 0, 0], args.http_port).into();
@@ -270,6 +313,7 @@ pub fn start_server(
                 Err(err) => Err(err),
             }
         })
+        .map_err(|e| e.into())
 }
 
 pub fn init_logger() {
@@ -282,32 +326,44 @@ pub fn init_logger() {
 #[cfg(test)]
 mod tests {
     use hyper::service::Service;
-    use hyper::{Body, Request, StatusCode};
+    use hyper::{Body, Request, Response, StatusCode};
     use insta::assert_debug_snapshot;
     use std::sync::Arc;
 
+    async fn read_body(response: Response<Body>) -> Response<Body> {
+        let (parts, body) = response.into_parts();
+        let body = Body::from(hyper::body::to_bytes(body).await.unwrap());
+        Response::from_parts(parts, body)
+    }
+
     fn ok(body: &str) -> crate::OnQueryFn {
         Arc::new(
-            move |response: &mut crate::HttpResponse,
+            move |mut response: crate::HttpResponse,
+                  sender: &mut crate::HttpSender,
+                  tx: crate::OneShotSender,
                   _method: &str,
                   media_type: &str,
                   q: &str,
                   p: &str,
                   m: &str| {
-                crate::on_response_init(response, StatusCode::OK.into(), media_type);
-                crate::on_response_send(response, body);
-
                 let headers = response.headers_mut();
                 headers.insert("X-q", q.parse().unwrap());
                 headers.insert("X-p", p.parse().unwrap());
                 headers.insert("X-m", m.parse().unwrap());
+
+                crate::on_response_init(response, tx, StatusCode::OK.into(), media_type).unwrap();
+                let (b1, b2) = body.split_at(body.len() / 2);
+                crate::on_response_send(sender, b1).unwrap();
+                crate::on_response_send(sender, b2).unwrap();
             },
         )
     }
 
     fn unreachable<'a>() -> crate::OnQueryFn<'a> {
         Arc::new(
-            move |_response: &mut crate::HttpResponse,
+            move |_response: crate::HttpResponse,
+                  _sender: &mut crate::HttpSender,
+                  _tx: crate::OneShotSender,
                   _method: &str,
                   _media_type: &str,
                   _q: &str,
@@ -348,381 +404,407 @@ mod tests {
         request
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn content_type() {
         assert_debug_snapshot!(
             service(None, ok("[[1]]\n"))
-            .call(get("http://localhost:3803/sql?q=SELECT%201", "*/*"))
-            .await
+                .call(get("http://localhost:3803/sql?q=SELECT%201", "*/*")).await.map(read_body).unwrap().await
         , @r###"
-        Ok(
-            Response {
-                status: 200,
-                version: HTTP/1.1,
-                headers: {
-                    "content-type": "application/json",
-                    "x-q": "SELECT 1",
-                    "x-p": "[]",
-                    "x-m": "false",
-                },
-                body: "[[1]]\n",
+        Response {
+            status: 200,
+            version: HTTP/1.1,
+            headers: {
+                "x-q": "SELECT 1",
+                "x-p": "[]",
+                "x-m": "false",
+                "content-type": "application/json",
             },
-        )
+            body: Body(
+                Full(
+                    b"[[1]]\n",
+                ),
+            ),
+        }
         "###);
 
         assert_debug_snapshot!(
             service(None, ok("[[1]]\n"))
             .call(get("http://localhost:3803/sql?q=SELECT%201", "application/json"))
-            .await
+            .await.map(read_body).unwrap().await
         , @r###"
-        Ok(
-            Response {
-                status: 200,
-                version: HTTP/1.1,
-                headers: {
-                    "content-type": "application/json",
-                    "x-q": "SELECT 1",
-                    "x-p": "[]",
-                    "x-m": "false",
-                },
-                body: "[[1]]\n",
+        Response {
+            status: 200,
+            version: HTTP/1.1,
+            headers: {
+                "x-q": "SELECT 1",
+                "x-p": "[]",
+                "x-m": "false",
+                "content-type": "application/json",
             },
-        )
+            body: Body(
+                Full(
+                    b"[[1]]\n",
+                ),
+            ),
+        }
         "###);
 
         assert_debug_snapshot!(
             service(None, ok("{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}\n"))
             .call(get("http://localhost:3803/sql?q=SELECT%201", "application/ld+json"))
-            .await
+            .await.map(read_body).unwrap().await
         , @r###"
-        Ok(
-            Response {
-                status: 200,
-                version: HTTP/1.1,
-                headers: {
-                    "content-type": "application/ld+json",
-                    "x-q": "SELECT 1",
-                    "x-p": "[]",
-                    "x-m": "false",
-                },
-                body: "{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}\n",
+        Response {
+            status: 200,
+            version: HTTP/1.1,
+            headers: {
+                "x-q": "SELECT 1",
+                "x-p": "[]",
+                "x-m": "false",
+                "content-type": "application/ld+json",
             },
-        )
+            body: Body(
+                Full(
+                    b"{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}\n",
+                ),
+            ),
+        }
         "###);
 
         assert_debug_snapshot!(
             service(None, ok("{\"column1\":1}\n"))
             .call(get("http://localhost:3803/sql?q=SELECT%201", "application/x-ndjson"))
-            .await
+            .await.map(read_body).unwrap().await
         , @r###"
-        Ok(
-            Response {
-                status: 200,
-                version: HTTP/1.1,
-                headers: {
-                    "content-type": "application/x-ndjson",
-                    "x-q": "SELECT 1",
-                    "x-p": "[]",
-                    "x-m": "false",
-                },
-                body: "{\"column1\":1}\n",
+        Response {
+            status: 200,
+            version: HTTP/1.1,
+            headers: {
+                "x-q": "SELECT 1",
+                "x-p": "[]",
+                "x-m": "false",
+                "content-type": "application/x-ndjson",
             },
-        )
+            body: Body(
+                Full(
+                    b"{\"column1\":1}\n",
+                ),
+            ),
+        }
         "###);
 
         assert_debug_snapshot!(
             service(None, ok("\"column1\"\r\n1~\r\n"))
             .call(get("http://localhost:3803/sql?q=SELECT%201", "text/csv"))
-            .await
+            .await.map(read_body).unwrap().await
         , @r###"
-        Ok(
-            Response {
-                status: 200,
-                version: HTTP/1.1,
-                headers: {
-                    "content-type": "text/csv",
-                    "x-q": "SELECT 1",
-                    "x-p": "[]",
-                    "x-m": "false",
-                },
-                body: "\"column1\"\r\n1~\r\n",
+        Response {
+            status: 200,
+            version: HTTP/1.1,
+            headers: {
+                "x-q": "SELECT 1",
+                "x-p": "[]",
+                "x-m": "false",
+                "content-type": "text/csv",
             },
-        )
+            body: Body(
+                Full(
+                    b"\"column1\"\r\n1~\r\n",
+                ),
+            ),
+        }
         "###);
 
         assert_debug_snapshot!(
             service(None, unreachable())
             .call(get("http://localhost:3803/sql?q=SELECT%201", "text/xml"))
-            .await
+            .await.map(read_body).unwrap().await
         , @r###"
-        Ok(
-            Response {
-                status: 406,
-                version: HTTP/1.1,
-                headers: {},
-                body: "",
-            },
-        )
+        Response {
+            status: 406,
+            version: HTTP/1.1,
+            headers: {},
+            body: Body(
+                Empty,
+            ),
+        }
         "###);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn media_type() {
         assert_debug_snapshot!(
             service(None, ok("[[1]]\n"))
-            .call(post("http://localhost:3803/sql", "application/sql", "SELECT 1"))
-            .await
+                .call(post("http://localhost:3803/sql", "application/sql", "SELECT 1")).await.map(read_body).unwrap().await
         , @r###"
-        Ok(
-            Response {
-                status: 200,
-                version: HTTP/1.1,
-                headers: {
-                    "content-type": "application/json",
-                    "x-q": "SELECT 1",
-                    "x-p": "[]",
-                    "x-m": "false",
-                },
-                body: "[[1]]\n",
+        Response {
+            status: 200,
+            version: HTTP/1.1,
+            headers: {
+                "x-q": "SELECT 1",
+                "x-p": "[]",
+                "x-m": "false",
+                "content-type": "application/json",
             },
-        )
+            body: Body(
+                Full(
+                    b"[[1]]\n",
+                ),
+            ),
+        }
         "###);
 
         assert_debug_snapshot!(
             service(None, ok("[[1]]\n"))
             .call(post("http://localhost:3803/sql", "application/x-www-form-urlencoded", "q=SELECT%201"))
-            .await
+            .await.map(read_body).unwrap().await
         , @r###"
-        Ok(
-            Response {
-                status: 200,
-                version: HTTP/1.1,
-                headers: {
-                    "content-type": "application/json",
-                    "x-q": "SELECT 1",
-                    "x-p": "[]",
-                    "x-m": "false",
-                },
-                body: "[[1]]\n",
+        Response {
+            status: 200,
+            version: HTTP/1.1,
+            headers: {
+                "x-q": "SELECT 1",
+                "x-p": "[]",
+                "x-m": "false",
+                "content-type": "application/json",
             },
-        )
+            body: Body(
+                Full(
+                    b"[[1]]\n",
+                ),
+            ),
+        }
         "###);
 
         assert_debug_snapshot!(
             service(None, ok("[[1]]\n"))
             .call(post("http://localhost:3803/sql", "multipart/form-data; boundary=12345", "--12345\r\nContent-Disposition: form-data; name=\"q\"\r\n\r\nSELECT 1\r\n--12345--"))
-            .await
+            .await.map(read_body).unwrap().await
         , @r###"
-        Ok(
-            Response {
-                status: 200,
-                version: HTTP/1.1,
-                headers: {
-                    "content-type": "application/json",
-                    "x-q": "SELECT 1",
-                    "x-p": "[]",
-                    "x-m": "false",
-                },
-                body: "[[1]]\n",
+        Response {
+            status: 200,
+            version: HTTP/1.1,
+            headers: {
+                "x-q": "SELECT 1",
+                "x-p": "[]",
+                "x-m": "false",
+                "content-type": "application/json",
             },
-        )
+            body: Body(
+                Full(
+                    b"[[1]]\n",
+                ),
+            ),
+        }
         "###);
 
         assert_debug_snapshot!(
             service(None, ok("[[1]]\n"))
             .call(post("http://localhost:3803/sql", "application/json", "{\"q\":\"SELECT 1\"}"))
-            .await
+            .await.map(read_body).unwrap().await
         , @r###"
-        Ok(
-            Response {
-                status: 200,
-                version: HTTP/1.1,
-                headers: {
-                    "content-type": "application/json",
-                    "x-q": "SELECT 1",
-                    "x-p": "[]",
-                    "x-m": "false",
-                },
-                body: "[[1]]\n",
+        Response {
+            status: 200,
+            version: HTTP/1.1,
+            headers: {
+                "x-q": "SELECT 1",
+                "x-p": "[]",
+                "x-m": "false",
+                "content-type": "application/json",
             },
-        )
+            body: Body(
+                Full(
+                    b"[[1]]\n",
+                ),
+            ),
+        }
         "###);
 
         assert_debug_snapshot!(
             service(None, ok("{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}\n"))
                 .call(add_header(post("http://localhost:3803/sql", "application/ld+json", "{\"q\":\"SELECT 1\"}"), hyper::header::ACCEPT, "application/ld+json"))
-            .await
+            .await.map(read_body).unwrap().await
         , @r###"
-        Ok(
-            Response {
-                status: 200,
-                version: HTTP/1.1,
-                headers: {
-                    "content-type": "application/ld+json",
-                    "x-q": "SELECT 1",
-                    "x-p": "[]",
-                    "x-m": "false",
-                },
-                body: "{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}\n",
+        Response {
+            status: 200,
+            version: HTTP/1.1,
+            headers: {
+                "x-q": "SELECT 1",
+                "x-p": "[]",
+                "x-m": "false",
+                "content-type": "application/ld+json",
             },
-        )
+            body: Body(
+                Full(
+                    b"{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}\n",
+                ),
+            ),
+        }
         "###);
 
         assert_debug_snapshot!(
             service(None, unreachable())
             .call(post("http://localhost:3803/sql", "text/plain", "SELECT 1"))
-            .await
+            .await.map(read_body).unwrap().await
         , @r###"
-        Ok(
-            Response {
-                status: 415,
-                version: HTTP/1.1,
-                headers: {},
-                body: "",
-            },
-        )
+        Response {
+            status: 415,
+            version: HTTP/1.1,
+            headers: {},
+            body: Body(
+                Empty,
+            ),
+        }
         "###);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn parameters() {
         assert_debug_snapshot!(
             service(None, ok("[[3]]\n"))
                 .call(post("http://localhost:3803/sql", "application/json", "{\"q\":\"SELECT :a + :b\",\"p\":{\"a\":1,\"b\":2}}"))
-            .await
+            .await.map(read_body).unwrap().await
         , @r###"
-        Ok(
-            Response {
-                status: 200,
-                version: HTTP/1.1,
-                headers: {
-                    "content-type": "application/json",
-                    "x-q": "SELECT :a + :b",
-                    "x-p": "{\"a\":1,\"b\":2}",
-                    "x-m": "false",
-                },
-                body: "[[3]]\n",
+        Response {
+            status: 200,
+            version: HTTP/1.1,
+            headers: {
+                "x-q": "SELECT :a + :b",
+                "x-p": "{\"a\":1,\"b\":2}",
+                "x-m": "false",
+                "content-type": "application/json",
             },
-        )
+            body: Body(
+                Full(
+                    b"[[3]]\n",
+                ),
+            ),
+        }
         "###);
 
         assert_debug_snapshot!(
             service(None, ok("[[1]]\n"))
             .call(post("http://localhost:3803/sql", "application/x-www-form-urlencoded", "q=SELECT%20?&p=[[1]]&m=true"))
-            .await
+            .await.map(read_body).unwrap().await
         , @r###"
-        Ok(
-            Response {
-                status: 200,
-                version: HTTP/1.1,
-                headers: {
-                    "content-type": "application/json",
-                    "x-q": "SELECT ?",
-                    "x-p": "[[1]]",
-                    "x-m": "true",
-                },
-                body: "[[1]]\n",
+        Response {
+            status: 200,
+            version: HTTP/1.1,
+            headers: {
+                "x-q": "SELECT ?",
+                "x-p": "[[1]]",
+                "x-m": "true",
+                "content-type": "application/json",
             },
-        )
+            body: Body(
+                Full(
+                    b"[[1]]\n",
+                ),
+            ),
+        }
         "###);
 
         assert_debug_snapshot!(
             service(None, ok("[[3]]\n"))
             .call(post("http://localhost:3803/sql", "multipart/form-data; boundary=12345", "--12345\r\nContent-Disposition: form-data; name=\"q\"\r\n\r\nSELECT ?, ?\r\n--12345\r\nContent-Disposition: form-data; name=\"p\"\r\n\r\n[1,2]\r\n--12345--"))
-            .await
+            .await.map(read_body).unwrap().await
         , @r###"
-        Ok(
-            Response {
-                status: 200,
-                version: HTTP/1.1,
-                headers: {
-                    "content-type": "application/json",
-                    "x-q": "SELECT ?, ?",
-                    "x-p": "[1,2]",
-                    "x-m": "false",
-                },
-                body: "[[3]]\n",
+        Response {
+            status: 200,
+            version: HTTP/1.1,
+            headers: {
+                "x-q": "SELECT ?, ?",
+                "x-p": "[1,2]",
+                "x-m": "false",
+                "content-type": "application/json",
             },
-        )
+            body: Body(
+                Full(
+                    b"[[3]]\n",
+                ),
+            ),
+        }
         "###);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn errors() {
         assert_debug_snapshot!(
             service(None, unreachable())
             .call(Request::head("http://localhost:3803/sql")
             .body(Body::empty())
             .unwrap())
-            .await
+            .await.map(read_body).unwrap().await
         , @r###"
-        Ok(
-            Response {
-                status: 405,
-                version: HTTP/1.1,
-                headers: {
-                    "allow": "GET, POST",
-                },
-                body: "",
+        Response {
+            status: 405,
+            version: HTTP/1.1,
+            headers: {
+                "allow": "GET, POST",
             },
-        )
+            body: Body(
+                Empty,
+            ),
+        }
         "###);
 
         assert_debug_snapshot!(
             service(None, unreachable())
             .call(get("http://localhost:3803/foo", "*/*"))
-            .await
+            .await.map(read_body).unwrap().await
         , @r###"
-        Ok(
-            Response {
-                status: 404,
-                version: HTTP/1.1,
-                headers: {},
-                body: "",
-            },
-        )
+        Response {
+            status: 404,
+            version: HTTP/1.1,
+            headers: {},
+            body: Body(
+                Empty,
+            ),
+        }
         "###);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn basic_auth() {
         let basic_auth =
             crate::make_basic_auth_header(Some("foo".to_string()), Some("foo".to_string()));
         assert_debug_snapshot!(
             service(basic_auth.clone(), unreachable())
                 .call(get("http://localhost:3803/sql?q=SELECT%201", "*/*"))
-            .await
+                .await.map(read_body).unwrap().await
         , @r###"
-        Ok(
-            Response {
-                status: 401,
-                version: HTTP/1.1,
-                headers: {
-                    "www-authenticate": "Basic realm=\"restricted area\"",
-                },
-                body: "",
+        Response {
+            status: 401,
+            version: HTTP/1.1,
+            headers: {
+                "www-authenticate": "Basic realm=\"restricted area\"",
             },
-        )
+            body: Body(
+                Empty,
+            ),
+        }
         "###);
 
         assert_debug_snapshot!(
             service(basic_auth, ok("[[1]]\n"))
                 .call(add_header(get("http://localhost:3803/sql?q=SELECT%201", "*/*"), hyper::header::AUTHORIZATION, "Basic Zm9vOmZvbw=="))
-            .await
+            .await.map(read_body).unwrap().await
         , @r###"
-        Ok(
-            Response {
-                status: 200,
-                version: HTTP/1.1,
-                headers: {
-                    "content-type": "application/json",
-                    "x-q": "SELECT 1",
-                    "x-p": "[]",
-                    "x-m": "false",
-                },
-                body: "[[1]]\n",
+        Response {
+            status: 200,
+            version: HTTP/1.1,
+            headers: {
+                "x-q": "SELECT 1",
+                "x-p": "[]",
+                "x-m": "false",
+                "content-type": "application/json",
             },
-        )
+            body: Body(
+                Full(
+                    b"[[1]]\n",
+                ),
+            ),
+        }
         "###);
     }
 }

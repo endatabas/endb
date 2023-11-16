@@ -1,4 +1,6 @@
-use libc::{c_char, c_void};
+#![allow(non_camel_case_types)]
+
+use libc::c_char;
 use std::ffi::{CStr, CString};
 
 use arrow2::ffi::ArrowArrayStream;
@@ -15,12 +17,16 @@ fn string_callback<T: Into<Vec<u8>>>(s: T, cb: extern "C" fn(*const c_char)) {
     cb(c_string.as_ptr());
 }
 
+type endb_on_error_callback = extern "C" fn(*const c_char);
+
+type endb_parse_sql_on_success_callback = extern "C" fn(&Ast);
+
 #[no_mangle]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn endb_parse_sql(
     input: *const c_char,
-    on_success: extern "C" fn(&Ast),
-    on_error: extern "C" fn(*const c_char),
+    on_success: endb_parse_sql_on_success_callback,
+    on_error: endb_on_error_callback,
 ) {
     if let Err(err) = panic::catch_unwind(|| {
         SQL_AST_PARSER_NO_ERRORS.with(|parser| {
@@ -44,6 +50,8 @@ pub extern "C" fn endb_parse_sql(
     }
 }
 
+type endb_annotate_input_with_error_on_success_callback = extern "C" fn(*const c_char);
+
 #[no_mangle]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn endb_annotate_input_with_error(
@@ -51,8 +59,8 @@ pub extern "C" fn endb_annotate_input_with_error(
     message: *const c_char,
     start: usize,
     end: usize,
-    on_success: extern "C" fn(*const c_char),
-    on_error: extern "C" fn(*const c_char),
+    on_success: endb_annotate_input_with_error_on_success_callback,
+    on_error: endb_on_error_callback,
 ) {
     if let Err(err) = panic::catch_unwind(|| {
         let c_str = unsafe { CStr::from_ptr(input) };
@@ -97,7 +105,7 @@ pub extern "C" fn endb_arrow_array_stream_producer(
     stream: &mut ArrowArrayStream,
     buffer_ptr: *const u8,
     buffer_size: usize,
-    on_error: extern "C" fn(*const c_char),
+    on_error: endb_on_error_callback,
 ) {
     match panic::catch_unwind(|| {
         let buffer = unsafe { std::slice::from_raw_parts(buffer_ptr, buffer_size) };
@@ -116,15 +124,20 @@ pub extern "C" fn endb_arrow_array_stream_producer(
     }
 }
 
+type endb_arrow_array_stream_consumer_on_init_stream_callback =
+    extern "C" fn(&mut ArrowArrayStream);
+
+type endb_arrow_array_stream_consumer_on_success_callback = extern "C" fn(*const u8, usize);
+
 #[no_mangle]
 pub extern "C" fn endb_arrow_array_stream_consumer(
-    init_stream: extern "C" fn(&mut ArrowArrayStream),
-    on_success: extern "C" fn(*const u8, usize),
-    on_error: extern "C" fn(*const c_char),
+    on_init_stream: endb_arrow_array_stream_consumer_on_init_stream_callback,
+    on_success: endb_arrow_array_stream_consumer_on_success_callback,
+    on_error: endb_on_error_callback,
 ) {
     match panic::catch_unwind(|| {
         let mut stream = ArrowArrayStream::empty();
-        init_stream(&mut stream);
+        on_init_stream(&mut stream);
         arrow::write_arrow_array_stream_to_ipc_buffer(stream)
     }) {
         Ok(Ok(buffer)) => on_success(buffer.as_ptr(), buffer.len()),
@@ -138,16 +151,24 @@ pub extern "C" fn endb_arrow_array_stream_consumer(
     }
 }
 
+type endb_parse_sql_cst_on_open_callback = extern "C" fn(*const u8, usize);
+
+type endb_parse_sql_cst_on_close_callback = extern "C" fn();
+
+type endb_parse_sql_cst_on_literal_callback = extern "C" fn(*const u8, usize, usize, usize);
+
+type endb_parse_sql_cst_on_pattern_callback = extern "C" fn(usize, usize);
+
 #[no_mangle]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn endb_parse_sql_cst(
     filename: *const c_char,
     input: *const c_char,
-    on_open: extern "C" fn(*const u8, usize),
-    on_close: extern "C" fn(),
-    on_literal: extern "C" fn(*const u8, usize, usize, usize),
-    on_pattern: extern "C" fn(usize, usize),
-    on_error: extern "C" fn(*const c_char),
+    on_open: endb_parse_sql_cst_on_open_callback,
+    on_close: endb_parse_sql_cst_on_close_callback,
+    on_literal: endb_parse_sql_cst_on_literal_callback,
+    on_pattern: endb_parse_sql_cst_on_pattern_callback,
+    on_error: endb_on_error_callback,
 ) {
     if let Err(err) = panic::catch_unwind(|| {
         let c_str = unsafe { CStr::from_ptr(filename) };
@@ -201,12 +222,14 @@ pub extern "C" fn endb_parse_sql_cst(
     }
 }
 
+type endb_render_json_error_report_on_success_callback = extern "C" fn(*const c_char);
+
 #[no_mangle]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn endb_render_json_error_report(
     report_json: *const c_char,
-    on_success: extern "C" fn(*const c_char),
-    on_error: extern "C" fn(*const c_char),
+    on_success: endb_render_json_error_report_on_success_callback,
+    on_error: endb_on_error_callback,
 ) {
     if let Err(err) = panic::catch_unwind(|| {
         let c_str = unsafe { CStr::from_ptr(report_json) };
@@ -263,27 +286,55 @@ pub extern "C" fn endb_log_trace(target: *const c_char, message: *const c_char) 
     do_log(log::Level::Trace, target, message);
 }
 
+pub struct endb_server_http_response(endb_server::HttpResponse);
+
+pub struct endb_server_http_sender(endb_server::HttpSender);
+
+pub struct endb_server_one_shot_sender(endb_server::OneShotSender);
+
+type endb_start_server_on_init_callback = extern "C" fn(*const c_char);
+
+type endb_start_server_on_query_on_abort_callback = extern "C" fn();
+
+type endb_start_server_on_query_on_response_init_callback = extern "C" fn(
+    *mut endb_server_http_response,
+    *mut endb_server_one_shot_sender,
+    u16,
+    *const c_char,
+    endb_start_server_on_query_on_abort_callback,
+);
+
+type endb_start_server_on_query_on_response_send_callback = extern "C" fn(
+    *mut endb_server_http_sender,
+    *const c_char,
+    endb_start_server_on_query_on_abort_callback,
+);
+
+type endb_start_server_on_query_callback = extern "C" fn(
+    *mut endb_server_http_response,
+    *mut endb_server_http_sender,
+    *mut endb_server_one_shot_sender,
+    *const c_char,
+    *const c_char,
+    *const c_char,
+    *const c_char,
+    *const c_char,
+    endb_start_server_on_query_on_response_init_callback,
+    endb_start_server_on_query_on_response_send_callback,
+);
+
 #[no_mangle]
 pub extern "C" fn endb_start_server(
-    on_init: extern "C" fn(*const c_char),
-    on_query: extern "C" fn(
-        *mut c_void,
-        *const c_char,
-        *const c_char,
-        *const c_char,
-        *const c_char,
-        *const c_char,
-        extern "C" fn(*mut c_void, u16, *const c_char),
-        extern "C" fn(*mut c_void, *const c_char),
-    ),
-    on_error: extern "C" fn(*const c_char),
+    on_init: endb_start_server_on_init_callback,
+    on_query: endb_start_server_on_query_callback,
+    on_error: endb_on_error_callback,
 ) {
     match panic::catch_unwind(|| {
         endb_server::start_server(
             |config_json| {
                 string_callback(config_json, on_init);
             },
-            move |response, method, media_type, q, p, m| {
+            move |response, sender, tx, method, media_type, q, p, m| {
                 let method_cstring = CString::new(method).unwrap();
                 let media_type_cstring = CString::new(media_type).unwrap();
                 let q_cstring = CString::new(q).unwrap();
@@ -291,30 +342,44 @@ pub extern "C" fn endb_start_server(
                 let m_cstring = CString::new(m).unwrap();
 
                 extern "C" fn on_response_init_callback(
-                    response: *mut c_void,
+                    response: *mut endb_server_http_response,
+                    tx: *mut endb_server_one_shot_sender,
                     status: u16,
                     content_type: *const c_char,
+                    on_abort: endb_start_server_on_query_on_abort_callback,
                 ) {
                     let c_str = unsafe { CStr::from_ptr(content_type) };
                     let content_type_str = c_str.to_str().unwrap();
 
-                    let response = unsafe { &mut *(response as *mut endb_server::HttpResponse) };
+                    let response =
+                        unsafe { Box::from_raw(response as *mut endb_server::HttpResponse) };
+                    let tx = unsafe { Box::from_raw(tx as *mut endb_server::OneShotSender) };
 
-                    endb_server::on_response_init(response, status, content_type_str);
+                    if endb_server::on_response_init(*response, *tx, status, content_type_str)
+                        .is_err()
+                    {
+                        on_abort();
+                    };
                 }
                 extern "C" fn on_response_send_callback(
-                    response: *mut c_void,
+                    sender: *mut endb_server_http_sender,
                     body: *const c_char,
+                    on_abort: endb_start_server_on_query_on_abort_callback,
                 ) {
                     let c_str = unsafe { CStr::from_ptr(body) };
                     let body_str = c_str.to_str().unwrap();
 
-                    let response = unsafe { &mut *(response as *mut endb_server::HttpResponse) };
+                    let sender = unsafe { &mut *(sender as *mut endb_server::HttpSender) };
 
-                    endb_server::on_response_send(response, body_str);
+                    if endb_server::on_response_send(sender, body_str).is_err() {
+                        on_abort();
+                    }
                 }
+
                 on_query(
-                    response as *mut _ as *mut c_void,
+                    Box::into_raw(response.into()) as *mut endb_server_http_response,
+                    sender as *mut _ as *mut endb_server_http_sender,
+                    Box::into_raw(tx.into()) as *mut endb_server_one_shot_sender,
                     method_cstring.as_ptr(),
                     media_type_cstring.as_ptr(),
                     q_cstring.as_ptr(),

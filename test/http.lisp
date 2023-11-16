@@ -88,7 +88,17 @@
                               (if (= 1 calls)
                                   (error "common lisp error")
                                   (%on-response-init status-code content-type)))
-                            #'%on-response-send))))))
+                            #'%on-response-send))))
+
+    (let ((endb/lib:*log-level* (endb/lib:resolve-log-level :off))
+          (calls 0))
+      (is (null (%do-query "GET" "application/json" "SELECT 1" "[]" "false"
+                           (lambda (status-code content-type)
+                             (incf calls)
+                             (if (= 1 calls)
+                                 (error 'endb/lib/server:sql-abort-query-error)
+                                 (%on-response-init status-code content-type)))
+                           #'%on-response-send))))))
 
 (test conflict
   (setf endb/lib/server:*db* (endb/sql:make-db))

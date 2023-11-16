@@ -134,6 +134,12 @@ typedef enum Keyword {
 
 typedef struct Vec_Ast Vec_Ast;
 
+typedef struct endb_server_http_response endb_server_http_response;
+
+typedef struct endb_server_http_sender endb_server_http_sender;
+
+typedef struct endb_server_one_shot_sender endb_server_one_shot_sender;
+
 typedef enum Ast_Tag {
   List,
   KW,
@@ -172,6 +178,12 @@ typedef struct Ast {
     String_Body string;
   };
 } Ast;
+
+typedef void (*endb_parse_sql_on_success_callback)(const struct Ast*);
+
+typedef void (*endb_on_error_callback)(const char*);
+
+typedef void (*endb_annotate_input_with_error_on_success_callback)(const char*);
 
 /**
  * ABI-compatible struct for [`ArrowSchema`](https://arrow.apache.org/docs/format/CDataInterface.html#structure-definitions)
@@ -215,16 +227,58 @@ typedef struct ArrowArrayStream {
   void *private_data;
 } ArrowArrayStream;
 
+typedef void (*endb_arrow_array_stream_consumer_on_init_stream_callback)(struct ArrowArrayStream*);
+
+typedef void (*endb_arrow_array_stream_consumer_on_success_callback)(const uint8_t*, uintptr_t);
+
+typedef void (*endb_parse_sql_cst_on_open_callback)(const uint8_t*, uintptr_t);
+
+typedef void (*endb_parse_sql_cst_on_close_callback)(void);
+
+typedef void (*endb_parse_sql_cst_on_literal_callback)(const uint8_t*,
+                                                       uintptr_t,
+                                                       uintptr_t,
+                                                       uintptr_t);
+
+typedef void (*endb_parse_sql_cst_on_pattern_callback)(uintptr_t, uintptr_t);
+
+typedef void (*endb_render_json_error_report_on_success_callback)(const char*);
+
+typedef void (*endb_start_server_on_init_callback)(const char*);
+
+typedef void (*endb_start_server_on_query_on_abort_callback)(void);
+
+typedef void (*endb_start_server_on_query_on_response_init_callback)(struct endb_server_http_response*,
+                                                                     struct endb_server_one_shot_sender*,
+                                                                     uint16_t,
+                                                                     const char*,
+                                                                     endb_start_server_on_query_on_abort_callback);
+
+typedef void (*endb_start_server_on_query_on_response_send_callback)(struct endb_server_http_sender*,
+                                                                     const char*,
+                                                                     endb_start_server_on_query_on_abort_callback);
+
+typedef void (*endb_start_server_on_query_callback)(struct endb_server_http_response*,
+                                                    struct endb_server_http_sender*,
+                                                    struct endb_server_one_shot_sender*,
+                                                    const char*,
+                                                    const char*,
+                                                    const char*,
+                                                    const char*,
+                                                    const char*,
+                                                    endb_start_server_on_query_on_response_init_callback,
+                                                    endb_start_server_on_query_on_response_send_callback);
+
 void endb_parse_sql(const char *input,
-                    void (*on_success)(const struct Ast*),
-                    void (*on_error)(const char*));
+                    endb_parse_sql_on_success_callback on_success,
+                    endb_on_error_callback on_error);
 
 void endb_annotate_input_with_error(const char *input,
                                     const char *message,
                                     uintptr_t start,
                                     uintptr_t end,
-                                    void (*on_success)(const char*),
-                                    void (*on_error)(const char*));
+                                    endb_annotate_input_with_error_on_success_callback on_success,
+                                    endb_on_error_callback on_error);
 
 uintptr_t endb_ast_vec_len(const struct Vec_Ast *ast);
 
@@ -237,23 +291,23 @@ const struct Ast *endb_ast_vec_element(const struct Vec_Ast *ast, uintptr_t idx)
 void endb_arrow_array_stream_producer(struct ArrowArrayStream *stream,
                                       const uint8_t *buffer_ptr,
                                       uintptr_t buffer_size,
-                                      void (*on_error)(const char*));
+                                      endb_on_error_callback on_error);
 
-void endb_arrow_array_stream_consumer(void (*init_stream)(struct ArrowArrayStream*),
-                                      void (*on_success)(const uint8_t*, uintptr_t),
-                                      void (*on_error)(const char*));
+void endb_arrow_array_stream_consumer(endb_arrow_array_stream_consumer_on_init_stream_callback on_init_stream,
+                                      endb_arrow_array_stream_consumer_on_success_callback on_success,
+                                      endb_on_error_callback on_error);
 
 void endb_parse_sql_cst(const char *filename,
                         const char *input,
-                        void (*on_open)(const uint8_t*, uintptr_t),
-                        void (*on_close)(void),
-                        void (*on_literal)(const uint8_t*, uintptr_t, uintptr_t, uintptr_t),
-                        void (*on_pattern)(uintptr_t, uintptr_t),
-                        void (*on_error)(const char*));
+                        endb_parse_sql_cst_on_open_callback on_open,
+                        endb_parse_sql_cst_on_close_callback on_close,
+                        endb_parse_sql_cst_on_literal_callback on_literal,
+                        endb_parse_sql_cst_on_pattern_callback on_pattern,
+                        endb_on_error_callback on_error);
 
 void endb_render_json_error_report(const char *report_json,
-                                   void (*on_success)(const char*),
-                                   void (*on_error)(const char*));
+                                   endb_render_json_error_report_on_success_callback on_success,
+                                   endb_on_error_callback on_error);
 
 void endb_init_logger(void);
 
@@ -267,13 +321,6 @@ void endb_log_debug(const char *target, const char *message);
 
 void endb_log_trace(const char *target, const char *message);
 
-void endb_start_server(void (*on_init)(const char*),
-                       void (*on_query)(void*,
-                                        const char*,
-                                        const char*,
-                                        const char*,
-                                        const char*,
-                                        const char*,
-                                        void(*)(void*, uint16_t, const char*),
-                                        void(*)(void*, const char*)),
-                       void (*on_error)(const char*));
+void endb_start_server(endb_start_server_on_init_callback on_init,
+                       endb_start_server_on_query_callback on_query,
+                       endb_on_error_callback on_error);
