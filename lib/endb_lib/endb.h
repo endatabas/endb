@@ -309,7 +309,7 @@ void endb_render_json_error_report(const char *report_json,
                                    endb_render_json_error_report_on_success_callback on_success,
                                    endb_on_error_callback on_error);
 
-void endb_init_logger(void);
+void endb_init_logger(endb_on_error_callback on_error);
 
 void endb_log_error(const char *target, const char *message);
 

@@ -69,9 +69,24 @@
   (target :string)
   (message :string))
 
-(cffi:defcfun "endb_init_logger" :void)
+(cffi:defcfun "endb_init_logger" :void
+  (on-error :pointer))
 
 (defvar *initialized* nil)
+
+(defvar *init-logger-on-error*)
+
+(cffi:defcallback init-logger-on-error :void
+    ((err :string))
+  (funcall *init-logger-on-error* err))
+
+(defun init-logger ()
+  (let* ((err)
+         (*init-logger-on-error* (lambda (e)
+                                   (setf err e))))
+    (endb-init-logger (cffi:callback init-logger-on-error))
+    (when err
+      (error err))))
 
 (defun init-lib ()
   (unless *initialized*
@@ -79,7 +94,7 @@
                  (asdf:system-relative-pathname :endb "target/"))
              cffi:*foreign-library-directories*)
     (cffi:use-foreign-library libendb)
-    (endb-init-logger)
+    (init-logger)
     (let ((log-level (uiop:getenv "ENDB_LOG_LEVEL")))
       (when log-level
         (setf *log-level* (resolve-log-level (intern (string-upcase log-level) :keyword)))))

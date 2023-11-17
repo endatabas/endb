@@ -248,8 +248,10 @@ pub extern "C" fn endb_render_json_error_report(
 }
 
 #[no_mangle]
-pub extern "C" fn endb_init_logger() {
-    endb_server::init_logger();
+pub extern "C" fn endb_init_logger(on_error: endb_on_error_callback) {
+    if let Err(err) = endb_server::init_logger() {
+        string_callback(err.to_string(), on_error);
+    }
 }
 
 fn do_log(level: log::Level, target: *const c_char, message: *const c_char) {

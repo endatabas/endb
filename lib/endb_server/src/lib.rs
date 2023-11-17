@@ -50,14 +50,10 @@ pub fn on_response_init(
 }
 
 pub fn on_response_send(sender: &mut HttpSender, chunk: &str) -> Result<(), Error> {
-    tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(async {
-            sender
-                .send_data(chunk.to_string().into())
-                .await
-                .map_err(|e| e.into())
-        })
-    })
+    Ok(tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current()
+            .block_on(async { sender.send_data(chunk.to_string().into()).await })
+    })?)
 }
 
 const REALM: &str = "restricted area";
@@ -75,10 +71,7 @@ struct EndbService<'a> {
 }
 
 fn empty_response(status_code: StatusCode) -> Result<Response<Body>, Error> {
-    Response::builder()
-        .status(status_code)
-        .body("".into())
-        .map_err(|e| e.into())
+    Ok(Response::builder().status(status_code).body("".into())?)
 }
 
 async fn sql_response(
@@ -111,7 +104,7 @@ async fn sql_response(
             );
         });
 
-        rx.await.map_err(|e| e.into())
+        Ok(rx.await?)
     } else {
         empty_response(StatusCode::UNPROCESSABLE_ENTITY)
     }
@@ -139,14 +132,13 @@ impl Service<Request<Body>> for EndbService<'static> {
                     .and_then(|x| x.to_str().ok());
         Box::pin(async move {
             if unauthorized {
-                return Response::builder()
+                return Ok(Response::builder()
                     .status(StatusCode::UNAUTHORIZED)
                     .header(
                         hyper::header::WWW_AUTHENTICATE,
                         format!("Basic realm=\"{}\"", REALM),
                     )
-                    .body("".into())
-                    .map_err(|e| e.into());
+                    .body("".into())?);
             }
 
             let accept = req
@@ -163,10 +155,9 @@ impl Service<Request<Body>> for EndbService<'static> {
                 "application/x-ndjson" => "application/x-ndjson",
                 "text/*" | "text/csv" => "text/csv",
                 _ => {
-                    return Response::builder()
+                    return Ok(Response::builder()
                         .status(StatusCode::NOT_ACCEPTABLE)
-                        .body("".into())
-                        .map_err(|e| e.into())
+                        .body("".into())?);
                 }
             };
 
@@ -251,11 +242,10 @@ impl Service<Request<Body>> for EndbService<'static> {
                     }
                 }
                 (&Method::POST, "/sql", _) => empty_response(StatusCode::UNSUPPORTED_MEDIA_TYPE),
-                (_, "/sql", _) => Response::builder()
+                (_, "/sql", _) => Ok(Response::builder()
                     .status(StatusCode::METHOD_NOT_ALLOWED)
                     .header(hyper::header::ALLOW, "GET, POST")
-                    .body("".into())
-                    .map_err(|e| e.into()),
+                    .body("".into())?),
                 _ => empty_response(StatusCode::NOT_FOUND),
             }
         })
@@ -299,7 +289,7 @@ pub fn start_server(
 
     let addr = ([0, 0, 0, 0], args.http_port).into();
 
-    tokio::runtime::Builder::new_multi_thread()
+    Ok(tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
         .unwrap()
@@ -312,15 +302,14 @@ pub fn start_server(
                 }
                 Err(err) => Err(err),
             }
-        })
-        .map_err(|e| e.into())
+        })?)
 }
 
-pub fn init_logger() {
-    env_logger::Builder::new()
+pub fn init_logger() -> Result<(), Error> {
+    Ok(env_logger::Builder::new()
         .filter_level(log::LevelFilter::Info)
         .parse_env("ENDB_LOG_LEVEL")
-        .init();
+        .try_init()?)
 }
 
 #[cfg(test)]
