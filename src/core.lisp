@@ -33,5 +33,5 @@
        (unwind-protect
             (endb/lib/server:start-server #'%endb-init #'endb/http:endb-query)
          (%endb-close-db))
-     (#+sbcl sb-sys:system-condition ()
+     (#+sbcl sb-sys:interactive-interrupt ()
        130))))
