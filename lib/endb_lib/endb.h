@@ -244,8 +244,6 @@ typedef void (*endb_parse_sql_cst_on_pattern_callback)(uintptr_t, uintptr_t);
 
 typedef void (*endb_render_json_error_report_on_success_callback)(const char*);
 
-typedef void (*endb_start_server_on_init_callback)(const char*);
-
 typedef void (*endb_start_server_on_query_on_abort_callback)(void);
 
 typedef void (*endb_start_server_on_query_on_response_init_callback)(struct endb_server_http_response*,
@@ -268,6 +266,8 @@ typedef void (*endb_start_server_on_query_callback)(struct endb_server_http_resp
                                                     const char*,
                                                     endb_start_server_on_query_on_response_init_callback,
                                                     endb_start_server_on_query_on_response_send_callback);
+
+typedef void (*endb_parse_command_line_to_json_on_success_callback)(const char*);
 
 void endb_parse_sql(const char *input,
                     endb_parse_sql_on_success_callback on_success,
@@ -320,8 +320,9 @@ void endb_log_debug(const char *target, const char *message);
 
 void endb_log_trace(const char *target, const char *message);
 
-void endb_start_server(endb_start_server_on_init_callback on_init,
-                       endb_start_server_on_query_callback on_query,
+void endb_start_server(endb_start_server_on_query_callback on_query,
                        endb_on_error_callback on_error);
 
 void endb_set_panic_hook(endb_on_error_callback on_panic);
+
+void endb_parse_command_line_to_json(endb_parse_command_line_to_json_on_success_callback on_success);

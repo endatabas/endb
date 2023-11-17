@@ -260,8 +260,6 @@ pub struct endb_server_http_sender(endb_server::HttpSender);
 
 pub struct endb_server_one_shot_sender(endb_server::OneShotSender);
 
-type endb_start_server_on_init_callback = extern "C" fn(*const c_char);
-
 type endb_start_server_on_query_on_abort_callback = extern "C" fn();
 
 type endb_start_server_on_query_on_response_init_callback = extern "C" fn(
@@ -293,15 +291,11 @@ type endb_start_server_on_query_callback = extern "C" fn(
 
 #[no_mangle]
 pub extern "C" fn endb_start_server(
-    on_init: endb_start_server_on_init_callback,
     on_query: endb_start_server_on_query_callback,
     on_error: endb_on_error_callback,
 ) {
-    if let Err(err) = endb_server::start_server(
-        |config_json| {
-            string_callback(config_json, on_init);
-        },
-        move |response, sender, tx, method, media_type, q, p, m| {
+    if let Err(err) =
+        endb_server::start_server(move |response, sender, tx, method, media_type, q, p, m| {
             let method_cstring = CString::new(method).unwrap();
             let media_type_cstring = CString::new(media_type).unwrap();
             let q_cstring = CString::new(q).unwrap();
@@ -353,8 +347,8 @@ pub extern "C" fn endb_start_server(
                 on_response_init_callback,
                 on_response_send_callback,
             );
-        },
-    ) {
+        })
+    {
         string_callback(err.to_string(), on_error);
     }
 }
@@ -366,4 +360,13 @@ pub extern "C" fn endb_set_panic_hook(on_panic: endb_on_error_callback) {
         string_callback(info.to_string(), on_panic);
         prev(info);
     }));
+}
+
+type endb_parse_command_line_to_json_on_success_callback = extern "C" fn(*const c_char);
+
+#[no_mangle]
+pub extern "C" fn endb_parse_command_line_to_json(
+    on_success: endb_parse_command_line_to_json_on_success_callback,
+) {
+    endb_server::parse_command_line_to_json(|config_json| string_callback(config_json, on_success));
 }

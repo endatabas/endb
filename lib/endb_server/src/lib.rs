@@ -263,8 +263,12 @@ fn make_basic_auth_header(username: Option<String>, password: Option<String>) ->
     }
 }
 
+pub fn parse_command_line_to_json(on_success: impl Fn(&str)) {
+    let args = CommandLineArguments::parse();
+    on_success(&serde_json::to_string(&args).unwrap());
+}
+
 pub fn start_server(
-    on_init: impl Fn(&str),
     on_query: impl Fn(HttpResponse, &mut HttpSender, OneShotSender, &str, &str, &str, &str, &str)
         + Sync
         + Send
@@ -274,8 +278,6 @@ pub fn start_server(
 
     let full_version = env!("ENDB_FULL_VERSION");
     log::info!("version {}", full_version);
-
-    on_init(&serde_json::to_string(&args).unwrap());
 
     let basic_auth = make_basic_auth_header(args.username, args.password);
     let on_query = Arc::new(on_query);

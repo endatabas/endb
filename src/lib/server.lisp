@@ -1,6 +1,6 @@
 (defpackage :endb/lib/server
   (:use :cl)
-  (:export #:start-server #:*db* #:sql-abort-query-error)
+  (:export #:start-server #:*db* #:sql-abort-query-error #:parse-command-line)
   (:import-from :cffi)
   (:import-from :endb/json)
   (:import-from :endb/lib))
@@ -9,15 +9,25 @@
 (defvar *db*)
 
 (cffi:defcfun "endb_start_server" :void
-  (on-init :pointer)
   (on-query :pointer)
   (on-error :pointer))
 
-(defvar *start-server-on-init*)
+(cffi:defcfun "endb_parse_command_line_to_json" :void
+  (on-success :pointer))
 
-(cffi:defcallback start-server-on-init :void
+(defvar *parse-command-line-on-success*)
+
+(cffi:defcallback parse-command-line-to-json-on-success :void
     ((config-json :string))
-  (funcall *start-server-on-init* (endb/json:json-parse config-json)))
+  (funcall *parse-command-line-on-success* config-json))
+
+(defun parse-command-line ()
+  (endb/lib:init-lib)
+  (let* ((result)
+         (*parse-command-line-on-success* (lambda (config-json)
+                                            (setf result (endb/json:json-parse config-json)))))
+    (endb-parse-command-line-to-json (cffi:callback parse-command-line-to-json-on-success))
+    result))
 
 (defvar *start-server-on-query*)
 
@@ -72,16 +82,14 @@
     ((err :string))
   (funcall *start-server-on-error* err))
 
-(defun start-server (on-init on-query)
+(defun start-server (on-query)
   (endb/lib:init-lib)
   (let* ((errorp nil)
-         (*start-server-on-init* on-init)
          (*start-server-on-error* (lambda (err)
                                     (setf errorp t)
                                     (endb/lib:log-error err))))
     (setf *start-server-on-query* on-query)
-    (endb-start-server (cffi:callback start-server-on-init)
-                       (cffi:callback start-server-on-query)
+    (endb-start-server (cffi:callback start-server-on-query)
                        (cffi:callback start-server-on-error))
     (if errorp
         1
