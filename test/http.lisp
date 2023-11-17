@@ -101,21 +101,28 @@
                            #'%on-response-send))))))
 
 (test conflict
-  (setf endb/lib/server:*db* (endb/sql:make-db))
-  (let ((write-db (endb/sql:begin-write-tx endb/lib/server:*db*)))
+  (let ((prev-db (when (boundp 'endb/lib/server:*db*)
+                   endb/lib/server:*db*)))
+    (unwind-protect
+         (progn
+           (setf endb/lib/server:*db* (endb/sql:make-db))
+           (let ((write-db (endb/sql:begin-write-tx endb/lib/server:*db*))
+                 (write-lock (endb/sql/expr:db-write-lock endb/lib/server:*db*)))
 
-    (is (bt:acquire-lock endb/http::*write-lock*))
-    (let ((thread (bt:make-thread
-                   (lambda ()
-                     (%do-query "POST" "application/json" "INSERT INTO foo {a: 1, b: 2}" "[]" "false")))))
+             (is (bt:acquire-lock write-lock))
+             (let ((thread (bt:make-thread
+                            (lambda ()
+                              (%do-query "POST" "application/json" "INSERT INTO foo {a: 1, b: 2}" "[]" "false")))))
 
-      (multiple-value-bind (result result-code)
-          (endb/sql:execute-sql write-db "INSERT INTO foo {a: 1, b: 2}")
-        (is (null result))
-        (is (= 1 result-code))
-        (setf endb/lib/server:*db* (endb/sql:commit-write-tx endb/lib/server:*db* write-db)))
+               (multiple-value-bind (result result-code)
+                   (endb/sql:execute-sql write-db "INSERT INTO foo {a: 1, b: 2}")
+                 (is (null result))
+                 (is (= 1 result-code))
+                 (setf endb/lib/server:*db* (endb/sql:commit-write-tx endb/lib/server:*db* write-db)))
 
-      (bt:release-lock endb/http::*write-lock*)
+               (bt:release-lock write-lock)
 
-      (is (equal (list +http-conflict+ () "")
-                 (bt:join-thread thread))))))
+               (is (equal (list +http-conflict+ () "")
+                          (bt:join-thread thread))))))
+      (when prev-db
+        (setf endb/lib/server:*db* prev-db)))))

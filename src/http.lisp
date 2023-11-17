@@ -13,8 +13,6 @@
   (:import-from :trivial-backtrace))
 (in-package :endb/http)
 
-(defvar *write-lock* (bt:make-lock))
-
 (defconstant +http-ok+ 200)
 (defconstant +http-created+ 201)
 (defconstant +http-bad-request+ 400)
@@ -96,7 +94,7 @@
                       (funcall on-response-init +http-ok+ content-type)
                       (%stream-response on-response-send content-type result-code result)))
                    (result-code (if (equal "POST" request-method)
-                                    (bt:with-lock-held (*write-lock*)
+                                    (bt:with-lock-held ((endb/sql/expr:db-write-lock endb/lib/server:*db*))
                                       (if (eq original-md (endb/sql/expr:db-meta-data endb/lib/server:*db*))
                                           (progn
                                             (setf endb/lib/server:*db* (endb/sql:commit-write-tx endb/lib/server:*db* write-db))

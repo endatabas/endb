@@ -1,6 +1,6 @@
 (defpackage :endb/lib
   (:use :cl)
-  (:export #:init-lib #:log-error #:log-warn #:log-info #:log-debug #:resolve-log-level #:*log-level*)
+  (:export #:init-lib #:log-error #:log-warn #:log-info #:log-debug #:resolve-log-level #:*log-level* #:*panic-hook*)
   (:import-from :bordeaux-threads)
   (:import-from :cffi)
   (:import-from :asdf)
@@ -72,6 +72,9 @@
 (cffi:defcfun "endb_init_logger" :void
   (on-error :pointer))
 
+(cffi:defcfun "endb_set_panic_hook" :void
+  (on-panic :pointer))
+
 (defvar *initialized* nil)
 
 (defvar *init-logger-on-error*)
@@ -79,6 +82,14 @@
 (cffi:defcallback init-logger-on-error :void
     ((err :string))
   (funcall *init-logger-on-error* err))
+
+(defvar *panic-hook* nil)
+
+(cffi:defcallback on-panic-hook :void
+    ((err :string))
+  (log-error err)
+  (when *panic-hook*
+    (funcall *panic-hook*)))
 
 (defun init-logger ()
   (let* ((err)
@@ -95,6 +106,7 @@
              cffi:*foreign-library-directories*)
     (cffi:use-foreign-library libendb)
     (init-logger)
+    (endb-set-panic-hook (cffi:callback on-panic-hook))
     (let ((log-level (uiop:getenv "ENDB_LOG_LEVEL")))
       (when log-level
         (setf *log-level* (resolve-log-level (intern (string-upcase log-level) :keyword)))))

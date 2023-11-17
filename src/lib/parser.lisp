@@ -200,8 +200,7 @@
   (message (:pointer :char))
   (start :size)
   (end :size)
-  (on_success :pointer)
-  (on_error :pointer))
+  (on_success :pointer))
 
 (defstruct ast-builder (acc (list nil)))
 
@@ -319,28 +318,16 @@
     ((err :string))
   (funcall *annotate-input-with-error-on-success* err))
 
-(defvar *annotate-input-with-error-on-error*)
-
-(cffi:defcallback annotate-input-with-error-on-error :void
-    ((err :string))
-  (funcall *annotate-input-with-error-on-error* err))
-
 (defun annotate-input-with-error (input message start end)
   (endb/lib:init-lib)
   (let* ((result)
-         (err)
          (*annotate-input-with-error-on-success* (lambda (report)
-                                                   (setf result report)))
-         (*annotate-input-with-error-on-error* (lambda (e)
-                                                 (setf err e))))
+                                                   (setf result report))))
     (cffi:with-foreign-string (input-ptr input)
       (cffi:with-foreign-string (message-ptr message)
         (endb-annotate-input-with-error input-ptr
                                         message-ptr
                                         start
                                         end
-                                        (cffi:callback annotate-input-with-error-on-success)
-                                        (cffi:callback annotate-input-with-error-on-error))))
-    (when err
-      (error err))
+                                        (cffi:callback annotate-input-with-error-on-success))))
     (strip-ansi-escape-codes result)))

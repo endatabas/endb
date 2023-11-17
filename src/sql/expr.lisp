@@ -1,6 +1,7 @@
 (defpackage :endb/sql/expr
   (:use :cl)
   (:import-from :alexandria)
+  (:import-from :bordeaux-threads)
   (:import-from :cl-base64)
   (:import-from :cl-ppcre)
   (:import-from :local-time)
@@ -37,7 +38,7 @@
            #:ddl-create-table #:ddl-drop-table #:ddl-create-view #:ddl-drop-view #:ddl-create-index #:ddl-drop-index #:ddl-create-assertion #:ddl-drop-assertion
            #:dml-insert #:dml-insert-objects #:dml-delete #:dml-erase
 
-           #:make-db #:copy-db #:db-buffer-pool #:db-wal #:db-object-store #:db-meta-data #:db-current-timestamp
+           #:make-db #:copy-db #:db-buffer-pool #:db-wal #:db-object-store #:db-meta-data #:db-current-timestamp #:db-write-lock
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
            #:view-definition #:calculate-stats
@@ -2169,7 +2170,8 @@
   buffer-pool
   (meta-data (fset:map ("_last_tx" 0)))
   current-timestamp
-  (information-schema-cache (make-hash-table :weakness :key :test 'eq)))
+  (information-schema-cache (make-hash-table :weakness :key :test 'eq))
+  (write-lock (bt:make-lock)))
 
 (defun base-table-meta (db table-name)
   (with-slots (meta-data) db

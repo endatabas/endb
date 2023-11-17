@@ -277,8 +277,7 @@ void endb_annotate_input_with_error(const char *input,
                                     const char *message,
                                     uintptr_t start,
                                     uintptr_t end,
-                                    endb_annotate_input_with_error_on_success_callback on_success,
-                                    endb_on_error_callback on_error);
+                                    endb_annotate_input_with_error_on_success_callback on_success);
 
 uintptr_t endb_ast_vec_len(const struct Vec_Ast *ast);
 
@@ -324,3 +323,5 @@ void endb_log_trace(const char *target, const char *message);
 void endb_start_server(endb_start_server_on_init_callback on_init,
                        endb_start_server_on_query_callback on_query,
                        endb_on_error_callback on_error);
+
+void endb_set_panic_hook(endb_on_error_callback on_panic);

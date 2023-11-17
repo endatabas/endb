@@ -25,6 +25,7 @@ insta = { version = "1.29.0", features = ["yaml"] }
 [profile.release]
 lto = true
 codegen-units = 1
+panic = "abort"
 
 [profile.test]
 debug = 1
