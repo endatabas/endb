@@ -24,9 +24,11 @@
   (on_success :pointer)
   (on_error :pointer))
 
+(defvar *parse-sql-cst-on-error*)
+
 (cffi:defcallback parse-sql-cst-on-error :void
     ((err :string))
-  (error 'endb/lib/parser:sql-parse-error :message err))
+  (funcall *parse-sql-cst-on-error* err))
 
 (defvar *parse-sql-cst-on-open*)
 
@@ -65,6 +67,7 @@
   (if (zerop (length input))
       (error 'endb/lib/parser:sql-parse-error :message "Empty input")
       (let* ((result (list (list)))
+             (err)
              (input-bytes (trivial-utf-8:string-to-utf-8-bytes input))
              (*parse-sql-cst-on-open* (lambda (label-ptr label-size)
                                         (let* ((address (cffi:pointer-address label-ptr))
@@ -89,7 +92,9 @@
                                              (push (list literal start end) (first result)))))
              (*parse-sql-cst-on-pattern* (lambda (start end)
                                            (let ((token (trivial-utf-8:utf-8-bytes-to-string input-bytes :start start :end end)))
-                                             (push (list token start end) (first result))))))
+                                             (push (list token start end) (first result)))))
+             (*parse-sql-cst-on-error* (lambda (e)
+                                         (setf err e))))
         (if (and (typep filename 'base-string)
                  (typep input 'base-string))
             (cffi:with-pointer-to-vector-data (filename-ptr input)
@@ -110,6 +115,8 @@
                                     (cffi:callback parse-sql-cst-on-literal)
                                     (cffi:callback parse-sql-cst-on-pattern)
                                     (cffi:callback parse-sql-cst-on-error)))))
+        (when err
+          (error 'endb/lib/parser:sql-parse-error :message err))
         (caar result))))
 
 (defvar *render-json-error-report-on-success*)
@@ -118,19 +125,26 @@
     ((report :string))
   (funcall *render-json-error-report-on-success* report))
 
+(defvar *render-json-error-report-on-error*)
+
 (cffi:defcallback render-json-error-report-on-error :void
     ((err :string))
-  (error err))
+  (funcall *render-json-error-report-on-error* err))
 
 (defun render-error-report (report)
   (endb/lib:init-lib)
   (let* ((result)
+         (err)
          (*render-json-error-report-on-success* (lambda (report)
                                                   (setf result report)))
+         (*render-json-error-report-on-error* (lambda (e)
+                                                (setf err e)))
          (report-json (endb/json:json-stringify report)))
     (endb-render-json-error-report report-json
                                    (cffi:callback render-json-error-report-on-success)
                                    (cffi:callback render-json-error-report-on-error))
+    (when err
+      (error err))
     (endb/lib/parser:strip-ansi-escape-codes result)))
 
 (defun cst->ast (input cst)

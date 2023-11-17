@@ -288,22 +288,29 @@
     ((ast (:pointer (:struct Ast))))
   (funcall *parse-sql-on-success* ast))
 
+(defvar *parse-sql-on-error*)
+
 (cffi:defcallback parse-sql-on-error :void
     ((err :string))
-  (error 'sql-parse-error :message err))
+  (funcall *parse-sql-on-error* err))
 
 (defun parse-sql (input)
   (endb/lib:init-lib)
   (if (zerop (length input))
       (error 'sql-parse-error :message "Empty input")
       (let* ((ast-builder (make-ast-builder))
+             (err)
              (*parse-sql-on-success* (lambda (ast)
-                                       (visit-ast input ast-builder ast))))
+                                       (visit-ast input ast-builder ast)))
+             (*parse-sql-on-error* (lambda (e)
+                                     (setf err e))))
         (if (typep input 'base-string)
             (cffi:with-pointer-to-vector-data (ptr input)
               (endb-parse-sql ptr (cffi:callback parse-sql-on-success) (cffi:callback parse-sql-on-error)))
             (cffi:with-foreign-string (ptr input)
               (endb-parse-sql ptr (cffi:callback parse-sql-on-success) (cffi:callback parse-sql-on-error))))
+        (when err
+          (error 'sql-parse-error :message err))
         (caar (ast-builder-acc ast-builder)))))
 
 (defvar *annotate-input-with-error-on-success*)
@@ -312,15 +319,20 @@
     ((err :string))
   (funcall *annotate-input-with-error-on-success* err))
 
+(defvar *annotate-input-with-error-on-error*)
+
 (cffi:defcallback annotate-input-with-error-on-error :void
     ((err :string))
-  (error err))
+  (funcall *annotate-input-with-error-on-error* err))
 
 (defun annotate-input-with-error (input message start end)
   (endb/lib:init-lib)
   (let* ((result)
-         (*annotate-input-with-error-on-success* (lambda (err)
-                                                   (setf result err))))
+         (err)
+         (*annotate-input-with-error-on-success* (lambda (report)
+                                                   (setf result report)))
+         (*annotate-input-with-error-on-error* (lambda (e)
+                                                 (setf err e))))
     (cffi:with-foreign-string (input-ptr input)
       (cffi:with-foreign-string (message-ptr message)
         (endb-annotate-input-with-error input-ptr
@@ -329,4 +341,6 @@
                                         end
                                         (cffi:callback annotate-input-with-error-on-success)
                                         (cffi:callback annotate-input-with-error-on-error))))
+    (when err
+      (error err))
     (strip-ansi-escape-codes result)))

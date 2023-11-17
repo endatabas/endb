@@ -3,8 +3,7 @@
   (:export #:start-server #:*db* #:sql-abort-query-error)
   (:import-from :cffi)
   (:import-from :endb/json)
-  (:import-from :endb/lib)
-  (:import-from :uiop))
+  (:import-from :endb/lib))
 (in-package :endb/lib/server)
 
 (defvar *db*)
@@ -24,36 +23,48 @@
 
 (define-condition sql-abort-query-error (error) ())
 
+(defvar *start-server-on-query-on-abort*)
+
 (cffi:defcallback start-server-on-query-abort :void
     ()
-  (error 'sql-abort-query-error))
+  (funcall *start-server-on-query-on-abort*))
 
 (cffi:defcallback start-server-on-query :void
-  ((response :pointer)
-   (sender :pointer)
-   (tx :pointer)
-   (method :string)
-   (media-type :string)
-   (q :string)
-   (p :string)
-   (m :string)
-   (on-response-init :pointer)
-   (on-response-send :pointer))
+    ((response :pointer)
+     (sender :pointer)
+     (tx :pointer)
+     (method :string)
+     (media-type :string)
+     (q :string)
+     (p :string)
+     (m :string)
+     (on-response-init :pointer)
+     (on-response-send :pointer))
   (funcall *start-server-on-query* method media-type q p m
            (lambda (status-code content-type)
-             (cffi:foreign-funcall-pointer on-response-init ()
-                                           :pointer response
-                                           :pointer tx
-                                           :short status-code
-                                           :string content-type
-                                           :pointer (cffi:callback start-server-on-query-abort)
-                                           :void))
+             (let* ((abortp)
+                    (*start-server-on-query-on-abort* (lambda ()
+                                                        (setf abortp t))))
+               (cffi:foreign-funcall-pointer on-response-init ()
+                                             :pointer response
+                                             :pointer tx
+                                             :short status-code
+                                             :string content-type
+                                             :pointer (cffi:callback start-server-on-query-abort)
+                                             :void)
+               (when abortp
+                 (error 'sql-abort-query-error))))
            (lambda (body)
-             (cffi:foreign-funcall-pointer on-response-send ()
-                                           :pointer sender
-                                           :string body
-                                           :pointer (cffi:callback start-server-on-query-abort)
-                                           :void))))
+             (let* ((abortp)
+                    (*start-server-on-query-on-abort* (lambda ()
+                                                        (setf abortp t))))
+               (cffi:foreign-funcall-pointer on-response-send ()
+                                             :pointer sender
+                                             :string body
+                                             :pointer (cffi:callback start-server-on-query-abort)
+                                             :void)
+               (when abortp
+                 (error 'sql-abort-query-error))))))
 
 (defvar *start-server-on-error*)
 

@@ -51,7 +51,7 @@ pub fn on_response_init(
 
 pub fn on_response_send(sender: &mut HttpSender, chunk: &str) -> Result<(), Error> {
     tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(async move {
+        tokio::runtime::Handle::current().block_on(async {
             sender
                 .send_data(chunk.to_string().into())
                 .await
@@ -294,7 +294,7 @@ pub fn start_server(
             basic_auth: basic_auth.clone(),
             on_query: on_query.clone(),
         };
-        async move { Ok::<_, Error>(svc) }
+        async { Ok::<_, Error>(svc) }
     });
 
     let addr = ([0, 0, 0, 0], args.http_port).into();
