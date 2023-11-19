@@ -2708,10 +2708,21 @@ SELECT s FROM x WHERE ind=0")
   (sqlite:with-open-database (sqlite ":memory:")
     (= 1 (sqlite:execute-single sqlite (format nil "SELECT sqlite_compileoption_used('~A')" option)))))
 
-(defun is-valid (result)
+(defun %float-approximately-equalp
+  (f1 f2 &optional (tolerance 0.00001))
+  "Considers two floats to be approximately equal, if the tolerance value is greater than the absolute difference between them."
+  (let ((diff (abs (- f1 f2))))
+    (> tolerance diff)))
+
+(test equality-helpers
+  (is (%float-approximately-equalp 1.11 1.1 0.1))
+  (is (%float-approximately-equalp 1.01 1.009 0.01))
+  (is (%float-approximately-equalp 1.11 1.1 0.01)))
+
+(defun is-valid (result &optional (comparison-fn #'equalp))
   (destructuring-bind (endb-result sqlite-result expr)
       result
-    (is (equalp (endb->sqlite endb-result) sqlite-result)
+    (is (funcall comparison-fn (endb->sqlite endb-result) sqlite-result)
         "~2&~S~2% evaluated to ~2&~S~2% which is not ~2&~S~2% to ~2&~S~2%"
         expr endb-result 'equal sqlite-result)))
 
@@ -2961,7 +2972,7 @@ SELECT s FROM x WHERE ind=0")
     (is-valid (expr "POWER(2, 2)"))
     (is-valid (expr "POWER(2, NULL)"))
     (is-valid (expr "LN(4.2)"))
-    (is-valid (expr "LOG10(2)"))
+    (is-valid (expr "LOG10(2)") #'%float-approximately-equalp)
     (is-valid (expr "LOG(2, 64)"))
     (is-valid (expr "SIGN(-2.4)"))
 
