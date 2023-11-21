@@ -1,15 +1,19 @@
 use base64::Engine;
 use clap::Parser;
+use futures::sink::SinkExt;
+use http_body_util::{BodyExt, Empty, StreamBody};
 use hyper::service::Service;
-use hyper::{Body, Method, Request, Response, StatusCode};
+use hyper::{Method, Request, Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::convert::Infallible;
 use std::future::Future;
 use std::marker::{Send, Sync};
 use std::pin::Pin;
 use std::sync::Arc;
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
+type BoxBody = http_body_util::combinators::BoxBody<bytes::Bytes, Infallible>;
 
 const ENDB_FULL_VERSION: &str = env!("ENDB_FULL_VERSION");
 
@@ -26,16 +30,17 @@ pub struct CommandLineArguments {
     password: Option<String>,
 }
 
-pub type HttpResponse = Response<Body>;
-pub type HttpSender = hyper::body::Sender;
-pub type OneShotSender = tokio::sync::oneshot::Sender<HttpResponse>;
+pub type HttpResponse = Response<BoxBody>;
+pub type HttpSender =
+    futures::channel::mpsc::Sender<Result<hyper::body::Frame<bytes::Bytes>, Infallible>>;
+pub type OneShotSender = futures::channel::oneshot::Sender<HttpResponse>;
 
 pub fn on_response_init(
     mut response: HttpResponse,
     tx: OneShotSender,
     status_code: u16,
     content_type: &str,
-) -> Result<(), Response<Body>> {
+) -> Result<(), Response<BoxBody>> {
     if let Ok(status_code) = StatusCode::from_u16(status_code) {
         *response.status_mut() = status_code;
     }
@@ -51,46 +56,50 @@ pub fn on_response_init(
 
 pub fn on_response_send(sender: &mut HttpSender, chunk: &str) -> Result<(), Error> {
     Ok(tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current()
-            .block_on(async { sender.send_data(chunk.to_string().into()).await })
+        tokio::runtime::Handle::current().block_on(async {
+            sender
+                .feed(Ok(hyper::body::Frame::data(chunk.to_string().into())))
+                .await
+        })
     })?)
 }
 
 const REALM: &str = "restricted area";
 
-type OnQueryFn<'a> = Arc<
+type OnQueryFn = Arc<
     dyn Fn(HttpResponse, &mut HttpSender, OneShotSender, &str, &str, &str, &str, &str)
         + Sync
-        + Send
-        + 'a,
+        + Send,
 >;
 
-struct EndbService<'a> {
+struct EndbService {
     basic_auth: Option<String>,
-    on_query: OnQueryFn<'a>,
+    on_query: OnQueryFn,
 }
 
-fn empty_response(status_code: StatusCode) -> Result<Response<Body>, Error> {
-    Ok(Response::builder().status(status_code).body("".into())?)
+fn empty_response(status_code: StatusCode) -> Result<Response<BoxBody>, hyper::http::Error> {
+    Response::builder()
+        .status(status_code)
+        .body(Empty::new().boxed())
 }
 
 async fn sql_response(
     method: Method,
     media_type: &str,
     mut params: HashMap<String, String>,
-    on_query: OnQueryFn<'static>,
-) -> Result<Response<Body>, Error> {
+    on_query: OnQueryFn,
+) -> Result<Response<BoxBody>, hyper::http::Error> {
     if let Some(q) = params.remove("q") {
         let media_type = media_type.to_string();
         let p = params.remove("p").unwrap_or_else(|| "[]".to_string());
         let m = params.remove("m").unwrap_or_else(|| "false".to_string());
 
-        let (tx, rx) = tokio::sync::oneshot::channel();
+        let (tx, rx) = futures::channel::oneshot::channel();
         let mut response = empty_response(StatusCode::INTERNAL_SERVER_ERROR)?;
 
-        tokio::spawn(async move {
-            let (mut sender, body) = Body::channel();
-            *response.body_mut() = body;
+        tokio::task::spawn_blocking(move || {
+            let (mut sender, body_rx) = futures::channel::mpsc::channel(0);
+            *response.body_mut() = StreamBody::new(body_rx).boxed();
 
             on_query(
                 response,
@@ -104,25 +113,19 @@ async fn sql_response(
             );
         });
 
-        Ok(rx.await?)
+        rx.await
+            .or_else(|_| empty_response(StatusCode::INTERNAL_SERVER_ERROR))
     } else {
         empty_response(StatusCode::UNPROCESSABLE_ENTITY)
     }
 }
 
-impl Service<Request<Body>> for EndbService<'static> {
-    type Response = Response<Body>;
-    type Error = Error;
+impl Service<Request<BoxBody>> for EndbService {
+    type Response = Response<BoxBody>;
+    type Error = hyper::http::Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
-    fn poll_ready(
-        &mut self,
-        _cx: &mut core::task::Context<'_>,
-    ) -> core::task::Poll<Result<(), Self::Error>> {
-        Ok(()).into()
-    }
-
-    fn call(&mut self, req: Request<Body>) -> Self::Future {
+    fn call(&self, req: Request<BoxBody>) -> Self::Future {
         let on_query = self.on_query.clone();
         let unauthorized = self.basic_auth.is_some()
             && self.basic_auth.as_deref()
@@ -132,13 +135,13 @@ impl Service<Request<Body>> for EndbService<'static> {
                     .and_then(|x| x.to_str().ok());
         Box::pin(async move {
             if unauthorized {
-                return Ok(Response::builder()
+                return Response::builder()
                     .status(StatusCode::UNAUTHORIZED)
                     .header(
                         hyper::header::WWW_AUTHENTICATE,
                         format!("Basic realm=\"{}\"", REALM),
                     )
-                    .body("".into())?);
+                    .body(Empty::new().boxed());
             }
 
             let accept = req
@@ -155,9 +158,9 @@ impl Service<Request<Body>> for EndbService<'static> {
                 "application/x-ndjson" => "application/x-ndjson",
                 "text/*" | "text/csv" => "text/csv",
                 _ => {
-                    return Ok(Response::builder()
+                    return Response::builder()
                         .status(StatusCode::NOT_ACCEPTABLE)
-                        .body("".into())?);
+                        .body(Empty::new().boxed());
                 }
             };
 
@@ -189,7 +192,7 @@ impl Service<Request<Body>> for EndbService<'static> {
                     sql_response(method, media_type, params, on_query).await
                 }
                 (&Method::POST, "/sql", Some("application/json" | "application/ld+json")) => {
-                    let body = hyper::body::to_bytes(req).await?;
+                    let body = req.collect().await?.to_bytes();
                     if let Ok(serde_json::Value::Object(json)) =
                         serde_json::from_slice::<serde_json::Value>(body.as_ref())
                     {
@@ -206,7 +209,7 @@ impl Service<Request<Body>> for EndbService<'static> {
                     }
                 }
                 (&Method::POST, "/sql", Some("application/sql")) => {
-                    let body = hyper::body::to_bytes(req).await?;
+                    let body = req.collect().await?.to_bytes();
                     if let Ok(q) = std::str::from_utf8(&body) {
                         params.insert("q".to_string(), q.to_string());
                         sql_response(method, media_type, params, on_query).await
@@ -215,7 +218,7 @@ impl Service<Request<Body>> for EndbService<'static> {
                     }
                 }
                 (&Method::POST, "/sql", Some("application/x-www-form-urlencoded")) => {
-                    let body = hyper::body::to_bytes(req).await?;
+                    let body = req.collect().await?.to_bytes();
                     for (k, v) in url::form_urlencoded::parse(body.as_ref()) {
                         params.insert(k.to_string(), v.to_string());
                     }
@@ -225,8 +228,9 @@ impl Service<Request<Body>> for EndbService<'static> {
                     if let Some(boundary) = content_type
                         .and_then(|x| x.get_param(mime::BOUNDARY).map(|x| x.to_string()))
                     {
-                        let body = hyper::body::to_bytes(req).await?;
-                        let mut mult = multer::Multipart::new(Body::from(body), boundary);
+                        let body = req.collect().await?.to_bytes();
+                        let stream = futures::stream::iter([Ok::<_, Infallible>(body)]);
+                        let mut mult = multer::Multipart::new(stream, boundary);
 
                         while let Ok(Some(field)) = mult.next_field().await {
                             if let Some(k) = field.name() {
@@ -245,7 +249,7 @@ impl Service<Request<Body>> for EndbService<'static> {
                 (_, "/sql", _) => Ok(Response::builder()
                     .status(StatusCode::METHOD_NOT_ALLOWED)
                     .header(hyper::header::ALLOW, "GET, POST")
-                    .body("".into())?),
+                    .body(Empty::new().boxed())?),
                 _ => empty_response(StatusCode::NOT_FOUND),
             }
         })
@@ -275,36 +279,39 @@ pub fn start_server(
         + 'static,
 ) -> Result<(), Error> {
     let args = CommandLineArguments::parse();
-
-    let full_version = env!("ENDB_FULL_VERSION");
-    log::info!("version {}", full_version);
+    log::info!("version {}", ENDB_FULL_VERSION);
 
     let basic_auth = make_basic_auth_header(args.username, args.password);
     let on_query = Arc::new(on_query);
-    let make_svc = hyper::service::make_service_fn(|_conn| {
-        let svc = EndbService {
-            basic_auth: basic_auth.clone(),
-            on_query: on_query.clone(),
-        };
-        async { Ok::<_, Error>(svc) }
-    });
+    let addr: std::net::SocketAddr = ([0, 0, 0, 0], args.http_port).into();
 
-    let addr = ([0, 0, 0, 0], args.http_port).into();
-
-    Ok(tokio::runtime::Builder::new_multi_thread()
+    tokio::runtime::Builder::new_multi_thread()
         .enable_all()
-        .build()
-        .unwrap()
+        .build()?
         .block_on(async {
-            match hyper::Server::try_bind(&addr) {
-                Ok(builder) => {
-                    let server = builder.serve(make_svc);
-                    log::info!("listening on port {}", args.http_port);
-                    server.await
-                }
-                Err(err) => Err(err),
+            let listener = tokio::net::TcpListener::bind(addr).await?;
+            log::info!("listening on port {}", args.http_port);
+            loop {
+                let (stream, _) = listener.accept().await?;
+                let io = hyper_util::rt::tokio::TokioIo::new(stream);
+                let svc = EndbService {
+                    basic_auth: basic_auth.clone(),
+                    on_query: on_query.clone(),
+                };
+                tokio::task::spawn(async move {
+                    hyper::server::conn::http1::Builder::new()
+                        .serve_connection(
+                            io,
+                            hyper::service::service_fn(|req: Request<hyper::body::Incoming>| {
+                                let (parts, body) = req.into_parts();
+                                let body = body.map_err(|_| unreachable!("infallible")).boxed();
+                                svc.call(Request::from_parts(parts, body))
+                            }),
+                        )
+                        .await
+                });
             }
-        })?)
+        })
 }
 
 pub fn init_logger() -> Result<(), Error> {
@@ -316,18 +323,21 @@ pub fn init_logger() -> Result<(), Error> {
 
 #[cfg(test)]
 mod tests {
+    use http_body_util::{BodyExt, Full};
     use hyper::service::Service;
-    use hyper::{Body, Request, Response, StatusCode};
+    use hyper::{Request, Response, StatusCode};
     use insta::assert_debug_snapshot;
     use std::sync::Arc;
 
-    async fn read_body(response: Response<Body>) -> Response<Body> {
+    type BoxBody = super::BoxBody;
+
+    async fn read_body(response: Response<BoxBody>) -> Response<Full<bytes::Bytes>> {
         let (parts, body) = response.into_parts();
-        let body = Body::from(hyper::body::to_bytes(body).await.unwrap());
-        Response::from_parts(parts, body)
+        let body = body.collect().await.unwrap().to_bytes();
+        Response::from_parts(parts, Full::new(body))
     }
 
-    fn ok(body: &str) -> crate::OnQueryFn {
+    fn ok(body: &'static str) -> crate::OnQueryFn {
         Arc::new(
             move |mut response: crate::HttpResponse,
                   sender: &mut crate::HttpSender,
@@ -350,7 +360,7 @@ mod tests {
         )
     }
 
-    fn unreachable<'a>() -> crate::OnQueryFn<'a> {
+    fn unreachable() -> crate::OnQueryFn {
         Arc::new(
             move |_response: crate::HttpResponse,
                   _sender: &mut crate::HttpSender,
@@ -372,25 +382,31 @@ mod tests {
         }
     }
 
-    fn get(uri: &str, accept: &str) -> Request<Body> {
+    fn get(uri: &str, accept: &str) -> Request<crate::BoxBody> {
         Request::get(uri)
             .header(hyper::header::ACCEPT, accept)
-            .body(Body::empty())
+            .body(http_body_util::Empty::new().boxed())
             .unwrap()
     }
 
-    fn post(uri: &str, content_type: &str, body: &str) -> Request<Body> {
+    fn post(uri: &str, content_type: &str, body: &str) -> Request<crate::BoxBody> {
         Request::post(uri)
             .header(hyper::header::CONTENT_TYPE, content_type)
-            .body(Body::from(body.to_string()))
+            .body(http_body_util::Full::from(bytes::Bytes::from(body.to_string())).boxed())
             .unwrap()
     }
 
-    fn add_header(
-        mut request: Request<Body>,
+    fn head(uri: &str) -> Request<crate::BoxBody> {
+        Request::head(uri)
+            .body(http_body_util::Empty::new().boxed())
+            .unwrap()
+    }
+
+    fn add_header<T>(
+        mut request: Request<T>,
         key: hyper::header::HeaderName,
         value: &str,
-    ) -> Request<Body> {
+    ) -> Request<T> {
         request.headers_mut().insert(key, value.parse().unwrap());
         request
     }
@@ -410,11 +426,11 @@ mod tests {
                 "x-m": "false",
                 "content-type": "application/json",
             },
-            body: Body(
-                Full(
+            body: Full {
+                data: Some(
                     b"[[1]]\n",
                 ),
-            ),
+            },
         }
         "###);
 
@@ -432,11 +448,11 @@ mod tests {
                 "x-m": "false",
                 "content-type": "application/json",
             },
-            body: Body(
-                Full(
+            body: Full {
+                data: Some(
                     b"[[1]]\n",
                 ),
-            ),
+            },
         }
         "###);
 
@@ -454,11 +470,11 @@ mod tests {
                 "x-m": "false",
                 "content-type": "application/ld+json",
             },
-            body: Body(
-                Full(
+            body: Full {
+                data: Some(
                     b"{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}\n",
                 ),
-            ),
+            },
         }
         "###);
 
@@ -476,11 +492,11 @@ mod tests {
                 "x-m": "false",
                 "content-type": "application/x-ndjson",
             },
-            body: Body(
-                Full(
+            body: Full {
+                data: Some(
                     b"{\"column1\":1}\n",
                 ),
-            ),
+            },
         }
         "###);
 
@@ -498,11 +514,11 @@ mod tests {
                 "x-m": "false",
                 "content-type": "text/csv",
             },
-            body: Body(
-                Full(
+            body: Full {
+                data: Some(
                     b"\"column1\"\r\n1~\r\n",
                 ),
-            ),
+            },
         }
         "###);
 
@@ -515,9 +531,9 @@ mod tests {
             status: 406,
             version: HTTP/1.1,
             headers: {},
-            body: Body(
-                Empty,
-            ),
+            body: Full {
+                data: None,
+            },
         }
         "###);
     }
@@ -537,11 +553,11 @@ mod tests {
                 "x-m": "false",
                 "content-type": "application/json",
             },
-            body: Body(
-                Full(
+            body: Full {
+                data: Some(
                     b"[[1]]\n",
                 ),
-            ),
+            },
         }
         "###);
 
@@ -559,11 +575,11 @@ mod tests {
                 "x-m": "false",
                 "content-type": "application/json",
             },
-            body: Body(
-                Full(
+            body: Full {
+                data: Some(
                     b"[[1]]\n",
                 ),
-            ),
+            },
         }
         "###);
 
@@ -581,11 +597,11 @@ mod tests {
                 "x-m": "false",
                 "content-type": "application/json",
             },
-            body: Body(
-                Full(
+            body: Full {
+                data: Some(
                     b"[[1]]\n",
                 ),
-            ),
+            },
         }
         "###);
 
@@ -603,11 +619,11 @@ mod tests {
                 "x-m": "false",
                 "content-type": "application/json",
             },
-            body: Body(
-                Full(
+            body: Full {
+                data: Some(
                     b"[[1]]\n",
                 ),
-            ),
+            },
         }
         "###);
 
@@ -625,11 +641,11 @@ mod tests {
                 "x-m": "false",
                 "content-type": "application/ld+json",
             },
-            body: Body(
-                Full(
+            body: Full {
+                data: Some(
                     b"{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}\n",
                 ),
-            ),
+            },
         }
         "###);
 
@@ -642,9 +658,9 @@ mod tests {
             status: 415,
             version: HTTP/1.1,
             headers: {},
-            body: Body(
-                Empty,
-            ),
+            body: Full {
+                data: None,
+            },
         }
         "###);
     }
@@ -665,11 +681,11 @@ mod tests {
                 "x-m": "false",
                 "content-type": "application/json",
             },
-            body: Body(
-                Full(
+            body: Full {
+                data: Some(
                     b"[[3]]\n",
                 ),
-            ),
+            },
         }
         "###);
 
@@ -687,11 +703,11 @@ mod tests {
                 "x-m": "true",
                 "content-type": "application/json",
             },
-            body: Body(
-                Full(
+            body: Full {
+                data: Some(
                     b"[[1]]\n",
                 ),
-            ),
+            },
         }
         "###);
 
@@ -709,11 +725,11 @@ mod tests {
                 "x-m": "false",
                 "content-type": "application/json",
             },
-            body: Body(
-                Full(
+            body: Full {
+                data: Some(
                     b"[[3]]\n",
                 ),
-            ),
+            },
         }
         "###);
     }
@@ -722,9 +738,7 @@ mod tests {
     async fn errors() {
         assert_debug_snapshot!(
             service(None, unreachable())
-            .call(Request::head("http://localhost:3803/sql")
-            .body(Body::empty())
-            .unwrap())
+            .call(head("http://localhost:3803/sql"))
             .await.map(read_body).unwrap().await
         , @r###"
         Response {
@@ -733,9 +747,9 @@ mod tests {
             headers: {
                 "allow": "GET, POST",
             },
-            body: Body(
-                Empty,
-            ),
+            body: Full {
+                data: None,
+            },
         }
         "###);
 
@@ -748,9 +762,9 @@ mod tests {
             status: 404,
             version: HTTP/1.1,
             headers: {},
-            body: Body(
-                Empty,
-            ),
+            body: Full {
+                data: None,
+            },
         }
         "###);
     }
@@ -770,9 +784,9 @@ mod tests {
             headers: {
                 "www-authenticate": "Basic realm=\"restricted area\"",
             },
-            body: Body(
-                Empty,
-            ),
+            body: Full {
+                data: None,
+            },
         }
         "###);
 
@@ -790,11 +804,11 @@ mod tests {
                 "x-m": "false",
                 "content-type": "application/json",
             },
-            body: Body(
-                Full(
+            body: Full {
+                data: Some(
                     b"[[1]]\n",
                 ),
-            ),
+            },
         }
         "###);
     }

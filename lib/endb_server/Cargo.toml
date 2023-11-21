@@ -14,7 +14,11 @@ crate-type = ["rlib"]
 [dependencies]
 env_logger = "0.10"
 clap = { version = "4", features = ["derive", "env"] }
-hyper = { version = "0.14", features = ["full"] }
+bytes = "1"
+hyper = { version = "1", features = ["full"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
+http-body-util = "0.1"
+futures = "0.3"
 tokio = { version = "1", features = ["full"] }
 url = "2.2"
 multer = "2"
