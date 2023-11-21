@@ -5,6 +5,7 @@
   (:import-from :endb/sql/expr)
   (:import-from :endb/storage/object-store)
   (:import-from :alexandria)
+  (:import-from :cffi)
   (:import-from :cl-ppcre)
   (:import-from :fset)
   (:import-from :sqlite)
@@ -2708,12 +2709,29 @@ SELECT s FROM x WHERE ind=0")
   (sqlite:with-open-database (sqlite ":memory:")
     (= 1 (sqlite:execute-single sqlite (format nil "SELECT sqlite_compileoption_used('~A')" option)))))
 
-(defun is-valid (result)
+(cffi:defcfun "sqlite3_snprintf" :int
+  (size :size)
+  (str :pointer)
+  (control :string)
+  &rest)
+
+(defun %slt-float-format (value)
+  (cffi:with-foreign-pointer-as-string (s 32)
+    (sqlite3-snprintf 32 s "%.3f" :double (coerce (if (numberp value)
+                                                      value
+                                                      0.0d0)
+                                                  'double-float))))
+
+(defun is-valid (result &optional (epsilon 1.0d-5))
   (destructuring-bind (endb-result sqlite-result expr)
       result
-    (is (equalp (endb->sqlite endb-result) sqlite-result)
-        "~2&~S~2% evaluated to ~2&~S~2% which is not ~2&~S~2% to ~2&~S~2%"
-        expr endb-result 'equal sqlite-result)))
+    (let ((endb-result (endb->sqlite endb-result)))
+      (is (if (and (floatp endb-result) (floatp sqlite-result))
+              (equalp (%slt-float-format endb-result)
+                      (%slt-float-format sqlite-result))
+              (equalp endb-result sqlite-result))
+          "~2&~S~2% evaluated to ~2&~S~2% which is not ~2&~S~2% to ~2&~S~2%"
+          expr endb-result 'equal sqlite-result))))
 
 (test sqlite-expr
   (is-valid (expr "FALSE"))
@@ -2962,7 +2980,11 @@ SELECT s FROM x WHERE ind=0")
     (is-valid (expr "POWER(2, NULL)"))
     (is-valid (expr "LN(4.2)"))
     (is-valid (expr "LOG10(2)"))
+    (is-valid (expr "LOG10(3.0)"))
+    (is-valid (expr "LOG10(0)"))
+
     (is-valid (expr "LOG(2, 64)"))
+    (is-valid (expr "LOG(0, 64)"))
     (is-valid (expr "SIGN(-2.4)"))
 
     (is-valid (expr "PI()"))

@@ -892,29 +892,37 @@
   :null)
 
 (defmethod sql-log ((x number) &optional (y nil yp))
-  (%handle-complex "LOG"
-                   (cond
-                     ((eq :null y) :null)
-                     (yp (log y (coerce x 'double-float)))
-                     (t (log x 10.0d0)))))
+  (if (zerop x)
+      :null
+      (%handle-complex "LOG"
+                       (cond
+                         ((eq :null y) :null)
+                         (yp (log y (coerce x 'double-float)))
+                         (t (log (coerce x 'double-float) 10))))))
 
 (defmethod sql-log10 ((x (eql :null)))
   :null)
 
 (defmethod sql-log10 ((x number))
-  (%handle-complex "LOG10" (log (coerce x 'double-float) 10)))
+  (if (zerop x)
+      :null
+      (%handle-complex "LOG10" (log (coerce x 'double-float) 10))))
 
 (defmethod sql-log2 ((x (eql :null)))
   :null)
 
 (defmethod sql-log2 ((x number))
-  (%handle-complex "LOG2" (log (coerce x 'double-float) 2)))
+  (if (zerop x)
+      :null
+      (%handle-complex "LOG2" (log (coerce x 'double-float) 2))))
 
 (defmethod sql-ln ((x (eql :null)))
   :null)
 
 (defmethod sql-ln ((x number))
-  (%handle-complex "LN" (log (coerce x 'double-float))))
+  (if (zerop x)
+      :null
+      (%handle-complex "LN" (log (coerce x 'double-float)))))
 
 (defmethod sql-date ((x (eql :null)))
   :null)
