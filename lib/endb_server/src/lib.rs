@@ -2,6 +2,7 @@ use base64::Engine;
 use clap::Parser;
 use futures::sink::SinkExt;
 use http_body_util::{BodyExt, Empty, StreamBody};
+use hyper::body::Frame;
 use hyper::service::Service;
 use hyper::{Method, Request, Response, StatusCode};
 use serde::{Deserialize, Serialize};
@@ -31,8 +32,7 @@ pub struct CommandLineArguments {
 }
 
 pub type HttpResponse = Response<BoxBody>;
-pub type HttpSender =
-    futures::channel::mpsc::Sender<Result<hyper::body::Frame<bytes::Bytes>, Infallible>>;
+pub type HttpSender = futures::channel::mpsc::Sender<Result<Frame<bytes::Bytes>, Infallible>>;
 pub type OneShotSender = futures::channel::oneshot::Sender<HttpResponse>;
 
 pub fn on_response_init(
@@ -55,13 +55,8 @@ pub fn on_response_init(
 }
 
 pub fn on_response_send(sender: &mut HttpSender, chunk: &str) -> Result<(), Error> {
-    Ok(tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(async {
-            sender
-                .feed(Ok(hyper::body::Frame::data(chunk.to_string().into())))
-                .await
-        })
-    })?)
+    Ok(tokio::runtime::Handle::current()
+        .block_on(sender.feed(Ok(Frame::data(chunk.to_string().into()))))?)
 }
 
 const REALM: &str = "restricted area";
@@ -299,6 +294,7 @@ pub fn start_server(
                 };
                 tokio::task::spawn(async move {
                     hyper::server::conn::http1::Builder::new()
+                        .title_case_headers(true)
                         .serve_connection(io, svc)
                         .await
                 });
@@ -320,7 +316,7 @@ pub fn init_logger() -> Result<(), Error> {
 
 #[cfg(test)]
 mod tests {
-    use http_body_util::{BodyExt, Full};
+    use http_body_util::{BodyExt, Empty, Full};
     use hyper::service::Service;
     use hyper::{Request, Response, StatusCode};
     use insta::assert_debug_snapshot;
@@ -380,21 +376,19 @@ mod tests {
     fn get(uri: &str, accept: &str) -> Request<crate::BoxBody> {
         Request::get(uri)
             .header(hyper::header::ACCEPT, accept)
-            .body(http_body_util::Empty::new().boxed())
+            .body(Empty::new().boxed())
             .unwrap()
     }
 
     fn post(uri: &str, content_type: &str, body: &str) -> Request<crate::BoxBody> {
         Request::post(uri)
             .header(hyper::header::CONTENT_TYPE, content_type)
-            .body(http_body_util::Full::from(bytes::Bytes::from(body.to_string())).boxed())
+            .body(Full::from(bytes::Bytes::from(body.to_string())).boxed())
             .unwrap()
     }
 
     fn head(uri: &str) -> Request<crate::BoxBody> {
-        Request::head(uri)
-            .body(http_body_util::Empty::new().boxed())
-            .unwrap()
+        Request::head(uri).body(Empty::new().boxed()).unwrap()
     }
 
     fn add_header<T>(
@@ -406,7 +400,7 @@ mod tests {
         request
     }
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn content_type() {
         assert_debug_snapshot!(
             service(None, ok("[[1]]\n"))
@@ -533,7 +527,7 @@ mod tests {
         "###);
     }
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn media_type() {
         assert_debug_snapshot!(
             service(None, ok("[[1]]\n"))
@@ -660,7 +654,7 @@ mod tests {
         "###);
     }
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn parameters() {
         assert_debug_snapshot!(
             service(None, ok("[[3]]\n"))
@@ -729,7 +723,7 @@ mod tests {
         "###);
     }
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn errors() {
         assert_debug_snapshot!(
             service(None, unreachable())
@@ -764,7 +758,7 @@ mod tests {
         "###);
     }
 
-    #[tokio::test(flavor = "multi_thread")]
+    #[tokio::test]
     async fn basic_auth() {
         let basic_auth =
             crate::make_basic_auth_header(Some("foo".to_string()), Some("foo".to_string()));
