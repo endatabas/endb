@@ -3,7 +3,8 @@
   (:export #:start-server #:*db* #:sql-abort-query-error #:parse-command-line)
   (:import-from :cffi)
   (:import-from :endb/json)
-  (:import-from :endb/lib))
+  (:import-from :endb/lib)
+  (:import-from :trivial-utf-8))
 (in-package :endb/lib/server)
 
 (defvar *db*)
@@ -67,12 +68,18 @@
            (lambda (body)
              (let* ((abortp)
                     (*start-server-on-query-on-abort* (lambda ()
-                                                        (setf abortp t))))
-               (cffi:foreign-funcall-pointer on-response-send ()
-                                             :pointer sender
-                                             :string body
-                                             :pointer (cffi:callback start-server-on-query-abort)
-                                             :void)
+                                                        (setf abortp t)))
+                    (body (if (typep body 'base-string)
+                              body
+                              (trivial-utf-8:string-to-utf-8-bytes body))))
+               (cffi:with-pointer-to-vector-data (body-ptr  #+sbcl (sb-ext:array-storage-vector body)
+                                                            #-sbcl body)
+                 (cffi:foreign-funcall-pointer on-response-send ()
+                                               :pointer sender
+                                               :pointer body-ptr
+                                               :size (length body)
+                                               :pointer (cffi:callback start-server-on-query-abort)
+                                               :void))
                (when abortp
                  (error 'sql-abort-query-error))))))
 

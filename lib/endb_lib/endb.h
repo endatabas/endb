@@ -253,7 +253,8 @@ typedef void (*endb_start_server_on_query_on_response_init_callback)(struct endb
                                                                      endb_start_server_on_query_on_abort_callback);
 
 typedef void (*endb_start_server_on_query_on_response_send_callback)(struct endb_server_http_sender*,
-                                                                     const char*,
+                                                                     const uint8_t*,
+                                                                     uintptr_t,
                                                                      endb_start_server_on_query_on_abort_callback);
 
 typedef void (*endb_start_server_on_query_callback)(struct endb_server_http_response*,

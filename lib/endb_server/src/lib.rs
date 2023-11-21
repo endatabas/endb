@@ -54,9 +54,9 @@ pub fn on_response_init(
     tx.send(response)
 }
 
-pub fn on_response_send(sender: &mut HttpSender, chunk: &str) -> Result<(), Error> {
+pub fn on_response_send(sender: &mut HttpSender, chunk: &[u8]) -> Result<(), Error> {
     Ok(tokio::runtime::Handle::current()
-        .block_on(sender.feed(Ok(Frame::data(chunk.to_string().into()))))?)
+        .block_on(sender.feed(Ok(Frame::data(chunk.to_vec().into()))))?)
 }
 
 const REALM: &str = "restricted area";
@@ -348,8 +348,8 @@ mod tests {
 
                 crate::on_response_init(response, tx, StatusCode::OK.into(), media_type).unwrap();
                 let (b1, b2) = body.split_at(body.len() / 2);
-                crate::on_response_send(sender, b1).unwrap();
-                crate::on_response_send(sender, b2).unwrap();
+                crate::on_response_send(sender, b1.as_bytes()).unwrap();
+                crate::on_response_send(sender, b2.as_bytes()).unwrap();
             },
         )
     }

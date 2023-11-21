@@ -11,8 +11,8 @@
 (in-package :endb/lib/cst)
 
 (cffi:defcfun "endb_parse_sql_cst" :void
-  (filename (:pointer :char))
-  (input (:pointer :char))
+  (filename :string)
+  (input :string)
   (on_open :pointer)
   (on_close :pointer)
   (on_literal :pointer)
@@ -95,26 +95,13 @@
                                              (push (list token start end) (first result)))))
              (*parse-sql-cst-on-error* (lambda (e)
                                          (setf err e))))
-        (if (and (typep filename 'base-string)
-                 (typep input 'base-string))
-            (cffi:with-pointer-to-vector-data (filename-ptr input)
-              (cffi:with-pointer-to-vector-data (input-ptr input)
-                (endb-parse-sql-cst filename-ptr
-                                    input-ptr
-                                    (cffi:callback parse-sql-cst-on-open)
-                                    (cffi:callback parse-sql-cst-on-close)
-                                    (cffi:callback parse-sql-cst-on-literal)
-                                    (cffi:callback parse-sql-cst-on-pattern)
-                                    (cffi:callback parse-sql-cst-on-error))))
-            (cffi:with-foreign-string (filename-ptr input)
-              (cffi:with-foreign-string (input-ptr input)
-                (endb-parse-sql-cst filename-ptr
-                                    input-ptr
-                                    (cffi:callback parse-sql-cst-on-open)
-                                    (cffi:callback parse-sql-cst-on-close)
-                                    (cffi:callback parse-sql-cst-on-literal)
-                                    (cffi:callback parse-sql-cst-on-pattern)
-                                    (cffi:callback parse-sql-cst-on-error)))))
+        (endb-parse-sql-cst filename
+                            input
+                            (cffi:callback parse-sql-cst-on-open)
+                            (cffi:callback parse-sql-cst-on-close)
+                            (cffi:callback parse-sql-cst-on-literal)
+                            (cffi:callback parse-sql-cst-on-pattern)
+                            (cffi:callback parse-sql-cst-on-error))
         (when err
           (error 'endb/lib/parser:sql-parse-error :message err))
         (caar result))))

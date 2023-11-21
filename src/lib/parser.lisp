@@ -191,13 +191,13 @@
   (idx :size))
 
 (cffi:defcfun "endb_parse_sql" :void
-  (input (:pointer :char))
+  (input :string)
   (on_success :pointer)
   (on_error :pointer))
 
 (cffi:defcfun "endb_annotate_input_with_error" :void
-  (input (:pointer :char))
-  (message (:pointer :char))
+  (input :string)
+  (message :string)
   (start :size)
   (end :size)
   (on_success :pointer))
@@ -303,11 +303,7 @@
                                        (visit-ast input ast-builder ast)))
              (*parse-sql-on-error* (lambda (e)
                                      (setf err e))))
-        (if (typep input 'base-string)
-            (cffi:with-pointer-to-vector-data (ptr input)
-              (endb-parse-sql ptr (cffi:callback parse-sql-on-success) (cffi:callback parse-sql-on-error)))
-            (cffi:with-foreign-string (ptr input)
-              (endb-parse-sql ptr (cffi:callback parse-sql-on-success) (cffi:callback parse-sql-on-error))))
+        (endb-parse-sql input (cffi:callback parse-sql-on-success) (cffi:callback parse-sql-on-error))
         (when err
           (error 'sql-parse-error :message err))
         (caar (ast-builder-acc ast-builder)))))
@@ -323,11 +319,9 @@
   (let* ((result)
          (*annotate-input-with-error-on-success* (lambda (report)
                                                    (setf result report))))
-    (cffi:with-foreign-string (input-ptr input)
-      (cffi:with-foreign-string (message-ptr message)
-        (endb-annotate-input-with-error input-ptr
-                                        message-ptr
-                                        start
-                                        end
-                                        (cffi:callback annotate-input-with-error-on-success))))
+    (endb-annotate-input-with-error input
+                                    message
+                                    start
+                                    end
+                                    (cffi:callback annotate-input-with-error-on-success))
     (strip-ansi-escape-codes result)))

@@ -272,7 +272,8 @@ type endb_start_server_on_query_on_response_init_callback = extern "C" fn(
 
 type endb_start_server_on_query_on_response_send_callback = extern "C" fn(
     *mut endb_server_http_sender,
-    *const c_char,
+    *const u8,
+    usize,
     endb_start_server_on_query_on_abort_callback,
 );
 
@@ -322,15 +323,14 @@ pub extern "C" fn endb_start_server(
             }
             extern "C" fn on_response_send_callback(
                 sender: *mut endb_server_http_sender,
-                body: *const c_char,
+                body_ptr: *const u8,
+                body_size: usize,
                 on_abort: endb_start_server_on_query_on_abort_callback,
             ) {
-                let c_str = unsafe { CStr::from_ptr(body) };
-                let body_str = c_str.to_str().unwrap();
-
+                let body = unsafe { std::slice::from_raw_parts(body_ptr, body_size) };
                 let sender = unsafe { &mut *(sender as *mut endb_server::HttpSender) };
 
-                if endb_server::on_response_send(sender, body_str).is_err() {
+                if endb_server::on_response_send(sender, body).is_err() {
                     on_abort();
                 }
             }

@@ -2722,7 +2722,7 @@ SELECT s FROM x WHERE ind=0")
                                                       0.0d0)
                                                   'double-float))))
 
-(defun is-valid (result &optional (epsilon 1.0d-5))
+(defun is-valid (result)
   (destructuring-bind (endb-result sqlite-result expr)
       result
     (let ((endb-result (endb->sqlite endb-result)))
