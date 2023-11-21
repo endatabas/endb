@@ -293,10 +293,13 @@ pub fn start_server(
                     on_query: on_query.clone(),
                 };
                 tokio::task::spawn(async move {
-                    hyper::server::conn::http1::Builder::new()
-                        .title_case_headers(true)
-                        .serve_connection(io, svc)
-                        .await
+                    hyper_util::server::conn::auto::Builder::new(
+                        hyper_util::rt::TokioExecutor::new(),
+                    )
+                    .http1()
+                    .title_case_headers(true)
+                    .serve_connection(io, svc)
+                    .await
                 });
             }
         })
