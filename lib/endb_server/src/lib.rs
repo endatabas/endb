@@ -77,10 +77,10 @@ struct EndbService {
     on_query: OnQueryFn,
 }
 
-fn empty_response(status_code: StatusCode) -> Result<Response<BoxBody>, hyper::http::Error> {
-    Response::builder()
+fn empty_response(status_code: StatusCode) -> Result<Response<BoxBody>, Error> {
+    Ok(Response::builder()
         .status(status_code)
-        .body(Empty::new().boxed())
+        .body(Empty::new().boxed())?)
 }
 
 async fn sql_response(
@@ -88,7 +88,7 @@ async fn sql_response(
     media_type: &str,
     mut params: HashMap<String, String>,
     on_query: OnQueryFn,
-) -> Result<Response<BoxBody>, hyper::http::Error> {
+) -> Result<Response<BoxBody>, Error> {
     if let Some(q) = params.remove("q") {
         let media_type = media_type.to_string();
         let p = params.remove("p").unwrap_or_else(|| "[]".to_string());
@@ -113,19 +113,23 @@ async fn sql_response(
             );
         });
 
-        rx.await
-            .or_else(|_| empty_response(StatusCode::INTERNAL_SERVER_ERROR))
+        Ok(rx.await?)
     } else {
         empty_response(StatusCode::UNPROCESSABLE_ENTITY)
     }
 }
 
-impl Service<Request<BoxBody>> for EndbService {
+impl<B> Service<Request<B>> for EndbService
+where
+    B: hyper::body::Body + Send + Sync + 'static,
+    B::Error: std::error::Error + Sync + Send,
+    B::Data: Send,
+{
     type Response = Response<BoxBody>;
-    type Error = hyper::http::Error;
+    type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
-    fn call(&self, req: Request<BoxBody>) -> Self::Future {
+    fn call(&self, req: Request<B>) -> Self::Future {
         let on_query = self.on_query.clone();
         let unauthorized = self.basic_auth.is_some()
             && self.basic_auth.as_deref()
@@ -135,13 +139,13 @@ impl Service<Request<BoxBody>> for EndbService {
                     .and_then(|x| x.to_str().ok());
         Box::pin(async move {
             if unauthorized {
-                return Response::builder()
+                return Ok(Response::builder()
                     .status(StatusCode::UNAUTHORIZED)
                     .header(
                         hyper::header::WWW_AUTHENTICATE,
                         format!("Basic realm=\"{}\"", REALM),
                     )
-                    .body(Empty::new().boxed());
+                    .body(Empty::new().boxed())?);
             }
 
             let accept = req
@@ -158,9 +162,9 @@ impl Service<Request<BoxBody>> for EndbService {
                 "application/x-ndjson" => "application/x-ndjson",
                 "text/*" | "text/csv" => "text/csv",
                 _ => {
-                    return Response::builder()
+                    return Ok(Response::builder()
                         .status(StatusCode::NOT_ACCEPTABLE)
-                        .body(Empty::new().boxed());
+                        .body(Empty::new().boxed())?);
                 }
             };
 
@@ -267,11 +271,6 @@ fn make_basic_auth_header(username: Option<String>, password: Option<String>) ->
     }
 }
 
-pub fn parse_command_line_to_json(on_success: impl Fn(&str)) {
-    let args = CommandLineArguments::parse();
-    on_success(&serde_json::to_string(&args).unwrap());
-}
-
 pub fn start_server(
     on_query: impl Fn(HttpResponse, &mut HttpSender, OneShotSender, &str, &str, &str, &str, &str)
         + Sync
@@ -300,18 +299,16 @@ pub fn start_server(
                 };
                 tokio::task::spawn(async move {
                     hyper::server::conn::http1::Builder::new()
-                        .serve_connection(
-                            io,
-                            hyper::service::service_fn(|req: Request<hyper::body::Incoming>| {
-                                let (parts, body) = req.into_parts();
-                                let body = body.map_err(|_| unreachable!("infallible")).boxed();
-                                svc.call(Request::from_parts(parts, body))
-                            }),
-                        )
+                        .serve_connection(io, svc)
                         .await
                 });
             }
         })
+}
+
+pub fn parse_command_line_to_json(on_success: impl Fn(&str)) {
+    let args = CommandLineArguments::parse();
+    on_success(&serde_json::to_string(&args).unwrap());
 }
 
 pub fn init_logger() -> Result<(), Error> {
@@ -329,9 +326,7 @@ mod tests {
     use insta::assert_debug_snapshot;
     use std::sync::Arc;
 
-    type BoxBody = super::BoxBody;
-
-    async fn read_body(response: Response<BoxBody>) -> Response<Full<bytes::Bytes>> {
+    async fn read_body(response: Response<crate::BoxBody>) -> Response<Full<bytes::Bytes>> {
         let (parts, body) = response.into_parts();
         let body = body.collect().await.unwrap().to_bytes();
         Response::from_parts(parts, Full::new(body))
