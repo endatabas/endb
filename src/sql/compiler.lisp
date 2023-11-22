@@ -796,7 +796,7 @@
   (destructuring-bind (constraint-name &key if-exists)
       args
     `(endb/sql/expr:ddl-drop-assertion ,(fset:lookup ctx :db-sym) ,(symbol-name constraint-name) :if-exists ,(when if-exists
-                                                                                                                t))))
+                                                                                                               t))))
 
 (defparameter +create-view-scanner+ (ppcre:create-scanner "(?is).+?\\s+AS\\s+((?:'.*?'|\"(?:[^\"\\\\]|\\\\.)*\"|[^;]*?)*)\\s*(?:;|$)"))
 
@@ -935,13 +935,13 @@
                                               ,object-sym))
                          (let ((,insertp-sym t))
                            ,(when from-src
-                               (%table-scan->cl ctx vars projection from-src where-clauses
-                                                `(if (and ,@(loop for clause in (%and-clauses where)
-                                                                  collect `(eq t ,(ast->cl ctx clause))))
-                                                     (progn
-                                                       (setf ,insertp-sym nil)
-                                                       ,@update-src)
-                                                     (setf ,insertp-sym nil))))
+                              (%table-scan->cl ctx vars projection from-src where-clauses
+                                               `(if (and ,@(loop for clause in (%and-clauses where)
+                                                                 collect `(eq t ,(ast->cl ctx clause))))
+                                                    (progn
+                                                      (setf ,insertp-sym nil)
+                                                      ,@update-src)
+                                                    (setf ,insertp-sym nil))))
                            (when ,insertp-sym
                              (push ,object-sym ,updated-rows-sym)))))
                     (%table-scan->cl ctx vars projection from-src where-clauses `(progn ,@update-src)))

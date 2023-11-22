@@ -27,9 +27,9 @@
                          :if-does-not-exist :create)
       (let* ((table-name (ppcre:regex-replace ".tbl$" (file-namestring file) "")))
         (loop for row-chunk = (loop for idx below *chunk-size*
-                                     for line = (read-line in nil)
-                                     while line
-                                     collect line)
+                                    for line = (read-line in nil)
+                                    while line
+                                    collect line)
               while row-chunk
               do (format out "~%statement ok~%")
                  (format out "INSERT INTO ~a VALUES " table-name)

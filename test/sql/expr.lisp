@@ -146,14 +146,14 @@
 
   (is (equal "1,0" (%aggregate :group_concat '(1 0 :null) :distinct t)))
   (is (equal "1:0" (agg-finish (reduce (lambda (acc x)
-                                             (agg-accumulate acc x ":"))
-                                           '(1 0 :null)
-                                           :initial-value (make-agg :group_concat)))))
+                                         (agg-accumulate acc x ":"))
+                                       '(1 0 :null)
+                                       :initial-value (make-agg :group_concat)))))
   (signals endb/sql/expr:sql-runtime-error
     (agg-finish (reduce (lambda (acc x)
-                              (agg-accumulate acc x ":"))
-                            '(1 0 :null)
-                            :initial-value (make-agg :group_concat :distinct :distinct)))))
+                          (agg-accumulate acc x ":"))
+                        '(1 0 :null)
+                        :initial-value (make-agg :group_concat :distinct :distinct)))))
 
 (test random-uuid
   (let ((uuid (endb/sql/expr::%random-uuid #+sbcl (sb-ext:seed-random-state 0)

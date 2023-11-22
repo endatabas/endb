@@ -2511,10 +2511,10 @@
 
       (if columns
           (let* ((permutation (if (and created-p column-names)
-                                (loop for column in columns
-                                      collect (position column column-names :test 'equal))
-                                (loop for idx below number-of-columns
-                                      collect idx)))
+                                  (loop for column in columns
+                                        collect (position column column-names :test 'equal))
+                                  (loop for idx below number-of-columns
+                                        collect idx)))
                  (tx-id (1+ (or (fset:lookup meta-data "_last_tx") 0)))
                  (batch-file (format nil "~(~16,'0x~).arrow" tx-id))
                  (batch-key (format nil "~A/~A" table-name batch-file))
