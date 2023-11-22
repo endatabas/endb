@@ -1390,12 +1390,13 @@
     (let ((fn-sym (%find-expr-symbol fn "sql-")))
       (unless (and fn-sym (%valid-sql-fn-call-p fn-sym fn args))
         (error 'endb/sql/expr:sql-runtime-error :message (format nil "Unknown built-in function: ~A" fn)))
-      (if (and (not (member fn-sym endb/sql/expr:+impure-functions+))
-               (not (macro-function fn-sym))
-               (every #'constantp args))
-          (apply fn-sym args)
-          `(,fn-sym ,@(loop for ast in args
-                            collect (ast->cl ctx ast)))))))
+      (let ((args (loop for ast in args
+                        collect (ast->cl ctx ast))))
+        (if (and (not (member fn-sym endb/sql/expr:+impure-functions+))
+                 (not (macro-function fn-sym))
+                 (every #'constantp args))
+            (apply fn-sym args)
+            `(,fn-sym ,@args))))))
 
 (defmethod sql->cl (ctx (type (eql :aggregate-function)) &rest args)
   (destructuring-bind (fn args &key distinct (where :true) order-by)

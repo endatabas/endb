@@ -607,7 +607,7 @@
     SELECT org.name, under_alice.level+1
       FROM org JOIN under_alice ON org.boss = under_alice.name
   )
-SELECT substr('..........',1,level*3) || name FROM under_alice ORDER BY under_alice.level")
+SELECT substr('..........',1,level*3) || name FROM under_alice ORDER BY under_alice.level, under_alice.name")
         (is (equal '(("Alice")
                      ("...Bob")
                      ("...Cindy")
@@ -616,7 +616,8 @@ SELECT substr('..........',1,level*3) || name FROM under_alice ORDER BY under_al
                      ("......Fred")
                      ("......Gail"))
                    result))
-        (is (equal '("column1") columns))))
+        (is (equal '("column1") columns)))
+      )
 
     (multiple-value-bind (result columns)
         (execute-sql db
@@ -2097,9 +2098,9 @@ SELECT s FROM x WHERE ind=0")
   (let* ((db (begin-write-tx (make-db)))
          (system-time-as-of-insert (endb/sql/expr:syn-current_timestamp db)))
     (multiple-value-bind (result result-code)
-        (execute-sql db "INSERT INTO products {name: 'Mangoes'}")
+        (execute-sql db "INSERT INTO products {name: 'Mangoes'}, {name: 'Apples'}")
       (is (null result))
-      (is (= 1 result-code)))
+      (is (= 2 result-code)))
     (multiple-value-bind (result result-code)
         (execute-sql db "INSERT INTO sales {name: 'Mangoes'}")
       (is (null result))
