@@ -2110,7 +2110,7 @@ SELECT s FROM x WHERE ind=0")
                                       ("end" endb/sql/expr:+end-of-time+))
                             (fset:map ("start" system-time-as-of-insert)
                                       ("end" endb/sql/expr:+end-of-time+))))
-                (execute-sql db "SELECT s.name, s.system_time, p.system_time FROM sales s JOIN products p ON s.name = p.name")))))
+                (execute-sql db "SELECT s.name, s.system_time, p.system_time FROM sales s JOIN products p ON s.name = p.name WHERE p.name = 'Mangoes'")))))
 
 (test dml
   (let ((endb/sql/expr:*sqlite-mode* t)
