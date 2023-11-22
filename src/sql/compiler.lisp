@@ -193,14 +193,9 @@
 (defun %where-clause-stats-src (clause vars stats-md-sym)
   (trivia:match (where-clause-src clause)
     ((trivia:guard
-      (or (list (or 'endb/sql/expr:sql-=
-                    'endb/sql/expr:sql-is)
-                (and x (type symbol))
-                (and y (not (type symbol))))
-          (list (or 'endb/sql/expr:sql-=
-                    'endb/sql/expr:sql-is)
-                (and y (not (type symbol)))
-                (and x (type symbol))))
+      (list (or 'endb/sql/expr:sql-=
+                'endb/sql/expr:sql-is)
+            x y)
       (and (member x vars) (constantp y)))
      `(endb/json:binary-bloom-member-p
        (fset:lookup
@@ -209,9 +204,32 @@
        ,y))
 
     ((trivia:guard
-      (or (list 'endb/sql/expr:sql-<
-                (and x (type symbol))
-                (and y (not (type symbol)))))
+      (list (or 'endb/sql/expr:sql-=
+                'endb/sql/expr:sql-is)
+            y x)
+      (and (member x vars) (constantp y)))
+     `(endb/json:binary-bloom-member-p
+       (fset:lookup
+        (fset:lookup ,stats-md-sym ,(get x :column))
+        "bloom")
+       ,y))
+
+    ((trivia:guard
+      (list 'endb/sql/expr:sql-between x y z)
+      (and (member x vars) (constantp y) (constantp z)))
+     `(and (eq t (endb/sql/expr:sql->=
+                  (fset:lookup
+                   (fset:lookup ,stats-md-sym ,(get x :column))
+                   "max")
+                  ,y))
+           (eq t (endb/sql/expr:sql-<=
+                  (fset:lookup
+                   (fset:lookup ,stats-md-sym ,(get x :column))
+                   "min")
+                  ,z))))
+
+    ((trivia:guard
+      (list 'endb/sql/expr:sql-< x y)
       (and (member x vars) (constantp y)))
      `(eq t (endb/sql/expr:sql-<
              (fset:lookup
@@ -220,9 +238,7 @@
              ,y)))
 
     ((trivia:guard
-      (or (list 'endb/sql/expr:sql-<=
-                (and x (type symbol))
-                (and y (not (type symbol)))))
+      (list 'endb/sql/expr:sql-<= x y)
       (and (member x vars) (constantp y)))
      `(eq t (endb/sql/expr:sql-<=
              (fset:lookup
@@ -231,9 +247,7 @@
              ,y)))
 
     ((trivia:guard
-      (or (list 'endb/sql/expr:sql-<
-                (and y (not (type symbol)))
-                (and x (type symbol))))
+      (list 'endb/sql/expr:sql-< y x)
       (and (member x vars) (constantp y)))
      `(eq t (endb/sql/expr:sql-<
              ,y
@@ -242,9 +256,7 @@
               "max"))))
 
     ((trivia:guard
-      (or (list 'endb/sql/expr:sql-<=
-                (and y (not (type symbol)))
-                (and x (type symbol))))
+      (list 'endb/sql/expr:sql-<= y x)
       (and (member x vars) (constantp y)))
      `(eq t (endb/sql/expr:sql-<=
              ,y
@@ -253,9 +265,7 @@
               "max"))))
 
     ((trivia:guard
-      (or (list 'endb/sql/expr:sql->
-                (and x (type symbol))
-                (and y (not (type symbol)))))
+      (list 'endb/sql/expr:sql-> x y)
       (and (member x vars) (constantp y)))
      `(eq t (endb/sql/expr:sql->
              (fset:lookup
@@ -264,9 +274,7 @@
              ,y)))
 
     ((trivia:guard
-      (or (list 'endb/sql/expr:sql->=
-                (and x (type symbol))
-                (and y (not (type symbol)))))
+      (list 'endb/sql/expr:sql->= x y)
       (and (member x vars) (constantp y)))
      `(eq t (endb/sql/expr:sql->=
              (fset:lookup
@@ -275,9 +283,7 @@
              ,y)))
 
     ((trivia:guard
-      (or (list 'endb/sql/expr:sql->
-                (and y (not (type symbol)))
-                (and x (type symbol))))
+      (list 'endb/sql/expr:sql-> y x)
       (and (member x vars) (constantp y)))
      `(eq t (endb/sql/expr:sql->
              ,y
@@ -286,9 +292,7 @@
               "min"))))
 
     ((trivia:guard
-      (or (list 'endb/sql/expr:sql->=
-                (and y (not (type symbol)))
-                (and x (type symbol))))
+      (list 'endb/sql/expr:sql->= y x)
       (and (member x vars) (constantp y)))
      `(eq t (endb/sql/expr:sql->=
              ,y
