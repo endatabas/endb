@@ -12,7 +12,7 @@
 
 (cffi:defcfun "endb_parse_sql_cst" :void
   (filename :string)
-  (input :string)
+  (input (:pointer :char))
   (on_open :pointer)
   (on_close :pointer)
   (on_literal :pointer)
@@ -68,7 +68,7 @@
       (error 'endb/lib/parser:sql-parse-error :message "Empty input")
       (let* ((result (list (list)))
              (err)
-             (input-bytes (trivial-utf-8:string-to-utf-8-bytes input))
+             (input-bytes (trivial-utf-8:string-to-utf-8-bytes input :null-terminate t))
              (*parse-sql-cst-on-open* (lambda (label-ptr label-size)
                                         (let* ((address (cffi:pointer-address label-ptr))
                                                (kw (or (gethash address +kw-cache+)
@@ -95,13 +95,15 @@
                                              (push (list token start end) (first result)))))
              (*parse-sql-cst-on-error* (lambda (e)
                                          (setf err e))))
-        (endb-parse-sql-cst filename
-                            input
-                            (cffi:callback parse-sql-cst-on-open)
-                            (cffi:callback parse-sql-cst-on-close)
-                            (cffi:callback parse-sql-cst-on-literal)
-                            (cffi:callback parse-sql-cst-on-pattern)
-                            (cffi:callback parse-sql-cst-on-error))
+        (cffi:with-pointer-to-vector-data (input-ptr #+sbcl (sb-ext:array-storage-vector input-bytes)
+                                                     #-sbcl input-bytes)
+          (endb-parse-sql-cst filename
+                              input-ptr
+                              (cffi:callback parse-sql-cst-on-open)
+                              (cffi:callback parse-sql-cst-on-close)
+                              (cffi:callback parse-sql-cst-on-literal)
+                              (cffi:callback parse-sql-cst-on-pattern)
+                              (cffi:callback parse-sql-cst-on-error)))
         (when err
           (error 'endb/lib/parser:sql-parse-error :message err))
         (caar result))))

@@ -191,7 +191,7 @@
   (idx :size))
 
 (cffi:defcfun "endb_parse_sql" :void
-  (input :string)
+  (input (:pointer :char))
   (on_success :pointer)
   (on_error :pointer))
 
@@ -241,9 +241,8 @@
                                         (#\u (code-char (parse-integer (subseq target-string (+ 2 match-start) (+ 6 match-start)) :radix 16))))))))
         s)))
 
-(defun visit-ast (input builder ast)
-  (loop with input-bytes = (trivial-utf-8:string-to-utf-8-bytes input)
-        with queue = (list ast)
+(defun visit-ast (input input-bytes builder ast)
+  (loop with queue = (list ast)
         with acc = (ast-builder-acc builder)
         while queue
         for ast = (pop queue)
@@ -299,11 +298,14 @@
       (error 'sql-parse-error :message "Empty input")
       (let* ((ast-builder (make-ast-builder))
              (err)
+             (input-bytes (trivial-utf-8:string-to-utf-8-bytes input :null-terminate t))
              (*parse-sql-on-success* (lambda (ast)
-                                       (visit-ast input ast-builder ast)))
+                                       (visit-ast input input-bytes ast-builder ast)))
              (*parse-sql-on-error* (lambda (e)
                                      (setf err e))))
-        (endb-parse-sql input (cffi:callback parse-sql-on-success) (cffi:callback parse-sql-on-error))
+        (cffi:with-pointer-to-vector-data (input-ptr #+sbcl (sb-ext:array-storage-vector input-bytes)
+                                                     #-sbcl input-bytes)
+          (endb-parse-sql input-ptr (cffi:callback parse-sql-on-success) (cffi:callback parse-sql-on-error)))
         (when err
           (error 'sql-parse-error :message err))
         (caar (ast-builder-acc ast-builder)))))
