@@ -1834,7 +1834,12 @@
 
 (defun ra-distinct (rows &optional (distinct :distinct))
   (if (eq :distinct distinct)
-      (delete-duplicates rows :test +hash-table-test+)
+      (let ((seen (make-hash-table :test +hash-table-test+)))
+        (loop for row in rows
+              unless (gethash row seen)
+                collect (progn
+                          (setf (gethash row seen) t)
+                          row)))
       rows))
 
 (defun ra-in (item xs)
@@ -1876,16 +1881,30 @@
   (not (null rows)))
 
 (defun ra-union (lhs rhs)
-  (ra-distinct (nunion lhs rhs :test +hash-table-test+)))
+  (ra-distinct (ra-union-all lhs rhs)))
 
 (defun ra-union-all (lhs rhs)
-  (nconc lhs rhs))
+  (append lhs rhs))
 
 (defun ra-except (lhs rhs)
-  (ra-distinct (nset-difference lhs rhs :test +hash-table-test+)))
+  (let ((seen (make-hash-table :test +hash-table-test+)))
+    (dolist (row rhs)
+      (setf (gethash row seen) t))
+    (loop for row in lhs
+          unless (gethash row seen)
+            collect (progn
+                      (setf (gethash row seen) t)
+                      row))))
 
 (defun ra-intersect (lhs rhs)
-  (ra-distinct (nintersection lhs rhs :test +hash-table-test+)))
+  (let ((seen (make-hash-table :test +hash-table-test+)))
+    (dolist (row lhs)
+      (setf (gethash row seen) t))
+    (loop for row in rhs
+          when (gethash row seen)
+            collect (progn
+                      (remhash row seen)
+                      row))))
 
 (defun ra-scalar-subquery (rows)
   (when (> 1 (length rows))
