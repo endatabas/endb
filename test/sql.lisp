@@ -2094,7 +2094,8 @@ SELECT s FROM x WHERE ind=0")
         (uiop:delete-directory-tree test-dir :validate t)))))
 
 (test join-bug-projecting-system-time
-  (let ((db (begin-write-tx (make-db))))
+  (let* ((db (begin-write-tx (make-db)))
+         (system-time-as-of-insert (endb/sql/expr:syn-current_timestamp db)))
     (multiple-value-bind (result result-code)
         (execute-sql db "INSERT INTO products {name: 'Mangoes'}")
       (is (null result))
@@ -2103,7 +2104,12 @@ SELECT s FROM x WHERE ind=0")
         (execute-sql db "INSERT INTO sales {name: 'Mangoes'}")
       (is (null result))
       (is (= 1 result-code)))
-    (is (equal '(("Mangoes")) (execute-sql db "SELECT s.name FROM sales s JOIN products p ON s.name = p.name")))))
+    (is (equalp (list (list "Mangoes"
+                            (fset:map ("start" system-time-as-of-insert)
+                                      ("end" endb/sql/expr:+end-of-time+))
+                            (fset:map ("start" system-time-as-of-insert)
+                                      ("end" endb/sql/expr:+end-of-time+))))
+                (execute-sql db "SELECT s.name, s.system_time, p.system_time FROM sales s JOIN products p ON s.name = p.name")))))
 
 (test dml
   (let ((endb/sql/expr:*sqlite-mode* t)
