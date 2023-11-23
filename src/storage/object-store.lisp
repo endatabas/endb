@@ -1,6 +1,7 @@
 (defpackage :endb/storage/object-store
   (:use :cl)
-  (:export #:open-tar-object-store #:object-store-get #:object-store-put #:object-store-list #:object-store-close #:make-directory-object-store #:make-memory-object-store)
+  (:export #:object-store-get #:object-store-put #:object-store-list #:object-store-close
+           #:open-tar-object-store #:make-directory-object-store #:make-layered-object-store #:make-memory-object-store)
   (:import-from :alexandria)
   (:import-from :archive)
   (:import-from :flexi-streams)
@@ -89,6 +90,26 @@
                                prefix start-after)))
 
 (defmethod object-store-close ((os directory-object-store)))
+
+(defstruct layered-object-store overlay-object-store underlying-object-store)
+
+(defmethod object-store-get ((os layered-object-store) path)
+  (or (object-store-get (layered-object-store-overlay-object-store os) path)
+      (object-store-get (layered-object-store-underlying-object-store os) path)))
+
+(defmethod object-store-put ((os layered-object-store) path buffer)
+  (object-store-put (layered-object-store-underlying-object-store os) path buffer))
+
+(defmethod object-store-list ((os layered-object-store) &key (prefix "") (start-after ""))
+  (let ((files (remove-duplicates
+                (append (object-store-list (layered-object-store-overlay-object-store os) :prefix prefix :start-after start-after)
+                        (object-store-list (layered-object-store-underlying-object-store os) :prefix prefix :start-after start-after))
+                :test 'equal)))
+    (sort files #'string<)))
+
+(defmethod object-store-close ((os layered-object-store))
+  (object-store-close (layered-object-store-overlay-object-store os))
+  (object-store-close (layered-object-store-underlying-object-store os)))
 
 (defun make-memory-object-store ()
   (make-hash-table :synchronized t :test 'equal))

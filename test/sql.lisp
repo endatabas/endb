@@ -3,6 +3,7 @@
   (:import-from :endb/arrow)
   (:import-from :endb/lib)
   (:import-from :endb/sql/expr)
+  (:import-from :endb/storage)
   (:import-from :endb/storage/object-store)
   (:import-from :alexandria)
   (:import-from :cffi)
@@ -1973,7 +1974,7 @@ SELECT s FROM x WHERE ind=0")
          (target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-dir (merge-pathnames "endb_data_wal_only/" target-dir)))
     (unwind-protect
-         (let ((db (make-directory-db :directory test-dir :object-store-path nil)))
+         (let ((db (make-directory-db :directory test-dir :wal-only-p t)))
            (unwind-protect
                 (let ((write-db (begin-write-tx db)))
 
@@ -1987,7 +1988,7 @@ SELECT s FROM x WHERE ind=0")
                   (setf db (commit-write-tx db write-db)))
              (close-db db))
 
-           (let ((db (make-directory-db :directory test-dir :object-store-path nil)))
+           (let ((db (make-directory-db :directory test-dir :wal-only-p t)))
              (unwind-protect
                   (progn
                     (is (equal '((103)) (execute-sql db "SELECT * FROM t1")))
@@ -2011,7 +2012,7 @@ SELECT s FROM x WHERE ind=0")
                       (setf db (commit-write-tx db write-db))))
                (close-db db)))
 
-           (let ((db (make-directory-db :directory test-dir :object-store-path nil)))
+           (let ((db (make-directory-db :directory test-dir :wal-only-p t)))
              (unwind-protect
                   (is (equal '((104)) (execute-sql db "SELECT * FROM t1 ORDER BY a")))
                (close-db db))))
@@ -2023,7 +2024,7 @@ SELECT s FROM x WHERE ind=0")
          (target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-dir (merge-pathnames "endb_data_corrupt_archive_bug/" target-dir)))
     (unwind-protect
-         (let ((db (make-directory-db :directory test-dir :object-store-path nil)))
+         (let ((db (make-directory-db :directory test-dir :wal-only-p t)))
            (unwind-protect
                 (progn
                   (let ((write-db (begin-write-tx db)))
@@ -2063,7 +2064,7 @@ SELECT s FROM x WHERE ind=0")
                                "information_schema.tables/0000000000000001.arrow"
                                "t1/0000000000000001.arrow"
                                "t1/0000000000000002.arrow")
-                             (endb/storage/object-store:object-store-list (endb/sql/expr:db-object-store db)))))
+                             (endb/storage/object-store:object-store-list (endb/storage:store-get-object-store (endb/sql/expr:db-store db))))))
              (close-db db)))
       (when (probe-file test-dir)
         (uiop:delete-directory-tree test-dir :validate t)))))
@@ -2073,7 +2074,7 @@ SELECT s FROM x WHERE ind=0")
          (target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-dir (merge-pathnames "endb_data_tx_log_version/" target-dir)))
     (unwind-protect
-         (let ((db (make-directory-db :directory test-dir :object-store-path nil)))
+         (let ((db (make-directory-db :directory test-dir :wal-only-p t)))
            (unwind-protect
                 (let ((write-db (begin-write-tx db)))
 
@@ -2087,10 +2088,10 @@ SELECT s FROM x WHERE ind=0")
                   (setf db (commit-write-tx db write-db)))
              (close-db db))
 
-           (let ((endb/sql::*tx-log-version* (1+ endb/sql::*tx-log-version*)))
+           (let ((endb/storage:*tx-log-version* (1+ endb/storage:*tx-log-version*)))
              (signals-with-msg simple-error
                  "Transaction log version mismatch: 2 does not match stored: 1"
-               (make-directory-db :directory test-dir :object-store-path nil))))
+               (make-directory-db :directory test-dir :wal-only-p t))))
       (when (probe-file test-dir)
         (uiop:delete-directory-tree test-dir :validate t)))))
 

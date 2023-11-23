@@ -38,7 +38,7 @@
            #:ddl-create-table #:ddl-drop-table #:ddl-create-view #:ddl-drop-view #:ddl-create-index #:ddl-drop-index #:ddl-create-assertion #:ddl-drop-assertion
            #:dml-insert #:dml-insert-objects #:dml-delete #:dml-erase
 
-           #:make-db #:copy-db #:db-buffer-pool #:db-wal #:db-object-store #:db-meta-data #:db-current-timestamp #:db-write-lock
+           #:make-db #:copy-db #:db-buffer-pool #:db-store #:db-meta-data #:db-current-timestamp #:db-write-lock
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
            #:view-definition #:calculate-stats
@@ -2192,8 +2192,7 @@
 (defvar *default-schema* "main")
 
 (defstruct db
-  wal
-  object-store
+  store
   buffer-pool
   (meta-data (fset:map ("_last_tx" 0)))
   current-timestamp
