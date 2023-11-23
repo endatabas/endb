@@ -15,6 +15,31 @@
 (defun %log-filename (tx-id)
   (format nil "_log/~(~16,'0x~).json" tx-id))
 
+(defun %replay-wal (wal-in md)
+  (if (plusp (file-length wal-in))
+      (loop with read-wal = (endb/storage/wal:open-tar-wal :stream wal-in :direction :input)
+            for (buffer . name) = (multiple-value-bind (buffer name)
+                                      (endb/storage/wal:wal-read-next-entry read-wal :skip-if (lambda (x)
+                                                                                                (not (alexandria:starts-with-subseq "_log/" x))))
+                                    (cons buffer name))
+            when buffer
+              do (let* ((tx-md (endb/json:json-parse buffer))
+                        (tx-tx-log-version (fset:lookup tx-md "_tx_log_version")))
+                   (assert (equal *tx-log-version* tx-tx-log-version)
+                           nil
+                           (format nil "Transaction log version mismatch: ~A does not match stored: ~A" *tx-log-version* tx-tx-log-version))
+                   (setf md (endb/json:json-merge-patch md tx-md)))
+            while name
+            finally (return md))
+      md))
+
+(defun %write-arrow-buffers (arrow-arrays-map write-buffer-fn)
+  (loop for k being the hash-key
+          using (hash-value v)
+            of arrow-arrays-map
+        for buffer = (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer v)
+        do (funcall write-buffer-fn k buffer)))
+
 (defgeneric store-replay (store))
 (defgeneric store-write-tx (store tx-id md-diff arrow-arrays-map &key fsyncp))
 (defgeneric store-get-object-store (store))
@@ -42,36 +67,17 @@
 (defmethod store-replay ((store disk-store))
   (with-slots (directory) store
     (let ((wal-file (merge-pathnames "wal.log" (uiop:ensure-directory-pathname directory))))
-      (with-open-file (read-in wal-file :direction :io
-                                         :element-type '(unsigned-byte 8)
-                                         :if-exists :overwrite
-                                         :if-does-not-exist :create)
-        (if (plusp (file-length read-in))
-            (loop with read-wal = (endb/storage/wal:open-tar-wal :stream read-in :direction :input)
-                  with md = (fset:empty-map)
-                  for (buffer . name) = (multiple-value-bind (buffer name)
-                                            (endb/storage/wal:wal-read-next-entry read-wal :skip-if (lambda (x)
-                                                                                                      (not (alexandria:starts-with-subseq "_log/" x))))
-                                          (cons buffer name))
-                  when buffer
-                    do (let* ((tx-md (endb/json:json-parse buffer))
-                              (tx-tx-log-version (fset:lookup tx-md "_tx_log_version")))
-                         (assert (equal *tx-log-version* tx-tx-log-version)
-                                 nil
-                                 (format nil "Transaction log version mismatch: ~A does not match stored: ~A" *tx-log-version* tx-tx-log-version))
-                         (setf md (endb/json:json-merge-patch md tx-md)))
-                  while name
-                  finally (return md))
-            (fset:empty-map))))))
+      (with-open-file (wal-in wal-file :direction :io
+                                       :element-type '(unsigned-byte 8)
+                                       :if-exists :overwrite
+                                       :if-does-not-exist :create)
+        (%replay-wal wal-in (fset:empty-map))))))
 
 (defmethod store-write-tx ((store disk-store) tx-id md-diff arrow-arrays-map &key (fsyncp t))
   (with-slots (wal) store
     (let ((md-diff-bytes (trivial-utf-8:string-to-utf-8-bytes (endb/json:json-stringify md-diff))))
-      (loop for k being the hash-key
-              using (hash-value v)
-                of arrow-arrays-map
-            for buffer = (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer v)
-            do (endb/storage/wal:wal-append-entry wal k buffer))
+      (%write-arrow-buffers arrow-arrays-map (lambda (k buffer)
+                                               (endb/storage/wal:wal-append-entry wal k buffer)))
       (endb/storage/wal:wal-append-entry wal (%log-filename tx-id) md-diff-bytes)
       (when fsyncp
         (endb/storage/wal:wal-fsync wal)))))
@@ -91,13 +97,9 @@
 
 (defmethod store-write-tx ((store in-memory-store) tx-id md-diff arrow-arrays-map &key fsyncp)
   (declare (ignore fsyncp))
-  (with-slots (object-store wal) store
-    (let ((md-diff-bytes (trivial-utf-8:string-to-utf-8-bytes (endb/json:json-stringify md-diff))))
-      (loop for k being the hash-key
-              using (hash-value v)
-                of arrow-arrays-map
-            for buffer = (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer v)
-            do (endb/storage/object-store:object-store-put object-store k buffer)))))
+  (with-slots (object-store) store
+    (%write-arrow-buffers arrow-arrays-map (lambda (k buffer)
+                                             (endb/storage/object-store:object-store-put object-store k buffer)))))
 
 (defmethod store-get-object-store ((store in-memory-store))
   (slot-value store 'object-store))
@@ -111,7 +113,7 @@
 ;;   * the <tx_id> in wal and snapshot file names is the first tx id, not the last one actually stored inside the file.
 ;;   * wals are around 64Mb-256Mb in size, snapshots are an optimisation and aren't necessary to take for every wal uploaded.
 ;;   * start a new local active wal, this happens within the current tx.
-;;   * store/upload the previous active wal into the object store as backup as _wal/<tx_id>_wal.json - this is the remote commit point and happens within th current tx.
+;;   * store/upload the previous active wal into the object store as backup as _wal/<tx_id>_wal.tar - this is the remote commit point and happens within th current tx.
 ;;   * (async) the above step could also be done async to avoid blocking, at the cost of more complex startup.
 ;;   * (async) write the md for the start tx id matching the remote commit point as _snapshot/<tx_id>_snapshot.json into object store.
 ;;   * (async) update _snapshot/_latest_snapshot.json in object store to point to the above.
@@ -121,7 +123,7 @@
 ;; * init state at startup.
 ;;   * check _wal/_latest_unpacked_wal.json in the object store for wals that needs to be downloaded and used as object store overlays.
 ;;   * read _latest_snapshot.json in object store and resolve and download the <tx_id>_snapshot.json it points to.
-;;   * list to find any archived wals _wal/<tx_id>_wal.json greater or equal to the earliest of these, and download them.
+;;   * list to find any archived wals _wal/<tx_id>_wal.tar greater or equal to the earliest of these, and download them.
 ;;   * also re-download locally present wals, to avoid any node issues.
 ;;   * local wals less than equal to the minimum of the latest unpacked wal or latest snapshot wal are deleted locally.
 ;;   * wals later than the snapshot (already downloaded as per above) are replayed on top of the snapshot, together with any later potential local-only wals.
@@ -134,5 +136,5 @@
 ;; * basic compaction of Arrow files.
 ;;   * (async) a tx is needed to update the md to point to the new files and remove the old ones.
 ;;   * (async) this is a special tx that can would need to consolidate later deletes and erasures into the compacted file's meta data.
-;;   * (async) superseded files could be deleted from the object store after the above commit.
+;;   * (async) superseded files could be deleted from the object store after the above commit, may need gc list in md, or simply stop a node trying to access old missing files.
 ;;   * it is possible to compact sync within the current wal during the original remote commit, but this would block the tx processing.
