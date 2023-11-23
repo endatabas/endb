@@ -22,7 +22,7 @@
 
 (defclass disk-store () ((directory :initarg :directory) wal object-store))
 
-(defmethod initialize-instance :after ((store disk-store) &key wal-only-p &allow-other-keys)
+(defmethod initialize-instance :after ((store disk-store) &key wal-only-p)
   (with-slots (directory) store
     (let ((wal-file (merge-pathnames "wal.log" (uiop:ensure-directory-pathname directory)))
           (object-store-path (merge-pathnames "object_store" (uiop:ensure-directory-pathname directory))))
