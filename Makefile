@@ -153,10 +153,12 @@ target/tpch_$(TPCH_SF).test: $(TPCH_SCHEMA_FILE) $(TPCH_TABLE_FILES) $(TPCH_QUER
 	cat $(TPCH_TABLE_FILES) | gunzip >> $@
 	cat $(TPCH_QUERIES_FILE) >> $@
 
+target/tpch_$(TPCH_SF)_sqlite.test: target/slt target/tpch_$(TPCH_SF).test
+	SLT_TIMING=0 ./target/slt -e $(TPCH_REFERENCE_ENGINE) target/tpch_$(TPCH_SF).test > $@
+
 slt-test-tpch: SLT_TESTS = target/tpch_$(TPCH_SF).test
 slt-test-tpch: SLT_ENV += ENDB_ENGINE_REPORTED_NAME=endb
-slt-test-tpch: target/slt target/tpch_$(TPCH_SF).test
-	SLT_TIMING=0 ./target/slt -e $(TPCH_REFERENCE_ENGINE) target/tpch_$(TPCH_SF).test > target/tpch_$(TPCH_SF)_sqlite.test
+slt-test-tpch: target/slt target/tpch_$(TPCH_SF)_sqlite.test
 	$(SLT_ENV) ./target/slt -e $(SLT_ENGINE) $(SLT_ARGS) target/tpch_$(TPCH_SF)_sqlite.test
 
 slt-test-ci: SLT_ENV += SLT_TIMING=1
