@@ -56,7 +56,11 @@
              (os (if wal-only-p
                      wal-os
                      (endb/storage/object-store:make-layered-object-store
-                      :overlay-object-store wal-os
+                      :overlay-object-store (endb/storage/object-store:make-layered-object-store
+                                             :overlay-object-store (endb/storage/object-store:extract-tar-object-store
+                                                                    wal-os
+                                                                    (endb/storage/object-store:make-memory-object-store))
+                                             :underlying-object-store wal-os)
                       :underlying-object-store (endb/storage/object-store:make-directory-object-store :path object-store-path))))
              (write-io (open wal-file :direction :io :element-type '(unsigned-byte 8) :if-exists :overwrite :if-does-not-exist :create))
              (wal (endb/storage/wal:open-tar-wal :stream write-io)))

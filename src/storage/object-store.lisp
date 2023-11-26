@@ -1,7 +1,7 @@
 (defpackage :endb/storage/object-store
   (:use :cl)
   (:export #:object-store-get #:object-store-put #:object-store-list #:object-store-close
-           #:open-tar-object-store #:make-directory-object-store #:make-layered-object-store #:make-memory-object-store)
+           #:open-tar-object-store #:extract-tar-object-store #:make-directory-object-store #:make-layered-object-store #:make-memory-object-store)
   (:import-from :alexandria)
   (:import-from :archive)
   (:import-from :flexi-streams)
@@ -21,6 +21,21 @@
     (when (typep stream 'flex:vector-stream)
       (setf (slot-value archive 'archive::skippable-p) t))
     archive))
+
+(defun extract-tar-object-store (archive target-os)
+  (bt:with-lock-held (*tar-object-store-lock*)
+    (let* ((stream (archive::archive-stream archive))
+           (pos (file-position stream)))
+      (file-position stream 0)
+      (unwind-protect
+           (loop for entry = (%wal-read-entry-safe archive)
+                 while entry
+                 do (endb/storage/object-store:object-store-put
+                     target-os
+                     (archive:name entry)
+                     (%extract-entry archive entry))
+                 finally (return target-os))
+        (file-position stream pos)))))
 
 (defun %extract-entry (archive entry)
   (flex:with-output-to-sequence (out)
