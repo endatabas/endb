@@ -3054,4 +3054,9 @@ SELECT s FROM x WHERE ind=0")
   (is-valid (expr "0xcaFE"))
 
   (is-valid (expr "'fo''o'"))
-  (is-valid (expr "\"fo''o\"")))
+  (is-valid (expr "\"fo''o\""))
+
+  (is-valid (expr "MIN(1, 2)"))
+  (is-valid (expr "MAX(1, 2)"))
+  (is-valid (expr "MIN(1, NULL)"))
+  (is-valid (expr "MAX(-1, 1, NULL)")))

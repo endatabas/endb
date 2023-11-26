@@ -1423,10 +1423,22 @@
   "object")
 
 (defun sql-min (x y &rest args)
-  (agg-finish (reduce #'agg-accumulate (cons x (cons y args)) :initial-value (make-agg :min))))
+  (reduce (lambda (x y)
+            (if (or (eq :null x) (eq :null y))
+                :null
+                (if (sql-< x y)
+                    x
+                    y)))
+          (cons x (cons y args))))
 
 (defun sql-max (x y &rest args)
-  (agg-finish (reduce #'agg-accumulate (cons x (cons y args)) :initial-value (make-agg :max))))
+  (reduce (lambda (x y)
+            (if (or (eq :null x) (eq :null y))
+                :null
+                (if (sql-< x y)
+                    y
+                    x)))
+          (cons x (cons y args))))
 
 ;; Period predicates
 
