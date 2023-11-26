@@ -148,8 +148,10 @@
      (zCon :string)
      (ppConn (:pointer :pointer))
      (zOpt :string))
-  (declare (ignorable NotUsed zCon ppConn zOpt))
-  (let* ((endb (endb/sql:make-db)))
+  (declare (ignorable NotUsed ppConn zOpt))
+  (let* ((endb (if zCon
+                   (endb/sql:make-directory-db :directory zCon)
+                   (endb/sql:make-db))))
     (setf (cffi:mem-ref ppConn :pointer) (cffi:null-pointer))
     (setf (gethash (cffi:pointer-address (cffi:null-pointer)) *connections*) endb)
     0))
@@ -322,7 +324,7 @@
          (uiop:quit
           (let ((exit-code 0)
                 (args (cons (uiop:argv0) (uiop:command-line-arguments))))
-            #+sbcl (if (uiop:getenv "SB_SPROF")
+            #+sbcl (if (equal "1" (uiop:getenv "SB_SPROF"))
                        (progn (sb-sprof:with-profiling (:max-samples 10000
                                                         :report :graph
                                                         :sample-interval 0.001
