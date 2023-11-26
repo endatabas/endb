@@ -199,13 +199,15 @@
       (endb/lib/arrow:buffer-to-vector ptr (length binary) (cl-bloom::filter-array bloom)))
     bloom))
 
+(defparameter +bloom-opt-degree+ (cl-bloom::opt-degree))
+
 (defun binary-bloom-member-p (binary element)
   (when binary
     (let* ((order (* 8 (length binary)))
            (hash1 (murmurhash:murmurhash element :seed murmurhash:*default-seed*))
            (hash2 (murmurhash:murmurhash element :seed hash1)))
-      (loop for i to (1- (cl-bloom::opt-degree))
+      (loop for i to (1- +bloom-opt-degree+)
             for index = (cl-bloom::fake-hash hash1 hash2 i order)
-            always (multiple-value-bind (byte-index bit-index)
-                       (truncate index 8)
-                     (logbitp bit-index (aref binary byte-index)))))))
+            for byte-index = (ash index -3)
+            for bit-index = (logand index (1- 8))
+            always (logbitp bit-index (aref binary byte-index))))))

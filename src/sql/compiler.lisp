@@ -215,6 +215,17 @@
        ,y))
 
     ((trivia:guard
+      (list 'endb/sql/expr:ra-in x y)
+      (and (member x vars) (listp y) (every #'constantp y)))
+     (alexandria:with-gensyms (bloom-sym)
+       `(let ((,bloom-sym (fset:lookup
+                           (fset:lookup ,stats-md-sym ,(get x :column))
+                           "bloom")))
+          (some (lambda (,y)
+                  (endb/json:binary-bloom-member-p ,bloom-sym ,y))
+                ,y))))
+
+    ((trivia:guard
       (list 'endb/sql/expr:sql-between x y z)
       (and (member x vars) (constantp y) (constantp z)))
      `(and (eq t (endb/sql/expr:sql->=
@@ -565,24 +576,6 @@
                 ,(%selection-with-limit-offset->cl ctx selected-src limit offset)))
             ,group-by-src))))))
 
-(defun %where-clause-selectivity-factor (clause)
-  (let ((ast (where-clause-ast clause)))
-    (case (when (listp ast)
-            (first ast))
-      (:= 10)
-      (:in 5)
-      (:exists 5)
-      ((:between :like) 4)
-      ((:< :<= :> :>=) 3)
-      (:in-query 2)
-      (:not (case (when (listp (second ast))
-                    (first (second ast)))
-              (:in 5)
-              (:exists 5)
-              (:in-query 2)
-              (t 1)))
-      (t 1))))
-
 (defun %env-extension (table-alias projection &optional functions)
   (reduce
    (lambda (acc column)
@@ -699,12 +692,7 @@
                                                                (make-where-clause :src src
                                                                                   :free-vars free-vars
                                                                                   :ast clause))))
-                                (from-tables (sort from-tables-acc #'< :key
-                                                   (lambda (x)
-                                                     (/ (from-table-size x)
-                                                        (1+ (loop for clause in where-clauses
-                                                                  when (subsetp (where-clause-free-vars clause) (from-table-vars x))
-                                                                    sum (%where-clause-selectivity-factor clause)))))))
+                                (from-tables (sort from-tables-acc #'> :key #'from-table-size))
                                 (having-src (ast->cl selected-ctx having))
                                 (limit (unless order-by
                                          limit))

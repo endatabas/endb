@@ -1562,7 +1562,7 @@
   (princ-to-string x))
 
 (defmethod syn-cast ((x integer) (type (eql :varchar)))
-  (princ-to-string x))
+  (prin1-to-string x))
 
 (defmethod syn-cast ((x fset:seq) (type (eql :varchar)))
   (with-output-to-string (out)
@@ -2236,8 +2236,9 @@
                     for batch-row in (base-table-arrow-batches db table-name arrow-file)
                     for batch = (endb/arrow:arrow-struct-column-array batch-row (intern table-name :keyword))
                     for batch-idx from 0
-                    for batch-deleted = (or (fset:lookup deleted-md (prin1-to-string batch-idx)) (fset:empty-seq))
-                    for batch-erased = (or (fset:lookup erased-md (prin1-to-string batch-idx)) (fset:empty-seq))
+                    for batch-idx-string = (prin1-to-string batch-idx)
+                    for batch-deleted = (or (fset:lookup deleted-md batch-idx-string) (fset:empty-seq))
+                    for batch-erased = (or (fset:lookup erased-md batch-idx-string) (fset:empty-seq))
                     do (setf acc (append acc (loop for row-id below (endb/arrow:arrow-length batch)
                                                    unless (or (fset:find row-id batch-deleted
                                                                          :key (lambda (x)

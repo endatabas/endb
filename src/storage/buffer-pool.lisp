@@ -9,15 +9,28 @@
 (defgeneric buffer-pool-put (bp path arrays))
 (defgeneric buffer-pool-close (bp))
 
-(defstruct buffer-pool object-store (pool (make-hash-table :weakness :value :synchronized t :test 'equal)))
+(defstruct buffer-pool object-store (pool (make-hash-table :weakness #+sbcl nil #-sbcl :value :synchronized t :test 'equal)) (max-size 4096))
+
+(defun %evict-buffer-pool (bp)
+  #+sbcl (with-slots (pool max-size evict-lock) bp
+           (sb-ext:with-locked-hash-table #+sbcl (pool)
+             (maphash (lambda (k v)
+                        (declare (ignore v))
+                        (when (<= (hash-table-count pool) max-size)
+                          (return-from %evict-buffer-pool))
+                        (remhash k pool))
+                      pool))))
 
 (defmethod buffer-pool-get ((bp buffer-pool) path)
-  (with-slots (object-store pool) bp
+  (with-slots (object-store pool max-size) bp
     (or (gethash path pool)
-        (setf (gethash path pool)
-              (let ((buffer (endb/storage/object-store:object-store-get object-store path)))
-                (when buffer
-                  (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer buffer)))))))
+        (progn
+          (when (> (hash-table-count pool) max-size)
+            (%evict-buffer-pool bp))
+          (setf (gethash path pool)
+                (let ((buffer (endb/storage/object-store:object-store-get object-store path)))
+                  (when buffer
+                    (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer buffer))))))))
 
 (defmethod buffer-pool-put ((bp buffer-pool) path arrays)
   (error "DML not allowed in read only transaction"))
