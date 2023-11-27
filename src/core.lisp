@@ -12,7 +12,7 @@
 (in-package :endb/core)
 
 (defun %endb-init (config)
-  (setf endb/lib/server:*db* (endb/sql:make-directory-db :directory (fset:lookup config "data_directory") :wal-only-p t)))
+  (setf endb/lib/server:*db* (endb/sql:make-directory-db :directory (fset:lookup config "data_directory"))))
 
 (defun %endb-close-db ()
   (when (boundp 'endb/lib/server:*db*)
