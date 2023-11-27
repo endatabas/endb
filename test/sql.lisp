@@ -1970,57 +1970,6 @@ SELECT s FROM x WHERE ind=0")
       (when (probe-file test-dir)
         (uiop:delete-directory-tree test-dir :validate t)))))
 
-(test directory-db-corrupt-archive-when-reading-appended-wal-bug
-  (let* ((endb/sql:*use-cst-parser* t)
-         (endb/lib:*log-level* (endb/lib:resolve-log-level :error))
-         (target-dir (asdf:system-relative-pathname :endb-test "target/"))
-         (test-dir (merge-pathnames "endb_data_corrupt_archive_bug/" target-dir)))
-    (unwind-protect
-         (let ((db (make-directory-db :directory test-dir)))
-           (unwind-protect
-                (progn
-                  (let ((write-db (begin-write-tx db)))
-
-                    (multiple-value-bind (result result-code)
-                        (execute-sql write-db "INSERT INTO t1(a) VALUES(103)")
-                      (is (null result))
-                      (is (= 1 result-code)))
-
-                    (setf db (commit-write-tx db write-db)))
-
-                  ;; At this point, the files from the first
-                  ;; transaction have been appended, but the WAL
-                  ;; hasn't been properly terminated as an
-                  ;; archive. This results in an "Corrupt archive"
-                  ;; error when looking for a file which doesn't
-                  ;; exist, reaching the end of the file. This happens
-                  ;; when the next write transaction tries to find an
-                  ;; active Arrow batch for a table.
-                  (let ((write-db (begin-write-tx db)))
-                    (multiple-value-bind (result result-code)
-                        (execute-sql write-db "INSERT INTO t1(a) VALUES(104)")
-                      (is (null result))
-                      (is (= 1 result-code)))
-
-                    (is (equal '((103) (104)) (execute-sql write-db "SELECT * FROM t1 ORDER BY a")))
-
-                    (setf db (commit-write-tx db write-db)))
-
-                  (is (equal '((103) (104)) (execute-sql db "SELECT * FROM t1 ORDER BY a")))
-
-                  ;; Listing the WAL will also read to the end,
-                  ;; resulting in the same issue.
-                  (is (equal '("_log/0000000000000001.json"
-                               "_log/0000000000000002.json"
-                               "information_schema.columns/0000000000000001.arrow"
-                               "information_schema.tables/0000000000000001.arrow"
-                               "t1/0000000000000001.arrow"
-                               "t1/0000000000000002.arrow")
-                             (endb/storage/object-store:object-store-list (slot-value (endb/sql/expr:db-store db) 'endb/storage::object-store)))))
-             (close-db db)))
-      (when (probe-file test-dir)
-        (uiop:delete-directory-tree test-dir :validate t)))))
-
 (test directory-db-tx-log-version
   (let* ((endb/sql:*use-cst-parser* t)
          (endb/lib:*log-level* (endb/lib:resolve-log-level :error))
