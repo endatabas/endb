@@ -67,5 +67,6 @@
       (t (file-length stream)))))
 
 (defmethod wal-close ((archive archive:tar-archive))
-  (archive:finalize-archive archive)
+  (when (output-stream-p (archive::archive-stream archive))
+    (archive:finalize-archive archive))
   (archive:close-archive archive))

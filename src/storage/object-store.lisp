@@ -1,7 +1,8 @@
 (defpackage :endb/storage/object-store
   (:use :cl)
   (:export #:object-store-get #:object-store-put #:object-store-list #:object-store-close
-           #:open-tar-object-store #:extract-tar-object-store #:make-directory-object-store #:make-layered-object-store #:make-memory-object-store)
+           #:open-tar-object-store #:extract-tar-object-store
+           #:make-directory-object-store #:make-layered-object-store #:make-indirect-object-store #:make-memory-object-store)
   (:import-from :alexandria)
   (:import-from :archive)
   (:import-from :flexi-streams)
@@ -22,7 +23,7 @@
       (setf (slot-value archive 'archive::skippable-p) t))
     archive))
 
-(defun extract-tar-object-store (archive target-os)
+(defun extract-tar-object-store (archive target-os &optional predicate)
   (bt:with-lock-held (*tar-object-store-lock*)
     (let* ((stream (archive::archive-stream archive))
            (pos (file-position stream)))
@@ -30,10 +31,13 @@
       (unwind-protect
            (loop for entry = (%wal-read-entry-safe archive)
                  while entry
-                 do (endb/storage/object-store:object-store-put
-                     target-os
-                     (archive:name entry)
-                     (%extract-entry archive entry))
+                 if (or (null predicate) (funcall predicate (archive:name entry)))
+                   do (endb/storage/object-store:object-store-put
+                       target-os
+                       (archive:name entry)
+                       (%extract-entry archive entry))
+                 else
+                   do (archive:discard-entry archive entry)
                  finally (return target-os))
         (file-position stream pos)))))
 
@@ -95,14 +99,15 @@
 (defmethod object-store-put ((os directory-object-store) path buffer)
   (let ((path (merge-pathnames path (uiop:ensure-directory-pathname (directory-object-store-path os)))))
     (ensure-directories-exist path)
-    (alexandria:write-byte-vector-into-file buffer path)))
+    (alexandria:write-byte-vector-into-file buffer path :if-exists :overwrite :if-does-not-exist :create)))
 
 (defmethod object-store-list ((os directory-object-store) &key (prefix "") (start-after ""))
   (let* ((path (uiop:ensure-directory-pathname (directory-object-store-path os))))
-    (%object-store-list-filter (loop for p in (directory (merge-pathnames "**/*.*" path))
-                                     unless (uiop:directory-pathname-p p)
-                                       collect (namestring (uiop:enough-pathname p path)))
-                               prefix start-after)))
+    (when (uiop:directory-exists-p path)
+      (%object-store-list-filter (loop for p in (directory (merge-pathnames "**/*.*" path))
+                                       unless (uiop:directory-pathname-p p)
+                                         collect (namestring (uiop:enough-pathname p (truename path))))
+                                 prefix start-after))))
 
 (defmethod object-store-close ((os directory-object-store)))
 
@@ -125,6 +130,19 @@
 (defmethod object-store-close ((os layered-object-store))
   (object-store-close (layered-object-store-overlay-object-store os))
   (object-store-close (layered-object-store-underlying-object-store os)))
+
+(defstruct indirect-object-store store-fn)
+
+(defmethod object-store-get ((os indirect-object-store) path)
+  (object-store-get (funcall (slot-value os 'store-fn)) path))
+
+(defmethod object-store-put ((os indirect-object-store) path buffer)
+  (object-store-put (funcall (slot-value os 'store-fn)) path buffer))
+
+(defmethod object-store-list ((os indirect-object-store) &key (prefix "") (start-after ""))
+  (object-store-list (funcall (slot-value os 'store-fn)) :prefix prefix :start-after start-after))
+
+(defmethod object-store-close ((os indirect-object-store)))
 
 (defun make-memory-object-store ()
   (make-hash-table :synchronized t :test 'equal))

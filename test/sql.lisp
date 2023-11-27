@@ -1921,6 +1921,7 @@ SELECT s FROM x WHERE ind=0")
 
 (test directory-db
   (let* ((endb/sql:*use-cst-parser* t)
+         (endb/lib:*log-level* (endb/lib:resolve-log-level :error))
          (target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-dir (merge-pathnames "endb_data_directory/" target-dir)))
     (unwind-protect
@@ -1971,6 +1972,7 @@ SELECT s FROM x WHERE ind=0")
 
 (test wal-only-directory-db
   (let* ((endb/sql:*use-cst-parser* t)
+         (endb/lib:*log-level* (endb/lib:resolve-log-level :error))
          (target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-dir (merge-pathnames "endb_data_wal_only/" target-dir)))
     (unwind-protect
@@ -2021,6 +2023,7 @@ SELECT s FROM x WHERE ind=0")
 
 (test wal-only-directory-db-corrupt-archive-when-reading-appended-wal-bug
   (let* ((endb/sql:*use-cst-parser* t)
+         (endb/lib:*log-level* (endb/lib:resolve-log-level :error))
          (target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-dir (merge-pathnames "endb_data_corrupt_archive_bug/" target-dir)))
     (unwind-protect
@@ -2071,6 +2074,7 @@ SELECT s FROM x WHERE ind=0")
 
 (test wal-only-directory-db-tx-log-version
   (let* ((endb/sql:*use-cst-parser* t)
+         (endb/lib:*log-level* (endb/lib:resolve-log-level :error))
          (target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-dir (merge-pathnames "endb_data_tx_log_version/" target-dir)))
     (unwind-protect
@@ -2090,7 +2094,7 @@ SELECT s FROM x WHERE ind=0")
 
            (let ((endb/storage:*tx-log-version* (1+ endb/storage:*tx-log-version*)))
              (signals-with-msg simple-error
-                 "Transaction log version mismatch: 2 does not match stored: 1"
+                 "Transaction log version mismatch: 3 does not match stored: 2"
                (make-directory-db :directory test-dir :wal-only-p t))))
       (when (probe-file test-dir)
         (uiop:delete-directory-tree test-dir :validate t)))))

@@ -24,12 +24,14 @@
 (defvar *use-cst-parser-only* nil)
 
 (defun make-db (&key (store (make-instance 'endb/storage:in-memory-store)))
+  (endb/lib:init-lib)
   (let* ((object-store (endb/storage:store-get-object-store store))
          (buffer-pool (endb/storage/buffer-pool:make-buffer-pool :object-store object-store))
          (meta-data (endb/storage:store-replay store)))
     (endb/sql/expr:make-db :store store :buffer-pool buffer-pool :meta-data meta-data)))
 
 (defun make-directory-db (&key (directory "endb_data") wal-only-p)
+  (endb/lib:init-lib)
   (let* ((store (make-instance 'endb/storage:disk-store :directory directory :wal-only-p wal-only-p)))
     (make-db :store store)))
 
@@ -66,10 +68,10 @@
                  (md-diff (fset:with md-diff "_tx_log_version" endb/storage:*tx-log-version*))
                  (store (endb/sql/expr:db-store write-db))
                  (bp (endb/sql/expr:db-buffer-pool write-db))
-                 (arrow-arrays-map (endb/storage/buffer-pool:writeable-buffer-pool-pool bp)))
-            (endb/storage:store-write-tx store tx-id md-diff arrow-arrays-map :fsyncp fsyncp)
-            (let ((new-db (endb/sql/expr:copy-db current-db))
-                  (new-md (endb/json:json-merge-patch current-md md-diff)))
+                 (arrow-arrays-map (endb/storage/buffer-pool:writeable-buffer-pool-pool bp))
+                 (new-md (endb/json:json-merge-patch current-md md-diff)))
+            (endb/storage:store-write-tx store tx-id new-md md-diff arrow-arrays-map :fsyncp fsyncp)
+            (let ((new-db (endb/sql/expr:copy-db current-db)))
               (setf (endb/sql/expr:db-meta-data new-db) new-md)
               new-db))))))
 
