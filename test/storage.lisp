@@ -20,7 +20,10 @@
     (wal-append-entry wal "foo.txt" (trivial-utf-8:string-to-utf-8-bytes "foo"))
     (wal-append-entry wal "bar.txt" (trivial-utf-8:string-to-utf-8-bytes "bar"))
     (wal-fsync wal)
+
+    (is (= 2048 (wal-size wal)))
     (wal-close wal)
+    (is (= 10240 (wal-size wal)))
 
     (let ((out-buffer (flex:get-output-stream-sequence out)))
       (let* ((in (flex:make-in-memory-input-stream out-buffer))
@@ -29,6 +32,7 @@
                           (equal "foo.txt" path))))
 
         (is (archive::skippable-p wal))
+        (is (= 10240 (wal-size wal)))
 
         (multiple-value-bind (buffer name pos)
             (wal-read-next-entry wal :skip-if skip-pred)
@@ -52,6 +56,7 @@
              (wal (open-tar-object-store :stream in)))
 
         (is (archive::skippable-p wal))
+        (is (= 10240 (wal-size wal)))
 
         (is (equalp (trivial-utf-8:string-to-utf-8-bytes "bar")
                     (object-store-get wal "bar.txt")))
@@ -87,13 +92,16 @@
                                         :if-exists :overwrite
                                         :if-does-not-exist :create)
              (tar-wal-position-stream-at-end in)
+             (is (= 2048 (file-position in)))
              (let* ((wal (open-tar-wal :stream in :direction :output)))
 
                (wal-append-entry wal "baz.txt" (trivial-utf-8:string-to-utf-8-bytes "baz"))
+               (is (= 10240 (wal-size wal)))
                (wal-close wal)))
 
            (with-open-file (in test-log :element-type '(unsigned-byte 8))
              (let* ((wal (open-tar-wal :stream in :direction :input)))
+               (is (= (+ 12288) (wal-size wal)))
 
                (multiple-value-bind (buffer name pos)
                    (wal-read-next-entry wal)

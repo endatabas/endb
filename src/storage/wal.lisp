@@ -1,6 +1,6 @@
 (defpackage :endb/storage/wal
   (:use :cl)
-  (:export #:open-tar-wal #:tar-wal-position-stream-at-end #:wal-append-entry #:wal-read-next-entry #:wal-find-entry #:wal-fsync #:wal-close #:make-memory-wal)
+  (:export #:open-tar-wal #:tar-wal-position-stream-at-end #:wal-append-entry #:wal-read-next-entry #:wal-find-entry #:wal-fsync #:wal-size #:wal-close)
   (:import-from :archive)
   (:import-from :flexi-streams)
   (:import-from :local-time))
@@ -9,6 +9,7 @@
 (defgeneric wal-append-entry (wal path buffer))
 (defgeneric wal-read-next-entry (wal &key skip-if))
 (defgeneric wal-fsync (wal))
+(defgeneric wal-size (wal))
 (defgeneric wal-close (wal))
 
 (defun open-tar-wal (&key (stream (flex:make-in-memory-output-stream)) (direction :output))
@@ -58,24 +59,13 @@
 (defmethod wal-fsync ((archive archive:tar-archive))
   (finish-output (archive::archive-stream archive)))
 
+(defmethod wal-size ((archive archive:tar-archive))
+  (let ((stream (archive::archive-stream archive)))
+    (etypecase stream
+      (flex:in-memory-output-stream (flex:output-stream-sequence-length stream))
+      (flex::vector-input-stream (flex::vector-stream-end stream))
+      (t (file-length stream)))))
+
 (defmethod wal-close ((archive archive:tar-archive))
   (archive:finalize-archive archive)
   (archive:close-archive archive))
-
-(defstruct memory-wal (wal (make-array 0 :fill-pointer 0)) (pos 0))
-
-(defmethod wal-append-entry ((wal memory-wal) path buffer)
-  (vector-push-extend (cons path buffer) (slot-value wal 'wal)))
-
-(defmethod wal-read-next-entry ((wal memory-wal) &key skip-if)
-  (unless (= (length (slot-value wal 'wal)) (slot-value wal 'pos))
-    (let ((entry (aref (slot-value wal 'wal) (slot-value wal 'pos))))
-      (incf (slot-value wal 'pos))
-      (values (when entry
-                (unless (and skip-if (funcall skip-if (car entry)))
-                  (cdr entry)))
-              (car entry)))))
-
-(defmethod wal-fsync ((wal memory-wal)))
-
-(defmethod wal-close ((wal memory-wal)))
