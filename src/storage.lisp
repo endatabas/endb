@@ -89,11 +89,11 @@
 (defun %extract-tar-into-object-store (stream os)
   (let ((wal-os (endb/storage/object-store:open-tar-object-store :stream stream)))
     (unwind-protect
-         (endb/storage/object-store:extract-tar-object-store
+         (endb/storage/object-store:extract-tar-into-object-store
           wal-os
           os
-          (lambda (name)
-            (not (alexandria:starts-with-subseq *log-directory* name))))
+          :skip-if (lambda (name)
+                     (alexandria:starts-with-subseq *log-directory* name)))
       (endb/storage/wal:wal-close wal-os))))
 
 (defmethod store-replay ((store disk-store))

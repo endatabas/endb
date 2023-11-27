@@ -34,8 +34,7 @@
                       (let ((buffer-sha1 (string-downcase (sha1:sha1-hex buffer))))
                         (assert (equal sha1 buffer-sha1)
                                 nil
-                                (format nil "Arrow SHA1 mismatch: ~A does not match stored: ~A" sha1 buffer-sha1)
-                                "")))
+                                (format nil "Arrow SHA1 mismatch: ~A does not match stored: ~A" sha1 buffer-sha1))))
                     (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer buffer))))))))
 
 (defmethod buffer-pool-put ((bp buffer-pool) path arrays)
