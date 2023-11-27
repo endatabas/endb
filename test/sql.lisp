@@ -1970,64 +1970,13 @@ SELECT s FROM x WHERE ind=0")
       (when (probe-file test-dir)
         (uiop:delete-directory-tree test-dir :validate t)))))
 
-(test wal-only-directory-db
-  (let* ((endb/sql:*use-cst-parser* t)
-         (endb/lib:*log-level* (endb/lib:resolve-log-level :error))
-         (target-dir (asdf:system-relative-pathname :endb-test "target/"))
-         (test-dir (merge-pathnames "endb_data_wal_only/" target-dir)))
-    (unwind-protect
-         (let ((db (make-directory-db :directory test-dir :wal-only-p t)))
-           (unwind-protect
-                (let ((write-db (begin-write-tx db)))
-
-                  (multiple-value-bind (result result-code)
-                      (execute-sql write-db "INSERT INTO t1(a) VALUES(103)")
-                    (is (null result))
-                    (is (= 1 result-code)))
-
-                  (is (equal '((103)) (execute-sql write-db "SELECT * FROM t1")))
-
-                  (setf db (commit-write-tx db write-db)))
-             (close-db db))
-
-           (let ((db (make-directory-db :directory test-dir :wal-only-p t)))
-             (unwind-protect
-                  (progn
-                    (is (equal '((103)) (execute-sql db "SELECT * FROM t1")))
-
-                    (let ((write-db (begin-write-tx db)))
-
-                      (multiple-value-bind (result result-code)
-                          (execute-sql write-db "INSERT INTO t1(a) VALUES(104)")
-                        (is (null result))
-                        (is (= 1 result-code)))
-
-                      (is (equal '((103) (104)) (execute-sql write-db "SELECT * FROM t1 ORDER BY a")))
-
-                      (multiple-value-bind (result result-code)
-                          (execute-sql write-db "DELETE FROM t1 WHERE a = 103")
-                        (is (null result))
-                        (is (= 1 result-code)))
-
-                      (is (equal '((104)) (execute-sql write-db "SELECT * FROM t1 ORDER BY a")))
-
-                      (setf db (commit-write-tx db write-db))))
-               (close-db db)))
-
-           (let ((db (make-directory-db :directory test-dir :wal-only-p t)))
-             (unwind-protect
-                  (is (equal '((104)) (execute-sql db "SELECT * FROM t1 ORDER BY a")))
-               (close-db db))))
-      (when (probe-file test-dir)
-        (uiop:delete-directory-tree test-dir :validate t)))))
-
-(test wal-only-directory-db-corrupt-archive-when-reading-appended-wal-bug
+(test directory-db-corrupt-archive-when-reading-appended-wal-bug
   (let* ((endb/sql:*use-cst-parser* t)
          (endb/lib:*log-level* (endb/lib:resolve-log-level :error))
          (target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-dir (merge-pathnames "endb_data_corrupt_archive_bug/" target-dir)))
     (unwind-protect
-         (let ((db (make-directory-db :directory test-dir :wal-only-p t)))
+         (let ((db (make-directory-db :directory test-dir)))
            (unwind-protect
                 (progn
                   (let ((write-db (begin-write-tx db)))
@@ -2072,13 +2021,13 @@ SELECT s FROM x WHERE ind=0")
       (when (probe-file test-dir)
         (uiop:delete-directory-tree test-dir :validate t)))))
 
-(test wal-only-directory-db-tx-log-version
+(test directory-db-tx-log-version
   (let* ((endb/sql:*use-cst-parser* t)
          (endb/lib:*log-level* (endb/lib:resolve-log-level :error))
          (target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-dir (merge-pathnames "endb_data_tx_log_version/" target-dir)))
     (unwind-protect
-         (let ((db (make-directory-db :directory test-dir :wal-only-p t)))
+         (let ((db (make-directory-db :directory test-dir)))
            (unwind-protect
                 (let ((write-db (begin-write-tx db)))
 
@@ -2095,7 +2044,7 @@ SELECT s FROM x WHERE ind=0")
            (let ((endb/storage:*tx-log-version* (1+ endb/storage:*tx-log-version*)))
              (signals-with-msg simple-error
                  "Transaction log version mismatch: 3 does not match stored: 2"
-               (make-directory-db :directory test-dir :wal-only-p t))))
+               (make-directory-db :directory test-dir))))
       (when (probe-file test-dir)
         (uiop:delete-directory-tree test-dir :validate t)))))
 
