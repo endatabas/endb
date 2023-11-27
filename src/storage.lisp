@@ -77,8 +77,10 @@
   (if (plusp (file-length wal-in))
       (loop with read-wal = (endb/storage/wal:open-tar-wal :stream wal-in :direction :input)
             for (buffer . name) = (multiple-value-bind (buffer name)
-                                      (endb/storage/wal:wal-read-next-entry read-wal :skip-if (lambda (x)
-                                                                                                (not (alexandria:starts-with-subseq "_log/" x))))
+                                      (endb/storage/wal:wal-read-next-entry
+                                       read-wal
+                                       :skip-if (lambda (x)
+                                                  (not (alexandria:starts-with-subseq *log-directory* x))))
                                     (cons buffer name))
             when buffer
               do (let ((tx-md (endb/json:json-parse buffer)))
