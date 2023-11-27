@@ -176,7 +176,8 @@
 
     (let* ((in (flex:make-in-memory-input-stream (flex:get-output-stream-sequence out)))
            (os (open-tar-object-store :stream in))
-           (bp (make-buffer-pool :object-store os))
+           (bp (make-buffer-pool :get-object-fn (lambda (path)
+                                                  (object-store-get os path))))
            (actual (buffer-pool-get bp "foo.arrow")))
 
       (is (equalp batches (loop for x in actual
@@ -192,7 +193,8 @@
                               (fset:map ("x" 3)))))
          (in (flex:make-in-memory-input-stream (flex:get-output-stream-sequence out)))
          (os (open-tar-object-store :stream in))
-         (bp (make-buffer-pool :object-store os))
+         (bp (make-buffer-pool :get-object-fn (lambda (path)
+                                                (object-store-get os path))))
          (wbp (make-writeable-buffer-pool :parent-pool bp)))
 
     (buffer-pool-put wbp "foo.arrow" (mapcar #'endb/arrow:to-arrow batches))

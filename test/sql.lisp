@@ -2067,7 +2067,7 @@ SELECT s FROM x WHERE ind=0")
                                "information_schema.tables/0000000000000001.arrow"
                                "t1/0000000000000001.arrow"
                                "t1/0000000000000002.arrow")
-                             (endb/storage/object-store:object-store-list (endb/storage:store-get-object-store (endb/sql/expr:db-store db))))))
+                             (endb/storage/object-store:object-store-list (slot-value (endb/sql/expr:db-store db) 'endb/storage::object-store)))))
              (close-db db)))
       (when (probe-file test-dir)
         (uiop:delete-directory-tree test-dir :validate t)))))

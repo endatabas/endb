@@ -25,8 +25,8 @@
 
 (defun make-db (&key (store (make-instance 'endb/storage:in-memory-store)))
   (endb/lib:init-lib)
-  (let* ((object-store (endb/storage:store-get-object-store store))
-         (buffer-pool (endb/storage/buffer-pool:make-buffer-pool :object-store object-store))
+  (let* ((buffer-pool (endb/storage/buffer-pool:make-buffer-pool :get-object-fn (lambda (path)
+                                                                                  (endb/storage:store-get-object store path))))
          (meta-data (endb/storage:store-replay store)))
     (endb/sql/expr:make-db :store store :buffer-pool buffer-pool :meta-data meta-data)))
 

@@ -131,19 +131,6 @@
   (object-store-close (layered-object-store-overlay-object-store os))
   (object-store-close (layered-object-store-underlying-object-store os)))
 
-(defstruct indirect-object-store store-fn)
-
-(defmethod object-store-get ((os indirect-object-store) path)
-  (object-store-get (funcall (slot-value os 'store-fn)) path))
-
-(defmethod object-store-put ((os indirect-object-store) path buffer)
-  (object-store-put (funcall (slot-value os 'store-fn)) path buffer))
-
-(defmethod object-store-list ((os indirect-object-store) &key (prefix "") (start-after ""))
-  (object-store-list (funcall (slot-value os 'store-fn)) :prefix prefix :start-after start-after))
-
-(defmethod object-store-close ((os indirect-object-store)))
-
 (defun make-memory-object-store ()
   (make-hash-table :synchronized t :test 'equal))
 
