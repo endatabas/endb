@@ -2215,10 +2215,10 @@
   (with-slots (meta-data) db
     (or (fset:lookup meta-data table-name) (fset:empty-map))))
 
-(defun base-table-arrow-batches (db table-name arrow-file)
+(defun base-table-arrow-batches (db table-name arrow-file &key sha1)
   (with-slots (buffer-pool) db
     (let ((arrow-file-key (format nil "~A/~A" table-name arrow-file)))
-      (endb/storage/buffer-pool:buffer-pool-get buffer-pool arrow-file-key))))
+      (endb/storage/buffer-pool:buffer-pool-get buffer-pool arrow-file-key :sha1 sha1))))
 
 (defun base-table-visible-rows (db table-name &key arrow-file-idx-row-id-p)
   (with-slots (information-schema-cache) db
@@ -2233,7 +2233,7 @@
             (fset:do-map (arrow-file arrow-file-md table-md)
               (loop with deleted-md = (or (fset:lookup arrow-file-md "deleted") (fset:empty-map))
                     with erased-md = (or (fset:lookup arrow-file-md "erased") (fset:empty-map))
-                    for batch-row in (base-table-arrow-batches db table-name arrow-file)
+                    for batch-row in (base-table-arrow-batches db table-name arrow-file :sha1 (fset:lookup arrow-file-md "sha1"))
                     for batch = (endb/arrow:arrow-struct-column-array batch-row (intern table-name :keyword))
                     for batch-idx from 0
                     for batch-idx-string = (prin1-to-string batch-idx)

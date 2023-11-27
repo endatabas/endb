@@ -320,6 +320,7 @@
                                   deleted-md-sym
                                   erased-md-sym
                                   stats-md-sym
+                                  sha1-md-sym
                                   batch-row-sym
                                   system-time-start-sym
                                   system-time-end-sym
@@ -376,10 +377,11 @@
                      (let ((,deleted-md-sym (fset:lookup ,arrow-file-md-sym "deleted"))
                            (,erased-md-sym (fset:lookup ,arrow-file-md-sym "erased"))
                            (,stats-md-sym (fset:lookup ,arrow-file-md-sym "stats"))
+                           (,sha1-md-sym (fset:lookup ,arrow-file-md-sym "sha1"))
                            (,scan-batch-idx-sym -1))
                        (declare (ignorable ,stats-md-sym))
                        (when (and ,@stats-src)
-                         (dolist (,batch-row-sym (endb/sql/expr:base-table-arrow-batches ,(fset:lookup ctx :db-sym) ,table-name ,scan-arrow-file-sym))
+                         (dolist (,batch-row-sym (endb/sql/expr:base-table-arrow-batches ,(fset:lookup ctx :db-sym) ,table-name ,scan-arrow-file-sym :sha1 ,sha1-md-sym))
                            (incf ,scan-batch-idx-sym)
                            (let* ((,batch-sym (endb/arrow:arrow-struct-column-array ,batch-row-sym ,(intern table-name :keyword)))
                                   (,temporal-sym (endb/arrow:arrow-struct-column-array ,batch-row-sym :|system_time_start|))

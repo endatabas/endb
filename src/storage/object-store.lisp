@@ -66,10 +66,9 @@
 (defmethod object-store-put ((archive archive:tar-archive) path buffer))
 
 (defun %object-store-list-filter (files prefix start-after)
-  (let ((prefix-scanner (ppcre:create-scanner (format nil "^~A" prefix))))
-    (loop for f in (sort files #'string<)
-          when (and (string> f start-after) (ppcre:scan prefix-scanner f))
-            collect f)))
+  (loop for f in (sort files #'string<)
+        when (and (string> f start-after) (alexandria:starts-with-subseq prefix f))
+          collect f))
 
 (defmethod object-store-list ((archive archive:tar-archive) &key (prefix "") (start-after ""))
   (bt:with-lock-held (*tar-object-store-lock*)

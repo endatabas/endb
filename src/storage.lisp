@@ -56,15 +56,8 @@
             finally (return md))
       md))
 
-(defun %write-arrow-buffers (arrow-arrays-map write-buffer-fn)
-  (loop for k being the hash-key
-          using (hash-value v)
-            of arrow-arrays-map
-        for buffer = (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer v)
-        do (funcall write-buffer-fn k buffer)))
-
 (defgeneric store-replay (store))
-(defgeneric store-write-tx (store tx-id md md-diff arrow-arrays-map &key fsyncp))
+(defgeneric store-write-tx (store tx-id md md-diff arrow-buffers-map &key fsyncp))
 (defgeneric store-get-object (store path))
 (defgeneric store-close (os))
 
@@ -114,9 +107,9 @@
                                    (snapshot-sha1 (string-downcase (sha1:sha1-hex snapshot-md-bytes)))
                                    (snapshot-md (endb/json:json-parse snapshot-md-bytes)))
                               (endb/lib:log-info "using snapshot ~A" snapshot-path)
-                              (assert (equal snapshot-sha1 (fset:lookup latest-snapshot "sha1"))
+                              (assert (equal (fset:lookup latest-snapshot "sha1")  snapshot-sha1)
                                       nil
-                                      (format nil "Snapshot SHA1 mismatch: ~A does not match stored: ~A" snapshot-sha1 (fset:lookup latest-snapshot "sha1")))
+                                      (format nil "Snapshot SHA1 mismatch: ~A does not match stored: ~A" (fset:lookup latest-snapshot "sha1") snapshot-sha1))
                               (%validate-tx-log-version snapshot-md)
                               snapshot-md)
                             (fset:empty-map)))
@@ -191,12 +184,14 @@
       (setf wal active-wal
             mem-table-object-store (endb/storage/object-store:make-memory-object-store)))))
 
-(defmethod store-write-tx ((store disk-store) tx-id md md-diff arrow-arrays-map &key (fsyncp t))
+(defmethod store-write-tx ((store disk-store) tx-id md md-diff arrow-buffers-map &key (fsyncp t))
   (with-slots (directory wal mem-table-object-store) store
     (let ((md-diff-bytes (trivial-utf-8:string-to-utf-8-bytes (endb/json:json-stringify md-diff))))
-      (%write-arrow-buffers arrow-arrays-map (lambda (k buffer)
-                                               (endb/storage/wal:wal-append-entry wal k buffer)
-                                               (endb/storage/object-store:object-store-put mem-table-object-store k buffer)))
+      (maphash
+       (lambda (k buffer)
+         (endb/storage/wal:wal-append-entry wal k buffer)
+         (endb/storage/object-store:object-store-put mem-table-object-store k buffer))
+       arrow-buffers-map)
       (endb/storage/wal:wal-append-entry wal (%log-entry-filename tx-id) md-diff-bytes)
       (cond
         ((<= *wal-target-size* (endb/storage/wal:wal-size wal))
@@ -221,11 +216,13 @@
 (defmethod store-replay ((store in-memory-store))
   (fset:empty-map))
 
-(defmethod store-write-tx ((store in-memory-store) tx-id md md-diff arrow-arrays-map &key fsyncp)
+(defmethod store-write-tx ((store in-memory-store) tx-id md md-diff arrow-buffers-map &key fsyncp)
   (declare (ignore fsyncp))
   (with-slots (object-store) store
-    (%write-arrow-buffers arrow-arrays-map (lambda (k buffer)
-                                             (endb/storage/object-store:object-store-put object-store k buffer)))))
+    (maphash
+     (lambda (k buffer)
+       (endb/storage/object-store:object-store-put object-store k buffer))
+     arrow-buffers-map)))
 
 (defmethod store-get-object ((store in-memory-store) path)
   (endb/storage/object-store:object-store-get (slot-value store 'object-store) path))
