@@ -117,6 +117,11 @@
                      (alexandria:starts-with-subseq *log-directory* name)))
       (endb/storage/wal:wal-close wal-os))))
 
+(defun %read-latest-snapshot (os)
+  (let ((latest-snapshot-json-bytes (endb/storage/object-store:object-store-get os (%latest-snapshot-filename))))
+    (when latest-snapshot-json-bytes
+      (endb/json:json-parse latest-snapshot-json-bytes))))
+
 (defun %build-snapshot (store wal-files md tx-id)
   (with-slots (directory backing-object-store) store
     (let ((wal-files (loop for wal-file in wal-files
@@ -136,10 +141,15 @@
              (latest-snapshot-json-bytes (trivial-utf-8:string-to-utf-8-bytes
                                           (endb/json:json-stringify (fset:map ("path" (%snapshot-filename tx-id))
                                                                               ("tx_id" tx-id)
-                                                                              ("sha1" md-sha1))))))
+                                                                              ("sha1" md-sha1)))))
+             (previous-latest-snapshot (%read-latest-snapshot backing-object-store)))
         (endb/storage/object-store:object-store-put backing-object-store (%snapshot-filename tx-id) md-bytes)
         (endb/storage/object-store:object-store-put backing-object-store (%latest-snapshot-filename) latest-snapshot-json-bytes)
         (endb/lib:log-info "stored ~A" (%snapshot-filename tx-id))
+        (when previous-latest-snapshot
+          (let ((previous-snapshot-path (fset:lookup previous-latest-snapshot "path")))
+            (endb/storage/object-store:object-store-delete backing-object-store previous-snapshot-path)
+            (endb/lib:log-info "deleted ~A" previous-snapshot-path)))
 
         (dolist (wal-file wal-files)
           (uiop:delete-file-if-exists wal-file)
@@ -148,9 +158,7 @@
 (defmethod store-replay ((store disk-store))
   (with-slots (directory mem-table-object-store backing-object-store pending-wals) store
     (endb/lib:log-info "looking for latest snapshot")
-    (let* ((latest-snapshot-json-bytes (endb/storage/object-store:object-store-get backing-object-store (%latest-snapshot-filename)))
-           (latest-snapshot (when latest-snapshot-json-bytes
-                              (endb/json:json-parse latest-snapshot-json-bytes)))
+    (let* ((latest-snapshot (%read-latest-snapshot backing-object-store))
            (snapshot-md (if latest-snapshot
                             (let* ((snapshot-path (fset:lookup latest-snapshot "path"))
                                    (snapshot-md-bytes (endb/storage/object-store:object-store-get backing-object-store snapshot-path))
