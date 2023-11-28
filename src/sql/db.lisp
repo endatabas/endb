@@ -1,15 +1,18 @@
 (defpackage :endb/sql/db
   (:use :cl)
   (:import-from :bordeaux-threads)
+  (:import-from :cl-bloom)
   (:import-from :cl-ppcre)
   (:import-from :endb/arrow)
   (:import-from :endb/sql/expr)
   (:import-from :endb/lib/parser)
   (:import-from :endb/storage/buffer-pool)
-  (:import-from :cl-bloom)
+  (:import-from :local-time)
   (:import-from :fset)
   (:export #:ddl-create-table #:ddl-drop-table #:ddl-create-view #:ddl-drop-view #:ddl-create-index #:ddl-drop-index #:ddl-create-assertion #:ddl-drop-assertion
            #:dml-insert #:dml-insert-objects #:dml-delete #:dml-erase
+
+           #:syn-current_date #:syn-current_time #:syn-current_timestamp
 
            #:make-db #:copy-db #:db-buffer-pool #:db-store #:db-meta-data #:db-current-timestamp #:db-write-lock
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions
@@ -28,6 +31,16 @@
   current-timestamp
   (information-schema-cache (make-hash-table :weakness :key :test 'eq))
   (write-lock (bt:make-lock)))
+
+(defun syn-current_date (db)
+  (endb/sql/expr:syn-cast (syn-current_timestamp db) :date))
+
+(defun syn-current_time (db)
+  (endb/sql/expr:syn-cast (syn-current_timestamp db) :time))
+
+(defun syn-current_timestamp (db)
+  (or (db-current-timestamp db)
+      (endb/arrow:local-time-to-arrow-timestamp-micros (local-time:now))))
 
 (defun base-table-meta (db table-name)
   (with-slots (meta-data) db

@@ -24,7 +24,6 @@
            #:sql-typeof #:sql-unixepoch #:sql-julianday #:sql-path_remove #:sql-path_insert #:sql-path_replace #:sql-path_set #:sql-path_extract
            #:sql-contains #:sql-overlaps #:sql-precedes #:sql-succedes #:sql-immediately_precedes #:sql-immediately_succedes
 
-           #:syn-current_date #:syn-current_time #:syn-current_timestamp
            #:syn-access #:syn-access-finish #:syn-interval #:syn-cast #:syn-extract
 
            #:ra-distinct #:ra-unnest #:ra-union-all #:ra-union #:ra-except #:ra-intersect
@@ -1803,16 +1802,6 @@
                              (loop for x across (path-seq-acc x)
                                    for z = (syn-access x y recursivep)
                                    collect (%flatten-path-acc z)))))
-
-(defun syn-current_date (db)
-  (syn-cast (syn-current_timestamp db) :date))
-
-(defun syn-current_time (db)
-  (syn-cast (syn-current_timestamp db) :time))
-
-(defun syn-current_timestamp (db)
-  (or (slot-value db (find-symbol "CURRENT-TIMESTAMP" "ENDB/SQL/DB"))
-      (endb/arrow:local-time-to-arrow-timestamp-micros (local-time:now))))
 
 (defparameter +interval-time-parts+ '(:hour :minute :second))
 (defparameter +interval-parts+ (append '(:year :month :day) +interval-time-parts+))

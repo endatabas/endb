@@ -1169,12 +1169,12 @@ SELECT s FROM x WHERE ind=0")
 (test system-time
   (let* ((endb/sql:*use-cst-parser* t)
          (db (make-db))
-         (system-time-as-of-empty (endb/sql/expr:syn-current_timestamp db)))
+         (system-time-as-of-empty (endb/sql/db:syn-current_timestamp db)))
 
     (sleep 0.01)
 
     (let* ((write-db (begin-write-tx db))
-           (system-time-as-of-insert (endb/sql/expr:syn-current_timestamp write-db)))
+           (system-time-as-of-insert (endb/sql/db:syn-current_timestamp write-db)))
 
       (is (not (equalp system-time-as-of-empty system-time-as-of-insert)))
 
@@ -1192,7 +1192,7 @@ SELECT s FROM x WHERE ind=0")
       (sleep 0.01)
 
       (let* ((write-db (begin-write-tx db))
-             (system-time-as-of-update (endb/sql/expr:syn-current_timestamp write-db)))
+             (system-time-as-of-update (endb/sql/db:syn-current_timestamp write-db)))
         (is (not (equalp system-time-as-of-insert system-time-as-of-update)))
 
         (multiple-value-bind (result result-code)
@@ -2000,7 +2000,7 @@ SELECT s FROM x WHERE ind=0")
 
 (test join-bug-projecting-system-time
   (let* ((db (begin-write-tx (make-db)))
-         (system-time-as-of-insert (endb/sql/expr:syn-current_timestamp db)))
+         (system-time-as-of-insert (endb/sql/db:syn-current_timestamp db)))
     (multiple-value-bind (result result-code)
         (execute-sql db "INSERT INTO products {name: 'Mangoes'}, {name: 'Apples'}")
       (is (null result))
