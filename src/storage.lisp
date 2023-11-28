@@ -9,6 +9,7 @@
   (:import-from :endb/storage/object-store)
   (:import-from :endb/storage/wal)
   (:import-from :endb/queue)
+  (:import-from :sha1)
   (:import-from :trivial-utf-8)
   (:import-from :uiop))
 (in-package :endb/storage)
@@ -16,6 +17,7 @@
 (defvar *tx-log-version* 2)
 (defvar *wal-target-size* (* 4 1024 1024))
 (defvar *wals-per-snapshot* 2)
+(defvar *snapshot-sha1-checksum* nil)
 
 (defvar *wal-directory* "wal")
 (defvar *object-store-directory* "object_store")
@@ -137,11 +139,14 @@
                (endb/lib:log-info "unpacked ~A" (uiop:enough-pathname wal-file (truename directory))))
 
       (let* ((md-bytes (trivial-utf-8:string-to-utf-8-bytes (endb/json:json-stringify md)))
-             (md-sha1 (string-downcase (sha1:sha1-hex md-bytes)))
              (latest-snapshot-json-bytes (trivial-utf-8:string-to-utf-8-bytes
-                                          (endb/json:json-stringify (fset:map ("path" (%snapshot-filename tx-id))
-                                                                              ("tx_id" tx-id)
-                                                                              ("sha1" md-sha1)))))
+                                          (endb/json:json-stringify
+                                           (if *snapshot-sha1-checksum*
+                                               (fset:map ("path" (%snapshot-filename tx-id))
+                                                         ("tx_id" tx-id)
+                                                         ("sha1" (string-downcase (sha1:sha1-hex md-bytes))))
+                                               (fset:map ("path" (%snapshot-filename tx-id))
+                                                         ("tx_id" tx-id))))))
              (previous-latest-snapshot (%read-latest-snapshot backing-object-store)))
         (endb/storage/object-store:object-store-put backing-object-store (%snapshot-filename tx-id) md-bytes)
         (endb/storage/object-store:object-store-put backing-object-store (%latest-snapshot-filename) latest-snapshot-json-bytes)
@@ -162,12 +167,13 @@
            (snapshot-md (if latest-snapshot
                             (let* ((snapshot-path (fset:lookup latest-snapshot "path"))
                                    (snapshot-md-bytes (endb/storage/object-store:object-store-get backing-object-store snapshot-path))
-                                   (snapshot-sha1 (string-downcase (sha1:sha1-hex snapshot-md-bytes)))
                                    (snapshot-md (endb/json:json-parse snapshot-md-bytes)))
                               (endb/lib:log-info "using snapshot ~A" snapshot-path)
-                              (assert (equal (fset:lookup latest-snapshot "sha1")  snapshot-sha1)
-                                      nil
-                                      (format nil "Snapshot SHA1 mismatch: ~A does not match stored: ~A" (fset:lookup latest-snapshot "sha1") snapshot-sha1))
+                              (when (fset:lookup latest-snapshot "sha1")
+                                (let ((snapshot-sha1 (string-downcase (sha1:sha1-hex snapshot-md-bytes))))
+                                  (assert (equal (fset:lookup latest-snapshot "sha1") snapshot-sha1)
+                                          nil
+                                          (format nil "Snapshot SHA1 mismatch: ~A does not match stored: ~A" (fset:lookup latest-snapshot "sha1") snapshot-sha1))))
                               (%validate-tx-log-version snapshot-md)
                               snapshot-md)
                             (fset:empty-map)))
