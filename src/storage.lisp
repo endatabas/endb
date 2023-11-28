@@ -130,10 +130,7 @@
                            when (uiop:file-exists-p wal-file)
                              collect wal-file)))
       (loop for wal-file in wal-files
-            for buffer = (endb/storage/object-store:object-store-get
-                          backing-object-store
-                          (merge-pathnames (file-namestring wal-file)
-                                           (uiop:ensure-directory-pathname *wal-archive-directory*)))
+            for buffer = (alexandria:read-file-into-byte-vector wal-file)
             do (%extract-tar-into-object-store (flex:make-in-memory-input-stream buffer)
                                                backing-object-store)
                (endb/lib:log-info "unpacked ~A" (uiop:enough-pathname wal-file (truename directory))))
