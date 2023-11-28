@@ -1,6 +1,6 @@
 (defpackage :endb/storage/object-store
   (:use :cl)
-  (:export #:object-store-get #:object-store-put #:object-store-list #:object-store-close
+  (:export #:object-store-get #:object-store-put #:object-store-delete #:object-store-list #:object-store-close
            #:open-tar-object-store #:extract-tar-into-object-store
            #:make-directory-object-store #:make-memory-object-store)
   (:import-from :alexandria)
@@ -12,6 +12,7 @@
 
 (defgeneric object-store-get (os path))
 (defgeneric object-store-put (os path buffer))
+(defgeneric object-store-delete (os path))
 (defgeneric object-store-list (os &key prefix start-after))
 (defgeneric object-store-close (os))
 
@@ -24,22 +25,21 @@
     archive))
 
 (defun extract-tar-into-object-store (archive target-os &key skip-if)
-  (bt:with-lock-held (*tar-object-store-lock*)
-    (let* ((stream (archive::archive-stream archive))
-           (pos (file-position stream)))
-      (file-position stream 0)
-      (unwind-protect
-           (loop for entry = (%wal-read-entry-safe archive)
-                 while entry
-                 if (and skip-if (funcall skip-if (archive:name entry)))
-                   do (archive:discard-entry archive entry)
-                 else
-                   do (endb/storage/object-store:object-store-put
-                       target-os
-                       (archive:name entry)
-                       (%extract-entry archive entry))
-                 finally (return target-os))
-        (file-position stream pos)))))
+  (let* ((stream (archive::archive-stream archive))
+         (pos (file-position stream)))
+    (file-position stream 0)
+    (unwind-protect
+         (loop for entry = (%wal-read-entry-safe archive)
+               while entry
+               if (and skip-if (funcall skip-if (archive:name entry)))
+                 do (archive:discard-entry archive entry)
+               else
+                 do (endb/storage/object-store:object-store-put
+                     target-os
+                     (archive:name entry)
+                     (%extract-entry archive entry))
+               finally (return target-os))
+      (file-position stream pos))))
 
 (defun %extract-entry (archive entry)
   (flex:with-output-to-sequence (out)
@@ -64,6 +64,8 @@
         (file-position stream pos)))))
 
 (defmethod object-store-put ((archive archive:tar-archive) path buffer))
+
+(defmethod object-store-delete ((archive archive:tar-archive) path))
 
 (defun %object-store-list-filter (files prefix start-after)
   (loop for f in (sort files #'string<)
@@ -100,6 +102,10 @@
     (ensure-directories-exist path)
     (alexandria:write-byte-vector-into-file buffer path :if-exists :overwrite :if-does-not-exist :create)))
 
+(defmethod object-store-delete ((os directory-object-store) path)
+  (let ((path (merge-pathnames path (uiop:ensure-directory-pathname (directory-object-store-path os)))))
+    (uiop:delete-file-if-exists path)))
+
 (defmethod object-store-list ((os directory-object-store) &key (prefix "") (start-after ""))
   (let* ((path (uiop:ensure-directory-pathname (directory-object-store-path os))))
     (when (uiop:directory-exists-p path)
@@ -118,6 +124,9 @@
 
 (defmethod object-store-put ((os hash-table) path buffer)
   (setf (gethash path os) buffer))
+
+(defmethod object-store-delete ((os hash-table) path)
+  (remhash path os))
 
 (defmethod object-store-list  ((os hash-table) &key (prefix "") (start-after ""))
   (%object-store-list-filter (alexandria:hash-table-keys os) prefix start-after))

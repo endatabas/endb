@@ -1,12 +1,14 @@
 (defpackage :endb/storage
   (:use :cl)
   (:export #:*tx-log-version* store-replay store-write-tx store-get-object store-close disk-store in-memory-store)
+  (:import-from :bordeaux-threads)
   (:import-from :flexi-streams)
   (:import-from :fset)
   (:import-from :endb/json)
   (:import-from :endb/lib/arrow)
   (:import-from :endb/storage/object-store)
   (:import-from :endb/storage/wal)
+  (:import-from :endb/queue)
   (:import-from :trivial-utf-8)
   (:import-from :uiop))
 (in-package :endb/storage)
@@ -42,7 +44,14 @@
 (defgeneric store-get-object (store path))
 (defgeneric store-close (os))
 
-(defclass disk-store () ((directory :initarg :directory) wal mem-table-object-store backing-object-store (pending-wals :initform 0)))
+(defclass disk-store ()
+  ((directory :initarg :directory)
+   wal
+   mem-table-object-store
+   backing-object-store
+   (pending-wals :initform 0)
+   (snapshot-queue :initform (endb/queue:make-queue))
+   snapshot-thread))
 
 (defun %wal-files (directory)
   (let ((wal-directory-path (merge-pathnames *wal-directory* (uiop:ensure-directory-pathname directory))))
@@ -57,14 +66,22 @@
         (merge-pathnames (%wal-filename 1) (uiop:ensure-directory-pathname directory)))))
 
 (defmethod initialize-instance :after ((store disk-store) &key &allow-other-keys)
-  (with-slots (directory wal mem-table-object-store backing-object-store) store
+  (with-slots (directory wal mem-table-object-store backing-object-store snapshot-queue snapshot-thread) store
     (let* ((active-wal-file (%latest-wal-file directory))
            (object-store-path (merge-pathnames *object-store-directory* (uiop:ensure-directory-pathname directory))))
       (ensure-directories-exist active-wal-file)
       (let ((write-io (open active-wal-file :direction :io :element-type '(unsigned-byte 8) :if-exists :overwrite :if-does-not-exist :create)))
         (setf wal (endb/storage/wal:open-tar-wal :stream write-io)
               mem-table-object-store (endb/storage/object-store:make-memory-object-store)
-              backing-object-store (endb/storage/object-store:make-directory-object-store :path object-store-path))
+              backing-object-store (endb/storage/object-store:make-directory-object-store :path object-store-path)
+              snapshot-thread (bt:make-thread
+                               (lambda ()
+                                 (loop for job = (endb/queue:queue-pop snapshot-queue)
+                                       if (null job)
+                                         do (return-from nil)
+                                       else
+                                         do (funcall job)))
+                               :name "endb snapshot thread"))
         (endb/storage/wal:tar-wal-position-stream-at-end write-io)))))
 
 (defun %validate-tx-log-version (tx-md)
@@ -100,8 +117,37 @@
                      (alexandria:starts-with-subseq *log-directory* name)))
       (endb/storage/wal:wal-close wal-os))))
 
+(defun %build-snapshot (store wal-files md tx-id)
+  (with-slots (directory backing-object-store) store
+    (let ((wal-files (loop for wal-file in wal-files
+                           when (uiop:file-exists-p wal-file)
+                             collect wal-file)))
+      (loop for wal-file in wal-files
+            for buffer = (endb/storage/object-store:object-store-get
+                          backing-object-store
+                          (merge-pathnames (file-namestring wal-file)
+                                           (uiop:ensure-directory-pathname *wal-archive-directory*)))
+            do (%extract-tar-into-object-store (flex:make-in-memory-input-stream buffer)
+                                               backing-object-store)
+               (endb/lib:log-info "unpacked ~A" (uiop:enough-pathname wal-file (truename directory))))
+
+      (let* ((md-bytes (trivial-utf-8:string-to-utf-8-bytes (endb/json:json-stringify md)))
+             (md-sha1 (string-downcase (sha1:sha1-hex md-bytes)))
+             (latest-snapshot-json-bytes (trivial-utf-8:string-to-utf-8-bytes
+                                          (endb/json:json-stringify (fset:map ("path" (%snapshot-filename tx-id))
+                                                                              ("tx_id" tx-id)
+                                                                              ("sha1" md-sha1))))))
+        (endb/storage/object-store:object-store-put backing-object-store (%snapshot-filename tx-id) md-bytes)
+        (endb/storage/object-store:object-store-put backing-object-store (%latest-snapshot-filename) latest-snapshot-json-bytes)
+        (endb/lib:log-info "stored ~A" (%snapshot-filename tx-id))
+
+        (dolist (wal-file wal-files)
+          (uiop:delete-file-if-exists wal-file)
+          (endb/lib:log-info "deleted ~A" (uiop:enough-pathname wal-file (truename directory))))))))
+
 (defmethod store-replay ((store disk-store))
   (with-slots (directory mem-table-object-store backing-object-store pending-wals) store
+    (endb/lib:log-info "looking for latest snapshot")
     (let* ((latest-snapshot-json-bytes (endb/storage/object-store:object-store-get backing-object-store (%latest-snapshot-filename)))
            (latest-snapshot (when latest-snapshot-json-bytes
                               (endb/json:json-parse latest-snapshot-json-bytes)))
@@ -120,13 +166,19 @@
            (archived-wal-files (when latest-snapshot
                                  (endb/storage/object-store:object-store-list backing-object-store
                                                                               :start-after (%wal-archive-filename (fset:lookup latest-snapshot "tx_id"))
-                                                                              :prefix *wal-archive-directory*))))
-      (dolist (remote-wal-file archived-wal-files)
-        (alexandria:write-byte-vector-into-file (endb/storage/object-store:object-store-get backing-object-store remote-wal-file)
-                                                (merge-pathnames (file-namestring remote-wal-file)
-                                                                 (merge-pathnames *wal-directory* (uiop:ensure-directory-pathname directory)))
-                                                :if-exists :overwrite
-                                                :if-does-not-exist :create))
+                                                                              :prefix *wal-archive-directory*)))
+           (wal-directory (uiop:ensure-directory-pathname (merge-pathnames *wal-directory* (uiop:ensure-directory-pathname directory)))))
+      (loop for remote-wal-file in archived-wal-files
+            when (alexandria:ends-with-subseq ".tar" remote-wal-file)
+              do (let ((buffer (endb/storage/object-store:object-store-get backing-object-store remote-wal-file))
+                       (wal-file (merge-pathnames (file-namestring remote-wal-file) wal-directory)))
+                   (endb/lib:log-info "fetching ~A" (uiop:enough-pathname wal-file (truename directory)))
+                   (alexandria:write-byte-vector-into-file
+                    buffer
+                    wal-file
+                    :if-exists :overwrite
+                    :if-does-not-exist :create)))
+
       (let* ((wal-files-to-apply (remove-if
                                   (lambda (wal-file)
                                     (and (not (fset:empty? snapshot-md))
@@ -144,7 +196,7 @@
                   wal-files-to-apply
                   :initial-value snapshot-md)))
 
-        (setf pending-wals (length wal-files-to-apply))
+        (setf pending-wals (max 0 (1- (length wal-files-to-apply))))
 
         (loop for wal-file in wal-files-to-apply
               when (uiop:file-exists-p wal-file)
@@ -155,7 +207,7 @@
         md))))
 
 (defun %rotate-wal (store tx-id md)
-  (with-slots (directory wal mem-table-object-store backing-object-store pending-wals) store
+  (with-slots (directory wal mem-table-object-store backing-object-store pending-wals snapshot-queue) store
     (endb/storage/wal:wal-close wal)
     (let ((latest-wal-file (%latest-wal-file directory)))
       (endb/lib:log-info "rotating ~A" (uiop:enough-pathname latest-wal-file (truename directory)))
@@ -168,31 +220,22 @@
         (incf pending-wals)
         (endb/lib:log-info "archived ~A" (uiop:enough-pathname latest-wal-file (truename directory)))
 
-        (%extract-tar-into-object-store (flex:make-in-memory-input-stream latest-wal-bytes)
-                                        backing-object-store)
-        (endb/lib:log-info "unpacked ~A" (uiop:enough-pathname latest-wal-file (truename directory)))
-
-        (when (= pending-wals *wals-per-snapshot*)
-          (let* ((md-bytes (trivial-utf-8:string-to-utf-8-bytes (endb/json:json-stringify md)))
-                 (md-sha1 (string-downcase (sha1:sha1-hex md-bytes)))
-                 (latest-snapshot-json-bytes (trivial-utf-8:string-to-utf-8-bytes
-                                              (endb/json:json-stringify (fset:map ("path" (%snapshot-filename tx-id))
-                                                                                  ("tx_id" tx-id)
-                                                                                  ("sha1" md-sha1))))))
-            (endb/storage/object-store:object-store-put backing-object-store (%snapshot-filename tx-id) md-bytes)
-            (endb/storage/object-store:object-store-put backing-object-store (%latest-snapshot-filename) latest-snapshot-json-bytes)
-            (endb/lib:log-info "stored ~A" (%snapshot-filename tx-id))
-            (dolist (wal-file (%wal-files directory))
-              (delete-file wal-file)
-              (endb/lib:log-info "deleted ~A" (uiop:enough-pathname wal-file (truename directory))))
-            (setf pending-wals 0)))))
+        (when (>= pending-wals *wals-per-snapshot*)
+          (setf pending-wals 0)
+          (let ((wal-files-to-unpack (%wal-files directory))
+                (objects-to-delete (endb/storage/object-store:object-store-list mem-table-object-store)))
+            (endb/queue:queue-push
+             snapshot-queue
+             (lambda ()
+               (%build-snapshot store wal-files-to-unpack md tx-id)
+               (dolist (path objects-to-delete)
+                 (endb/storage/object-store:object-store-delete mem-table-object-store path))))))))
 
     (let* ((active-wal-file (merge-pathnames (%wal-filename (1+ tx-id)) (uiop:ensure-directory-pathname directory)))
            (write-io (open active-wal-file :direction :io :element-type '(unsigned-byte 8) :if-exists :overwrite :if-does-not-exist :create))
            (active-wal (endb/storage/wal:open-tar-wal :stream write-io)))
       (endb/lib:log-info "active wal is ~A" (uiop:enough-pathname active-wal-file (truename directory)))
-      (setf wal active-wal
-            mem-table-object-store (endb/storage/object-store:make-memory-object-store)))))
+      (setf wal active-wal))))
 
 (defmethod store-write-tx ((store disk-store) tx-id md md-diff arrow-buffers-map &key (fsyncp t))
   (with-slots (directory wal mem-table-object-store) store
@@ -215,7 +258,9 @@
         (endb/storage/object-store:object-store-get backing-object-store path))))
 
 (defmethod store-close ((store disk-store))
-  (with-slots (wal mem-table-object-store backing-object-store) store
+  (with-slots (wal mem-table-object-store backing-object-store snapshot-queue snapshot-thread) store
+    (endb/queue:queue-close snapshot-queue)
+    (bt:join-thread snapshot-thread)
     (endb/storage/wal:wal-close wal)
     (endb/storage/object-store:object-store-close mem-table-object-store)
     (endb/storage/object-store:object-store-close backing-object-store)))
