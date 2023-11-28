@@ -32,9 +32,9 @@
          (meta-data (endb/storage:store-replay store)))
     (endb/sql/expr:make-db :store store :buffer-pool buffer-pool :meta-data meta-data)))
 
-(defun make-directory-db (&key (directory "endb_data") wal-only-p)
+(defun make-directory-db (&key (directory "endb_data"))
   (endb/lib:init-lib)
-  (let* ((store (make-instance 'endb/storage:disk-store :directory directory :wal-only-p wal-only-p)))
+  (let* ((store (make-instance 'endb/storage:disk-store :directory directory)))
     (make-db :store store)))
 
 (defun close-db (db)
