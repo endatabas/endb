@@ -2,6 +2,7 @@
   (:use :cl :fiveam :endb/sql)
   (:import-from :endb/arrow)
   (:import-from :endb/lib)
+  (:import-from :endb/sql/db)
   (:import-from :endb/sql/expr)
   (:import-from :endb/storage)
   (:import-from :endb/storage/object-store)
@@ -25,16 +26,16 @@
       (is (null result))
       (is (eq t result-code))
       (is (equal '("a" "b" "c" "d" "e")
-                 (endb/sql/expr:table-columns db "t1")))
-      (is (zerop (endb/sql/expr:base-table-size db "t1"))))
+                 (endb/sql/db:table-columns db "t1")))
+      (is (zerop (endb/sql/db:base-table-size db "t1"))))
 
     (multiple-value-bind (result result-code)
         (execute-sql db "INSERT INTO t1 VALUES(103,102,100,101,104)")
       (is (null result))
       (is (= 1 result-code))
       (is (equal '((103 102 100 101 104))
-                 (endb/sql/expr:base-table-visible-rows db "t1")))
-      (is (= 1 (endb/sql/expr:base-table-size db "t1"))))
+                 (endb/sql/db:base-table-visible-rows db "t1")))
+      (is (= 1 (endb/sql/db:base-table-size db "t1"))))
 
     (multiple-value-bind (result result-code)
         (execute-sql db "INSERT INTO t1(e,c,b,d,a) VALUES(103,102,100,101,104), (NULL,102,NULL,101,104)")
@@ -43,8 +44,8 @@
       (is (equal '((103 102 100 101 104)
                    (104 100 102 101 103)
                    (104 :null 102 101 :null))
-                 (endb/sql/expr:base-table-visible-rows db "t1")))
-      (is (= 3 (endb/sql/expr:base-table-size db "t1"))))
+                 (endb/sql/db:base-table-visible-rows db "t1")))
+      (is (= 3 (endb/sql/db:base-table-size db "t1"))))
 
     (multiple-value-bind (result result-code)
         (execute-sql db "CREATE INDEX t1i0 ON t1(a1,b1,c1,d1,e1,x1)")
@@ -82,16 +83,16 @@
       (is (null result))
       (is (= 1 result-code)))
 
-    (is (equal '((103)) (endb/sql/expr:base-table-visible-rows write-db "t1")))
-    (is (= 1 (endb/sql/expr:base-table-size write-db "t1")))
+    (is (equal '((103)) (endb/sql/db:base-table-visible-rows write-db "t1")))
+    (is (= 1 (endb/sql/db:base-table-size write-db "t1")))
 
-    (is (null (endb/sql/expr:base-table-visible-rows db "t1")))
-    (is (zerop (endb/sql/expr:base-table-size db "t1")))
+    (is (null (endb/sql/db:base-table-visible-rows db "t1")))
+    (is (zerop (endb/sql/db:base-table-size db "t1")))
 
     (setf db (commit-write-tx db write-db))
 
-    (is (equal '((103)) (endb/sql/expr:base-table-visible-rows db "t1")))
-    (is (= 1 (endb/sql/expr:base-table-size db "t1")))))
+    (is (equal '((103)) (endb/sql/db:base-table-visible-rows db "t1")))
+    (is (= 1 (endb/sql/db:base-table-size db "t1")))))
 
 (defmacro signals-with-msg (e msg &body body)
   (alexandria:with-gensyms (e-sym)
@@ -1148,7 +1149,7 @@ SELECT s FROM x WHERE ind=0")
          (db (make-db))
          (now (endb/arrow:parse-arrow-timestamp-micros "2023-05-16T14:43:39.970062Z")))
 
-    (setf (endb/sql/expr:db-current-timestamp db) now)
+    (setf (endb/sql/db:db-current-timestamp db) now)
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT CURRENT_TIMESTAMP")
@@ -1242,7 +1243,7 @@ SELECT s FROM x WHERE ind=0")
                       result))
           (is (equal '("a" "b" "system_time") columns)))
 
-        (is (null (endb/sql/expr:base-table-visible-rows db "t1")))
+        (is (null (endb/sql/db:base-table-visible-rows db "t1")))
 
         (signals-with-msg endb/sql/expr:sql-runtime-error
             "Cannot insert value into SYSTEM_TIME column"
@@ -2029,7 +2030,7 @@ SELECT s FROM x WHERE ind=0")
       (is (null result))
       (is (= 2 result-code))
       (is (equal '((1 2) (1 3))
-                 (endb/sql/expr:base-table-visible-rows db "t1")))
+                 (endb/sql/db:base-table-visible-rows db "t1")))
       (is (equal '((1 2) (1 3)) (execute-sql db "SELECT * FROM t1 ORDER BY 2"))))
 
     (multiple-value-bind (result result-code)
@@ -2037,7 +2038,7 @@ SELECT s FROM x WHERE ind=0")
       (is (null result))
       (is (= 1 result-code))
       (is (equal '((1 3) (2 2))
-                 (endb/sql/expr:base-table-visible-rows db "t1")))
+                 (endb/sql/db:base-table-visible-rows db "t1")))
       (is (equal '((2 2) (1 3)) (execute-sql db "SELECT * FROM t1 ORDER BY 2"))))
 
     (multiple-value-bind (result result-code)
@@ -2045,7 +2046,7 @@ SELECT s FROM x WHERE ind=0")
       (is (null result))
       (is (= 1 result-code))
       (is (equal '((2 2))
-                 (endb/sql/expr:base-table-visible-rows db "t1")))
+                 (endb/sql/db:base-table-visible-rows db "t1")))
       (is (equal '((2 2)) (execute-sql db "SELECT * FROM t1 ORDER BY 2"))))))
 
 (test dql

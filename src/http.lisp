@@ -9,6 +9,7 @@
   (:import-from :endb/lib/parser)
   (:import-from :endb/lib/server)
   (:import-from :endb/sql)
+  (:import-from :endb/sql/db)
   (:import-from :endb/sql/expr)
   (:import-from :trivial-backtrace))
 (in-package :endb/http)
@@ -73,7 +74,7 @@
                               (funcall on-response-send (format nil "~A~%" e)))))))
     (handler-case
         (let* ((write-db (endb/sql:begin-write-tx endb/lib/server:*db*))
-               (original-md (endb/sql/expr:db-meta-data write-db))
+               (original-md (endb/sql/db:db-meta-data write-db))
                (original-parameters parameters)
                (parameters (endb/json:resolve-json-ld-xsd-scalars (endb/sql:interpret-sql-literal parameters)))
                (original-manyp manyp)
@@ -94,8 +95,8 @@
                       (funcall on-response-init +http-ok+ content-type)
                       (%stream-response on-response-send content-type result-code result)))
                    (result-code (if (equal "POST" request-method)
-                                    (bt:with-lock-held ((endb/sql/expr:db-write-lock endb/lib/server:*db*))
-                                      (if (eq original-md (endb/sql/expr:db-meta-data endb/lib/server:*db*))
+                                    (bt:with-lock-held ((endb/sql/db:db-write-lock endb/lib/server:*db*))
+                                      (if (eq original-md (endb/sql/db:db-meta-data endb/lib/server:*db*))
                                           (progn
                                             (setf endb/lib/server:*db* (endb/sql:commit-write-tx endb/lib/server:*db* write-db))
                                             (funcall on-response-init +http-created+ content-type)

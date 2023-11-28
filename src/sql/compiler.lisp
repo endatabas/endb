@@ -1,6 +1,7 @@
 (defpackage :endb/sql/compiler
   (:use :cl)
   (:export #:compile-sql)
+  (:import-from :endb/sql/db)
   (:import-from :endb/sql/expr)
   (:import-from :endb/lib/parser)
   (:import-from :endb/lib)
@@ -66,7 +67,7 @@
   (let* ((db (fset:lookup ctx :db))
          (ctes (or (fset:lookup ctx :ctes) (fset:empty-map)))
          (cte (fset:lookup ctes (symbol-name table-name)))
-         (table-type (endb/sql/expr:table-type db (symbol-name table-name))))
+         (table-type (endb/sql/db:table-type db (symbol-name table-name))))
     (cond
       (cte
        (progn
@@ -76,13 +77,13 @@
       ((equal "BASE TABLE" table-type)
        (values (make-base-table :name (symbol-name table-name)
                                 :temporal temporal
-                                :size (endb/sql/expr:base-table-size db (symbol-name table-name)))
-               (endb/sql/expr:table-columns db (symbol-name table-name))))
+                                :size (endb/sql/db:base-table-size db (symbol-name table-name)))
+               (endb/sql/db:table-columns db (symbol-name table-name))))
       ((equal "VIEW" table-type)
        (multiple-value-bind (src projection free-vars)
-           (%ast->cl-with-free-vars ctx (endb/sql/expr:view-definition db (symbol-name table-name)))
+           (%ast->cl-with-free-vars ctx (endb/sql/db:view-definition db (symbol-name table-name)))
          (declare (ignore projection))
-         (values src (endb/sql/expr:table-columns db (symbol-name table-name)) free-vars)))
+         (values src (endb/sql/db:table-columns db (symbol-name table-name)) free-vars)))
       (errorp (%annotated-error table-name "Unknown table")))))
 
 (defun %wrap-with-order-by-and-limit (src order-by limit offset)
@@ -363,9 +364,9 @@
                                                            `(let ((,scan-row-id-sym ,scan-row-id-sym))
                                                               (lambda ()
                                                                 (fset:map ("start" (endb/arrow:arrow-get ,temporal-sym ,scan-row-id-sym))
-                                                                          ("end" (endb/sql/expr:batch-row-system-time-end ,raw-deleted-row-ids-sym ,scan-row-id-sym))))))))
+                                                                          ("end" (endb/sql/db:batch-row-system-time-end ,raw-deleted-row-ids-sym ,scan-row-id-sym))))))))
                                          collect `(,v ,p)))
-                 (let ((,table-md-sym (endb/sql/expr:base-table-meta ,(fset:lookup ctx :db-sym) ,table-name))
+                 (let ((,table-md-sym (endb/sql/db:base-table-meta ,(fset:lookup ctx :db-sym) ,table-name))
                        ,@(when temporal-type-p
                            `((,system-time-start-sym ,(ast->cl ctx (if (eq temporal-type :all)
                                                                        endb/sql/expr:+unix-epoch-time+
@@ -381,7 +382,7 @@
                            (,scan-batch-idx-sym -1))
                        (declare (ignorable ,stats-md-sym))
                        (when (and ,@stats-src)
-                         (dolist (,batch-row-sym (endb/sql/expr:base-table-arrow-batches ,(fset:lookup ctx :db-sym) ,table-name ,scan-arrow-file-sym :sha1 ,sha1-md-sym))
+                         (dolist (,batch-row-sym (endb/sql/db:base-table-arrow-batches ,(fset:lookup ctx :db-sym) ,table-name ,scan-arrow-file-sym :sha1 ,sha1-md-sym))
                            (incf ,scan-batch-idx-sym)
                            (let* ((,batch-sym (endb/arrow:arrow-struct-column-array ,batch-row-sym ,(intern table-name :keyword)))
                                   (,temporal-sym (endb/arrow:arrow-struct-column-array ,batch-row-sym :|system_time_start|))
@@ -871,22 +872,22 @@
 
 (defmethod sql->cl (ctx (type (eql :create-index)) &rest args)
   (declare (ignore args))
-  `(endb/sql/expr:ddl-create-index ,(fset:lookup ctx :db-sym)))
+  `(endb/sql/db:ddl-create-index ,(fset:lookup ctx :db-sym)))
 
 (defmethod sql->cl (ctx (type (eql :drop-index)) &rest args)
   (declare (ignore args))
-  `(endb/sql/expr:ddl-drop-index ,(fset:lookup ctx :db-sym)))
+  `(endb/sql/db:ddl-drop-index ,(fset:lookup ctx :db-sym)))
 
 (defmethod sql->cl (ctx (type (eql :create-table)) &rest args)
   (destructuring-bind (table-name column-names)
       args
-    `(endb/sql/expr:ddl-create-table ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ',(mapcar #'symbol-name column-names))))
+    `(endb/sql/db:ddl-create-table ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ',(mapcar #'symbol-name column-names))))
 
 (defmethod sql->cl (ctx (type (eql :drop-table)) &rest args)
   (destructuring-bind (table-name &key if-exists)
       args
-    `(endb/sql/expr:ddl-drop-table ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) :if-exists ,(when if-exists
-                                                                                                      t))))
+    `(endb/sql/db:ddl-drop-table ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) :if-exists ,(when if-exists
+                                                                                                    t))))
 
 (defparameter +create-assertion-scanner+ (ppcre:create-scanner "(?is).+?\\s+CHECK\\s*((?:'.*?'|\"(?:[^\"\\\\]|\\\\.)*\"|[^;]*?)*)\\s*(?:;|$)"))
 
@@ -900,13 +901,13 @@
                                                                  :start (get constraint-name :start)))))
       (unless (and (vectorp assertion-matches) (= 1 (length assertion-matches)))
         (%annotated-error constraint-name "Invalid assertion definition"))
-      `(endb/sql/expr:ddl-create-assertion ,(fset:lookup ctx :db-sym) ,(symbol-name constraint-name) ,(aref assertion-matches 0)))))
+      `(endb/sql/db:ddl-create-assertion ,(fset:lookup ctx :db-sym) ,(symbol-name constraint-name) ,(aref assertion-matches 0)))))
 
 (defmethod sql->cl (ctx (type (eql :drop-assertion)) &rest args)
   (destructuring-bind (constraint-name &key if-exists)
       args
-    `(endb/sql/expr:ddl-drop-assertion ,(fset:lookup ctx :db-sym) ,(symbol-name constraint-name) :if-exists ,(when if-exists
-                                                                                                               t))))
+    `(endb/sql/db:ddl-drop-assertion ,(fset:lookup ctx :db-sym) ,(symbol-name constraint-name) :if-exists ,(when if-exists
+                                                                                                             t))))
 
 (defparameter +create-view-scanner+ (ppcre:create-scanner "(?is).+?\\s+AS\\s+((?:'.*?'|\"(?:[^\"\\\\]|\\\\.)*\"|[^;]*?)*)\\s*(?:;|$)"))
 
@@ -923,13 +924,13 @@
                                                                :start (get table-name :start)))))
         (unless (and (vectorp query-matches) (= 1 (length query-matches)))
           (%annotated-error table-name "Invalid view definition"))
-        `(endb/sql/expr:ddl-create-view ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(aref query-matches 0) ',(or (mapcar #'symbol-name column-names) projection))))))
+        `(endb/sql/db:ddl-create-view ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(aref query-matches 0) ',(or (mapcar #'symbol-name column-names) projection))))))
 
 (defmethod sql->cl (ctx (type (eql :drop-view)) &rest args)
   (destructuring-bind (view-name &key if-exists)
       args
-    `(endb/sql/expr:ddl-drop-view ,(fset:lookup ctx :db-sym) ,(symbol-name view-name)  :if-exists ,(when if-exists
-                                                                                                     t))))
+    `(endb/sql/db:ddl-drop-view ,(fset:lookup ctx :db-sym) ,(symbol-name view-name)  :if-exists ,(when if-exists
+                                                                                                   t))))
 
 (defun %insert-on-conflict (ctx table-name on-conflict update &key (values nil upsertp) column-names)
   (when upsertp
@@ -1055,8 +1056,8 @@
                            (when ,insertp-sym
                              (push ,object-sym ,updated-rows-sym)))))
                     (%table-scan->cl ctx vars projection from-src where-clauses `(progn ,@update-src)))
-               (endb/sql/expr:dml-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,updated-rows-sym)
-               (endb/sql/expr:dml-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)
+               (endb/sql/db:dml-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,updated-rows-sym)
+               (endb/sql/db:dml-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym)
                (values nil (length ,updated-rows-sym)))))))))
 
 (defmethod sql->cl (ctx (type (eql :insert)) &rest args)
@@ -1069,7 +1070,7 @@
     (if (eq :objects (first values))
         (if on-conflict
             (%insert-on-conflict ctx table-name on-conflict update :values values)
-            `(endb/sql/expr:dml-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx (second values))))
+            `(endb/sql/db:dml-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx (second values))))
         (multiple-value-bind (src projection)
             (ast->cl ctx values)
           (let ((column-names (if (or column-names endb/sql/expr:*sqlite-mode*)
@@ -1077,8 +1078,8 @@
                                   projection)))
             (if on-conflict
                 (%insert-on-conflict ctx table-name on-conflict update :values values :column-names column-names)
-                `(endb/sql/expr:dml-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,src
-                                           :column-names ',column-names)))))))
+                `(endb/sql/db:dml-insert ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,src
+                                         :column-names ',column-names)))))))
 
 (defmethod sql->cl (ctx (type (eql :delete)) &rest args)
   (destructuring-bind (table-name &key (where :true))
@@ -1104,7 +1105,7 @@
             `(let ((,deleted-row-ids-sym))
                ,(%table-scan->cl ctx vars projection from-src where-clauses
                                  `(push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym))
-               (endb/sql/expr:dml-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym))))))))
+               (endb/sql/db:dml-delete ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,deleted-row-ids-sym))))))))
 
 (defmethod sql->cl (ctx (type (eql :erase)) &rest args)
   (destructuring-bind (table-name &key (where :true))
@@ -1131,7 +1132,7 @@
             `(let ((,erased-row-ids-sym))
                ,(%table-scan->cl ctx vars projection from-src where-clauses
                                  `(push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,erased-row-ids-sym))
-               (endb/sql/expr:dml-erase ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,erased-row-ids-sym))))))))
+               (endb/sql/db:dml-erase ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,erased-row-ids-sym))))))))
 
 (defmethod sql->cl (ctx (type (eql :update)) &rest args)
   (destructuring-bind (table-name update-cols &key (where :true) unset patch)

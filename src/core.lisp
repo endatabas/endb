@@ -3,6 +3,7 @@
   (:export #:main)
   (:import-from :bordeaux-threads)
   (:import-from :fset)
+  (:import-from :endb/sql/db)
   (:import-from :endb/http)
   (:import-from :endb/lib)
   (:import-from :endb/lib/server)
@@ -18,12 +19,12 @@
   (when (boundp 'endb/lib/server:*db*)
     (endb/lib:log-info "shutting down")
     (let ((db endb/lib/server:*db*))
-      (if (bt:acquire-lock (endb/sql/expr:db-write-lock db) nil)
+      (if (bt:acquire-lock (endb/sql/db:db-write-lock db) nil)
           (unwind-protect
                (progn
                  (endb/sql:close-db db)
                  (makunbound 'endb/lib/server:*db*))
-            (bt:release-lock (endb/sql/expr:db-write-lock db)))
+            (bt:release-lock (endb/sql/db:db-write-lock db)))
           (endb/lib:log-warn "could not close the database cleanly")))))
 
 (defun %endb-main ()

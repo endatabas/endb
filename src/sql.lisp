@@ -5,6 +5,7 @@
   (:import-from :alexandria)
   (:import-from :endb/arrow)
   (:import-from :endb/json)
+  (:import-from :endb/sql/db)
   (:import-from :endb/sql/expr)
   (:import-from :endb/sql/compiler)
   (:import-from :endb/lib/arrow)
@@ -30,7 +31,7 @@
   (let* ((buffer-pool (endb/storage/buffer-pool:make-buffer-pool :get-object-fn (lambda (path)
                                                                                   (endb/storage:store-get-object store path))))
          (meta-data (endb/storage:store-replay store)))
-    (endb/sql/expr:make-db :store store :buffer-pool buffer-pool :meta-data meta-data)))
+    (endb/sql/db:make-db :store store :buffer-pool buffer-pool :meta-data meta-data)))
 
 (defun make-directory-db (&key (directory "endb_data"))
   (endb/lib:init-lib)
@@ -38,19 +39,19 @@
     (make-db :store store)))
 
 (defun close-db (db)
-  (endb/storage:store-close (endb/sql/expr:db-store db))
-  (endb/storage/buffer-pool:buffer-pool-close (endb/sql/expr:db-buffer-pool db)))
+  (endb/storage:store-close (endb/sql/db:db-store db))
+  (endb/storage/buffer-pool:buffer-pool-close (endb/sql/db:db-buffer-pool db)))
 
 (defun begin-write-tx (db)
-  (let* ((bp (endb/storage/buffer-pool:make-writeable-buffer-pool :parent-pool (endb/sql/expr:db-buffer-pool db)))
-         (write-db (endb/sql/expr:copy-db db)))
-    (setf (endb/sql/expr:db-buffer-pool write-db) bp)
-    (setf (endb/sql/expr:db-current-timestamp write-db) (endb/sql/expr:syn-current_timestamp db))
+  (let* ((bp (endb/storage/buffer-pool:make-writeable-buffer-pool :parent-pool (endb/sql/db:db-buffer-pool db)))
+         (write-db (endb/sql/db:copy-db db)))
+    (setf (endb/sql/db:db-buffer-pool write-db) bp)
+    (setf (endb/sql/db:db-current-timestamp write-db) (endb/sql/expr:syn-current_timestamp db))
     write-db))
 
 (defun %execute-constraints (db)
   (let ((ctx (fset:map (:db db))))
-    (fset:do-map (k v (endb/sql/expr:constraint-definitions db))
+    (fset:do-map (k v (endb/sql/db:constraint-definitions db))
       (when (equal '((nil)) (handler-case
                                 (funcall (endb/sql/compiler:compile-sql ctx v) db (fset:empty-seq))
                               (endb/sql/expr:sql-runtime-error (e)
@@ -58,8 +59,8 @@
         (error 'endb/sql/expr:sql-runtime-error :message (format nil "Constraint failed: ~A" k))))))
 
 (defun commit-write-tx (current-db write-db &key (fsyncp t))
-  (let ((current-md (endb/sql/expr:db-meta-data current-db))
-        (tx-md (endb/sql/expr:db-meta-data write-db)))
+  (let ((current-md (endb/sql/db:db-meta-data current-db))
+        (tx-md (endb/sql/db:db-meta-data write-db)))
     (if (eq current-md tx-md)
         current-db
         (progn
@@ -68,8 +69,8 @@
                  (tx-md (fset:with tx-md "_last_tx" tx-id))
                  (md-diff (endb/json:json-diff current-md tx-md))
                  (md-diff (fset:with md-diff "_tx_log_version" endb/storage:*tx-log-version*))
-                 (store (endb/sql/expr:db-store write-db))
-                 (bp (endb/sql/expr:db-buffer-pool write-db))
+                 (store (endb/sql/db:db-store write-db))
+                 (bp (endb/sql/db:db-buffer-pool write-db))
                  (arrow-buffers-map (make-hash-table :test 'equal)))
             (maphash
              (lambda (k v)
@@ -86,10 +87,10 @@
                  (setf (gethash k arrow-buffers-map) buffer)))
              (endb/storage/buffer-pool:writeable-buffer-pool-pool bp))
             (let ((new-md (endb/json:json-merge-patch current-md md-diff))
-                  (current-local-time (endb/arrow:arrow-timestamp-micros-to-local-time (endb/sql/expr:db-current-timestamp write-db))))
+                  (current-local-time (endb/arrow:arrow-timestamp-micros-to-local-time (endb/sql/db:db-current-timestamp write-db))))
               (endb/storage:store-write-tx store tx-id new-md md-diff arrow-buffers-map :fsyncp fsyncp :mtime current-local-time)
-              (let ((new-db (endb/sql/expr:copy-db current-db)))
-                (setf (endb/sql/expr:db-meta-data new-db) new-md)
+              (let ((new-db (endb/sql/db:copy-db current-db)))
+                (setf (endb/sql/db:db-meta-data new-db) new-md)
                 new-db)))))))
 
 (defun %resolve-parameters (ast)

@@ -3,7 +3,8 @@
   (:import-from :bordeaux-threads)
   (:import-from :endb/lib)
   (:import-from :endb/lib/server)
-  (:import-from :endb/sql))
+  (:import-from :endb/sql)
+  (:import-from :endb/sql/db))
 (in-package :endb-test/http)
 
 (in-suite* :http)
@@ -107,7 +108,7 @@
          (progn
            (setf endb/lib/server:*db* (endb/sql:make-db))
            (let ((write-db (endb/sql:begin-write-tx endb/lib/server:*db*))
-                 (write-lock (endb/sql/expr:db-write-lock endb/lib/server:*db*)))
+                 (write-lock (endb/sql/db:db-write-lock endb/lib/server:*db*)))
 
              (is (bt:acquire-lock write-lock))
              (let ((thread (bt:make-thread
