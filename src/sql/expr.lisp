@@ -35,13 +35,15 @@
            #:ra-scalar-subquery #:ra-in  #:ra-in-query #:ra-in-query-index #:ra-exists #:ra-limit #:ra-order-by #:ra-compute-index-if-absent #:ra-visible-row-p
 
            #:make-agg #:agg-accumulate #:agg-finish
+
            #:ddl-create-table #:ddl-drop-table #:ddl-create-view #:ddl-drop-view #:ddl-create-index #:ddl-drop-index #:ddl-create-assertion #:ddl-drop-assertion
            #:dml-insert #:dml-insert-objects #:dml-delete #:dml-erase
 
            #:make-db #:copy-db #:db-buffer-pool #:db-store #:db-meta-data #:db-current-timestamp #:db-write-lock
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
-           #:view-definition #:calculate-stats
+           #:view-definition #:calculate-stats #:arrow-files-compacted-filename #:find-files-to-compact #:merge-files #:compact-files
+
            #:sql-runtime-error #:*sqlite-mode* #:+unix-epoch-time+ #:+end-of-time+ #:+hash-table-test+ #:equalp-case-sensitive #:+impure-functions+))
 (in-package :endb/sql/expr)
 
@@ -2497,29 +2499,52 @@
        stats)
       acc)))
 
-(defun merge-files (db table-name arrow-files)
-  (endb/arrow:to-arrow
-   (loop with table-md = (base-table-meta db table-name)
-         for arrow-file in arrow-files
-         for arrow-file-md = (fset:lookup table-md arrow-file)
-         append (loop with erased-md = (or (fset:lookup arrow-file-md "erased") (fset:empty-map))
-                      for batch-row in (base-table-arrow-batches db table-name arrow-file :sha1 (fset:lookup arrow-file-md "sha1"))
-                      for batch-idx from 0
-                      for batch-idx-string = (prin1-to-string batch-idx)
-                      for batch-erased = (or (fset:lookup erased-md batch-idx-string) (fset:empty-seq))
-                      append (loop for row-id below (endb/arrow:arrow-length batch-row)
-                                   if (fset:find row-id batch-erased)
-                                     collect :null
-                                   else
-                                     collect (endb/arrow:arrow-get batch-row row-id))))))
+(defun find-files-to-compact (db table-name target-size)
+  (let ((table-md (base-table-meta db table-name))
+        (size 0)
+        (acc))
+    (sort (or (fset:do-map (arrow-file arrow-file-md table-md)
+                (unless (> (+ size (fset:lookup arrow-file-md "byte_size")) target-size)
+                  (push arrow-file acc)
+                  (incf size (fset:lookup arrow-file-md "byte_size")))
+                (when (>= size target-size)
+                  (return-from nil acc)))
+              acc)
+          #'string<)))
 
-(defun compact-files-md (db table-name arrow-files buffer)
+(defun arrow-files-compacted-filename (arrow-files)
+  (format nil "~A_~A.arrow"
+          (pathname-name (first arrow-files))
+          (pathname-name (car (last arrow-files)))))
+
+(defun merge-files (db table-name arrow-files)
+  (let* ((batch (endb/arrow:to-arrow
+                 (loop with table-md = (base-table-meta db table-name)
+                       for arrow-file in arrow-files
+                       for arrow-file-md = (fset:lookup table-md arrow-file)
+                       append (loop with erased-md = (or (fset:lookup arrow-file-md "erased") (fset:empty-map))
+                                    for batch-row in (base-table-arrow-batches db table-name arrow-file :sha1 (fset:lookup arrow-file-md "sha1"))
+                                    for batch-idx from 0
+                                    for batch-idx-string = (prin1-to-string batch-idx)
+                                    for batch-erased = (or (fset:lookup erased-md batch-idx-string) (fset:empty-seq))
+                                    append (loop for row-id below (endb/arrow:arrow-length batch-row)
+                                                 if (fset:find row-id batch-erased)
+                                                   collect :null
+                                                 else
+                                                   collect (endb/arrow:arrow-get batch-row row-id))))))
+         (table-array (endb/arrow:arrow-struct-column-array batch (intern table-name :keyword)))
+         (buffer (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer batch)))
+    (list buffer
+          (fset:map ("length" (endb/arrow:arrow-length table-array))
+                    ("stats" (calculate-stats (list table-array)))
+                    ("byte_size" (length buffer))
+                    ("derived_from" (fset:convert 'fset:seq arrow-files))))))
+
+(defun compact-files (db table-name batch-md)
   (with-slots (meta-data) db
-    (let* ((arrow-files (sort arrow-files #'string<))
+    (let* ((arrow-files (fset:lookup batch-md "derived_from"))
            (table-md (base-table-meta db table-name))
-           (batch-file (format nil "~A_~A.arrow"
-                               (pathname-name (first arrow-files))
-                               (pathname-name (car (last arrow-files)))))
+           (batch-file (arrow-files-compacted-filename arrow-files))
            (merged-batch-idx 0)
            (merged-batch-idx-string (prin1-to-string merged-batch-idx))
            (deleted-md (fset:convert
@@ -2528,7 +2553,7 @@
                           (loop for arrow-file in arrow-files
                                 for arrow-file-md = (fset:lookup table-md arrow-file)
                                 append (loop with deleted-md = (or (fset:lookup arrow-file-md "deleted") (fset:empty-map))
-                                             for batch-row in (base-table-arrow-batches db table-name arrow-file :sha1 (fset:lookup arrow-file-md "sha1"))
+                                             for batch-row in (base-table-arrow-batches db table-name arrow-file)
                                              for batch-idx from 0
                                              for batch-idx-string = (prin1-to-string batch-idx)
                                              for batch-deleted = (or (fset:lookup deleted-md batch-idx-string) (fset:empty-seq))
@@ -2545,7 +2570,7 @@
                          (loop for arrow-file in arrow-files
                                for arrow-file-md = (fset:lookup table-md arrow-file)
                                append (loop with deleted-md = (or (fset:lookup arrow-file-md "erased") (fset:empty-map))
-                                            for batch-row in (base-table-arrow-batches db table-name arrow-file :sha1 (fset:lookup arrow-file-md "sha1"))
+                                            for batch-row in (base-table-arrow-batches db table-name arrow-file)
                                             for batch-idx from 0
                                             for batch-idx-string = (prin1-to-string batch-idx)
                                             for batch-erased = (or (fset:lookup deleted-md batch-idx-string) (fset:empty-seq))
@@ -2556,33 +2581,17 @@
                                                             batch-erased)))
                                                      (incf row-id (endb/arrow:arrow-length batch-row))
                                                      (fset:convert 'list batch-erased)))))))
-           (batch (car (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer buffer)))
-           (table-array (endb/arrow:arrow-struct-column-array batch (intern table-name :keyword)))
-           (batch-md (fset:map
-                      ("length" (endb/arrow:arrow-length table-array))
-                      ("byte_size" (length buffer))
-                      ("stats" (calculate-stats (list table-array)))
-                      ("deleted" (fset:map (merged-batch-idx-string deleted-md)))
-                      ("erased" (fset:map (merged-batch-idx-string erased-md)))))
+           (batch-md (if (fset:empty? deleted-md)
+                         (fset:with batch-md "deleted" (fset:map (merged-batch-idx-string deleted-md)))
+                         batch-md))
+           (batch-md (if (fset:empty? erased-md)
+                         (fset:with batch-md "erased" (fset:map (merged-batch-idx-string erased-md)))
+                         batch-md))
            (new-table-md (fset:reduce #'fset:less
                                       arrow-files
-                                      :initial-value (fset:with table-md batch-file batch-md)))
-           (new-md (fset:with meta-data table-name new-table-md)))
-;;      (setf meta-data new-md)
+                                      :initial-value (fset:with table-md batch-file batch-md))))
+      ;; (setf meta-data (fset:with meta-data table-name new-table-md))
       new-table-md)))
-
-(defun find-files-to-compact (db table-name target-size)
-  (let ((table-md (base-table-meta db table-name))
-        (size 0)
-        (acc))
-    (sort (or (fset:do-map (arrow-file arrow-file-md table-md)
-                (unless (> (+ size (fset:lookup arrow-file-md "byte_size")) target-size)
-                  (push arrow-file acc)
-                  (incf size (fset:lookup arrow-file-md "byte_size")))
-                (when (>= size target-size)
-                  (return-from nil acc)))
-              acc)
-          #'string<)))
 
 (defparameter +ident-scanner+ (ppcre:create-scanner "^[a-zA-Z_][a-zA-Z0-9_]*$"))
 
