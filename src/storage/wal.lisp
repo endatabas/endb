@@ -6,7 +6,7 @@
   (:import-from :local-time))
 (in-package :endb/storage/wal)
 
-(defgeneric wal-append-entry (wal path buffer))
+(defgeneric wal-append-entry (wal path buffer &key mtime))
 (defgeneric wal-read-next-entry (wal &key skip-if))
 (defgeneric wal-fsync (wal))
 (defgeneric wal-size (wal))
@@ -31,13 +31,13 @@
 
 (defconstant +wal-file-mode+ #o100664)
 
-(defmethod wal-append-entry ((archive archive:tar-archive) path buffer)
+(defmethod wal-append-entry ((archive archive:tar-archive) path buffer &key mtime)
   (let* ((entry (make-instance 'archive::tar-entry
                                :pathname (pathname path)
                                :mode +wal-file-mode+
                                :typeflag archive::+tar-regular-file+
                                :size (length buffer)
-                               :mtime (local-time:timestamp-to-unix (local-time:now)))))
+                               :mtime (local-time:timestamp-to-unix (or mtime (local-time:now))))))
     (flex:with-input-from-sequence (in buffer)
       (archive:write-entry-to-archive archive entry :stream in))))
 

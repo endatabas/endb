@@ -42,7 +42,7 @@
   (format nil "~A/~(~16,'0x~).tar" *wal-archive-directory* tx-id))
 
 (defgeneric store-replay (store))
-(defgeneric store-write-tx (store tx-id md md-diff arrow-buffers-map &key fsyncp))
+(defgeneric store-write-tx (store tx-id md md-diff arrow-buffers-map &key fsyncp mtime))
 (defgeneric store-get-object (store path))
 (defgeneric store-close (os))
 
@@ -248,15 +248,15 @@
       (endb/lib:log-info "active wal is ~A" (uiop:enough-pathname active-wal-file (truename directory)))
       (setf wal active-wal))))
 
-(defmethod store-write-tx ((store disk-store) tx-id md md-diff arrow-buffers-map &key (fsyncp t))
+(defmethod store-write-tx ((store disk-store) tx-id md md-diff arrow-buffers-map &key (fsyncp t) mtime)
   (with-slots (directory wal mem-table-object-store) store
     (let ((md-diff-bytes (trivial-utf-8:string-to-utf-8-bytes (endb/json:json-stringify md-diff))))
       (maphash
        (lambda (k buffer)
-         (endb/storage/wal:wal-append-entry wal k buffer)
+         (endb/storage/wal:wal-append-entry wal k buffer :mtime mtime)
          (endb/storage/object-store:object-store-put mem-table-object-store k buffer))
        arrow-buffers-map)
-      (endb/storage/wal:wal-append-entry wal (%log-entry-filename tx-id) md-diff-bytes)
+      (endb/storage/wal:wal-append-entry wal (%log-entry-filename tx-id) md-diff-bytes :mtime mtime)
       (cond
         ((<= *wal-target-size* (endb/storage/wal:wal-size wal))
          (%rotate-wal store tx-id md))
@@ -282,8 +282,8 @@
 (defmethod store-replay ((store in-memory-store))
   (fset:empty-map))
 
-(defmethod store-write-tx ((store in-memory-store) tx-id md md-diff arrow-buffers-map &key fsyncp)
-  (declare (ignore fsyncp))
+(defmethod store-write-tx ((store in-memory-store) tx-id md md-diff arrow-buffers-map &key fsyncp mtime)
+  (declare (ignore fsyncp mtime))
   (with-slots (object-store) store
     (maphash
      (lambda (k buffer)
