@@ -6,11 +6,11 @@
   (:import-from :flexi-streams)
   (:import-from :fset)
   (:import-from :endb/json)
+  (:import-from :endb/lib)
   (:import-from :endb/lib/arrow)
   (:import-from :endb/storage/object-store)
   (:import-from :endb/storage/wal)
   (:import-from :endb/queue)
-  (:import-from :sha1)
   (:import-from :trivial-utf-8)
   (:import-from :uiop))
 (in-package :endb/storage)
@@ -18,7 +18,6 @@
 (defvar *tx-log-version* 2)
 (defvar *wal-target-size* (* 4 1024 1024))
 (defvar *wals-per-snapshot* 2)
-(defvar *snapshot-sha1-checksum* nil)
 
 (defvar *wal-directory* "wal")
 (defvar *object-store-directory* "object_store")
@@ -152,12 +151,9 @@
       (let* ((md-bytes (trivial-utf-8:string-to-utf-8-bytes (endb/json:json-stringify md)))
              (latest-snapshot-json-bytes (trivial-utf-8:string-to-utf-8-bytes
                                           (endb/json:json-stringify
-                                           (if *snapshot-sha1-checksum*
-                                               (fset:map ("path" (%snapshot-filename tx-id))
-                                                         ("tx_id" tx-id)
-                                                         ("sha1" (string-downcase (sha1:sha1-hex md-bytes))))
-                                               (fset:map ("path" (%snapshot-filename tx-id))
-                                                         ("tx_id" tx-id))))))
+                                           (fset:map ("path" (%snapshot-filename tx-id))
+                                                     ("tx_id" tx-id)
+                                                     ("sha1" (string-downcase (endb/lib:sha1 md-bytes)))))))
              (previous-latest-snapshot (%read-latest-snapshot backing-object-store)))
         (endb/storage/object-store:object-store-put backing-object-store (%snapshot-filename tx-id) md-bytes)
         (endb/storage/object-store:object-store-put backing-object-store (%latest-snapshot-filename) latest-snapshot-json-bytes)
@@ -180,7 +176,7 @@
                                    (snapshot-md (endb/json:json-parse snapshot-md-bytes)))
                               (endb/lib:log-info "using snapshot ~A" snapshot-path)
                               (when (fset:lookup latest-snapshot "sha1")
-                                (let ((snapshot-sha1 (string-downcase (sha1:sha1-hex snapshot-md-bytes))))
+                                (let ((snapshot-sha1 (string-downcase (endb/lib:sha1 snapshot-md-bytes))))
                                   (assert (equal (fset:lookup latest-snapshot "sha1") snapshot-sha1)
                                           nil
                                           (format nil "Snapshot SHA1 mismatch: ~A does not match stored: ~A" (fset:lookup latest-snapshot "sha1") snapshot-sha1))))

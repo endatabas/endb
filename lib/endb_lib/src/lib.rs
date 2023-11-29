@@ -4,6 +4,7 @@ use libc::c_char;
 use std::ffi::{CStr, CString};
 
 use arrow2::ffi::ArrowArrayStream;
+use base64::Engine;
 use chumsky::Parser;
 use endb_arrow::arrow;
 use endb_parser::parser::ast::Ast;
@@ -357,4 +358,83 @@ pub extern "C" fn endb_parse_command_line_to_json(
     on_success: endb_parse_command_line_to_json_on_success_callback,
 ) {
     endb_server::parse_command_line_to_json(|config_json| string_callback(config_json, on_success));
+}
+
+type endb_version_on_success_callback = extern "C" fn(*const c_char);
+
+#[no_mangle]
+pub extern "C" fn endb_version(on_success: endb_version_on_success_callback) {
+    string_callback(endb_server::ENDB_FULL_VERSION, on_success);
+}
+
+type endb_base64_encode_on_success_callback = extern "C" fn(*const c_char);
+
+type endb_base64_decode_on_success_callback = extern "C" fn(*const u8, usize);
+
+#[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn endb_base64_encode(
+    buffer_ptr: *const u8,
+    buffer_size: usize,
+    on_success: endb_base64_encode_on_success_callback,
+) {
+    let buffer = unsafe { std::slice::from_raw_parts(buffer_ptr, buffer_size) };
+    string_callback(
+        base64::engine::general_purpose::STANDARD.encode(buffer),
+        on_success,
+    );
+}
+
+#[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn endb_base64_decode(
+    string: *const c_char,
+    on_success: endb_base64_decode_on_success_callback,
+    on_error: endb_on_error_callback,
+) {
+    let string = unsafe { CStr::from_ptr(string).to_str().unwrap() };
+    match base64::engine::general_purpose::STANDARD.decode(string) {
+        Ok(buffer) => on_success(buffer.as_ptr(), buffer.len()),
+        Err(err) => string_callback(err.to_string(), on_error),
+    }
+}
+
+type endb_sha1_on_success_callback = extern "C" fn(*const c_char);
+
+#[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn endb_sha1(
+    buffer_ptr: *const u8,
+    buffer_size: usize,
+    on_success: endb_sha1_on_success_callback,
+) {
+    let buffer = unsafe { std::slice::from_raw_parts(buffer_ptr, buffer_size) };
+    let mut m = sha1_smol::Sha1::new();
+    m.update(buffer);
+    string_callback(m.digest().to_string(), on_success);
+}
+
+type endb_uuid_v4_on_success_callback = extern "C" fn(*const c_char);
+
+#[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn endb_uuid_v4(on_success: endb_uuid_v4_on_success_callback) {
+    string_callback(uuid::Uuid::new_v4().to_string(), on_success);
+}
+
+type endb_uuid_str_on_success_callback = extern "C" fn(*const c_char);
+
+#[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn endb_uuid_str(
+    buffer_ptr: *const u8,
+    buffer_size: usize,
+    on_success: endb_uuid_str_on_success_callback,
+    on_error: endb_on_error_callback,
+) {
+    let buffer = unsafe { std::slice::from_raw_parts(buffer_ptr, buffer_size) };
+    match uuid::Uuid::from_slice(buffer) {
+        Ok(uuid) => string_callback(uuid.to_string(), on_success),
+        Err(err) => string_callback(err.to_string(), on_error),
+    }
 }

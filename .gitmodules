@@ -20,9 +20,6 @@
 [submodule "_build/trivial-gray-streams"]
 	path = _build/trivial-gray-streams
 	url = https://github.com/trivial-gray-streams/trivial-gray-streams
-[submodule "_build/cl-base64"]
-	path = _build/cl-base64
-	url = https://gitlab.common-lisp.net/nyxt/cl-base64.git
 [submodule "_build/cl-fad"]
 	path = _build/cl-fad
 	url = https://github.com/edicl/cl-fad
@@ -116,6 +113,3 @@
 [submodule "_build/cl-sqlite"]
 	path = _build/cl-sqlite
 	url = https://github.com/TeMPOraL/cl-sqlite
-[submodule "_build/sha1"]
-	path = _build/sha1
-	url = https://github.com/massung/sha1

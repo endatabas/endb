@@ -24,7 +24,6 @@
 (defvar *query-timing* nil)
 (defvar *use-cst-parser* nil)
 (defvar *use-cst-parser-only* nil)
-(defvar *arrow-sha1-checksum* nil)
 
 (defun make-db (&key (store (make-instance 'endb/storage:in-memory-store)))
   (endb/lib:init-lib)
@@ -82,10 +81,8 @@
                      (uiop:split-string k :max 2 :separator "/")
                    (let* ((table-md (fset:lookup md-diff table))
                           (batch-md (fset:map-union (fset:lookup table-md batch-file)
-                                                    (if *arrow-sha1-checksum*
-                                                        (fset:map ("sha1" (string-downcase (sha1:sha1-hex buffer)))
-                                                                  ("byte_size" (length buffer)))
-                                                        (fset:map ("byte_size" (length buffer)))))))
+                                                    (fset:map ("sha1" (string-downcase (endb/lib:sha1 buffer)))
+                                                              ("byte_size" (length buffer))))))
                      (setf md-diff (fset:with md-diff table (fset:with table-md batch-file batch-md)))))
                  (setf (gethash k arrow-buffers-map) buffer)))
              (endb/storage/buffer-pool:writeable-buffer-pool-pool bp))

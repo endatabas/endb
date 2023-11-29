@@ -270,6 +270,18 @@ typedef void (*endb_start_server_on_query_callback)(struct endb_server_http_resp
 
 typedef void (*endb_parse_command_line_to_json_on_success_callback)(const char*);
 
+typedef void (*endb_version_on_success_callback)(const char*);
+
+typedef void (*endb_base64_encode_on_success_callback)(const char*);
+
+typedef void (*endb_base64_decode_on_success_callback)(const uint8_t*, uintptr_t);
+
+typedef void (*endb_sha1_on_success_callback)(const char*);
+
+typedef void (*endb_uuid_v4_on_success_callback)(const char*);
+
+typedef void (*endb_uuid_str_on_success_callback)(const char*);
+
 void endb_parse_sql(const char *input,
                     endb_parse_sql_on_success_callback on_success,
                     endb_on_error_callback on_error);
@@ -327,3 +339,24 @@ void endb_start_server(endb_start_server_on_query_callback on_query,
 void endb_set_panic_hook(endb_on_error_callback on_panic);
 
 void endb_parse_command_line_to_json(endb_parse_command_line_to_json_on_success_callback on_success);
+
+void endb_version(endb_version_on_success_callback on_success);
+
+void endb_base64_encode(const uint8_t *buffer_ptr,
+                        uintptr_t buffer_size,
+                        endb_base64_encode_on_success_callback on_success);
+
+void endb_base64_decode(const char *string,
+                        endb_base64_decode_on_success_callback on_success,
+                        endb_on_error_callback on_error);
+
+void endb_sha1(const uint8_t *buffer_ptr,
+               uintptr_t buffer_size,
+               endb_sha1_on_success_callback on_success);
+
+void endb_uuid_v4(endb_uuid_v4_on_success_callback on_success);
+
+void endb_uuid_str(const uint8_t *buffer_ptr,
+                   uintptr_t buffer_size,
+                   endb_uuid_str_on_success_callback on_success,
+                   endb_on_error_callback on_error);

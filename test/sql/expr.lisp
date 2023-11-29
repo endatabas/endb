@@ -154,13 +154,3 @@
                           (agg-accumulate acc x ":"))
                         '(1 0 :null)
                         :initial-value (make-agg :group_concat :distinct :distinct)))))
-
-(test random-uuid
-  (let ((uuid (endb/sql/expr::%random-uuid #+sbcl (sb-ext:seed-random-state 0)
-                                           #-sbcl *random-state*)))
-    #+sbcl (is (equal "8c7f0aac-97c4-4a2f-b716-a675d821ccc0" uuid))
-    (is (endb/sql/expr::%random-uuid-p uuid))
-    (is (endb/sql/expr::%random-uuid-p "00000000-0000-4000-8000-000000000000"))
-    (is (not (endb/sql/expr::%random-uuid-p "00000000-0000-1000-8000-000000000000")))
-    (is (not (endb/sql/expr::%random-uuid-p "foobar")))
-    (is (not (endb/sql/expr::%random-uuid-p 42)))))

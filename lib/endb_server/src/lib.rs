@@ -16,7 +16,7 @@ use std::sync::Arc;
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type BoxBody = http_body_util::combinators::BoxBody<bytes::Bytes, Infallible>;
 
-const ENDB_FULL_VERSION: &str = env!("ENDB_FULL_VERSION");
+pub const ENDB_FULL_VERSION: &str = env!("ENDB_FULL_VERSION");
 
 #[derive(Serialize, Deserialize, Debug, Parser)]
 #[command(name = "endb", author, version = ENDB_FULL_VERSION, about, long_about = None)]
@@ -273,7 +273,6 @@ pub fn start_server(
         + 'static,
 ) -> Result<(), Error> {
     let args = CommandLineArguments::parse();
-    log::info!("version {}", ENDB_FULL_VERSION);
 
     let basic_auth = make_basic_auth_header(args.username, args.password);
     let on_query = Arc::new(on_query);
@@ -284,7 +283,7 @@ pub fn start_server(
         .build()?
         .block_on(async {
             let listener = tokio::net::TcpListener::bind(addr).await?;
-            log::info!("listening on port {}", args.http_port);
+            log::info!(target: "endb/lib/server", "listening on port {}", args.http_port);
             loop {
                 let (stream, _) = listener.accept().await?;
                 let io = hyper_util::rt::tokio::TokioIo::new(stream);

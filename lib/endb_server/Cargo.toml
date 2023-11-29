@@ -23,7 +23,7 @@ tokio = { version = "1", features = ["full"] }
 url = "2.2"
 multer = "2"
 mime = "0.3.17"
-base64 = "0.21.5"
+base64.workspace = true
 log.workspace = true
 serde.workspace = true
 serde_json.workspace = true

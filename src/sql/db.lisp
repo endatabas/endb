@@ -4,6 +4,7 @@
   (:import-from :cl-bloom)
   (:import-from :cl-ppcre)
   (:import-from :endb/arrow)
+  (:import-from :endb/lib)
   (:import-from :endb/lib/parser)
   (:import-from :endb/sql/expr)
   (:import-from :endb/storage/buffer-pool)
@@ -275,7 +276,7 @@
 
 (defmethod endb/sql/expr:agg-finish ((agg cl-bloom::bloom-filter))
   (cffi:with-pointer-to-vector-data (ptr (cl-bloom::filter-array agg))
-    (endb/lib/arrow:buffer-to-vector ptr (endb/lib/arrow:vector-byte-size (cl-bloom::filter-array agg)))))
+    (endb/lib:buffer-to-vector ptr (endb/lib:vector-byte-size (cl-bloom::filter-array agg)))))
 
 (defstruct col-stats count_star count min max bloom)
 
@@ -299,7 +300,7 @@
 
 (defun calculate-stats (arrays)
   (let* ((total-length (reduce #'+ (mapcar #'endb/arrow:arrow-length arrays)))
-         (bloom-order (* 8 (endb/lib/arrow:vector-byte-size #* (cl-bloom::opt-order total-length))))
+         (bloom-order (* 8 (endb/lib:vector-byte-size #* (cl-bloom::opt-order total-length))))
          (stats (make-hash-table :test 'equal))
          (acc (fset:empty-map)))
     (labels ((get-col-stats (k)

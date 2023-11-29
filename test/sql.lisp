@@ -2049,6 +2049,13 @@ SELECT s FROM x WHERE ind=0")
                  (endb/sql/db:base-table-visible-rows db "t1")))
       (is (equal '((2 2)) (execute-sql db "SELECT * FROM t1 ORDER BY 2"))))))
 
+(defparameter +random-uuid-scanner+
+  (ppcre:create-scanner "^[\\da-f]{8}-[\\da-f]{4}-4[\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"))
+
+(defun %random-uuid-p (x)
+  (and (stringp x)
+       (not (null (ppcre:scan +random-uuid-scanner+ x)))))
+
 (test dql
   (let ((endb/sql/expr:*sqlite-mode* t)
         (endb/sql:*use-cst-parser* t)
@@ -2264,7 +2271,7 @@ SELECT s FROM x WHERE ind=0")
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT UUID()")
-      (is (endb/sql/expr::%random-uuid-p (caar result)))
+      (is (%random-uuid-p (caar result)))
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)

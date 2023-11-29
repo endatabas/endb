@@ -1,14 +1,13 @@
 (defpackage :endb/sql/expr
   (:use :cl)
   (:import-from :alexandria)
-  (:import-from :cl-base64)
   (:import-from :cl-ppcre)
   (:import-from :local-time)
   (:import-from :periods)
   (:import-from :endb/arrow)
   (:import-from :endb/json)
+  (:import-from :endb/lib)
   (:import-from :fset)
-  (:import-from :sha1)
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-~ #:sql-& #:sql-\|
@@ -1288,35 +1287,8 @@
     (error 'endb/sql/expr:sql-runtime-error :message "Path set needs even path/argument pairs"))
   (%path-edit x (%path-pairs paths) :createp t :overwritep t))
 
-(defconstant +random-uuid-part-max+ (ash 1 64))
-(defconstant +random-uuid-version+ 4)
-(defconstant +random-uuid-variant+ 2)
-
-(defun %uuid-parts-to-string (high low)
-  (format nil "~(~4,'0x~4,'0x-~4,'0x-~4,'0x-~4,'0x-~4,'0x~4,'0x~4,'0x~)"
-          (ldb (byte 16 48) high)
-          (ldb (byte 16 32) high)
-          (ldb (byte 16 16) high)
-          (ldb (byte 16 0) high)
-          (ldb (byte 16 48) low)
-          (ldb (byte 16 32) low)
-          (ldb (byte 16 16) low)
-          (ldb (byte 16 0) low)))
-
-(defun %random-uuid (&optional (state *random-state*))
-  (let ((high (dpb +random-uuid-version+ (byte 4 12) (random +random-uuid-part-max+ state)))
-        (low (dpb +random-uuid-variant+ (byte 2 62) (random +random-uuid-part-max+ state))))
-    (%uuid-parts-to-string high low)))
-
-(defparameter +random-uuid-scanner+
-  (ppcre:create-scanner "^[\\da-f]{8}-[\\da-f]{4}-4[\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"))
-
-(defun %random-uuid-p (x)
-  (and (stringp x)
-       (not (null (ppcre:scan +random-uuid-scanner+ x)))))
-
 (defun sql-uuid ()
-  (%random-uuid))
+  (endb/lib:uuid-v4))
 
 (defmethod sql-uuid_blob ((x (eql :null)))
   :null)
@@ -1339,35 +1311,25 @@
   (sql-uuid_str (sql-uuid_blob x)))
 
 (defmethod sql-uuid_str ((x vector))
-  (if (= 16 (length x))
-      (let ((high (loop with acc = 0
-                        for idx below 8
-                        do (setf acc (logior (ash acc 8) (aref x idx)))
-                        finally (return acc)))
-            (low (loop with acc = 0
-                       for idx from 8 below 16
-                       do (setf acc (logior (ash acc 8) (aref x idx)))
-                       finally (return acc))))
-        (%uuid-parts-to-string high low))
-      :null))
+  (or (endb/lib:uuid-str x) :null))
 
 (defmethod sql-base64 ((x (eql :null)))
   :null)
 
 (defmethod sql-base64 ((x string))
-  (cl-base64:base64-string-to-usb8-array x))
+  (or (endb/lib:base64-decode x) :null))
 
 (defmethod sql-base64 ((x vector))
-  (cl-base64:usb8-array-to-base64-string x))
+  (endb/lib:base64-encode x))
 
 (defmethod sql-sha1 ((x (eql :null)))
   :null)
 
 (defmethod sql-sha1 ((x vector))
-  (string-downcase (sha1:sha1-hex x)))
+  (endb/lib:sha1 x))
 
 (defmethod sql-sha1 ((x string))
-  (sql-sha1 (trivial-utf-8:string-to-utf-8-bytes x)))
+  (endb/lib:sha1 (trivial-utf-8:string-to-utf-8-bytes x)))
 
 (defmethod sql-sha1 (x)
   (sql-sha1 (syn-cast x :varchar)))

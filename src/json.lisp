@@ -10,8 +10,8 @@
   (:import-from :com.inuoe.jzon)
   (:import-from :endb/arrow)
   (:import-from :endb/lib/arrow)
+  (:import-from :endb/lib)
   (:import-from :fset)
-  (:import-from :cl-base64)
   (:import-from :cl-bloom))
 (in-package :endb/json)
 
@@ -55,7 +55,7 @@
               (endb/arrow:parse-arrow-interval-month-day-nanos v))
              ((or (equal "xsd:base64Binary" k)
                   (equal "http://www.w3.org/2001/XMLSchema#base64Binary" k))
-              (cl-base64:base64-string-to-usb8-array v))
+              (endb/lib:base64-decode v))
              ((or (equal "xsd:integer" k)
                   (equal "http://www.w3.org/2001/XMLSchema#integer" k))
               (let ((x (parse-integer v)))
@@ -128,10 +128,10 @@
       (if *json-ld-scalars*
           (com.inuoe.jzon:with-object writer
             (com.inuoe.jzon:write-key writer "@value")
-            (com.inuoe.jzon:write-value writer (cl-base64:usb8-array-to-base64-string value))
+            (com.inuoe.jzon:write-value writer (endb/lib:base64-encode value))
             (com.inuoe.jzon:write-key writer "@type")
             (com.inuoe.jzon:write-value writer "xsd:base64Binary"))
-          (com.inuoe.jzon:write-value writer (cl-base64:usb8-array-to-base64-string value)))
+          (com.inuoe.jzon:write-value writer (endb/lib:base64-encode value)))
       (call-next-method)))
 
 (defparameter +max-safe-integer+ (1- (ash 1 53)))
@@ -196,7 +196,7 @@
 (defun binary-to-bloom (binary)
   (let ((bloom (make-instance 'cl-bloom::bloom-filter :order (* (length binary) 8))))
     (cffi:with-pointer-to-vector-data (ptr binary)
-      (endb/lib/arrow:buffer-to-vector ptr (length binary) (cl-bloom::filter-array bloom)))
+      (endb/lib:buffer-to-vector ptr (length binary) (cl-bloom::filter-array bloom)))
     bloom))
 
 (defparameter +bloom-opt-degree+ (cl-bloom::opt-degree))

@@ -1,7 +1,9 @@
 (defpackage :endb/lib
   (:use :cl)
-  (:export #:init-lib #:log-error #:log-warn #:log-info #:log-debug #:resolve-log-level #:*log-level* #:*panic-hook*)
-  (:import-from :bordeaux-threads)
+  (:export #:init-lib #:*panic-hook*
+           #:log-error #:log-warn #:log-info #:log-debug #:resolve-log-level #:*log-level*
+           #:sha1 #:uuid-v4 #:uuid-str #:base64-decode #:base64-encode
+           #:vector-byte-size #:buffer-to-vector)
   (:import-from :cffi)
   (:import-from :asdf)
   (:import-from :uiop))
@@ -21,30 +23,35 @@
 
 (defmacro log-error (control-string &rest format-arguments)
   `(when (<= ,(position :error +log-levels+) *log-level*)
+     (init-lib)
      (endb-log-error
       ,(string-downcase (package-name *package*))
       (format nil ,control-string ,@format-arguments))))
 
 (defmacro log-warn (control-string &rest format-arguments)
   `(when (<= ,(position :warn +log-levels+) *log-level*)
+     (init-lib)
      (endb-log-warn
       ,(string-downcase (package-name *package*))
       (format nil ,control-string ,@format-arguments))))
 
 (defmacro log-info (control-string &rest format-arguments)
   `(when (<= ,(position :info +log-levels+) *log-level*)
+     (init-lib)
      (endb-log-info
       ,(string-downcase (package-name *package*))
       (format nil ,control-string ,@format-arguments))))
 
 (defmacro log-debug (control-string &rest format-arguments)
   `(when (<= ,(position :debug +log-levels+) *log-level*)
+     (init-lib)
      (endb-log-debug
       ,(string-downcase (package-name *package*))
       (format nil ,control-string ,@format-arguments))))
 
 (defmacro log-trace (control-string &rest format-arguments)
   `(when (<= ,(position :trace +log-levels+) *log-level*)
+     (init-lib)
      (endb-log-trace
       ,(string-downcase (package-name *package*))
       (format nil ,control-string ,@format-arguments))))
@@ -98,6 +105,147 @@
     (endb-init-logger (cffi:callback init-logger-on-error))
     (when err
       (error err))))
+
+(cffi:defcfun "endb_base64_encode" :void
+  (buffer-ptr :pointer)
+  (buffers-size :size)
+  (on-success :pointer))
+
+(defvar *endb-base64-encode-on-success*)
+
+(cffi:defcallback endb-base64-encode-on-success :void
+    ((base64 :string))
+  (funcall *endb-base64-encode-on-success* base64))
+
+(defun base64-encode (buffer)
+  (endb/lib:init-lib)
+  (let* ((result)
+         (*endb-base64-encode-on-success* (lambda (base64)
+                                            (setf result base64))))
+    (cffi:with-pointer-to-vector-data (buffer-ptr #+sbcl (sb-ext:array-storage-vector buffer)
+                                                  #-sbcl buffer)
+      (endb-base64-encode buffer-ptr (length buffer) (cffi:callback endb-base64-encode-on-success)))
+    result))
+
+(cffi:defcfun "endb_base64_decode" :void
+  (string :string)
+  (on-success :pointer)
+  (on-error :pointer))
+
+(defvar *endb-base64-decode-on-success*)
+
+(cffi:defcallback endb-base64-decode-on-success :void
+    ((buffer-ptr :pointer)
+     (buffer-size :size))
+  (funcall *endb-base64-decode-on-success* buffer-ptr buffer-size))
+
+(defvar *endb-base64-decode-on-error*)
+
+(cffi:defcallback endb-base64-decode-on-error :void
+    ((err :string))
+  (funcall *endb-base64-decode-on-error* err))
+
+(defun base64-decode (string)
+  (endb/lib:init-lib)
+  (let* ((result)
+         (*endb-base64-decode-on-success* (lambda (buffer-ptr buffer-size)
+                                            (setf result (buffer-to-vector buffer-ptr buffer-size))))
+         (*endb-base64-decode-on-error* (lambda (err)
+                                          (declare (ignore err))
+                                          (setf result nil))))
+    (endb-base64-decode string (cffi:callback endb-base64-decode-on-success) (cffi:callback endb-base64-decode-on-error))
+    result))
+
+(cffi:defcfun "endb_sha1" :void
+  (buffer-ptr :pointer)
+  (buffers-size :size)
+  (on-success :pointer))
+
+(defvar *endb-sha1-on-success*)
+
+(cffi:defcallback endb-sha1-on-success :void
+    ((sha1 :string))
+  (funcall *endb-sha1-on-success* sha1))
+
+(defun sha1 (buffer)
+  (endb/lib:init-lib)
+  (let* ((result)
+         (*endb-sha1-on-success* (lambda (sha1)
+                                   (setf result sha1))))
+    (cffi:with-pointer-to-vector-data (buffer-ptr #+sbcl (sb-ext:array-storage-vector buffer)
+                                                  #-sbcl buffer)
+      (endb-sha1 buffer-ptr (length buffer) (cffi:callback endb-sha1-on-success)))
+    result))
+
+(cffi:defcfun "endb_uuid_v4" :void
+  (on-success :pointer))
+
+(defvar *endb-uuid-v4-on-success*)
+
+(cffi:defcallback endb-uuid-v4-on-success :void
+    ((uuid :string))
+  (funcall *endb-uuid-v4-on-success* uuid))
+
+(defun uuid-v4 ()
+  (endb/lib:init-lib)
+  (let* ((result)
+         (*endb-uuid-v4-on-success* (lambda (uuid)
+                                      (setf result uuid))))
+    (endb-uuid-v4 (cffi:callback endb-uuid-v4-on-success))
+    result))
+
+(cffi:defcfun "endb_uuid_str" :void
+  (buffer-ptr :pointer)
+  (buffers-size :size)
+  (on-success :pointer)
+  (on-error :pointer))
+
+(defvar *endb-uuid-str-on-success*)
+
+(cffi:defcallback endb-uuid-str-on-success :void
+    ((uuid :string))
+  (funcall *endb-uuid-str-on-success* uuid))
+
+(defvar *endb-uuid-str-on-error*)
+
+(cffi:defcallback endb-uuid-str-on-error :void
+    ((err :string))
+  (funcall *endb-uuid-str-on-error* err))
+
+(defun uuid-str (buffer)
+  (endb/lib:init-lib)
+  (let* ((result)
+         (*endb-uuid-str-on-success* (lambda (uuid)
+                                       (setf result uuid)))
+         (*endb-uuid-str-on-error* (lambda (err)
+                                     (declare (ignore err))
+                                     (setf result nil))))
+    (cffi:with-pointer-to-vector-data (buffer-ptr #+sbcl (sb-ext:array-storage-vector buffer)
+                                                  #-sbcl buffer)
+      (endb-uuid-str buffer-ptr (length buffer) (cffi:callback endb-uuid-str-on-success) (cffi:callback endb-uuid-str-on-error)))
+    result))
+
+(cffi:defcfun "memcpy" :pointer
+  (dest :pointer)
+  (src :pointer)
+  (n :size))
+
+(defun vector-byte-size (b &optional (buffer-size (length b)))
+  (etypecase b
+    ((vector bit) (truncate (+ 7 buffer-size) 8))
+    ((vector (unsigned-byte 8)) buffer-size)
+    ((vector (signed-byte 8)) buffer-size)
+    ((vector (signed-byte 32)) (* 4 buffer-size))
+    ((vector (signed-byte 64)) (* 8 buffer-size))
+    ((vector double-float) (* 8 buffer-size))))
+
+(defun buffer-to-vector (buffer-ptr buffer-size &optional out)
+  (let ((out (or out (make-array buffer-size :element-type '(unsigned-byte 8)))))
+    (assert (<= buffer-size (vector-byte-size out)))
+    (cffi:with-pointer-to-vector-data (out-ptr #+sbcl (sb-ext:array-storage-vector out)
+                                               #-sbcl out)
+      (memcpy out-ptr buffer-ptr buffer-size))
+    out))
 
 (defun init-lib ()
   (unless *initialized*

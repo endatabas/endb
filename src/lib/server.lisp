@@ -1,6 +1,6 @@
 (defpackage :endb/lib/server
   (:use :cl)
-  (:export #:start-server #:*db* #:sql-abort-query-error #:parse-command-line)
+  (:export #:start-server #:*db* #:sql-abort-query-error #:parse-command-line #:get-endb-version)
   (:import-from :cffi)
   (:import-from :endb/json)
   (:import-from :endb/lib)
@@ -28,6 +28,23 @@
          (*parse-command-line-on-success* (lambda (config-json)
                                             (setf result (endb/json:json-parse config-json)))))
     (endb-parse-command-line-to-json (cffi:callback parse-command-line-to-json-on-success))
+    result))
+
+(cffi:defcfun "endb_version" :void
+  (on-success :pointer))
+
+(defvar *endb-version-on-success*)
+
+(cffi:defcallback endb-version-on-success :void
+    ((version :string))
+  (funcall *endb-version-on-success* version))
+
+(defun get-endb-version ()
+  (endb/lib:init-lib)
+  (let* ((result)
+         (*endb-version-on-success* (lambda (version)
+                                      (setf result version))))
+    (endb-version (cffi:callback endb-version-on-success))
     result))
 
 (defvar *start-server-on-query*)

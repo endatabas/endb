@@ -1,8 +1,7 @@
 (defpackage :endb/lib/arrow
   (:use :cl)
   (:export #:write-arrow-arrays-to-ipc-buffer #:write-arrow-arrays-to-ipc-file
-           #:read-arrow-arrays-from-ipc-pointer #:read-arrow-arrays-from-ipc-buffer #:read-arrow-arrays-from-ipc-file
-           #:vector-byte-size #:buffer-to-vector)
+           #:read-arrow-arrays-from-ipc-pointer #:read-arrow-arrays-from-ipc-buffer #:read-arrow-arrays-from-ipc-file)
   (:import-from :alexandria)
   (:import-from :endb/arrow)
   (:import-from :endb/lib)
@@ -242,29 +241,7 @@
             (cffi:foreign-free ptr))
           (error e))))))
 
-(cffi:defcfun "memcpy" :pointer
-  (dest :pointer)
-  (src :pointer)
-  (n :size))
-
-(defun vector-byte-size (b &optional (buffer-size (length b)))
-  (etypecase b
-    ((vector bit) (truncate (+ 7 buffer-size) 8))
-    ((vector (unsigned-byte 8)) buffer-size)
-    ((vector (signed-byte 8)) buffer-size)
-    ((vector (signed-byte 32)) (* 4 buffer-size))
-    ((vector (signed-byte 64)) (* 8 buffer-size))
-    ((vector double-float) (* 8 buffer-size))))
-
-(defun buffer-to-vector (buffer-ptr buffer-size &optional out)
-  (let ((out (or out (make-array buffer-size :element-type '(unsigned-byte 8)))))
-    (assert (<= buffer-size (vector-byte-size out)))
-    (cffi:with-pointer-to-vector-data (out-ptr #+sbcl (sb-ext:array-storage-vector out)
-                                               #-sbcl out)
-      (memcpy out-ptr buffer-ptr buffer-size))
-    out))
-
-(defun write-arrow-arrays-to-ipc-buffer (arrays &optional (on-success #'buffer-to-vector))
+(defun write-arrow-arrays-to-ipc-buffer (arrays &optional (on-success #'endb/lib:buffer-to-vector))
   (endb/lib:init-lib)
   (let* ((last-error (cffi:null-pointer))
          (schemas (remove-duplicates (loop for a in arrays
@@ -352,7 +329,7 @@
                                        (data (make-array (aref offsets length) :element-type '(unsigned-byte 8))))
                                   (setf (slot-value array 'endb/arrow::data) data))
                                 b)))
-                     (buffer-to-vector src-ptr (vector-byte-size b) b))))
+                     (endb/lib:buffer-to-vector src-ptr (endb/lib:vector-byte-size b) b))))
       array)))
 
 (defun %call-release (release c-obj)

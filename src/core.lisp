@@ -13,6 +13,7 @@
 (in-package :endb/core)
 
 (defun %endb-init (config)
+  (endb/lib:log-info "version ~A" (endb/lib/server:get-endb-version))
   (setf endb/lib/server:*db* (endb/sql:make-directory-db :directory (fset:lookup config "data_directory")))
   (endb/sql/db:start-background-compaction
    endb/lib/server:*db*

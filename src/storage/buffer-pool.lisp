@@ -1,8 +1,8 @@
 (defpackage :endb/storage/buffer-pool
   (:use :cl)
   (:export #:make-buffer-pool #:buffer-pool-get #:buffer-pool-put #:buffer-pool-close #:make-writeable-buffer-pool #:writeable-buffer-pool-pool)
-  (:import-from :endb/lib/arrow)
-  (:import-from :sha1))
+  (:import-from :endb/lib)
+  (:import-from :endb/lib/arrow))
 (in-package :endb/storage/buffer-pool)
 
 (defgeneric buffer-pool-get (bp path &key sha1))
@@ -31,7 +31,7 @@
                 (let ((buffer (funcall get-object-fn path)))
                   (when buffer
                     (when sha1
-                      (let ((buffer-sha1 (string-downcase (sha1:sha1-hex buffer))))
+                      (let ((buffer-sha1 (endb/lib:sha1 buffer)))
                         (assert (equal sha1 buffer-sha1)
                                 nil
                                 (format nil "Arrow SHA1 mismatch: ~A does not match stored: ~A" sha1 buffer-sha1))))
