@@ -29,17 +29,15 @@ pub extern "C" fn endb_parse_sql(
     on_error: endb_on_error_callback,
 ) {
     SQL_AST_PARSER_NO_ERRORS.with(|parser| {
-        let c_str = unsafe { CStr::from_ptr(input) };
-        let input_str = c_str.to_str().unwrap();
-        let result = parser.parse(input_str);
+        let input = unsafe { CStr::from_ptr(input).to_str().unwrap() };
+        let result = parser.parse(input);
         if result.has_output() {
             on_success(&result.into_output().unwrap());
         } else {
             SQL_AST_PARSER_WITH_ERRORS.with(|parser| {
-                let result = parser.parse(input_str);
-                let error_string =
-                    sql_parser::parse_errors_to_string(input_str, result.into_errors());
-                string_callback(error_string, on_error);
+                let result = parser.parse(input);
+                let error = sql_parser::parse_errors_to_string(input, result.into_errors());
+                string_callback(error, on_error);
             });
         }
     });
@@ -56,14 +54,11 @@ pub extern "C" fn endb_annotate_input_with_error(
     end: usize,
     on_success: endb_annotate_input_with_error_on_success_callback,
 ) {
-    let c_str = unsafe { CStr::from_ptr(input) };
-    let input_str = c_str.to_str().unwrap();
+    let input = unsafe { CStr::from_ptr(input).to_str().unwrap() };
+    let message = unsafe { CStr::from_ptr(message).to_str().unwrap() };
 
-    let c_str = unsafe { CStr::from_ptr(message) };
-    let message_str = c_str.to_str().unwrap();
-
-    let error_string = sql_parser::annotate_input_with_error(input_str, message_str, start, end);
-    string_callback(error_string, on_success);
+    let error = sql_parser::annotate_input_with_error(input, message, start, end);
+    string_callback(error, on_success);
 }
 
 #[no_mangle]
@@ -146,14 +141,12 @@ pub extern "C" fn endb_parse_sql_cst(
     on_pattern: endb_parse_sql_cst_on_pattern_callback,
     on_error: endb_on_error_callback,
 ) {
-    let c_str = unsafe { CStr::from_ptr(filename) };
-    let filename_str = c_str.to_str().unwrap();
-    let c_str = unsafe { CStr::from_ptr(input) };
-    let input_str = c_str.to_str().unwrap();
+    let filename = unsafe { CStr::from_ptr(filename).to_str().unwrap() };
+    let input = unsafe { CStr::from_ptr(input).to_str().unwrap() };
 
     let mut state = endb_cst::ParseState::default();
 
-    match endb_cst::sql::sql_stmt_list(input_str, 0, &mut state) {
+    match endb_cst::sql::sql_stmt_list(input, 0, &mut state) {
         Ok(_) => {
             for e in state.events {
                 match e {
@@ -178,12 +171,12 @@ pub extern "C" fn endb_parse_sql_cst(
                 track_errors: true,
                 ..endb_cst::ParseState::default()
             };
-            let _ = endb_cst::sql::sql_stmt_list(input_str, 0, &mut state);
+            let _ = endb_cst::sql::sql_stmt_list(input, 0, &mut state);
 
             string_callback(
                 endb_cst::parse_errors_to_string(
-                    filename_str,
-                    input_str,
+                    filename,
+                    input,
                     &endb_cst::events_to_errors(&state.errors),
                 )
                 .unwrap(),
@@ -202,10 +195,9 @@ pub extern "C" fn endb_render_json_error_report(
     on_success: endb_render_json_error_report_on_success_callback,
     on_error: endb_on_error_callback,
 ) {
-    let c_str = unsafe { CStr::from_ptr(report_json) };
-    let report_json_str = c_str.to_str().unwrap();
+    let report_json = unsafe { CStr::from_ptr(report_json).to_str().unwrap() };
 
-    match endb_cst::json_error_report_to_string(report_json_str) {
+    match endb_cst::json_error_report_to_string(report_json) {
         Ok(report) => {
             string_callback(report, on_success);
         }
@@ -221,12 +213,10 @@ pub extern "C" fn endb_init_logger(on_error: endb_on_error_callback) {
 }
 
 fn do_log(level: log::Level, target: *const c_char, message: *const c_char) {
-    let c_str = unsafe { CStr::from_ptr(target) };
-    let target_str = c_str.to_str().unwrap();
-    let c_str = unsafe { CStr::from_ptr(message) };
-    let message_str = c_str.to_str().unwrap();
+    let target = unsafe { CStr::from_ptr(target).to_str().unwrap() };
+    let message = unsafe { CStr::from_ptr(message).to_str().unwrap() };
 
-    log::log!(target: target_str, level, "{}", message_str);
+    log::log!(target: target, level, "{}", message);
 }
 
 #[no_mangle]
@@ -310,14 +300,12 @@ pub extern "C" fn endb_start_server(
                 content_type: *const c_char,
                 on_abort: endb_start_server_on_query_on_abort_callback,
             ) {
-                let c_str = unsafe { CStr::from_ptr(content_type) };
-                let content_type_str = c_str.to_str().unwrap();
+                let content_type = unsafe { CStr::from_ptr(content_type).to_str().unwrap() };
 
                 let response = unsafe { Box::from_raw(response as *mut endb_server::HttpResponse) };
                 let tx = unsafe { Box::from_raw(tx as *mut endb_server::OneShotSender) };
 
-                if endb_server::on_response_init(*response, *tx, status, content_type_str).is_err()
-                {
+                if endb_server::on_response_init(*response, *tx, status, content_type).is_err() {
                     on_abort();
                 };
             }
