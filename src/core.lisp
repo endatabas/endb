@@ -13,7 +13,18 @@
 (in-package :endb/core)
 
 (defun %endb-init (config)
-  (setf endb/lib/server:*db* (endb/sql:make-directory-db :directory (fset:lookup config "data_directory"))))
+  (setf endb/lib/server:*db* (endb/sql:make-directory-db :directory (fset:lookup config "data_directory")))
+  (endb/sql/db:start-background-compaction
+   endb/lib/server:*db*
+   (lambda ()
+     endb/lib/server:*db*)
+   (lambda (tx-fn)
+     (bt:with-lock-held ((endb/sql/db:db-write-lock endb/lib/server:*db*))
+       (let ((write-db (endb/sql:begin-write-tx endb/lib/server:*db*)))
+         (funcall tx-fn write-db)
+         (setf endb/lib/server:*db* (endb/sql:commit-write-tx endb/lib/server:*db* write-db)))))
+   (lambda (path buffer)
+     (endb/storage:store-put-object (endb/sql/db:db-store endb/lib/server:*db*) path buffer))))
 
 (defun %endb-close-db ()
   (when (boundp 'endb/lib/server:*db*)

@@ -39,6 +39,9 @@
     (make-db :store store)))
 
 (defun close-db (db)
+  (endb/queue:queue-close (endb/sql/db:db-compaction-queue db))
+  (when (endb/sql/db:db-compaction-thread db)
+    (bt:join-thread (endb/sql/db:db-compaction-thread db)))
   (endb/storage:store-close (endb/sql/db:db-store db))
   (endb/storage/buffer-pool:buffer-pool-close (endb/sql/db:db-buffer-pool db)))
 

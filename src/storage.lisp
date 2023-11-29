@@ -1,6 +1,6 @@
 (defpackage :endb/storage
   (:use :cl)
-  (:export #:*tx-log-version* store-replay store-write-tx store-get-object store-close disk-store in-memory-store)
+  (:export #:*tx-log-version* store-replay store-write-tx store-get-object store-put-object store-close disk-store in-memory-store)
   (:import-from :bordeaux-threads)
   (:import-from :flexi-streams)
   (:import-from :fset)
@@ -44,6 +44,7 @@
 (defgeneric store-replay (store))
 (defgeneric store-write-tx (store tx-id md md-diff arrow-buffers-map &key fsyncp mtime))
 (defgeneric store-get-object (store path))
+(defgeneric store-put-object (store path buffer))
 (defgeneric store-close (os))
 
 (defclass disk-store ()
@@ -159,7 +160,6 @@
 
 (defmethod store-replay ((store disk-store))
   (with-slots (directory mem-table-object-store backing-object-store pending-wals) store
-    (endb/lib:log-info "looking for latest snapshot")
     (let* ((latest-snapshot (%read-latest-snapshot backing-object-store))
            (snapshot-md (if latest-snapshot
                             (let* ((snapshot-path (fset:lookup latest-snapshot "path"))
@@ -242,7 +242,7 @@
                (dolist (path objects-to-delete)
                  (endb/storage/object-store:object-store-delete mem-table-object-store path))))))))
 
-    (let* ((active-wal-file (merge-pathnames (%wal-filename (1+ tx-id)) (uiop:ensure-directory-pathname directory)))
+    (let* ((active-wal-file (merge-pathnames (%wal-filename (1+ tx-id)) (truename directory)))
            (write-io (open active-wal-file :direction :io :element-type '(unsigned-byte 8) :if-exists :overwrite :if-does-not-exist :create))
            (active-wal (endb/storage/wal:open-tar-wal :stream write-io)))
       (endb/lib:log-info "active wal is ~A" (uiop:enough-pathname active-wal-file (truename directory)))
@@ -268,6 +268,10 @@
     (or (endb/storage/object-store:object-store-get mem-table-object-store path)
         (endb/storage/object-store:object-store-get backing-object-store path))))
 
+(defmethod store-put-object ((store disk-store) path buffer)
+  (with-slots (backing-object-store) store
+    (endb/storage/object-store:object-store-put backing-object-store path buffer)))
+
 (defmethod store-close ((store disk-store))
   (with-slots (wal mem-table-object-store backing-object-store snapshot-queue snapshot-thread) store
     (endb/queue:queue-close snapshot-queue)
@@ -292,6 +296,9 @@
 
 (defmethod store-get-object ((store in-memory-store) path)
   (endb/storage/object-store:object-store-get (slot-value store 'object-store) path))
+
+(defmethod store-put-object ((store in-memory-store) path buffer)
+  (endb/storage/object-store:object-store-put (slot-value store 'object-store) path buffer))
 
 (defmethod store-close ((store in-memory-store))
   (endb/storage/object-store:object-store-close (slot-value store 'object-store)))

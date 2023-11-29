@@ -6,12 +6,12 @@
 
 (defstruct queue (lock (bt:make-lock)) (cv (bt:make-condition-variable)) data)
 
-(defun queue-pop (queue &optional timeout)
+(defun queue-pop (queue &key timeout)
   (with-slots (lock cv data) queue
     (bt:with-lock-held (lock)
       (loop until data
             do (or (bt:condition-wait cv lock :timeout timeout)
-                   (return-from queue-pop nil)))
+                   (return-from queue-pop (values nil t))))
       (let ((x (car (last data))))
         (setf data (butlast data))
         (unless (eq 'close x)

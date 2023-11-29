@@ -4,9 +4,10 @@
   (:import-from :cl-bloom)
   (:import-from :cl-ppcre)
   (:import-from :endb/arrow)
-  (:import-from :endb/sql/expr)
   (:import-from :endb/lib/parser)
+  (:import-from :endb/sql/expr)
   (:import-from :endb/storage/buffer-pool)
+  (:import-from :endb/queue)
   (:import-from :local-time)
   (:import-from :fset)
   (:export #:ddl-create-table #:ddl-drop-table #:ddl-create-view #:ddl-drop-view #:ddl-create-index #:ddl-drop-index #:ddl-create-assertion #:ddl-drop-assertion
@@ -14,10 +15,10 @@
 
            #:syn-current_date #:syn-current_time #:syn-current_timestamp
 
-           #:make-db #:copy-db #:db-buffer-pool #:db-store #:db-meta-data #:db-current-timestamp #:db-write-lock
+           #:make-db #:copy-db #:db-buffer-pool #:db-store #:db-meta-data #:db-current-timestamp #:db-write-lock #:db-compaction-thread #:db-compaction-queue
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
-           #:view-definition #:calculate-stats #:arrow-files-compacted-filename #:find-files-to-compact #:merge-files #:compact-files))
+           #:view-definition #:calculate-stats #:arrow-files-compacted-filename #:find-files-to-compact #:merge-files #:compact-files #:start-background-compaction))
 (in-package :endb/sql/db)
 
 ;; DML/DDL
@@ -30,7 +31,9 @@
   (meta-data (fset:map ("_last_tx" 0)))
   current-timestamp
   (information-schema-cache (make-hash-table :weakness :key :test 'eq))
-  (write-lock (bt:make-lock)))
+  (write-lock (bt:make-lock))
+  compaction-thread
+  (compaction-queue (endb/queue:make-queue)))
 
 (defun syn-current_date (db)
   (endb/sql/expr:syn-cast (syn-current_timestamp db) :date))
@@ -328,6 +331,34 @@
        stats)
       acc)))
 
+(defun start-background-compaction (db db-access-fn db-commit-fn object-put-fn &key (target-size (* 64 1024 1024)) (timeout 0.1))
+  (let ((compaction-queue (db-compaction-queue db)))
+    (setf (endb/sql/db:db-compaction-thread db)
+          (bt:make-thread
+           (lambda ()
+             (loop
+               (multiple-value-bind (job timeoutp)
+                   (endb/queue:queue-pop compaction-queue :timeout timeout)
+                 (declare (ignore job))
+                 (unless timeoutp
+                   (return-from nil))
+                 (let ((db (funcall db-access-fn)))
+                   (fset:do-map-domain (table-name (db-meta-data db))
+                     (unless (or (%information-schema-table-p table-name)
+                                 (alexandria:starts-with-subseq "_" table-name))
+                       (let ((arrow-files (find-files-to-compact db table-name target-size)))
+                         (when (> (length arrow-files) 1)
+                           (endb/lib:log-info "merging ~A files in table ~A" (length arrow-files) table-name)
+                           (destructuring-bind (buffer batch-md)
+                               (merge-files db table-name arrow-files)
+                             (let* ((batch-file (arrow-files-compacted-filename (fset:convert 'list (fset:lookup batch-md "derived_from"))))
+                                    (batch-key (%batch-key table-name batch-file)))
+                               (funcall object-put-fn batch-key buffer)
+                               (funcall db-commit-fn (lambda (write-db)
+                                                       (compact-files write-db table-name batch-md)))
+                               (endb/lib:log-info "compacted ~A" batch-key)))))))))))
+           :name "endb compaction thread"))))
+
 (defun find-files-to-compact (db table-name target-size)
   (let ((table-md (base-table-meta db table-name))
         (size 0)
@@ -341,10 +372,13 @@
               acc)
           #'string<)))
 
+(defparameter +arrow-file-padding-length+ 16)
+
 (defun arrow-files-compacted-filename (arrow-files)
   (format nil "~A_~A.arrow"
-          (pathname-name (first arrow-files))
-          (pathname-name (car (last arrow-files)))))
+          (subseq (pathname-name (first arrow-files)) 0 +arrow-file-padding-length+)
+          (let ((last-name (pathname-name (car (last arrow-files)))))
+            (subseq last-name (- (length last-name) +arrow-file-padding-length+)))))
 
 (defun merge-files (db table-name arrow-files)
   (let* ((batch (endb/arrow:to-arrow
@@ -362,7 +396,7 @@
                                                  else
                                                    collect (endb/arrow:arrow-get batch-row row-id))))))
          (table-array (endb/arrow:arrow-struct-column-array batch (intern table-name :keyword)))
-         (buffer (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer batch)))
+         (buffer (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer (list batch))))
     (list buffer
           (fset:map ("length" (endb/arrow:arrow-length table-array))
                     ("stats" (calculate-stats (list table-array)))
@@ -371,7 +405,7 @@
 
 (defun compact-files (db table-name batch-md)
   (with-slots (meta-data) db
-    (let* ((arrow-files (fset:lookup batch-md "derived_from"))
+    (let* ((arrow-files (fset:convert 'list (fset:lookup batch-md "derived_from")))
            (table-md (base-table-meta db table-name))
            (batch-file (arrow-files-compacted-filename arrow-files))
            (merged-batch-idx 0)
@@ -411,15 +445,15 @@
                                                      (incf row-id (endb/arrow:arrow-length batch-row))
                                                      (fset:convert 'list batch-erased)))))))
            (batch-md (if (fset:empty? deleted-md)
-                         (fset:with batch-md "deleted" (fset:map (merged-batch-idx-string deleted-md)))
-                         batch-md))
+                         batch-md
+                         (fset:with batch-md "deleted" (fset:map (merged-batch-idx-string deleted-md)))))
            (batch-md (if (fset:empty? erased-md)
-                         (fset:with batch-md "erased" (fset:map (merged-batch-idx-string erased-md)))
-                         batch-md))
+                         batch-md
+                         (fset:with batch-md "erased" (fset:map (merged-batch-idx-string erased-md)))))
            (new-table-md (fset:reduce #'fset:less
                                       arrow-files
                                       :initial-value (fset:with table-md batch-file batch-md))))
-      ;; (setf meta-data (fset:with meta-data table-name new-table-md))
+      (setf meta-data (fset:with meta-data table-name new-table-md))
       new-table-md)))
 
 (defparameter +ident-scanner+ (ppcre:create-scanner "^[a-zA-Z_][a-zA-Z0-9_]*$"))

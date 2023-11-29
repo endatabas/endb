@@ -5,6 +5,7 @@
   (:import-from :sqlite)
   (:import-from :asdf)
   (:import-from :uiop)
+  (:import-from :endb/lib)
   (:import-from :endb/sql)
   (:import-from :endb/sql/expr)
   #+sbcl (:import-from :sb-sprof))
@@ -23,6 +24,7 @@
 (cffi:defctype DbEngine (:struct DbEngine))
 
 (defvar *connections* (make-hash-table))
+(defvar *endb*)
 
 (defvar *sqlite-db-engine*)
 (defvar *endb-db-engine*)
@@ -153,7 +155,19 @@
                    (endb/sql:make-directory-db :directory zCon)
                    (endb/sql:make-db))))
     (setf (cffi:mem-ref ppConn :pointer) (cffi:null-pointer))
-    (setf (gethash (cffi:pointer-address (cffi:null-pointer)) *connections*) endb)
+    (setf *endb* endb)
+    (when zCon
+      (endb/sql/db:start-background-compaction
+       *endb*
+       (lambda ()
+         *endb*)
+       (lambda (tx-fn)
+         (bt:with-lock-held ((endb/sql/db:db-write-lock *endb*))
+           (let ((write-db (endb/sql:begin-write-tx *endb*)))
+             (funcall tx-fn write-db)
+             (setf *endb* (endb/sql:commit-write-tx *endb* write-db)))))
+       (lambda (path buffer)
+         (endb/storage:store-put-object (endb/sql/db:db-store *endb*) path buffer))))
     0))
 
 (cffi:defcallback endbGetEngineName :int
@@ -171,24 +185,23 @@
     ((pConn :pointer)
      (zSql :string)
      (bQuiet :int))
-  (declare (ignore bQuiet))
-  (let ((endb (gethash (cffi:pointer-address pConn) *connections*)))
-    (if endb
-        (handler-case
-            (let ((write-db (endb/sql:begin-write-tx endb)))
+  (declare (ignore pConn bQuiet))
+  (if (boundp '*endb*)
+      (handler-case
+          (bt:with-lock-held ((endb/sql/db:db-write-lock *endb*))
+            (let ((write-db (endb/sql:begin-write-tx *endb*)))
               (multiple-value-bind (result result-code)
                   (endb/sql:execute-sql write-db zSql)
                 (declare (ignore result))
                 (if result-code
                     (progn
-                      (setf (gethash (cffi:pointer-address pConn) *connections*)
-                            (endb/sql:commit-write-tx endb write-db))
+                      (setf *endb* (endb/sql:commit-write-tx *endb* write-db))
                       0)
-                    1)))
-          (endb/sql/expr:sql-runtime-error (e)
-            (declare (ignore e))
-            1))
-        1)))
+                    1))))
+        (endb/sql/expr:sql-runtime-error (e)
+          (endb/lib:log-debug "~A" e)
+          1))
+      1))
 
 (cffi:defcallback endbQuery :int
     ((pConn :pointer)
@@ -196,21 +209,20 @@
      (zTypes :string)
      (pazResult (:pointer (:pointer (:pointer :char))))
      (pnResult (:pointer :int)))
-  (declare (ignorable zTypes pazResult pnResult))
-  (let ((endb (gethash (cffi:pointer-address pConn) *connections*)))
-    (if endb
-        (handler-case
-            (multiple-value-bind (result result-code)
-                (endb/sql:execute-sql endb zSql)
-              (if result-code
-                  (progn
-                    (%slt-result result zTypes pazResult pnResult)
-                    0)
-                  1))
-          (endb/sql/expr:sql-runtime-error (e)
-            (declare (ignore e))
-            1))
-        1)))
+  (declare (ignorable pConn zTypes pazResult pnResult))
+  (if (boundp '*endb*)
+      (handler-case
+          (multiple-value-bind (result result-code)
+              (endb/sql:execute-sql *endb* zSql)
+            (if result-code
+                (progn
+                  (%slt-result result zTypes pazResult pnResult)
+                  0)
+                1))
+        (endb/sql/expr:sql-runtime-error (e)
+          (endb/lib:log-debug "~A" e)
+          1))
+      1))
 
 (cffi:defcallback endbFreeResult :int
     ((pConn :pointer)
@@ -222,13 +234,12 @@
 
 (cffi:defcallback endbDisconnect :int
     ((pConn :pointer))
-  (let ((endb (gethash (cffi:pointer-address pConn) *connections*)))
-    (if endb
-        (progn
-          (endb/sql:close-db endb)
-          (remhash (cffi:pointer-address pConn) *connections*)
-          0)
-        1)))
+  (if (boundp '*endb*)
+      (progn
+        (endb/sql:close-db *endb*)
+        (makunbound '*endb*)
+        0)
+      1))
 
 (cffi:define-foreign-library libsqllogictest
   (t (:default "libsqllogictest")))

@@ -153,7 +153,7 @@
   (com.inuoe.jzon:write-value writer 'null))
 
 (defun json-parse (in)
-  (resolve-json-ld-xsd-scalars (%json-to-fset (com.inuoe.jzon:parse in))))
+  (resolve-json-ld-xsd-scalars (%json-to-fset (com.inuoe.jzon:parse in :max-string-length (* 16 1024 1024)))))
 
 (defun json-stringify (x &key stream pretty)
   (com.inuoe.jzon:stringify x :stream stream :pretty pretty))
