@@ -18,12 +18,26 @@
       (setf (slot-value archive 'archive::skippable-p) t))
     archive))
 
-(defun tar-wal-position-stream-at-end (stream)
-  (when (plusp (file-length stream))
+(defun %stream-length (stream)
+  (etypecase stream
+    (flex:in-memory-output-stream (flex:output-stream-sequence-length stream))
+    (flex::vector-input-stream (flex::vector-stream-end stream))
+    (t (file-length stream))))
+
+(defun %corrupt-archive-error-p (e)
+  (equal "Corrupt archive" (format nil "~A" e)))
+
+(defun tar-wal-position-stream-at-end (stream &key allow-corrupt-p)
+  (when (listen stream)
     (file-position stream 0)
     (loop with archive = (archive:open-archive 'archive:tar-archive stream)
           for pos = (file-position stream)
-          for entry = (archive:read-entry-from-archive archive)
+          for entry = (handler-case
+                          (archive:read-entry-from-archive archive)
+                        (error (e)
+                          (unless (and (%corrupt-archive-error-p e) allow-corrupt-p)
+                            (error e))
+                          (return pos)))
           when entry
             do (archive:discard-entry archive entry)
           while entry
@@ -45,8 +59,12 @@
   (flex:with-output-to-sequence (out)
     (archive::transfer-entry-data-to-stream archive entry out)))
 
+(defun %wal-read-entry-safe (archive)
+  (when (listen (archive::archive-stream archive))
+    (archive:read-entry-from-archive archive)))
+
 (defmethod wal-read-next-entry ((archive archive:tar-archive) &key skip-if)
-  (let* ((entry (archive:read-entry-from-archive archive))
+  (let* ((entry (%wal-read-entry-safe archive))
          (stream (archive::archive-stream archive)))
     (values (when entry
               (if (and skip-if (funcall skip-if (archive:name entry)))
@@ -60,11 +78,7 @@
   (finish-output (archive::archive-stream archive)))
 
 (defmethod wal-size ((archive archive:tar-archive))
-  (let ((stream (archive::archive-stream archive)))
-    (etypecase stream
-      (flex:in-memory-output-stream (flex:output-stream-sequence-length stream))
-      (flex::vector-input-stream (flex::vector-stream-end stream))
-      (t (file-length stream)))))
+  (%stream-length (archive::archive-stream archive)))
 
 (defmethod wal-close ((archive archive:tar-archive))
   (when (output-stream-p (archive::archive-stream archive))

@@ -234,6 +234,7 @@
 
 (cffi:defcallback endbDisconnect :int
     ((pConn :pointer))
+  (declare (ignore pConn))
   (if (boundp '*endb*)
       (progn
         (endb/sql:close-db *endb*)

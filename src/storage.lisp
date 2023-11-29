@@ -1,6 +1,7 @@
 (defpackage :endb/storage
   (:use :cl)
   (:export #:*tx-log-version* store-replay store-write-tx store-get-object store-put-object store-close disk-store in-memory-store)
+  (:import-from :alexandria)
   (:import-from :bordeaux-threads)
   (:import-from :flexi-streams)
   (:import-from :fset)
@@ -73,6 +74,18 @@
     (let* ((active-wal-file (%latest-wal-file directory))
            (object-store-path (merge-pathnames *object-store-directory* (uiop:ensure-directory-pathname directory))))
       (ensure-directories-exist active-wal-file)
+
+      (when (uiop:file-exists-p active-wal-file)
+        (multiple-value-bind (corrupt-pos)
+            (with-open-file (wal-in active-wal-file :direction :input
+                                                    :element-type '(unsigned-byte 8))
+              (endb/storage/wal:tar-wal-position-stream-at-end wal-in :allow-corrupt-p t))
+          (when corrupt-pos
+            (endb/lib:log-warn "truncating damaged ~A" (uiop:enough-pathname active-wal-file (truename directory)))
+            (alexandria:copy-file active-wal-file (format nil "~A.damaged.bak" active-wal-file))
+            (with-open-file (out active-wal-file :direction :output :element-type '(unsigned-byte 8) :if-exists :append)
+              (endb/storage/wal:wal-close (endb/storage/wal:open-tar-wal :stream out))))))
+
       (let ((write-io (open active-wal-file :direction :io :element-type '(unsigned-byte 8) :if-exists :overwrite :if-does-not-exist :create)))
         (setf wal (endb/storage/wal:open-tar-wal :stream write-io)
               mem-table-object-store (endb/storage/object-store:make-memory-object-store)
