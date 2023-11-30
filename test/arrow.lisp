@@ -1,6 +1,7 @@
 (defpackage :endb-test/arrow
   (:use :cl :fiveam :endb/arrow)
-  (:import-from :fset))
+  (:import-from :fset)
+  (:import-from :trivial-utf-8))
 (in-package :endb-test/arrow)
 
 (in-suite* :arrow)
@@ -295,3 +296,76 @@
                 (slot-value array 'endb/arrow::values)))
     (is (equalp (list (endb/arrow::make-arrow-interval-month-day-nanos :month 5 :day 3 :ns 6))
                 (coerce array 'list)))))
+
+;; https://arrow.apache.org/blog/2022/11/07/multi-column-sorts-in-arrow-rust-part-2/
+
+(test row-format
+  (is (equalp #(0) (to-arrow-row-format :null)))
+
+  (is (equalp #(1 0) (to-arrow-row-format nil)))
+  (is (equalp #(1 1) (to-arrow-row-format t)))
+
+  (let ((array (make-arrow-array-for 1)))
+    (arrow-push array :null)
+    (is (equalp #(0 0 0 0 0 0 0 0 0)
+                (arrow-row-format array 0))))
+
+  (is (equalp #(1 128 0 0 0 0 0 0 5)
+              (to-arrow-row-format 5)))
+  (is (equalp #(1 127 255 255 255 255 255 255 251)
+              (to-arrow-row-format -5)))
+  (is (equalp #(1 128 0 0 0 0 0 0 0)
+              (to-arrow-row-format 0)))
+
+  (is (equalp #(1 191 244 204 204 204 204 204 205)
+              (to-arrow-row-format 1.3d0)))
+  (is (equalp #(1 63 239 255 255 255 255 255 255)
+              (to-arrow-row-format -4.0d0)))
+  (is (equalp #(1 127 255 255 255 255 255 255 255)
+              (to-arrow-row-format -0.0d0)))
+
+  (is (equalp (vector 1) (to-arrow-row-format "")))
+
+  (let ((array (make-arrow-array-for "")))
+    (arrow-push array :null)
+    (is (equalp #(0) (arrow-row-format array 0))))
+
+  (is (equalp (vector 2 (char-int #\M) (char-int #\E) (char-int #\E) (char-int #\P) 4)
+              (endb/arrow::%block-encoded-row (trivial-utf-8:string-to-utf-8-bytes "MEEP")
+                                              :small-block-size 4)))
+
+  (is (equalp (vector 2
+                      (char-int #\D) (char-int #\e) (char-int #\f) (char-int #\e) 255
+                      (char-int #\n) (char-int #\e) (char-int #\s) (char-int #\t) 255
+                      (char-int #\r) (char-int #\a) (char-int #\t) (char-int #\i) 255
+                      (char-int #\o) (char-int #\n) 0 0 2)
+              (endb/arrow::%block-encoded-row (trivial-utf-8:string-to-utf-8-bytes "Defenestration")
+                                              :number-of-small-blocks 4
+                                              :small-block-size 4)))
+
+  (is (equalp (vector 2
+                      (char-int #\D) (char-int #\e) (char-int #\f) (char-int #\e) 255
+                      (char-int #\n) (char-int #\e) (char-int #\s) (char-int #\t) (char-int #\r) (char-int #\a) (char-int #\t) (char-int #\i) 255
+                      (char-int #\o) (char-int #\n) 0 0 0 0 0 0 2)
+              (endb/arrow::%block-encoded-row (trivial-utf-8:string-to-utf-8-bytes "Defenestration")
+                                              :number-of-small-blocks 1
+                                              :small-block-size 4
+                                              :large-block-size 8)))
+
+  (is (equalp (concatenate 'vector #(1) (to-arrow-row-format 3.14) (to-arrow-row-format 3))
+              (to-arrow-row-format (fset:map ("int" 3) ("float" 3.14)))))
+
+  (is (equalp #(1) (to-arrow-row-format (fset:empty-map))))
+  (is (equalp #(1) (to-arrow-row-format (fset:empty-seq))))
+
+  (let ((array (make-arrow-array-for (fset:empty-seq))))
+    (arrow-push array :null)
+    (is (equalp #(0) (arrow-row-format array 0))))
+
+  (is (equalp (endb/arrow::%block-encoded-row
+               #(1 0 1 1 0 0 0 2 0 0 0 2 0 0 0 2))
+              (to-arrow-row-format (fset:seq nil t))))
+
+  (is (equalp (endb/arrow::%block-encoded-row
+               #(1 1 0 0 0 0 0 2 0 0 0 2 0 0 0 2))
+              (to-arrow-row-format (fset:seq t :null)))))

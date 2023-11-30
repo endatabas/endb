@@ -1,9 +1,7 @@
 (defpackage :endb/json
   (:use :cl)
   (:export #:json-parse #:*json-ld-scalars* #:json-stringify #:json-merge-patch #:json-diff
-           #:resolve-json-ld-xsd-scalars
-           #:binary-to-bloom #:binary-bloom-member-p #:calculate-stats
-           #:random-uuid #:random-uuid-p)
+           #:resolve-json-ld-xsd-scalars)
   (:import-from :alexandria)
   (:import-from :cl-ppcre)
   (:import-from :cffi)
@@ -11,8 +9,7 @@
   (:import-from :endb/arrow)
   (:import-from :endb/lib/arrow)
   (:import-from :endb/lib)
-  (:import-from :fset)
-  (:import-from :cl-bloom))
+  (:import-from :fset))
 (in-package :endb/json)
 
 ;; https://www.w3.org/2001/sw/rdb2rdf/wiki/Mapping_SQL_datatypes_to_XML_Schema_datatypes
@@ -192,22 +189,3 @@
                              (fset:domain version-b))
         :initial-value (fset:empty-map)))
       version-b))
-
-(defun binary-to-bloom (binary)
-  (let ((bloom (make-instance 'cl-bloom::bloom-filter :order (* (length binary) 8))))
-    (cffi:with-pointer-to-vector-data (ptr binary)
-      (endb/lib:buffer-to-vector ptr (length binary) (cl-bloom::filter-array bloom)))
-    bloom))
-
-(defparameter +bloom-opt-degree+ (cl-bloom::opt-degree))
-
-(defun binary-bloom-member-p (binary element)
-  (when binary
-    (let* ((order (* 8 (length binary)))
-           (hash1 (murmurhash:murmurhash element :seed murmurhash:*default-seed*))
-           (hash2 (murmurhash:murmurhash element :seed hash1)))
-      (loop for i to (1- +bloom-opt-degree+)
-            for index = (cl-bloom::fake-hash hash1 hash2 i order)
-            for byte-index = (ash index -3)
-            for bit-index = (logand index (1- 8))
-            always (logbitp bit-index (aref binary byte-index))))))

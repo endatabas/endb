@@ -15,7 +15,7 @@
   (:import-from :uiop))
 (in-package :endb/storage)
 
-(defvar *tx-log-version* 2)
+(defvar *tx-log-version* 3)
 (defvar *wal-target-size* (* 4 1024 1024))
 (defvar *wals-per-snapshot* 2)
 

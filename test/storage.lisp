@@ -7,8 +7,7 @@
   (:import-from :fset)
   (:import-from :trivial-gray-streams)
   (:import-from :trivial-utf-8)
-  (:import-from :uiop)
-  (:import-from :cl-bloom))
+  (:import-from :uiop))
 (in-package :endb-test/storage)
 
 (in-suite* :storage)

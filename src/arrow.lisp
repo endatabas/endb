@@ -5,8 +5,8 @@
            #:arrow-date-millis-ms #:arrow-time-micros-us #:arrow-timestamp-micros-us #:arrow-interval-month-day-nanos-ns #:arrow-interval-month-day-nanos-uint128
            #:arrow-timestamp-micros-to-local-time #:arrow-time-micros-to-local-time #:arrow-date-millis-to-local-time #:arrow-interval-month-day-nanos-to-periods-duration
            #:local-time-to-arrow-timestamp-micros #:local-time-to-arrow-date-millis #:local-time-to-arrow-time-micros #:periods-duration-to-arrow-interval-month-day-nanos
-           #:to-arrow #:make-arrow-array-for #:arrow-class-for-format
-           #:arrow-push #:arrow-valid-p #:arrow-get #:arrow-value
+           #:to-arrow #:to-arrow-row-format #:make-arrow-array-for #:arrow-class-for-format
+           #:arrow-push #:arrow-valid-p #:arrow-get #:arrow-value #:arrow-row-format
            #:arrow-length #:arrow-null-count #:arrow-data-type #:arrow-lisp-type
            #:arrow-children #:arrow-buffers
            #:arrow-struct-column-value #:arrow-struct-column-array #:arrow-struct-projection #:arrow-struct-children
@@ -14,7 +14,8 @@
            #:date-millis-array #:timestamp-micros-array #:time-micros-array #:binary-array #:utf8-array #:list-array #:struct-array #:dense-union-array)
   (:import-from :alexandria)
   (:import-from :cl-ppcre)
-  (:import-from :cl-murmurhash)
+  (:import-from :flexi-streams)
+  (:import-from :float-features)
   (:import-from :fset)
   (:import-from :local-time)
   (:import-from :periods)
@@ -236,35 +237,6 @@
                                 (unless (equal "" time-part)
                                   (format nil "T~A" time-part))))))
 
-(defmethod murmurhash:murmurhash ((x endb/arrow:arrow-timestamp-micros) &key (seed murmurhash:*default-seed*) mix-only)
-  (murmurhash:murmurhash (endb/arrow:arrow-timestamp-micros-us x) :seed seed :mix-only mix-only))
-
-(defmethod murmurhash:murmurhash ((x endb/arrow:arrow-date-millis) &key (seed murmurhash:*default-seed*) mix-only)
-  (murmurhash:murmurhash (endb/arrow:arrow-date-millis-ms x) :seed seed :mix-only mix-only))
-
-(defmethod murmurhash:murmurhash ((x endb/arrow:arrow-time-micros) &key (seed murmurhash:*default-seed*) mix-only)
-  (murmurhash:murmurhash (endb/arrow:arrow-time-micros-us x) :seed seed :mix-only mix-only))
-
-(defmethod murmurhash:murmurhash ((x endb/arrow:arrow-interval-month-day-nanos) &key (seed murmurhash:*default-seed*) mix-only)
-  (murmurhash:murmurhash (arrow-interval-month-day-nanos-uint128 x) :seed seed :mix-only mix-only))
-
-(defmethod murmurhash:murmurhash ((x fset:seq) &key (seed murmurhash:*default-seed*) mix-only)
-  (let ((hash seed))
-    (fset:do-seq (v x)
-      (murmurhash::mixf hash (murmurhash:murmurhash v :seed hash :mix-only t)))
-    (if mix-only
-        hash
-        (murmurhash::finalize hash (fset:size x)))))
-
-(defmethod murmurhash:murmurhash ((x fset:map) &key (seed murmurhash:*default-seed*) mix-only)
-  (let ((hash seed))
-    (fset:do-map (k v x)
-      (murmurhash::mixf hash (murmurhash:murmurhash k :seed hash :mix-only t))
-      (murmurhash::mixf hash (murmurhash:murmurhash v :seed hash :mix-only t)))
-    (if mix-only
-        hash
-        (murmurhash::finalize hash (fset:size x)))))
-
 (fset:define-cross-type-compare-methods endb/arrow:arrow-date-millis)
 (fset:define-cross-type-compare-methods endb/arrow:arrow-timestamp-micros)
 (fset:define-cross-type-compare-methods endb/arrow:arrow-time-micros)
@@ -309,6 +281,7 @@
 (defgeneric arrow-valid-p (array n))
 (defgeneric arrow-get (array n))
 (defgeneric arrow-value (array n))
+(defgeneric arrow-row-format (array n))
 (defgeneric arrow-length (array))
 (defgeneric arrow-null-count (array))
 (defgeneric arrow-data-type (array))
@@ -424,6 +397,11 @@
      (arrow-push acc x))
    xs :initial-value (make-instance 'null-array)))
 
+(defun to-arrow-row-format (x)
+  (let ((array (make-arrow-array-for x)))
+    (arrow-push array x)
+    (arrow-row-format array 0)))
+
 (defmethod arrow-push ((array arrow-array) x)
   (let ((len (arrow-length array))
         (new-array (arrow-push (make-arrow-array-for x) x)))
@@ -472,6 +450,9 @@
 
 (defmethod arrow-value ((array null-array) (n fixnum))
   :null)
+
+(defmethod arrow-row-format ((array null-array) (n fixnum))
+  (make-array 1 :element-type 'uint8 :initial-element 0))
 
 (defmethod arrow-length ((array null-array))
   (with-slots (null-count) array
@@ -589,6 +570,18 @@
 (defmethod arrow-value ((array int32-array) (n fixnum))
   (aref (slot-value array 'values) n))
 
+(defmethod arrow-row-format ((array int32-array) (n fixnum))
+  (let* ((row (make-array 5 :element-type 'uint8))
+         (x (arrow-value array n))
+         (x (logxor (ash 1 31) x)))
+    (when (arrow-valid-p array n)
+      (setf (aref row 0) 1)
+      (setf (aref row 1) (ldb (byte 8 24) x))
+      (setf (aref row 2) (ldb (byte 8 16) x))
+      (setf (aref row 3) (ldb (byte 8 8) x))
+      (setf (aref row 4) (ldb (byte 8 0) x)))
+    row))
+
 (defmethod arrow-data-type ((array int32-array))
   "i")
 
@@ -606,6 +599,25 @@
 
 (defmethod arrow-value ((array int64-array) (n fixnum))
   (aref (slot-value array 'values) n))
+
+(defun %int64-row-encode (row x)
+  (let ((x (logxor (ash 1 63) x)))
+    (setf (aref row 0) 1)
+    (setf (aref row 1) (ldb (byte 8 56) x))
+    (setf (aref row 2) (ldb (byte 8 48) x))
+    (setf (aref row 3) (ldb (byte 8 40) x))
+    (setf (aref row 4) (ldb (byte 8 32) x))
+    (setf (aref row 5) (ldb (byte 8 24) x))
+    (setf (aref row 6) (ldb (byte 8 16) x))
+    (setf (aref row 7) (ldb (byte 8 8) x))
+    (setf (aref row 8) (ldb (byte 8 0) x))
+    row))
+
+(defmethod arrow-row-format ((array int64-array) (n fixnum))
+  (let* ((row (make-array 9 :element-type 'uint8)))
+    (when (arrow-valid-p array n)
+      (%int64-row-encode row (aref (slot-value array 'values) n)))
+    row))
 
 (defmethod arrow-data-type ((array int64-array))
   "l")
@@ -656,6 +668,17 @@
   ((values :type (vector float64))
    (element-type :initform 'float64)))
 
+(defmethod arrow-row-format ((array float64-array) (n fixnum))
+  (let* ((row (make-array 9 :element-type 'uint8)))
+    (when (arrow-valid-p array n)
+      (let* ((x (arrow-value array n))
+             (x (float-features:double-float-bits x))
+             (x (if (logbitp 63 x)
+                    (logxor x (1- (ash 1 63)))
+                    x)))
+        (%int64-row-encode row x)))
+    row))
+
 (defmethod arrow-push ((array float64-array) (x number))
   (if (typep x 'int64)
       (call-next-method)
@@ -696,6 +719,13 @@
 (defmethod arrow-value ((array boolean-array) (n fixnum))
   (= 1 (aref (slot-value array 'values) n)))
 
+(defmethod arrow-row-format ((array boolean-array) (n fixnum))
+  (let ((row (make-array 2 :element-type 'uint8)))
+    (when (arrow-valid-p array n)
+      (setf (aref row 0) 1)
+      (setf (aref row 1) (aref (slot-value array 'values) n)))
+    row))
+
 (defmethod arrow-data-type ((array boolean-array))
   "b")
 
@@ -733,10 +763,20 @@
 
 (defmethod arrow-value ((array fixed-width-binary-array) (n fixnum))
   (with-slots (values element-size) array
-    (let* ((start (* element-size n) )
+    (let* ((start (* element-size n))
            (storage #+sbcl (sb-ext:array-storage-vector values)
                     #-sbcl vlaues))
       (make-array element-size :element-type 'uint8 :displaced-to storage :displaced-index-offset start))))
+
+(defmethod arrow-row-format ((array fixed-width-binary-array) (n fixnum))
+  (with-slots (values element-size) array
+    (let* ((start (* element-size n))
+           (row (make-array (1+ element-size) :element-type 'uint8)))
+      (when (arrow-valid-p array n)
+        (setf (aref row 0) 1)
+        (dotimes (idx element-size)
+          (setf (aref row idx) (aref values (+ start idx)))))
+      row)))
 
 (defmethod arrow-length ((array fixed-width-binary-array))
   (with-slots (values element-size) array
@@ -775,6 +815,16 @@
                               (- v (ash 1 128))
                               v)))))
 
+(defmethod arrow-row-format ((array decimal-array) (n fixnum))
+  (with-slots (values element-size) array
+    (let* ((start (* element-size n))
+           (row (make-array (1+ element-size) :element-type 'uint8)))
+      (when (arrow-valid-p array n)
+        (setf (aref row 0) 1)
+        (dotimes (idx element-size)
+          (setf (aref row idx) (aref values (+ start (- element-size (1+ idx)))))))
+      row)))
+
 (defmethod arrow-lisp-type ((array decimal-array))
   'integer)
 
@@ -801,6 +851,16 @@
           finally (return (make-arrow-interval-month-day-nanos :month (ldb (byte 32 0) v)
                                                                :day (ldb (byte 32 32) v)
                                                                :ns (ldb (byte 64 64) v))))))
+
+(defmethod arrow-row-format ((array interval-month-day-nanos-array) (n fixnum))
+  (with-slots (values element-size) array
+    (let* ((start (* element-size n))
+           (row (make-array (1+ element-size) :element-type 'uint8)))
+      (when (arrow-valid-p array n)
+        (setf (aref row 0) 1)
+        (dotimes (idx element-size)
+          (setf (aref row idx) (aref values (+ start (- element-size (1+ idx)))))))
+      row)))
 
 (defmethod arrow-data-type ((array interval-month-day-nanos-array))
   "tin")
@@ -834,7 +894,7 @@
     (vector-push-extend (length data) offsets)
     array))
 
-(defmethod arrow-value ((array binary-array) (n fixnum))
+(defun %arrow-binary-value (array n)
   (with-slots (offsets data) array
     (let* ((start (aref offsets n) )
            (end (aref offsets (1+ n)))
@@ -842,6 +902,48 @@
            (storage #+sbcl (sb-ext:array-storage-vector data)
                     #-sbcl data))
       (make-array len :element-type 'uint8 :displaced-to storage :displaced-index-offset start))))
+
+(defmethod arrow-value ((array binary-array) (n fixnum))
+  (%arrow-binary-value array n))
+
+(defun %write-be-uint32 (x out)
+  (write-byte (ldb (byte 8 24) x) out)
+  (write-byte (ldb (byte 8 16) x) out)
+  (write-byte (ldb (byte 8 8) x) out)
+  (write-byte (ldb (byte 8 0) x) out))
+
+(defun %block-encoded-row (x &key (number-of-small-blocks 4) (small-block-size 8) (large-block-size 32))
+  (flex:with-output-to-sequence (out)
+    (cond
+      ((eq :null x)
+       (write-byte 0 out))
+      ((zerop (length x))
+       (write-byte 1 out))
+      (t (let ((len (length x))
+               (large-block-start-idx (* number-of-small-blocks small-block-size)))
+           (labels ((write-blocks (start end block-size)
+                      (loop with block-idx = 0
+                            for idx from start below end
+                            do (write-byte (aref x idx) out)
+                               (incf block-idx)
+                               (when (and (< (1+ idx) len)
+                                        (= block-idx block-size))
+                                   (write-byte 255 out)
+                                   (setf block-idx 0))
+                            finally (when (= idx len)
+                                      (let* ((pad (- block-size block-idx))
+                                             (written (- block-size pad)))
+                                        (dotimes (n pad)
+                                          (write-byte 0 out))
+                                        (write-byte written out))))))
+             (write-byte 2 out)
+             (write-blocks 0 (min large-block-start-idx len) small-block-size)
+             (write-blocks large-block-start-idx len large-block-size)))))))
+
+(defmethod arrow-row-format ((array binary-array) (n fixnum))
+  (%block-encoded-row (if (arrow-valid-p array n)
+                          (%arrow-binary-value array n)
+                          :null)))
 
 (defmethod arrow-length ((array binary-array))
   (with-slots (offsets) array
@@ -920,6 +1022,25 @@
                     (loop for src-idx from start below end
                           for dst-idx from 0
                           collect (arrow-get values src-idx))))))
+
+(defmethod arrow-row-format ((array list-array) (n fixnum))
+  (with-slots (offsets values) array
+    (if (arrow-valid-p array n)
+        (let* ((start (aref offsets n))
+               (end (aref offsets (1+ n)))
+               (len (- end start))
+               (element-rows (loop for src-idx from start below end
+                                   for dst-idx from 0
+                                   collect (arrow-row-format values src-idx))))
+          (%block-encoded-row
+           (flex:with-output-to-sequence (out)
+             (dolist (row element-rows)
+               (write-sequence row out))
+             (dolist (row element-rows)
+               (%write-be-uint32 (length row) out))
+             (when (plusp len)
+               (%write-be-uint32 len out)))))
+        (%block-encoded-row :null))))
 
 (defmethod arrow-length ((array list-array))
   (with-slots (offsets) array
@@ -1028,6 +1149,16 @@
          (setf acc (fset:with acc (symbol-name k) (arrow-get v n))))
        children)
       acc)))
+
+(defmethod arrow-row-format ((array struct-array) (n fixnum))
+  (with-slots (children) array
+    (flex:with-output-to-sequence (out)
+      (write-byte (if (arrow-valid-p array n)
+                      1
+                      0)
+                  out)
+      (dolist (k (sort (alexandria:hash-table-keys children) #'string< :key #'symbol-name))
+        (write-sequence (arrow-row-format (gethash k children) n) out)))))
 
 (defmethod arrow-length ((array struct-array))
   (with-slots (children validity) array
@@ -1145,6 +1276,10 @@
 (defmethod arrow-value ((array dense-union-array) (n fixnum))
   (with-slots (type-ids offsets children) array
     (arrow-value (aref children (aref type-ids n)) (aref offsets n))))
+
+(defmethod arrow-row-format ((array dense-union-array) (n fixnum))
+  (with-slots (type-ids offsets children) array
+    (arrow-row-format (aref children (aref type-ids n)) (aref offsets n))))
 
 (defmethod arrow-length ((array dense-union-array))
   (with-slots (type-ids) array

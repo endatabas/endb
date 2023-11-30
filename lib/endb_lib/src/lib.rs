@@ -438,3 +438,10 @@ pub extern "C" fn endb_uuid_str(
         Err(err) => string_callback(err.to_string(), on_error),
     }
 }
+
+#[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn endb_xxh64(buffer_ptr: *const u8, buffer_size: usize, seed: u64) -> u64 {
+    let buffer = unsafe { std::slice::from_raw_parts(buffer_ptr, buffer_size) };
+    xxhash_rust::xxh64::xxh64(buffer, seed)
+}

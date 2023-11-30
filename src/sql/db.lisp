@@ -1,9 +1,9 @@
 (defpackage :endb/sql/db
   (:use :cl)
   (:import-from :bordeaux-threads)
-  (:import-from :cl-bloom)
   (:import-from :cl-ppcre)
   (:import-from :endb/arrow)
+  (:import-from :endb/bloom)
   (:import-from :endb/lib)
   (:import-from :endb/lib/parser)
   (:import-from :endb/sql/expr)
@@ -269,25 +269,27 @@
   (unless endb/sql/expr:*sqlite-mode*
     (error 'endb/sql/expr:sql-runtime-error :message "DROP INDEX not supported")))
 
-(defmethod endb/sql/expr:agg-accumulate ((agg cl-bloom::bloom-filter) x &rest args)
+(defstruct agg-bloom bloom)
+
+(defmethod endb/sql/expr:agg-accumulate ((agg agg-bloom) x &rest args)
   (declare (ignore args))
-  (cl-bloom:add agg x)
+  (endb/bloom:sbbf-insert (agg-bloom-bloom agg) x)
   agg)
 
-(defmethod endb/sql/expr:agg-finish ((agg cl-bloom::bloom-filter))
-  (cffi:with-pointer-to-vector-data (ptr (cl-bloom::filter-array agg))
-    (endb/lib:buffer-to-vector ptr (endb/lib:vector-byte-size (cl-bloom::filter-array agg)))))
+(defmethod endb/sql/expr:agg-finish ((agg agg-bloom))
+  (agg-bloom-bloom agg))
 
 (defstruct col-stats count_star count min max bloom)
 
 (defmethod endb/sql/expr:agg-accumulate ((agg col-stats) x &rest args)
-  (declare (ignore args))
-  (with-slots (count_star count min max bloom) agg
-    (endb/sql/expr:agg-accumulate count_star x)
-    (endb/sql/expr:agg-accumulate count x)
-    (endb/sql/expr:agg-accumulate min x)
-    (endb/sql/expr:agg-accumulate max x)
-    (endb/sql/expr:agg-accumulate bloom x))
+  (destructuring-bind (hash)
+      args
+    (with-slots (count_star count min max bloom) agg
+      (endb/sql/expr:agg-accumulate count_star x)
+      (endb/sql/expr:agg-accumulate count x)
+      (endb/sql/expr:agg-accumulate min x)
+      (endb/sql/expr:agg-accumulate max x)
+      (endb/sql/expr:agg-accumulate bloom hash)))
   agg)
 
 (defmethod endb/sql/expr:agg-finish ((agg col-stats))
@@ -300,9 +302,9 @@
 
 (defun calculate-stats (arrays)
   (let* ((total-length (reduce #'+ (mapcar #'endb/arrow:arrow-length arrays)))
-         (bloom-order (* 8 (endb/lib:vector-byte-size #* (cl-bloom::opt-order total-length))))
          (stats (make-hash-table :test 'equal))
-         (acc (fset:empty-map)))
+         (acc (fset:empty-map))
+         (null-hash (endb/lib:xxh64 (endb/arrow:to-arrow-row-format :null))))
     (labels ((get-col-stats (k)
                (or (gethash k stats)
                    (setf (gethash k stats)
@@ -311,20 +313,27 @@
                           :count (endb/sql/expr:make-agg :count)
                           :min (endb/sql/expr:make-agg :min)
                           :max (endb/sql/expr:make-agg :max)
-                          :bloom (make-instance 'cl-bloom::bloom-filter :order bloom-order))))))
+                          :bloom (make-agg-bloom :bloom (endb/bloom:make-sbbf total-length)))))))
       (dolist (array arrays)
         (if (typep array 'endb/arrow:dense-union-array)
             (loop for idx below (endb/arrow:arrow-length array)
                   for row = (endb/arrow:arrow-get array idx)
                   when (typep row 'endb/arrow:arrow-struct)
                     do (fset:do-map (k v row)
-                         (endb/sql/expr:agg-accumulate (get-col-stats k) v)))
+                         (endb/sql/expr:agg-accumulate (get-col-stats k) v
+                                                       (endb/lib:xxh64 (endb/arrow:to-arrow-row-format v)))))
             (maphash
              (lambda (k v)
                (loop with col-stats = (get-col-stats (symbol-name k))
                      for idx below (endb/arrow:arrow-length v)
                      when (endb/arrow:arrow-valid-p array idx)
-                       do (endb/sql/expr:agg-accumulate col-stats (endb/arrow:arrow-get v idx))))
+                       do (let ((x (endb/arrow:arrow-get v idx)))
+                            (endb/sql/expr:agg-accumulate
+                             col-stats
+                             x
+                             (if (eq :null x)
+                                 null-hash
+                                 (endb/lib:xxh64 (endb/arrow:arrow-row-format v idx)))))))
              (endb/arrow:arrow-struct-children array))))
       (maphash
        (lambda (k v)

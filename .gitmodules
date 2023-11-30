@@ -38,9 +38,6 @@
 [submodule "_build/named-readtables"]
 	path = _build/named-readtables
 	url = https://github.com/melisgl/named-readtables
-[submodule "_build/static-vectors"]
-	path = _build/static-vectors
-	url = https://github.com/sionescu/static-vectors
 [submodule "_build/cffi"]
 	path = _build/cffi
 	url = https://github.com/cffi/cffi
@@ -65,9 +62,6 @@
 [submodule "_build/trivial-utf-8"]
 	path = _build/trivial-utf-8
 	url = https://gitlab.common-lisp.net/trivial-utf-8/trivial-utf-8.git
-[submodule "_build/cl-murmurhash"]
-	path = _build/cl-murmurhash
-	url = https://github.com/ruricolist/cl-murmurhash
 [submodule "_build/fset"]
 	path = _build/fset
 	url = https://github.com/slburson/fset
@@ -80,9 +74,6 @@
 [submodule "_build/periods"]
 	path = _build/periods
 	url = https://github.com/jwiegley/periods
-[submodule "_build/cl-bloom"]
-	path = _build/cl-bloom
-	url = https://github.com/ruricolist/cl-bloom
 [submodule "_build/archive"]
 	path = _build/archive
 	url = https://github.com/sharplispers/archive

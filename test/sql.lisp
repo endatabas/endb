@@ -1993,7 +1993,7 @@ SELECT s FROM x WHERE ind=0")
 
            (let ((endb/storage:*tx-log-version* (1+ endb/storage:*tx-log-version*)))
              (signals-with-msg simple-error
-                 "Transaction log version mismatch: 3 does not match stored: 2"
+                 "Transaction log version mismatch: 4 does not match stored: 3"
                (make-directory-db :directory test-dir))))
       (when (probe-file test-dir)
         (uiop:delete-directory-tree test-dir :validate t)))))

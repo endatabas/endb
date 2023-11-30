@@ -2,7 +2,7 @@
   (:use :cl)
   (:export #:init-lib #:*panic-hook*
            #:log-error #:log-warn #:log-info #:log-debug #:resolve-log-level #:*log-level*
-           #:sha1 #:uuid-v4 #:uuid-str #:base64-decode #:base64-encode
+           #:sha1 #:uuid-v4 #:uuid-str #:base64-decode #:base64-encode #:xxh64
            #:vector-byte-size #:buffer-to-vector)
   (:import-from :cffi)
   (:import-from :asdf)
@@ -224,6 +224,17 @@
                                                   #-sbcl buffer)
       (endb-uuid-str buffer-ptr (length buffer) (cffi:callback endb-uuid-str-on-success) (cffi:callback endb-uuid-str-on-error)))
     result))
+
+(cffi:defcfun "endb_xxh64" :size
+  (buffer-ptr :pointer)
+  (buffers-size :size)
+  (seed :size))
+
+(defun xxh64 (buffer &key (seed 0))
+  (endb/lib:init-lib)
+  (cffi:with-pointer-to-vector-data (buffer-ptr #+sbcl (sb-ext:array-storage-vector buffer)
+                                                #-sbcl buffer)
+    (endb-xxh64 buffer-ptr (length buffer) seed)))
 
 (cffi:defcfun "memcpy" :pointer
   (dest :pointer)

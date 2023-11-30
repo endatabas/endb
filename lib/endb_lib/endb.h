@@ -360,3 +360,5 @@ void endb_uuid_str(const uint8_t *buffer_ptr,
                    uintptr_t buffer_size,
                    endb_uuid_str_on_success_callback on_success,
                    endb_on_error_callback on_error);
+
+uint64_t endb_xxh64(const uint8_t *buffer_ptr, uintptr_t buffer_size, uint64_t seed);

@@ -198,22 +198,22 @@
                 'endb/sql/expr:sql-is)
             x y)
       (and (member x vars) (constantp y)))
-     `(endb/json:binary-bloom-member-p
+     `(endb/bloom:sbbf-check-p
        (fset:lookup
         (fset:lookup ,stats-md-sym ,(get x :column))
         "bloom")
-       ,y))
+       ,(endb/lib:xxh64 (endb/arrow:to-arrow-row-format y))))
 
     ((trivia:guard
       (list (or 'endb/sql/expr:sql-=
                 'endb/sql/expr:sql-is)
             y x)
       (and (member x vars) (constantp y)))
-     `(endb/json:binary-bloom-member-p
+     `(endb/bloom:sbbf-check-p
        (fset:lookup
         (fset:lookup ,stats-md-sym ,(get x :column))
         "bloom")
-       ,y))
+       ,(endb/lib:xxh64 (endb/arrow:to-arrow-row-format y))))
 
     ((trivia:guard
       (list 'endb/sql/expr:ra-in x y)
@@ -223,8 +223,9 @@
                            (fset:lookup ,stats-md-sym ,(get x :column))
                            "bloom")))
           (some (lambda (,y)
-                  (endb/json:binary-bloom-member-p ,bloom-sym ,y))
-                ,y))))
+                  (endb/bloom:sbbf-check-p ,bloom-sym ,y))
+                (list ,@(loop for v in y
+                              collect (endb/lib:xxh64 (endb/arrow:to-arrow-row-format v))))))))
 
     ((trivia:guard
       (list 'endb/sql/expr:sql-between x y z)

@@ -1,8 +1,6 @@
 (defpackage :endb-test/json
   (:use :cl :fiveam :endb/json)
-  (:import-from :endb/arrow)
-  (:import-from :endb/sql/db)
-  (:import-from :cl-bloom))
+  (:import-from :endb/arrow))
 (in-package :endb-test/json)
 
 (in-suite* :json)
@@ -146,40 +144,3 @@
   (is (equal "[1,2]" (json-stringify (fset:seq 1 2))))
   (is (equal "{\"baz\":2,\"foo\":\"bar\"}" (json-stringify (fset:map ("foo" "bar") ("baz" 2)))))
   (is (equal "{}" (json-stringify (fset:empty-map)))))
-
-(test stats
-  (let* ((expected (list (fset:map ("name" "joe") ("id" 1))
-                         (fset:map ("name" :null) ("id" 2))
-                         :null
-                         (fset:map ("name" "mark") ("id" 4))))
-         (array (endb/arrow:to-arrow expected)))
-    (is (fset:equal? (fset:map ("id" (fset:map ("count" 3) ("count_star" 3) ("min" 1) ("max" 4)
-                                               ("bloom" (coerce #(20 195 165 82 10 165 210 104) '(vector (unsigned-byte 8))))))
-                               ("name" (fset:map ("count" 2) ("count_star" 3) ("min" "joe") ("max" "mark")
-                                                 ("bloom" (coerce #(10 192 38 170 10 26 185 168) '(vector (unsigned-byte 8)))))))
-                     (endb/sql/db:calculate-stats (list array)))))
-
-  (let ((batches (list (list (fset:map ("x" 1))
-                             (fset:map ("x" 2))
-                             (fset:map ("x" 3))
-                             (fset:map ("x" 4)))
-
-                       (list (fset:map ("x" 5))
-                             (fset:map ("x" 6))
-                             (fset:map ("x" 7))
-                             (fset:map ("x" 8))))))
-    (is (fset:equal?
-         (fset:map ("x" (fset:map ("count" 8) ("count_star" 8) ("min" 1) ("max" 8)
-                                  ("bloom" (coerce #(221 83 121 73 211 117 15 215 69 92 198 129 97 148 5) '(vector (unsigned-byte 8)))))))
-         (endb/sql/db:calculate-stats (mapcar #'endb/arrow:to-arrow batches))))))
-
-(test binary-to-bloom
-  (let* ((binary (coerce #(10 192 38 170 10 26 185 168) '(vector (unsigned-byte 8))))
-         (bloom (binary-to-bloom binary)))
-    (is (cl-bloom:memberp bloom "mark"))
-    (is (cl-bloom:memberp bloom "joe"))
-    (is (not (cl-bloom:memberp bloom "mike")))
-
-    (is (binary-bloom-member-p binary "mark"))
-    (is (binary-bloom-member-p binary "joe"))
-    (is (not (binary-bloom-member-p binary "mike")))))

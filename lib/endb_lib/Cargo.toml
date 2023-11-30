@@ -23,7 +23,8 @@ arrow2.workspace = true
 chumsky.workspace = true
 log.workspace = true
 sha1_smol = "1.0.0"
-uuid =  {version = "1.6.1", features = [ "v4", "fast-rng" ] }
+uuid =  { version = "1.6.1", features = [ "v4", "fast-rng" ] }
+xxhash-rust = { version = "0.8.7", features = ["xxh64"] }
 
 [build-dependencies]
 cbindgen = "0.24.3"
