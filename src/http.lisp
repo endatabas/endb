@@ -109,4 +109,7 @@
         (funcall on-response-send (format nil "~A~%" e)))
       (endb/sql/expr:sql-runtime-error (e)
         (funcall on-response-init +http-bad-request+ "text/plain")
+        (funcall on-response-send (format nil "~A~%" e)))
+      (cl-ppcre:ppcre-syntax-error (e)
+        (funcall on-response-init +http-bad-request+ "text/plain")
         (funcall on-response-send (format nil "~A~%" e))))))

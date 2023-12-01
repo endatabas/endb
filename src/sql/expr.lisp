@@ -23,6 +23,7 @@
            #:sql-typeof #:sql-unixepoch #:sql-julianday #:sql-path_remove #:sql-path_insert #:sql-path_replace #:sql-path_set #:sql-path_extract
            #:sql-contains #:sql-overlaps #:sql-precedes #:sql-succedes #:sql-immediately_precedes #:sql-immediately_succedes
 
+           #:build-like-regex #:build-glob-regex
            #:syn-access #:syn-access-finish #:syn-interval #:syn-cast #:syn-extract
 
            #:ra-distinct #:ra-unnest #:ra-union-all #:ra-union #:ra-except #:ra-intersect
@@ -989,7 +990,7 @@
 
 (defparameter +like-default-percent-scanner+ (ppcre:create-scanner "\\\\%"))
 
-(defmethod sql-like ((x string) (y string) &optional (z nil zp))
+(defun build-like-regex (x &optional (z nil zp))
   (when (and zp (not (= 1 (length z))))
     (error 'sql-runtime-error :message (format nil "Invalid escape character: ~A" z)))
   (let* ((regex (ppcre:quote-meta-chars x))
@@ -1003,9 +1004,14 @@
                     (substitute #\. #\_ regex)))
          (regex (if zp
                     (ppcre:regex-replace-all (format nil "~A(_|\\\\%)" z) regex "\\1")
-                    regex))
-         (regex (concatenate 'string "^" regex "$")))
-    (integerp (ppcre:scan regex y))))
+                    regex)))
+    (concatenate 'string "^" regex "$")))
+
+(defmethod sql-like ((x string) (y string) &optional (z nil zp))
+  (integerp (ppcre:scan (if zp
+                            (build-like-regex x z)
+                            (build-like-regex x))
+                        y)))
 
 (defmethod sql-glob ((x (eql :null)) y)
   :null)
@@ -1016,12 +1022,14 @@
 (defparameter +glob-star-scanner+ (ppcre:create-scanner "\\\\\\*"))
 (defparameter +glob-question-mark-scanner+ (ppcre:create-scanner "\\\\\\?"))
 
-(defmethod sql-glob ((x string) (y string))
+(defun build-glob-regex (x)
   (let* ((regex (ppcre:quote-meta-chars x))
          (regex (ppcre:regex-replace-all +glob-star-scanner+ regex ".*?"))
-         (regex (ppcre:regex-replace-all +glob-question-mark-scanner+ regex "."))
-         (regex (concatenate 'string "^" regex "$")))
-    (integerp (ppcre:scan regex y))))
+         (regex (ppcre:regex-replace-all +glob-question-mark-scanner+ regex ".")))
+    (concatenate 'string "^" regex "$")))
+
+(defmethod sql-glob ((x string) (y string))
+  (integerp (ppcre:scan (build-glob-regex x) y)))
 
 (defmethod sql-regexp ((x (eql :null)) y)
   :null)
