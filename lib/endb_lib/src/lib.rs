@@ -445,3 +445,16 @@ pub extern "C" fn endb_xxh64(buffer_ptr: *const u8, buffer_size: usize, seed: u6
     let buffer = unsafe { std::slice::from_raw_parts(buffer_ptr, buffer_size) };
     xxhash_rust::xxh64::xxh64(buffer, seed)
 }
+
+#[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn endb_memcpy(
+    dest_buffer_ptr: *mut u8,
+    src_buffer_ptr: *const u8,
+    buffer_size: usize,
+) -> *mut u8 {
+    unsafe {
+        std::ptr::copy_nonoverlapping(src_buffer_ptr, dest_buffer_ptr, buffer_size);
+        dest_buffer_ptr
+    }
+}

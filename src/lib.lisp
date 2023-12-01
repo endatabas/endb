@@ -236,7 +236,7 @@
                                                 #-sbcl buffer)
     (endb-xxh64 buffer-ptr (length buffer) seed)))
 
-(cffi:defcfun "memcpy" :pointer
+(cffi:defcfun "endb_memcpy" :pointer
   (dest :pointer)
   (src :pointer)
   (n :size))
@@ -255,7 +255,7 @@
     (assert (<= buffer-size (vector-byte-size out)))
     (cffi:with-pointer-to-vector-data (out-ptr #+sbcl (sb-ext:array-storage-vector out)
                                                #-sbcl out)
-      (memcpy out-ptr buffer-ptr buffer-size))
+      (endb-memcpy out-ptr buffer-ptr buffer-size))
     out))
 
 (defun init-lib ()
