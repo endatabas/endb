@@ -82,5 +82,6 @@
 
 (defmethod wal-close ((archive archive:tar-archive))
   (when (output-stream-p (archive::archive-stream archive))
-    (archive:finalize-archive archive))
+    (archive:finalize-archive archive)
+    (wal-fsync archive))
   (archive:close-archive archive))

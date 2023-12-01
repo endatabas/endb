@@ -5,6 +5,7 @@
            #:make-directory-object-store #:make-memory-object-store)
   (:import-from :alexandria)
   (:import-from :archive)
+  (:import-from :endb/lib)
   (:import-from :flexi-streams)
   (:import-from :uiop)
   (:import-from :bordeaux-threads))
@@ -98,9 +99,11 @@
       (alexandria:read-file-into-byte-vector path))))
 
 (defmethod object-store-put ((os directory-object-store) path buffer)
-  (let ((path (merge-pathnames path (uiop:ensure-directory-pathname (directory-object-store-path os)))))
-    (ensure-directories-exist path)
-    (alexandria:write-byte-vector-into-file buffer path :if-exists :overwrite :if-does-not-exist :create)))
+  (let* ((os-path (uiop:ensure-directory-pathname (directory-object-store-path os)))
+         (write-path (merge-pathnames (endb/lib:uuid-v4) os-path)))
+    (ensure-directories-exist (merge-pathnames path os-path))
+    (alexandria:write-byte-vector-into-file buffer write-path :if-exists :overwrite :if-does-not-exist :create)
+    (rename-file write-path (uiop:enough-pathname path (truename os-path)))))
 
 (defmethod object-store-delete ((os directory-object-store) path)
   (let ((path (merge-pathnames path (uiop:ensure-directory-pathname (directory-object-store-path os)))))
