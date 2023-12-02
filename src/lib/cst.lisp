@@ -219,7 +219,7 @@
              (trivia:ematch cst
                ((list :|ident| (list id start end))
                 (let ((s (make-symbol id)))
-                  (setf (get s :start) start (get s :end) end (get s :input) input)
+                  (setf (get s :start) start (get s :end) end)
                   s))
 
                ((list :|bind_parameter| (list "?" _ _))
@@ -227,7 +227,7 @@
 
                ((list :|bind_parameter| (list parameter start end))
                 (list :parameter (let ((s (make-symbol (subseq parameter 1))))
-                                   (setf (get s :start) start (get s :end) end (get s :input) input)
+                                   (setf (get s :start) start (get s :end) end)
                                    s)))
 
                ((list :|sql_stmt_list| x)
@@ -423,7 +423,7 @@
                ((list :|table_name| (list "INFORMATION_SCHEMA" start _) _ table-name)
                 (let* ((table-name (walk table-name))
                        (s (make-symbol (concatenate 'string "information_schema." (symbol-name table-name)))))
-                  (setf (get s :start) start (get s :end) (get table-name :end) (get s :input) input)
+                  (setf (get s :start) start (get s :end) (get table-name :end))
                   s))
 
                ((list :|system_time_clause| _ _ (list "ALL" _ _))
@@ -508,7 +508,7 @@
                 (let* ((table-name (walk table-name))
                        (column-name (walk column-name))
                        (s (make-symbol (concatenate 'string (symbol-name table-name) "." (symbol-name column-name)))))
-                  (setf (get s :start) (get table-name :start) (get s :end) (get column-name :end) (get s :input) input)
+                  (setf (get s :start) (get table-name :start) (get s :end) (get column-name :end))
                   s))
 
                ((list :|property_bracket_wildcard_access| _ _ _)

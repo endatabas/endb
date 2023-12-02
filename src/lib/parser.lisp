@@ -265,7 +265,7 @@
                        (push n (first acc))))
                   (4 (cffi:with-foreign-slots ((start end) value (:struct Id_Union))
                        (let ((s (make-symbol (trivial-utf-8:utf-8-bytes-to-string input-bytes :start start :end end))))
-                         (setf (get s :start) start (get s :end) end (get s :input) input)
+                         (setf (get s :start) start (get s :end) end)
                          (push s (first acc)))))
                   (5 (cffi:with-foreign-slots ((start end) value (:struct String_Union))
                        (let* ((s (trivial-utf-8:utf-8-bytes-to-string input-bytes :start start :end end))

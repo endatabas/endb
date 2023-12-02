@@ -124,7 +124,7 @@
       (fset:convert 'fset:map
                     (loop for constraint-row in (base-table-visible-rows db "information_schema.check_constraints")
                           collect (cons (nth 2 constraint-row)
-                                        (endb/lib/parser:parse-sql (format nil "SELECT ~A" (nth 3 constraint-row))))))))
+                                        (format nil "SELECT ~A" (nth 3 constraint-row)))))))
 
 (defun table-columns (db table-name)
   (cond

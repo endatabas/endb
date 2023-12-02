@@ -31,7 +31,7 @@
        (eq :* (first x))
        (symbolp (second x))))
 
-(defun %select-projection (select-list select-star-projection table-projections)
+(defun %select-projection (ctx select-list select-star-projection table-projections)
   (loop for idx from 1
         for (expr alias) in select-list
         append (cond
@@ -42,7 +42,7 @@
                   (let ((projection (fset:lookup table-projections (symbol-name (second expr)))))
                     (if projection
                         (mapcar #'%unqualified-column-name projection)
-                        (%annotated-error (second expr) "Unknown table"))))
+                        (%annotated-error (fset:lookup ctx :sql) (second expr) "Unknown table"))))
                  ((and (listp expr)
                        (eq :parameter (first expr))
                        (symbolp (second expr)))
@@ -59,9 +59,9 @@
                            (symbolp (nth 2 expr)))) (list (format nil "~A" (nth 2 expr))))
                  (t (list (%anonymous-column-name idx))))))
 
-(defun %annotated-error (s message)
+(defun %annotated-error (input s message)
   (error 'endb/sql/expr:sql-runtime-error
-         :message (endb/lib/parser:annotate-input-with-error (get s :input) message (get s :start) (get s :end))))
+         :message (endb/lib/parser:annotate-input-with-error input message (get s :start) (get s :end))))
 
 (defun %base-table-or-view->cl (ctx table-name &key temporal (errorp t))
   (let* ((db (fset:lookup ctx :db))
@@ -84,7 +84,7 @@
            (%ast->cl-with-free-vars ctx (endb/sql/db:view-definition db (symbol-name table-name)))
          (declare (ignore projection))
          (values src (endb/sql/db:table-columns db (symbol-name table-name)) free-vars)))
-      (errorp (%annotated-error table-name "Unknown table")))))
+      (errorp (%annotated-error (fset:lookup ctx :sql) table-name "Unknown table")))))
 
 (defun %wrap-with-order-by-and-limit (src order-by limit offset)
   (let* ((src (if order-by
@@ -616,7 +616,7 @@
                        (t (%ast->cl-with-free-vars ctx table-or-subquery)))
                    (when (and column-names (not (= (length projection) (length column-names))))
                      (if (symbolp table-or-subquery)
-                         (%annotated-error table-or-subquery "Number of column names does not match projection")
+                         (%annotated-error (fset:lookup ctx :sql) table-or-subquery "Number of column names does not match projection")
                          (error 'endb/sql/expr:sql-runtime-error :message (format nil "Number of column names: ~A does not match projection: ~A"
                                                                                   (length column-names)
                                                                                   (length projection)))))
@@ -681,7 +681,7 @@
                                                                     collect (ast->cl selected-ctx (make-symbol p))))
                                                              (t (list (ast->cl selected-ctx expr))))))
                                 (select-star-projection (mapcar #'%unqualified-column-name full-projection))
-                                (select-projection (%select-projection select-list select-star-projection table-projections))
+                                (select-projection (%select-projection ctx select-list select-star-projection table-projections))
                                 (order-by-selected-src (loop for (expr) in order-by
                                                              for projected-idx = (when (symbolp expr)
                                                                                    (position (symbol-name expr) select-projection :test 'equal))
@@ -896,12 +896,12 @@
   (destructuring-bind (constraint-name check-clause)
       args
     (when (find :parameter (alexandria:flatten check-clause))
-      (%annotated-error constraint-name "Assertions do not support parameters"))
+      (%annotated-error (fset:lookup ctx :sql) constraint-name "Assertions do not support parameters"))
     (let ((assertion-matches (nth-value 1 (ppcre:scan-to-strings +create-assertion-scanner+
                                                                  (fset:lookup ctx :sql)
                                                                  :start (get constraint-name :start)))))
       (unless (and (vectorp assertion-matches) (= 1 (length assertion-matches)))
-        (%annotated-error constraint-name "Invalid assertion definition"))
+        (%annotated-error (fset:lookup ctx :sql) constraint-name "Invalid assertion definition"))
       `(endb/sql/db:ddl-create-assertion ,(fset:lookup ctx :db-sym) ,(symbol-name constraint-name) ,(aref assertion-matches 0)))))
 
 (defmethod sql->cl (ctx (type (eql :drop-assertion)) &rest args)
@@ -919,12 +919,12 @@
         (ast->cl (fset:with ctx :no-parameters "Views do not support parameters") query)
       (declare (ignore view-src))
       (when (and column-names (not (= (length projection) (length column-names))))
-        (%annotated-error table-name "Number of column names does not match projection"))
+        (%annotated-error (fset:lookup ctx :sql) table-name "Number of column names does not match projection"))
       (let ((query-matches (nth-value 1 (ppcre:scan-to-strings +create-view-scanner+
                                                                (fset:lookup ctx :sql)
                                                                :start (get table-name :start)))))
         (unless (and (vectorp query-matches) (= 1 (length query-matches)))
-          (%annotated-error table-name "Invalid view definition"))
+          (%annotated-error (fset:lookup ctx :sql) table-name "Invalid view definition"))
         `(endb/sql/db:ddl-create-view ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(aref query-matches 0) ',(or (mapcar #'symbol-name column-names) projection))))))
 
 (defmethod sql->cl (ctx (type (eql :drop-view)) &rest args)
@@ -960,13 +960,15 @@
                                             (sort (delete-duplicates (loop for object in (second values)
                                                                            for keys = (%object-ast-keys object :require-literal-p nil)
                                                                            unless (subsetp on-conflict keys :test 'equal)
-                                                                             do (%annotated-error table-name "All inserted values needs to provide the on conflict columns")
+                                                                             do (%annotated-error (fset:lookup ctx :sql)
+                                                                                                  table-name
+                                                                                                  "All inserted values needs to provide the on conflict columns")
                                                                            append keys)
                                                                      :test 'equal)
                                                   #'string<)
                                             (if (subsetp on-conflict column-names :test 'equal)
                                                 column-names
-                                                (%annotated-error table-name "Column names needs to contain the on conflict columns")))))
+                                                (%annotated-error (fset:lookup ctx :sql) table-name "Column names needs to contain the on conflict columns")))))
                  (extra-projection (unless endb/sql/expr:*sqlite-mode*
                                      (list "!doc" "system_time")))
                  (projection (append (delete-duplicates (append projection on-conflict) :test 'equal) extra-projection))
@@ -1022,9 +1024,9 @@
                                        ,updated-rows-sym)
                                  (push (list ,scan-arrow-file-sym ,scan-batch-idx-sym ,scan-row-id-sym) ,deleted-row-ids-sym)))))
             (when (and update (null updated-columns) (null patch))
-              (%annotated-error table-name "Update requires at least one set or unset column or patch"))
+              (%annotated-error (fset:lookup ctx :sql) table-name "Update requires at least one set or unset column or patch"))
             (when (and upsertp (intersection on-conflict updated-columns :test 'equal))
-              (%annotated-error table-name "Cannot update the on conflict columns"))
+              (%annotated-error (fset:lookup ctx :sql) table-name "Cannot update the on conflict columns"))
             `(let ((,updated-rows-sym)
                    (,deleted-row-ids-sym))
                ,(if upsertp
@@ -1043,7 +1045,7 @@
                                                                   :key (lambda (,object-sym)
                                                                          (loop for ,key-sym in ',on-conflict
                                                                                collect (endb/sql/expr:syn-access-finish ,object-sym ,key-sym nil))))))
-                                                (%annotated-error ',table-name "Inserted values cannot contain duplicated on conflict columns"))
+                                                (%annotated-error ',(fset:lookup ctx :sql)',table-name "Inserted values cannot contain duplicated on conflict columns"))
                                               ,object-sym))
                          (let ((,insertp-sym t))
                            ,(when from-src
@@ -1065,9 +1067,9 @@
   (destructuring-bind (table-name values &key column-names on-conflict update)
       args
     (when (and endb/sql/expr:*sqlite-mode* on-conflict)
-      (%annotated-error table-name "Insert on conflict not supported in SQLite mode"))
+      (%annotated-error (fset:lookup ctx :sql) table-name "Insert on conflict not supported in SQLite mode"))
     (when (and (not endb/sql/expr:*sqlite-mode*) (null column-names) (eq :values (first values)))
-      (%annotated-error table-name "Column names are required for values"))
+      (%annotated-error (fset:lookup ctx :sql) table-name "Column names are required for values"))
     (if (eq :objects (first values))
         (if on-conflict
             (%insert-on-conflict ctx table-name on-conflict update :values values)
@@ -1312,7 +1314,7 @@
                                      (projection `(list ,@(loop for p in projection
                                                                 collect `(cons ,(%unqualified-column-name p)
                                                                                ,(ast->cl ctx (make-symbol p))))))
-                                     (t (%annotated-error k "Unknown table")))))
+                                     (t (%annotated-error (fset:lookup ctx :sql) k "Unknown table")))))
                                 (:spread-property
                                  (alexandria:with-gensyms (spread-sym idx-sym)
                                    `(let* ((,spread-sym ,(ast->cl ctx (second kv)))
@@ -1378,7 +1380,7 @@
                       (destructuring-bind (cte-name cte-ast &optional cte-columns)
                           cte
                         (unless cte-columns
-                          (%annotated-error cte-name "WITH RECURSIVE requires named columns"))
+                          (%annotated-error (fset:lookup ctx :sql) cte-name "WITH RECURSIVE requires named columns"))
                         (alexandria:with-gensyms (cte-varying-free-var)
                           (let ((cte (make-cte :src nil
                                                :free-vars (list cte-varying-free-var)
@@ -1411,7 +1413,7 @@
                                                                    (cons (lambda (k)
                                                                            (when (equal k (symbol-name cte-name))
                                                                              (if cte-accessed
-                                                                                 (%annotated-error cte-name "Non-linear recursion not supported")
+                                                                                 (%annotated-error (fset:lookup ctx :sql) cte-name "Non-linear recursion not supported")
                                                                                  (setf cte-accessed t))))
                                                                          (fset:lookup ctx :on-cte-access)))))
                                                         (ast->cl ctx cte-ast))
@@ -1421,11 +1423,11 @@
                                                                      :on-cte-access
                                                                      (cons (lambda (k)
                                                                              (when (equal k (symbol-name cte-name))
-                                                                               (%annotated-error cte-name "Left recursion not supported")))
+                                                                               (%annotated-error (fset:lookup ctx :sql) cte-name "Left recursion not supported")))
                                                                            (fset:lookup ctx :on-cte-access)))))
                                                           (ast->cl ctx init-ast))
                                                       (unless (= (length projection) (length init-projection) (length (cte-projection cte)))
-                                                        (%annotated-error cte-name "Number of column names does not match projection"))
+                                                        (%annotated-error (fset:lookup ctx :sql) cte-name "Number of column names does not match projection"))
                                                       (alexandria:with-gensyms (acc-sym last-acc-sym cte-sym)
                                                         (let ((distinct (when (eq :union init-operator)
                                                                           :distinct)))
@@ -1447,11 +1449,11 @@
                                                                    :on-cte-access
                                                                    (cons (lambda (k)
                                                                            (when (equal k (symbol-name cte-name))
-                                                                             (%annotated-error cte-name "Recursion not supported without UNION / UNION ALL")))
+                                                                             (%annotated-error (fset:lookup ctx :sql) cte-name "Recursion not supported without UNION / UNION ALL")))
                                                                          (fset:lookup ctx :on-cte-access)))))
                                                         (ast->cl ctx cte-ast))
                                                     (unless (= (length projection) (length (cte-projection cte)))
-                                                      (%annotated-error cte-name "Number of column names does not match projection"))
+                                                      (%annotated-error (fset:lookup ctx :sql) cte-name "Number of column names does not match projection"))
                                                     src)))))
                                   `(,(intern (symbol-name cte-name)) () ,src)))
                    ,src))
@@ -1469,7 +1471,7 @@
                               (multiple-value-bind (src projection)
                                   (ast->cl (fset:with ctx :ctes (fset:map-union (or (fset:lookup ctx :ctes) (fset:empty-map)) acc)) cte-ast)
                                 (when (and cte-columns (not (= (length projection) (length cte-columns))))
-                                  (%annotated-error cte-name "Number of column names does not match projection"))
+                                  (%annotated-error (fset:lookup ctx :sql) cte-name "Number of column names does not match projection"))
                                 (let ((cte (make-cte :src src
                                                      :projection (or (mapcar #'symbol-name cte-columns) projection))))
                                   (fset:with acc (symbol-name cte-name) cte)))))
@@ -1664,8 +1666,8 @@
                        (path (subseq k (1+ idx))))
                    (if (fset:lookup ctx column)
                        (ast->cl ctx (list :access (make-symbol column) path))
-                       (%annotated-error ast "Unknown column")))
-                 (%annotated-error ast "Unknown column"))))))
+                       (%annotated-error (fset:lookup ctx :sql) ast "Unknown column")))
+                 (%annotated-error (fset:lookup ctx :sql) ast "Unknown column"))))))
     (t ast)))
 
 (defun %ast->cl-with-free-vars (ctx ast)
