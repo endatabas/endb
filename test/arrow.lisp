@@ -368,4 +368,10 @@
 
   (is (equalp (endb/arrow::%block-encoded-row
                #(1 1 0 0 0 0 0 2 0 0 0 2 0 0 0 2))
-              (to-arrow-row-format (fset:seq t :null)))))
+              (to-arrow-row-format (fset:seq t :null))))
+
+  (is (equalp #(1 5 0 0 0 3 0 0 0 6 0 0 0 0 0 0 0)
+              (to-arrow-row-format (endb/arrow:parse-arrow-interval-month-day-nanos "P5M3DT0.000000006S"))))
+
+  (is (equalp #(1 255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 127)
+              (to-arrow-row-format 170141183460469231731687303715884105727))))

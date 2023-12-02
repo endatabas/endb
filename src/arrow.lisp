@@ -775,7 +775,7 @@
       (when (arrow-valid-p array n)
         (setf (aref row 0) 1)
         (dotimes (idx element-size)
-          (setf (aref row idx) (aref values (+ start idx)))))
+          (setf (aref row (1+ idx)) (aref values (+ start idx)))))
       row)))
 
 (defmethod arrow-length ((array fixed-width-binary-array))
@@ -815,16 +815,6 @@
                               (- v (ash 1 128))
                               v)))))
 
-(defmethod arrow-row-format ((array decimal-array) (n fixnum))
-  (with-slots (values element-size) array
-    (let* ((start (* element-size n))
-           (row (make-array (1+ element-size) :element-type 'uint8)))
-      (when (arrow-valid-p array n)
-        (setf (aref row 0) 1)
-        (dotimes (idx element-size)
-          (setf (aref row idx) (aref values (+ start (- element-size (1+ idx)))))))
-      row)))
-
 (defmethod arrow-lisp-type ((array decimal-array))
   'integer)
 
@@ -851,16 +841,6 @@
           finally (return (make-arrow-interval-month-day-nanos :month (ldb (byte 32 0) v)
                                                                :day (ldb (byte 32 32) v)
                                                                :ns (ldb (byte 64 64) v))))))
-
-(defmethod arrow-row-format ((array interval-month-day-nanos-array) (n fixnum))
-  (with-slots (values element-size) array
-    (let* ((start (* element-size n))
-           (row (make-array (1+ element-size) :element-type 'uint8)))
-      (when (arrow-valid-p array n)
-        (setf (aref row 0) 1)
-        (dotimes (idx element-size)
-          (setf (aref row idx) (aref values (+ start (- element-size (1+ idx)))))))
-      row)))
 
 (defmethod arrow-data-type ((array interval-month-day-nanos-array))
   "tin")
