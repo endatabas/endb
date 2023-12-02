@@ -258,7 +258,8 @@
     (assert (= 1 (length schemas)))
     (unwind-protect
          (#+sbcl sb-sys:with-pinned-objects
-          #+sbcl ((mapcar #'%all-buffers arrays))
+          #+sbcl ((loop for array in arrays
+                        append (%all-buffers array)))
           #-sbcl progn
           (let* ((*arrow-array-stream-get-schema* (lambda (c-stream c-schema)
                                                     (declare (ignore c-stream))
