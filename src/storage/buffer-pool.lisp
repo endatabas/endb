@@ -9,14 +9,18 @@
 (defgeneric buffer-pool-put (bp path arrays))
 (defgeneric buffer-pool-close (bp))
 
-(defstruct buffer-pool get-object-fn (pool (make-hash-table :weakness #+sbcl nil #-sbcl :value :synchronized t :test 'equal)) (max-size 4096))
+(defstruct buffer-pool
+  get-object-fn
+  (pool (make-hash-table :weakness #+sbcl nil #-sbcl :value :synchronized t :test 'equal))
+  (max-size 128)
+  (evict-ratio 0.8d0))
 
 (defun %evict-buffer-pool (bp)
-  #+sbcl (with-slots (pool max-size evict-lock) bp
+  #+sbcl (with-slots (pool max-size evict-lock evict-ratio) bp
            (sb-ext:with-locked-hash-table #+sbcl (pool)
              (maphash (lambda (k v)
                         (declare (ignore v))
-                        (when (<= (hash-table-count pool) max-size)
+                        (when (<= (hash-table-count pool) (* evict-ratio max-size))
                           (return-from %evict-buffer-pool))
                         (remhash k pool))
                       pool))))

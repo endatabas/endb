@@ -1,5 +1,6 @@
 (defpackage :endb/sql/db
   (:use :cl)
+  (:import-from :alexandria)
   (:import-from :bordeaux-threads)
   (:import-from :cl-ppcre)
   (:import-from :endb/arrow)
@@ -19,7 +20,7 @@
            #:make-db #:copy-db #:db-buffer-pool #:db-store #:db-meta-data #:db-current-timestamp #:db-write-lock #:db-compaction-thread #:db-compaction-queue
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
-           #:view-definition #:calculate-stats #:arrow-files-compacted-filename #:find-files-to-compact #:merge-files #:compact-files #:start-background-compaction))
+           #:view-definition #:calculate-stats #:arrow-files-compacted-filename #:find-files-to-compact #:merge-arrow-files #:compact-files #:start-background-compaction))
 (in-package :endb/sql/db)
 
 ;; DML/DDL
@@ -341,7 +342,7 @@
        stats)
       acc)))
 
-(defun start-background-compaction (db db-access-fn db-commit-fn object-put-fn &key (target-size (* 64 1024 1024)) (timeout 0.5))
+(defun start-background-compaction (db db-access-fn db-commit-fn object-put-fn &key (target-size (* 4 1024 1024)) (timeout 0.5))
   (let ((compaction-queue (db-compaction-queue db)))
     (setf (endb/sql/db:db-compaction-thread db)
           (bt:make-thread
@@ -359,8 +360,8 @@
                      (let ((arrow-files (find-files-to-compact db table-name target-size)))
                        (when (> (length arrow-files) 1)
                          (endb/lib:log-info "merging ~A files in table ~A" (length arrow-files) table-name)
-                         (destructuring-bind (buffer batch-md)
-                             (merge-files db table-name arrow-files)
+                         (multiple-value-bind (buffer batch-md)
+                             (merge-arrow-files db table-name arrow-files)
                            (let* ((batch-file (arrow-files-compacted-filename (fset:convert 'list (fset:lookup batch-md "derived_from"))))
                                   (batch-key (%batch-key table-name batch-file)))
                              (funcall object-put-fn batch-key buffer)
@@ -390,28 +391,27 @@
           (let ((last-name (pathname-name (car (last arrow-files)))))
             (subseq last-name (- (length last-name) +arrow-file-padding-length+)))))
 
-(defun merge-files (db table-name arrow-files)
-  (let* ((batch (endb/arrow:to-arrow
-                 (loop with table-md = (base-table-meta db table-name)
-                       for arrow-file in arrow-files
-                       for arrow-file-md = (fset:lookup table-md arrow-file)
-                       append (loop with erased-md = (or (fset:lookup arrow-file-md "erased") (fset:empty-map))
-                                    for batch-row in (base-table-arrow-batches db table-name arrow-file :sha1 (fset:lookup arrow-file-md "sha1"))
-                                    for batch-idx from 0
-                                    for batch-idx-string = (prin1-to-string batch-idx)
-                                    for batch-erased = (or (fset:lookup erased-md batch-idx-string) (fset:empty-seq))
-                                    append (loop for row-id below (endb/arrow:arrow-length batch-row)
-                                                 if (fset:find row-id batch-erased)
-                                                   collect :null
-                                                 else
-                                                   collect (endb/arrow:arrow-get batch-row row-id))))))
-         (table-array (endb/arrow:arrow-struct-column-array batch (intern table-name :keyword)))
-         (buffer (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer (list batch))))
-    (list buffer
-          (fset:map ("length" (endb/arrow:arrow-length table-array))
-                    ("stats" (calculate-stats (list table-array)))
-                    ("byte_size" (length buffer))
-                    ("derived_from" (fset:convert 'fset:seq arrow-files))))))
+(defun merge-arrow-files (db table-name arrow-files)
+  (let ((batch (make-instance 'endb/arrow:null-array)))
+    (loop with table-md = (base-table-meta db table-name)
+          for arrow-file in arrow-files
+          for arrow-file-md = (fset:lookup table-md arrow-file)
+          do (loop with erased-md = (or (fset:lookup arrow-file-md "erased") (fset:empty-map))
+                   for batch-row in (base-table-arrow-batches db table-name arrow-file :sha1 (fset:lookup arrow-file-md "sha1"))
+                   for batch-idx from 0
+                   for batch-idx-string = (prin1-to-string batch-idx)
+                   for batch-erased = (or (fset:lookup erased-md batch-idx-string) (fset:empty-seq))
+                   do (loop for row-id below (endb/arrow:arrow-length batch-row)
+                            do (setf batch (endb/arrow:arrow-push batch
+                                                                  (if (fset:find row-id batch-erased)
+                                                                      :null
+                                                                      (endb/arrow:arrow-get batch-row row-id)))))))
+    (let* ((table-array (endb/arrow:arrow-struct-column-array batch (intern table-name :keyword)))
+           (batch-md (fset:map ("length" (endb/arrow:arrow-length table-array))
+                               ("stats" (calculate-stats (list table-array)))
+                               ("derived_from" (fset:convert 'fset:seq arrow-files))))
+           (buffer (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer (list batch))))
+      (values buffer (fset:with batch-md "byte_size" (length buffer))))))
 
 (defun compact-files (db table-name batch-md)
   (with-slots (meta-data) db

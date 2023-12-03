@@ -12,7 +12,7 @@
 (in-package :endb/storage/object-store)
 
 (defgeneric object-store-get (os path))
-(defgeneric object-store-put (os path buffer))
+(defgeneric object-store-put (os path buffer-or-stream))
 (defgeneric object-store-delete (os path))
 (defgeneric object-store-list (os &key prefix start-after))
 (defgeneric object-store-close (os))
@@ -98,11 +98,16 @@
     (when (probe-file path)
       (alexandria:read-file-into-byte-vector path))))
 
-(defmethod object-store-put ((os directory-object-store) path buffer)
+(defmethod object-store-put ((os directory-object-store) path (buffer vector))
+  (flex:with-input-from-sequence (in buffer)
+    (object-store-put os path in)))
+
+(defmethod object-store-put ((os directory-object-store) path (in stream))
   (let* ((os-path (uiop:ensure-directory-pathname (directory-object-store-path os)))
          (write-path (merge-pathnames (endb/lib:uuid-v4) os-path)))
     (ensure-directories-exist (merge-pathnames path os-path))
-    (alexandria:write-byte-vector-into-file buffer write-path :if-exists :overwrite :if-does-not-exist :create)
+    (with-open-file (out write-path :direction :output :element-type '(unsigned-byte 8) :if-exists :overwrite :if-does-not-exist :create)
+      (alexandria:copy-stream in out :element-type '(unsigned-byte 8)))
     (rename-file write-path (uiop:enough-pathname path (truename os-path)))))
 
 (defmethod object-store-delete ((os directory-object-store) path)
@@ -125,8 +130,11 @@
 (defmethod object-store-get ((os hash-table) path)
   (gethash path os))
 
-(defmethod object-store-put ((os hash-table) path buffer)
+(defmethod object-store-put ((os hash-table) path (buffer vector))
   (setf (gethash path os) buffer))
+
+(defmethod object-store-put ((os hash-table) path (in stream))
+  (setf (gethash path os) (alexandria:read-stream-content-into-byte-vector in)))
 
 (defmethod object-store-delete ((os hash-table) path)
   (remhash path os))
