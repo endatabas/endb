@@ -54,9 +54,9 @@
 (defun %batch-key (table-name batch-file)
   (format nil "~A/~A" table-name batch-file))
 
-(defun base-table-arrow-batches (db table-name arrow-file &key sha1)
+(defun base-table-arrow-batches (db table-name arrow-file &key sha1 read-through-p)
   (with-slots (buffer-pool) db
-    (endb/storage/buffer-pool:buffer-pool-get buffer-pool (%batch-key table-name arrow-file) :sha1 sha1)))
+    (endb/storage/buffer-pool:buffer-pool-get buffer-pool (%batch-key table-name arrow-file) :sha1 sha1 :read-through-p read-through-p)))
 
 (defun base-table-visible-rows (db table-name &key arrow-file-idx-row-id-p)
   (with-slots (information-schema-cache) db
@@ -400,7 +400,9 @@
           for arrow-file in arrow-files
           for arrow-file-md = (fset:lookup table-md arrow-file)
           do (loop with erased-md = (or (fset:lookup arrow-file-md "erased") (fset:empty-map))
-                   for batch-row in (base-table-arrow-batches db table-name arrow-file :sha1 (fset:lookup arrow-file-md "sha1"))
+                   for batch-row in (base-table-arrow-batches db table-name arrow-file
+                                                              :sha1 (fset:lookup arrow-file-md "sha1")
+                                                              :read-through-p t)
                    for batch-idx from 0
                    for batch-idx-string = (prin1-to-string batch-idx)
                    for batch-erased = (or (fset:lookup erased-md batch-idx-string) (fset:empty-seq))

@@ -6,7 +6,7 @@
   (:import-from :endb/lib/arrow))
 (in-package :endb/storage/buffer-pool)
 
-(defgeneric buffer-pool-get (bp path &key sha1))
+(defgeneric buffer-pool-get (bp path &key sha1 read-through-p))
 (defgeneric buffer-pool-put (bp path arrays))
 (defgeneric buffer-pool-evict (bp path))
 (defgeneric buffer-pool-close (bp))
@@ -34,24 +34,26 @@
                               (remhash k pool)))
                           pool))))))
 
-(defmethod buffer-pool-get ((bp buffer-pool) path &key sha1)
+(defmethod buffer-pool-get ((bp buffer-pool) path &key sha1 read-through-p)
   (with-slots (get-object-fn pool max-size current-size evict-lock) bp
     (let ((entry (or (gethash path pool)
-                     (progn
-                       (when (> current-size max-size)
-                         (%evict-buffer-pool bp))
-                       (let ((buffer (funcall get-object-fn path)))
-                         (when buffer
-                           (when sha1
-                             (let ((buffer-sha1 (endb/lib:sha1 buffer)))
-                               (assert (equal sha1 buffer-sha1)
-                                       nil
-                                       (format nil "Arrow SHA1 mismatch: ~A does not match stored: ~A" sha1 buffer-sha1))))
-                           (let ((entry (make-buffer-pool-entry :arrays (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer buffer)
-                                                                :size (length buffer))))
-                             (bt:with-lock-held (evict-lock)
-                               (incf current-size (buffer-pool-entry-size entry))
-                               (setf (gethash path pool) entry)))))))))
+                     (let ((buffer (funcall get-object-fn path)))
+                       (when buffer
+                         (when sha1
+                           (let ((buffer-sha1 (endb/lib:sha1 buffer)))
+                             (assert (equal sha1 buffer-sha1)
+                                     nil
+                                     (format nil "Arrow SHA1 mismatch: ~A does not match stored: ~A" sha1 buffer-sha1))))
+                         (if read-through-p
+                             (return-from buffer-pool-get (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer buffer))
+                             (progn
+                               (when (> current-size max-size)
+                                 (%evict-buffer-pool bp))
+                               (let ((entry (make-buffer-pool-entry :arrays (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer buffer)
+                                                                    :size (length buffer))))
+                                 (bt:with-lock-held (evict-lock)
+                                   (incf current-size (buffer-pool-entry-size entry))
+                                   (setf (gethash path pool) entry))))))))))
       (when entry
         (buffer-pool-entry-arrays entry)))))
 
@@ -72,11 +74,10 @@
 
 (defstruct writeable-buffer-pool parent-pool (pool (make-hash-table :test 'equal)))
 
-(defmethod buffer-pool-get ((bp writeable-buffer-pool) path &key sha1)
-  (declare (ignore sha1))
+(defmethod buffer-pool-get ((bp writeable-buffer-pool) path &key sha1 read-through-p)
   (with-slots (parent-pool pool) bp
     (or (gethash path pool)
-        (buffer-pool-get parent-pool path))))
+        (buffer-pool-get parent-pool path :sha1 sha1 :read-through-p read-through-p))))
 
 (defmethod buffer-pool-put ((bp writeable-buffer-pool) path arrays)
   (with-slots (pool) bp
