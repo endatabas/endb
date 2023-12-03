@@ -28,6 +28,7 @@
 
            #:ra-distinct #:ra-unnest #:ra-union-all #:ra-union #:ra-except #:ra-intersect
            #:ra-scalar-subquery #:ra-in  #:ra-in-query #:ra-in-query-index #:ra-exists #:ra-limit #:ra-order-by #:ra-compute-index-if-absent #:ra-visible-row-p
+           #:ra-bloom-hashes
 
            #:make-agg #:agg-accumulate #:agg-finish
 
@@ -1936,6 +1937,29 @@
                        for yv = (nth (1- idx) y)
                        thereis (funcall cmp xv yv)
                        until (funcall cmp yv xv))))))
+
+(defun ra-bloom-hashes (x)
+  (if (numberp x)
+      (let* ((float64-array (make-instance 'endb/arrow:float64-array))
+             (int64-array (make-instance 'endb/arrow:int64-array))
+             (decimal-array (make-instance 'endb/arrow:decimal-array))
+             (arrays (etypecase x
+                       (double-float
+                        (append
+                         (list (endb/arrow:arrow-push float64-array x))
+                         (when (= x (ceiling x))
+                           (list (endb/arrow:arrow-push int64-array (ceiling x))
+                                 (endb/arrow:arrow-push decimal-array (ceiling x))))))
+                       (integer
+                        (append
+                         (when (= x (coerce x 'double-float))
+                           (list (endb/arrow:arrow-push float64-array (coerce x 'double-float))))
+                         (list (endb/arrow:arrow-push int64-array x)
+                               (endb/arrow:arrow-push decimal-array x)))))))
+        (remove-duplicates
+         (loop for array in arrays
+               collect (endb/lib:xxh64 (endb/arrow:arrow-row-format array 0)))))
+      (list (endb/lib:xxh64 (endb/arrow:to-arrow-row-format x)))))
 
 ;; Aggregates
 

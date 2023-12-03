@@ -56,5 +56,6 @@
     (%sbbf-block-insert filter block-bit-idx (ldb (byte 32 0) x))))
 
 (defun sbbf-check-p (filter x)
-  (let* ((block-bit-idx (ash (%sbbf-block-idx filter x) +sbbf-block-shift+)))
-    (%sbbf-block-check-p filter block-bit-idx (ldb (byte 32 0) x))))
+  (when filter
+    (let* ((block-bit-idx (ash (%sbbf-block-idx filter x) +sbbf-block-shift+)))
+      (%sbbf-block-check-p filter block-bit-idx (ldb (byte 32 0) x)))))
