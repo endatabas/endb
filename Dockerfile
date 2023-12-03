@@ -36,7 +36,7 @@ COPY . /root/endb
 
 COPY --from=rust-build-env /root/endb/target/release/libendb.so /root/endb/target/libendb.so
 
-RUN make -e CARGO=echo test slt-test target/endb
+RUN make -e CARGO=echo test slt-test-ci target/endb
 
 FROM docker.io/$ENDB_OS
 
