@@ -13,7 +13,7 @@
 
 (defstruct buffer-pool
   get-object-fn
-  (pool (make-hash-table :weakness #+sbcl nil #-sbcl :value :synchronized t :test 'equal))
+  (pool (make-hash-table :synchronized t :test 'equal))
   (evict-lock (bt:make-lock))
   (max-size (* 512 1024 1024))
   (current-size 0)
@@ -22,14 +22,17 @@
 (defstruct buffer-pool-entry arrays size)
 
 (defun %evict-buffer-pool (bp)
-  #+sbcl (with-slots (pool max-size evict-lock evict-ratio current-size) bp
-           (bt:with-lock-held (evict-lock)
-             (maphash (lambda (k v)
-                        (when (<= current-size (* evict-ratio max-size))
-                          (return-from %evict-buffer-pool))
-                        (decf current-size (buffer-pool-entry-size v))
-                        (remhash k pool))
-                      pool))))
+  (with-slots (pool max-size evict-lock evict-ratio current-size) bp
+    (bt:with-lock-held (evict-lock)
+      (let ((target-size (* evict-ratio max-size)))
+        (loop until (<= current-size target-size)
+              do (maphash (lambda (k v)
+                            (when (<= current-size target-size)
+                              (return-from %evict-buffer-pool))
+                            (when (<= evict-ratio (random 1.0d0))
+                              (decf current-size (buffer-pool-entry-size v))
+                              (remhash k pool)))
+                          pool))))))
 
 (defmethod buffer-pool-get ((bp buffer-pool) path &key sha1)
   (with-slots (get-object-fn pool max-size current-size evict-lock) bp

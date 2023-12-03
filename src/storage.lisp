@@ -170,17 +170,18 @@
   (with-slots (directory mem-table-object-store backing-object-store pending-wals) store
     (let* ((latest-snapshot (%read-latest-snapshot backing-object-store))
            (snapshot-md (if latest-snapshot
-                            (let* ((snapshot-path (fset:lookup latest-snapshot "path"))
-                                   (snapshot-md-bytes (endb/storage/object-store:object-store-get backing-object-store snapshot-path))
-                                   (snapshot-md (endb/json:json-parse snapshot-md-bytes)))
-                              (endb/lib:log-info "using snapshot ~A" snapshot-path)
-                              (when (fset:lookup latest-snapshot "sha1")
-                                (let ((snapshot-sha1 (string-downcase (endb/lib:sha1 snapshot-md-bytes))))
-                                  (assert (equal (fset:lookup latest-snapshot "sha1") snapshot-sha1)
-                                          nil
-                                          (format nil "Snapshot SHA1 mismatch: ~A does not match stored: ~A" (fset:lookup latest-snapshot "sha1") snapshot-sha1))))
-                              (%validate-tx-log-version snapshot-md)
-                              snapshot-md)
+                            (let ((snapshot-path (fset:lookup latest-snapshot "path")))
+                              (endb/lib:log-info "fetching snapshot ~A" snapshot-path)
+                              (let* ((snapshot-md-bytes (endb/storage/object-store:object-store-get backing-object-store snapshot-path))
+                                     (snapshot-md (endb/json:json-parse snapshot-md-bytes)))
+                                (endb/lib:log-info "using snapshot ~A" snapshot-path)
+                                (when (fset:lookup latest-snapshot "sha1")
+                                  (let ((snapshot-sha1 (string-downcase (endb/lib:sha1 snapshot-md-bytes))))
+                                    (assert (equal (fset:lookup latest-snapshot "sha1") snapshot-sha1)
+                                            nil
+                                            (format nil "Snapshot SHA1 mismatch: ~A does not match stored: ~A" (fset:lookup latest-snapshot "sha1") snapshot-sha1))))
+                                (%validate-tx-log-version snapshot-md)
+                                snapshot-md))
                             (fset:empty-map)))
            (archived-wal-files (when latest-snapshot
                                  (endb/storage/object-store:object-store-list backing-object-store
