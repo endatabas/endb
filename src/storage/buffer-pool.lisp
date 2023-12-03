@@ -1,6 +1,7 @@
 (defpackage :endb/storage/buffer-pool
   (:use :cl)
   (:export #:make-buffer-pool #:buffer-pool-get #:buffer-pool-put #:buffer-pool-close #:make-writeable-buffer-pool #:writeable-buffer-pool-pool)
+  (:import-from :bordeaux-threads)
   (:import-from :endb/lib)
   (:import-from :endb/lib/arrow))
 (in-package :endb/storage/buffer-pool)
@@ -12,34 +13,43 @@
 (defstruct buffer-pool
   get-object-fn
   (pool (make-hash-table :weakness #+sbcl nil #-sbcl :value :synchronized t :test 'equal))
-  (max-size 128)
+  (evict-lock (bt:make-lock))
+  (max-size (* 512 1024 1024))
+  (current-size 0)
   (evict-ratio 0.8d0))
 
+(defstruct buffer-pool-entry arrays size)
+
 (defun %evict-buffer-pool (bp)
-  #+sbcl (with-slots (pool max-size evict-lock evict-ratio) bp
-           (sb-ext:with-locked-hash-table #+sbcl (pool)
+  #+sbcl (with-slots (pool max-size evict-lock evict-ratio current-size) bp
+           (bt:with-lock-held (evict-lock)
              (maphash (lambda (k v)
-                        (declare (ignore v))
-                        (when (<= (hash-table-count pool) (* evict-ratio max-size))
+                        (when (<= current-size (* evict-ratio max-size))
                           (return-from %evict-buffer-pool))
+                        (decf current-size (buffer-pool-entry-size v))
                         (remhash k pool))
                       pool))))
 
 (defmethod buffer-pool-get ((bp buffer-pool) path &key sha1)
-  (with-slots (get-object-fn pool max-size) bp
-    (or (gethash path pool)
-        (progn
-          (when (> (hash-table-count pool) max-size)
-            (%evict-buffer-pool bp))
-          (setf (gethash path pool)
-                (let ((buffer (funcall get-object-fn path)))
-                  (when buffer
-                    (when sha1
-                      (let ((buffer-sha1 (endb/lib:sha1 buffer)))
-                        (assert (equal sha1 buffer-sha1)
-                                nil
-                                (format nil "Arrow SHA1 mismatch: ~A does not match stored: ~A" sha1 buffer-sha1))))
-                    (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer buffer))))))))
+  (with-slots (get-object-fn pool max-size current-size evict-lock) bp
+    (let ((entry (or (gethash path pool)
+                     (progn
+                       (when (> current-size max-size)
+                         (%evict-buffer-pool bp))
+                       (let ((buffer (funcall get-object-fn path)))
+                         (when buffer
+                           (when sha1
+                             (let ((buffer-sha1 (endb/lib:sha1 buffer)))
+                               (assert (equal sha1 buffer-sha1)
+                                       nil
+                                       (format nil "Arrow SHA1 mismatch: ~A does not match stored: ~A" sha1 buffer-sha1))))
+                           (let ((entry (make-buffer-pool-entry :arrays (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer buffer)
+                                                                :size (length buffer))))
+                             (bt:with-lock-held (evict-lock)
+                               (incf current-size (buffer-pool-entry-size entry))
+                               (setf (gethash path pool) entry)))))))))
+      (when entry
+        (buffer-pool-entry-arrays entry)))))
 
 (defmethod buffer-pool-put ((bp buffer-pool) path arrays)
   (error "DML not allowed in read only transaction"))
