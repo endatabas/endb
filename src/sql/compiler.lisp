@@ -191,8 +191,55 @@
                      (%replace-all smap (cdr x))))
     (t x)))
 
+(defun %numeric-bloom-hashes (y)
+  (let* ((float64-array (make-instance 'endb/arrow:float64-array))
+         (int64-array (make-instance 'endb/arrow:int64-array))
+         (decimal-array (make-instance 'endb/arrow:decimal-array))
+         (arrays (etypecase y
+                   (double-float
+                    (append
+                     (list (endb/arrow:arrow-push float64-array y))
+                     (when (= y (ceiling y))
+                       (list (endb/arrow:arrow-push int64-array (ceiling y))
+                             (endb/arrow:arrow-push decimal-array (ceiling y))))))
+                   (integer
+                    (append
+                     (when (= y (coerce y 'double-float))
+                       (list (endb/arrow:arrow-push float64-array (coerce y 'double-float))))
+                     (list (endb/arrow:arrow-push int64-array y)
+                           (endb/arrow:arrow-push decimal-array y)))))))
+    (remove-duplicates
+     (loop for array in arrays
+           collect (endb/lib:xxh64 (endb/arrow:arrow-row-format array 0))))))
+
+(defun %numeric-bloom-check-src (x y stats-md-sym)
+  (let* ((hashes (%numeric-bloom-hashes y)))
+    (if (= 1 (length hashes))
+        `(endb/bloom:sbbf-check-p
+          (fset:lookup
+           (fset:lookup ,stats-md-sym ,(get x :column))
+           "bloom")
+          ,(first hashes))
+        (alexandria:with-gensyms (bloom-sym lambda-sym)
+          `(let ((,bloom-sym (fset:lookup
+                              (fset:lookup ,stats-md-sym ,(get x :column))
+                              "bloom")))
+             (some (lambda (,lambda-sym)
+                     (endb/bloom:sbbf-check-p ,bloom-sym ,lambda-sym))
+                   (list ,@hashes)))))))
+
 (defun %where-clause-stats-src (clause vars stats-md-sym)
   (trivia:match (where-clause-src clause)
+    ((trivia:guard
+      (list 'endb/sql/expr:sql-= x y)
+      (and (member x vars) (numberp y)))
+     (%numeric-bloom-check-src x y stats-md-sym))
+
+    ((trivia:guard
+      (list 'endb/sql/expr:sql-= y x)
+      (and (member x vars) (numberp y)))
+     (%numeric-bloom-check-src x y stats-md-sym))
+
     ((trivia:guard
       (list (or 'endb/sql/expr:sql-=
                 'endb/sql/expr:sql-is)
@@ -218,14 +265,13 @@
     ((trivia:guard
       (list 'endb/sql/expr:ra-in x y)
       (and (member x vars) (listp y) (every #'constantp y)))
-     (alexandria:with-gensyms (bloom-sym)
+     (alexandria:with-gensyms (bloom-sym lambda-sym)
        `(let ((,bloom-sym (fset:lookup
                            (fset:lookup ,stats-md-sym ,(get x :column))
                            "bloom")))
-          (some (lambda (,y)
-                  (endb/bloom:sbbf-check-p ,bloom-sym ,y))
-                (list ,@(loop for v in y
-                              collect (endb/lib:xxh64 (endb/arrow:to-arrow-row-format v))))))))
+          (some (lambda (,lambda-sym)
+                  (endb/bloom:sbbf-check-p ,bloom-sym ,lambda-sym))
+                (list ,@(mapcan #'%numeric-bloom-hashes y))))))
 
     ((trivia:guard
       (list 'endb/sql/expr:sql-between x y z)
