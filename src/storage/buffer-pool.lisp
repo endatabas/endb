@@ -1,6 +1,6 @@
 (defpackage :endb/storage/buffer-pool
   (:use :cl)
-  (:export #:make-buffer-pool #:buffer-pool-get #:buffer-pool-put #:buffer-pool-close #:make-writeable-buffer-pool #:writeable-buffer-pool-pool)
+  (:export #:make-buffer-pool #:buffer-pool-get #:buffer-pool-put #:buffer-pool-evict #:buffer-pool-close #:make-writeable-buffer-pool #:writeable-buffer-pool-pool)
   (:import-from :bordeaux-threads)
   (:import-from :endb/lib)
   (:import-from :endb/lib/arrow))
@@ -8,6 +8,7 @@
 
 (defgeneric buffer-pool-get (bp path &key sha1))
 (defgeneric buffer-pool-put (bp path arrays))
+(defgeneric buffer-pool-evict (bp path))
 (defgeneric buffer-pool-close (bp))
 
 (defstruct buffer-pool
@@ -54,6 +55,15 @@
 (defmethod buffer-pool-put ((bp buffer-pool) path arrays)
   (error "DML not allowed in read only transaction"))
 
+(defmethod buffer-pool-evict ((bp buffer-pool) path)
+  (with-slots (pool current-size evict-lock) bp
+    (bt:with-lock-held (evict-lock)
+      (let ((entry (gethash path pool)))
+        (when entry
+          (decf current-size (buffer-pool-entry-size entry))
+          (remhash path pool))
+        bp))))
+
 (defmethod buffer-pool-close ((bp buffer-pool))
   (clrhash (buffer-pool-pool bp)))
 
@@ -68,6 +78,13 @@
 (defmethod buffer-pool-put ((bp writeable-buffer-pool) path arrays)
   (with-slots (pool) bp
     (setf (gethash path pool) arrays)
+    bp))
+
+(defmethod buffer-pool-evict ((bp writeable-buffer-pool) path)
+  (with-slots (parent-pool pool) bp
+    (if (gethash path pool)
+        (remhash path pool)
+        (buffer-pool-evict parent-pool path))
     bp))
 
 (defmethod buffer-pool-close ((bp writeable-buffer-pool))

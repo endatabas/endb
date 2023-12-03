@@ -367,6 +367,9 @@
                              (funcall object-put-fn batch-key buffer)
                              (funcall db-commit-fn (lambda (write-db)
                                                      (compact-files write-db table-name batch-md)))
+                             (with-slots (buffer-pool) db
+                               (dolist (arrow-file arrow-files)
+                                 (endb/storage/buffer-pool:buffer-pool-evict buffer-pool (%batch-key table-name arrow-file))))
                              (endb/lib:log-info "compacted ~A" batch-key))))))))))
            :name "endb compaction thread"))))
 
