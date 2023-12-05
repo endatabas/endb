@@ -20,9 +20,9 @@
 (defvar *wals-per-snapshot* 8)
 
 (defvar *wal-directory* "wal")
-(defvar *object-store-directory* "object_store")
-
 (defvar *log-directory* "_log")
+
+(defvar *object-store-directory* "object_store")
 (defvar *snapshot-directory* "_snapshot")
 (defvar *wal-archive-directory* "_wal")
 
@@ -129,7 +129,7 @@
           wal-os
           os
           :skip-if (lambda (name)
-                     (alexandria:starts-with-subseq *log-directory* name)))
+                     (alexandria:starts-with-subseq "_" name)))
       (endb/storage/wal:wal-close wal-os))))
 
 (defun %read-latest-snapshot (os)

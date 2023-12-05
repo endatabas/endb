@@ -270,15 +270,21 @@
   (unless endb/sql/expr:*sqlite-mode*
     (error 'endb/sql/expr:sql-runtime-error :message "DROP INDEX not supported")))
 
-(defstruct agg-bloom bloom)
+(defstruct agg-bloom (hashes (make-hash-table :test 'eql)))
 
 (defmethod endb/sql/expr:agg-accumulate ((agg agg-bloom) x &rest args)
   (declare (ignore args))
-  (endb/bloom:sbbf-insert (agg-bloom-bloom agg) x)
+  (setf (gethash x (agg-bloom-hashes agg)) t)
   agg)
 
 (defmethod endb/sql/expr:agg-finish ((agg agg-bloom))
-  (agg-bloom-bloom agg))
+  (with-slots (hashes) agg
+    (let ((bloom (endb/bloom:make-sbbf (hash-table-count hashes))))
+      (maphash (lambda (k v)
+                 (declare (ignore v))
+                 (endb/bloom:sbbf-insert bloom k))
+               hashes)
+      bloom)))
 
 (defstruct col-stats count_star count min max bloom)
 
@@ -302,8 +308,7 @@
               ("bloom" (endb/sql/expr:agg-finish bloom)))))
 
 (defun calculate-stats (arrays)
-  (let* ((total-length (reduce #'+ (mapcar #'endb/arrow:arrow-length arrays)))
-         (stats (make-hash-table :test 'equal))
+  (let* ((stats (make-hash-table :test 'equal))
          (acc (fset:empty-map))
          (null-hash (endb/lib:xxh64 (endb/arrow:to-arrow-row-format :null))))
     (labels ((get-col-stats (k)
@@ -314,7 +319,7 @@
                           :count (endb/sql/expr:make-agg :count)
                           :min (endb/sql/expr:make-agg :min)
                           :max (endb/sql/expr:make-agg :max)
-                          :bloom (make-agg-bloom :bloom (endb/bloom:make-sbbf total-length)))))))
+                          :bloom (make-agg-bloom))))))
       (dolist (array arrays)
         (if (typep array 'endb/arrow:dense-union-array)
             (loop for idx below (endb/arrow:arrow-length array)
