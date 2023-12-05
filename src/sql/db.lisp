@@ -20,7 +20,7 @@
            #:make-db #:copy-db #:db-buffer-pool #:db-store #:db-meta-data #:db-current-timestamp #:db-write-lock #:db-compaction-thread #:db-compaction-queue
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
-           #:view-definition #:calculate-stats #:arrow-files-compacted-filename #:find-files-to-compact #:merge-arrow-files #:compact-files #:start-background-compaction))
+           #:view-definition #:calculate-stats #:run-compaction #:start-background-compaction))
 (in-package :endb/sql/db)
 
 ;; DML/DDL
@@ -347,6 +347,25 @@
        stats)
       acc)))
 
+(defun run-compaction (db db-commit-fn object-put-fn &key (target-size (* 4 1024 1024)))
+  (fset:do-map-domain (table-name (db-meta-data db))
+    (unless (or (%information-schema-table-p table-name)
+                (alexandria:starts-with-subseq "_" table-name))
+      (let ((arrow-files (%find-files-to-compact db table-name target-size)))
+        (when (> (length arrow-files) 1)
+          (endb/lib:log-info "merging ~A files in table ~A" (length arrow-files) table-name)
+          (multiple-value-bind (buffer batch-md)
+              (%merge-arrow-files db table-name arrow-files)
+            (let* ((batch-file (%arrow-files-compacted-filename (fset:convert 'list (fset:lookup batch-md "derived_from"))))
+                   (batch-key (%batch-key table-name batch-file)))
+              (funcall object-put-fn batch-key buffer)
+              (funcall db-commit-fn (lambda (write-db)
+                                      (%compact-files write-db table-name batch-md)))
+              (with-slots (buffer-pool) db
+                (dolist (arrow-file arrow-files)
+                  (endb/storage/buffer-pool:buffer-pool-evict buffer-pool (%batch-key table-name arrow-file))))
+              (endb/lib:log-info "compacted ~A" batch-key))))))))
+
 (defun start-background-compaction (db db-access-fn db-commit-fn object-put-fn &key (target-size (* 4 1024 1024)) (timeout 0.5))
   (let ((compaction-queue (db-compaction-queue db)))
     (setf (endb/sql/db:db-compaction-thread db)
@@ -358,27 +377,10 @@
                  (declare (ignore job))
                  (unless timeoutp
                    (return-from nil)))
-               (let ((db (funcall db-access-fn)))
-                 (fset:do-map-domain (table-name (db-meta-data db))
-                   (unless (or (%information-schema-table-p table-name)
-                               (alexandria:starts-with-subseq "_" table-name))
-                     (let ((arrow-files (find-files-to-compact db table-name target-size)))
-                       (when (> (length arrow-files) 1)
-                         (endb/lib:log-info "merging ~A files in table ~A" (length arrow-files) table-name)
-                         (multiple-value-bind (buffer batch-md)
-                             (merge-arrow-files db table-name arrow-files)
-                           (let* ((batch-file (arrow-files-compacted-filename (fset:convert 'list (fset:lookup batch-md "derived_from"))))
-                                  (batch-key (%batch-key table-name batch-file)))
-                             (funcall object-put-fn batch-key buffer)
-                             (funcall db-commit-fn (lambda (write-db)
-                                                     (compact-files write-db table-name batch-md)))
-                             (with-slots (buffer-pool) db
-                               (dolist (arrow-file arrow-files)
-                                 (endb/storage/buffer-pool:buffer-pool-evict buffer-pool (%batch-key table-name arrow-file))))
-                             (endb/lib:log-info "compacted ~A" batch-key))))))))))
+               (run-compaction (funcall db-access-fn) db-commit-fn object-put-fn :target-size target-size)))
            :name "endb compaction thread"))))
 
-(defun find-files-to-compact (db table-name target-size)
+(defun %find-files-to-compact (db table-name target-size)
   (let ((table-md (base-table-meta db table-name))
         (size 0)
         (acc))
@@ -393,13 +395,13 @@
 
 (defparameter +arrow-file-padding-length+ 16)
 
-(defun arrow-files-compacted-filename (arrow-files)
+(defun %arrow-files-compacted-filename (arrow-files)
   (format nil "~A_~A.arrow"
           (subseq (pathname-name (first arrow-files)) 0 +arrow-file-padding-length+)
           (let ((last-name (pathname-name (car (last arrow-files)))))
             (subseq last-name (- (length last-name) +arrow-file-padding-length+)))))
 
-(defun merge-arrow-files (db table-name arrow-files)
+(defun %merge-arrow-files (db table-name arrow-files)
   (let ((batch (make-instance 'endb/arrow:null-array)))
     (loop with table-md = (base-table-meta db table-name)
           for arrow-file in arrow-files
@@ -423,11 +425,11 @@
            (buffer (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer (list batch))))
       (values buffer (fset:with batch-md "byte_size" (length buffer))))))
 
-(defun compact-files (db table-name batch-md)
+(defun %compact-files (db table-name batch-md)
   (with-slots (meta-data) db
     (let* ((arrow-files (fset:convert 'list (fset:lookup batch-md "derived_from")))
            (table-md (base-table-meta db table-name))
-           (batch-file (arrow-files-compacted-filename arrow-files))
+           (batch-file (%arrow-files-compacted-filename arrow-files))
            (merged-batch-idx 0)
            (merged-batch-idx-string (prin1-to-string merged-batch-idx))
            (deleted-md (fset:convert
