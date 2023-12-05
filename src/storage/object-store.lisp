@@ -134,13 +134,16 @@
   (setf (gethash path os) buffer))
 
 (defmethod object-store-put ((os hash-table) path (in stream))
-  (setf (gethash path os) (alexandria:read-stream-content-into-byte-vector in)))
+  (object-store-put os path (alexandria:read-stream-content-into-byte-vector in)))
 
 (defmethod object-store-delete ((os hash-table) path)
   (remhash path os))
 
 (defmethod object-store-list  ((os hash-table) &key (prefix "") (start-after ""))
-  (%object-store-list-filter (alexandria:hash-table-keys os) prefix start-after))
+  (#+sbcl sb-ext:with-locked-hash-table
+   #+sbcl (os)
+   #-sbcl progn
+    (%object-store-list-filter (alexandria:hash-table-keys os) prefix start-after)))
 
 (defmethod object-store-close ((os hash-table))
   (clrhash os))
