@@ -1,7 +1,7 @@
 (defpackage :endb/sql
   (:use :cl)
   (:export #:*query-timing* #:*use-cst-parser* #:*use-cst-parser-only*
-           #:make-db #:make-directory-db #:close-db #:begin-write-tx #:commit-write-tx #:execute-sql #:interpret-sql-literal)
+           #:make-db #:make-directory-db #:db-close #:begin-write-tx #:commit-write-tx #:execute-sql #:interpret-sql-literal)
   (:import-from :alexandria)
   (:import-from :endb/arrow)
   (:import-from :endb/json)
@@ -37,7 +37,7 @@
   (let* ((store (make-instance 'endb/storage:disk-store :directory directory)))
     (make-db :store store)))
 
-(defun close-db (db)
+(defun db-close (db)
   (endb/queue:queue-close (endb/sql/db:db-compaction-queue db))
   (when (endb/sql/db:db-compaction-thread db)
     (bt:join-thread (endb/sql/db:db-compaction-thread db)))

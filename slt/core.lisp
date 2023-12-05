@@ -237,7 +237,7 @@
   (declare (ignore pConn))
   (if (boundp '*endb*)
       (progn
-        (endb/sql:close-db *endb*)
+        (endb/sql:db-close *endb*)
         (makunbound '*endb*)
         0)
       1))

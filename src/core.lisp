@@ -34,7 +34,7 @@
       (if (bt:acquire-lock (endb/sql/db:db-write-lock db) nil)
           (unwind-protect
                (progn
-                 (endb/sql:close-db db)
+                 (endb/sql:db-close db)
                  (makunbound 'endb/lib/server:*db*))
             (bt:release-lock (endb/sql/db:db-write-lock db)))
           (endb/lib:log-warn "could not close the database cleanly")))))

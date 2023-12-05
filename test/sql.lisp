@@ -1938,7 +1938,7 @@ SELECT s FROM x WHERE ind=0")
                   (is (equal '((103)) (execute-sql write-db "SELECT * FROM t1")))
 
                   (setf db (commit-write-tx db write-db)))
-             (close-db db))
+             (db-close db))
 
            (let ((db (make-directory-db :directory test-dir)))
              (unwind-protect
@@ -1962,12 +1962,12 @@ SELECT s FROM x WHERE ind=0")
                       (is (equal '((104)) (execute-sql write-db "SELECT * FROM t1 ORDER BY a")))
 
                       (setf db (commit-write-tx db write-db))))
-               (close-db db)))
+               (db-close db)))
 
            (let ((db (make-directory-db :directory test-dir)))
              (unwind-protect
                   (is (equal '((104)) (execute-sql db "SELECT * FROM t1 ORDER BY a")))
-               (close-db db))))
+               (db-close db))))
       (when (probe-file test-dir)
         (uiop:delete-directory-tree test-dir :validate t)))))
 
@@ -1989,7 +1989,7 @@ SELECT s FROM x WHERE ind=0")
                   (is (equal '((103)) (execute-sql write-db "SELECT * FROM t1")))
 
                   (setf db (commit-write-tx db write-db)))
-             (close-db db))
+             (db-close db))
 
            (let ((endb/storage:*tx-log-version* (1+ endb/storage:*tx-log-version*)))
              (signals-with-msg simple-error
