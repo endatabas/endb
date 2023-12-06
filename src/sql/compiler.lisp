@@ -139,13 +139,21 @@
   (and (listp x)
        (= 3 (length x))))
 
-(defun %equi-join-predicate-p (vars clause)
-  (when (%binary-predicate-p clause)
+(defun %equi-join-predicate-p (vars clause-src)
+  (when (%binary-predicate-p clause-src)
     (destructuring-bind (op lhs rhs)
-        clause
+        clause-src
       (and (equal 'endb/sql/expr:sql-= op)
            (member lhs vars)
            (member rhs vars)))))
+
+(defun %equi-join-participant-p (vars clause-src)
+  (when (%binary-predicate-p clause-src)
+    (destructuring-bind (op lhs rhs)
+        clause-src
+      (and (equal 'endb/sql/expr:sql-= op)
+           (or (and (member lhs vars) (symbolp rhs))
+               (and (member rhs vars) (symbolp lhs)))))))
 
 (defun %unique-vars (vars)
   (let ((seen ()))
@@ -262,7 +270,9 @@
                              "bloom")))
             (some (lambda (,lambda-sym)
                     (endb/bloom:sbbf-check-p ,bloom-sym ,lambda-sym))
-                  (append ,@(loop for v in y
+                  (append ,@(loop for v in (if (eq 'list (first y))
+                                               (rest y)
+                                               y)
                                   collect (if (constantp v)
                                               `(list ,@(endb/sql/expr:ra-bloom-hashes v))
                                               `(endb/sql/expr:ra-bloom-hashes ,v))))))))
@@ -353,7 +363,7 @@
                 (fset:lookup ,stats-md-sym ,(get x :column))
                 "min")))))))
 
-(defun %table-scan->cl (ctx vars projection from-src where-clauses nested-src)
+(defun %table-scan->cl (ctx vars projection from-src where-clauses nested-src &optional extra-stats-src)
   (let* ((where-src (loop for clause in where-clauses
                           collect `(eq t ,(where-clause-src clause)))))
     (if (base-table-p from-src)
@@ -378,6 +388,7 @@
                                   scan-arrow-file-sym)
           (let* ((table-name (base-table-name from-src))
                  (batch-sym (or (fset:lookup ctx :batch-sym) batch-sym))
+                 (stats-md-sym (or (fset:lookup ctx :stats-md-sym) stats-md-sym))
                  (scan-row-id-sym (or (fset:lookup ctx :scan-row-id-sym) scan-row-id-sym))
                  (scan-batch-idx-sym (or (fset:lookup ctx :scan-batch-idx-sym) scan-batch-idx-sym))
                  (scan-arrow-file-sym (or (fset:lookup ctx :scan-arrow-file-sym) scan-arrow-file-sym))
@@ -388,7 +399,8 @@
                  (stats-src (loop for clause in where-clauses
                                   for stats-src = (%where-clause-stats-src clause vars stats-md-sym)
                                   when stats-src
-                                    collect stats-src)))
+                                    collect stats-src))
+                 (stats-src (append stats-src extra-stats-src)))
             (destructuring-bind (&optional (temporal-type :as-of temporal-type-p) (temporal-start :current_timestamp) (temporal-end temporal-start))
                 (base-table-temporal from-src)
               `(symbol-macrolet (,@(loop for v in vars
@@ -461,6 +473,11 @@
                        ,nested-src)
                     nested-src)))))))
 
+(defparameter +sip-hashes-limit+ 1024)
+
+(defun %uncorrelated-index-key-form (index-key-form)
+  (= 2 (length index-key-form)))
+
 (defun %join->cl (ctx from-table scan-where-clauses equi-join-clauses)
   (with-slots (src vars free-vars)
       from-table
@@ -476,24 +493,94 @@
                 collect rhs into in-vars
               finally
                  (return (values in-vars out-vars)))
-      (alexandria:with-gensyms (index-table-sym index-key-form-sym)
-        (let* ((new-free-vars (set-difference free-vars in-vars))
-               (index-sym (fset:lookup ctx :index-sym))
-               (index-key-form `(list ',index-key-form-sym ,@new-free-vars)))
-          `(gethash (list ,@in-vars)
-                    (endb/sql/expr:ra-compute-index-if-absent
-                     ,index-sym
-                     ,index-key-form
-                     (lambda ()
-                       (let ((,index-table-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
-                         ,(%table-scan->cl ctx
-                                           vars
-                                           (mapcar #'%unqualified-column-name (from-table-projection from-table))
-                                           src
-                                           scan-where-clauses
-                                           `(push (list ,@vars)
-                                                  (gethash (list ,@out-vars) ,index-table-sym)))
-                         ,index-table-sym)))))))))
+      (alexandria:with-gensyms (row-sym lambda-sym stats-md-sym)
+        (let* ((index-sym (fset:lookup ctx :index-sym))
+               (sip-init-src)
+               (sip-probe-src)
+               (sip-stats-src)
+               (ctx (fset:with ctx :stats-md-sym stats-md-sym)))
+          (fset:do-map (sip-index-key-form sip-from-table (or (fset:lookup ctx :index-sip) (fset:empty-map)))
+            (let* ((sip-row-vars (from-table-vars sip-from-table))
+                   (sip-in-vars (intersection in-vars sip-row-vars)))
+              (when (and sip-in-vars (%uncorrelated-index-key-form sip-index-key-form))
+                (alexandria:with-gensyms (sip-table-sym sip-hashes-sym)
+                  (let* ((sip-out-vars (loop for in-var in in-vars
+                                             for out-var in out-vars
+                                             when (find in-var sip-in-vars)
+                                               collect out-var))
+                         (sip-in-key-form (if (= 1 (length sip-in-vars))
+                                              `(nth ,(position (first sip-in-vars) sip-row-vars) ,row-sym)
+                                              `(list ,@(loop for v in sip-in-vars
+                                                             collect `(nth ,(position v sip-row-vars) ,row-sym)))))
+                         (sip-out-key-form (if (= 1 (length sip-in-vars))
+                                               (first sip-out-vars)
+                                               `(list ,@sip-out-vars))))
+
+                    (when (and (base-table-p (from-table-src from-table))
+                               (= 1 (length sip-in-vars)))
+                      (alexandria:with-gensyms (bloom-sym)
+                        (push `(,sip-hashes-sym (when (< (hash-table-count ,sip-table-sym) +sip-hashes-limit+)
+                                                  (let ((,sip-hashes-sym (make-array 0
+                                                                                     :element-type '(unsigned-byte 64)
+                                                                                     :fill-pointer 0)))
+                                                    (alexandria:maphash-keys
+                                                     (lambda (,lambda-sym)
+                                                       (dolist (,lambda-sym (endb/sql/expr:ra-bloom-hashes ,lambda-sym))
+                                                         (vector-push-extend ,lambda-sym ,sip-hashes-sym)))
+                                                     ,sip-table-sym)
+                                                    ,sip-hashes-sym)))
+                              sip-init-src)
+                        (push `(or (null ,sip-hashes-sym)
+                                   (let ((,bloom-sym (fset:lookup
+                                                      (fset:lookup ,stats-md-sym ,(get (first sip-out-vars) :column))
+                                                      "bloom")))
+                                     (some (lambda (,lambda-sym)
+                                             (endb/bloom:sbbf-check-p ,bloom-sym ,lambda-sym))
+                                           ,sip-hashes-sym)))
+                              sip-stats-src)))
+
+                    (push `(,sip-table-sym (let ((,sip-table-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
+                                             (alexandria:maphash-values
+                                              (lambda (,lambda-sym)
+                                                (dolist (,row-sym ,lambda-sym)
+                                                  (setf (gethash ,sip-in-key-form ,sip-table-sym) t)))
+                                              (gethash ,sip-index-key-form ,index-sym))
+                                             (endb/lib:log-debug "sip: ~A ~A~%" ,(from-table-alias sip-from-table) (hash-table-count ,sip-table-sym))
+                                             ,sip-table-sym))
+                          sip-init-src)
+                    (push `(gethash ,sip-out-key-form ,sip-table-sym) sip-probe-src))))))
+          (alexandria:with-gensyms (index-table-sym index-key-form-sym)
+            (let* ((new-free-vars (set-difference free-vars in-vars))
+                   (index-key-form `(list ',index-key-form-sym ,@new-free-vars)))
+              (values
+               `(gethash (list ,@in-vars)
+                         (endb/sql/expr:ra-compute-index-if-absent
+                          ,index-sym
+                          ,index-key-form
+                          (lambda ()
+                            (let* ((,index-table-sym (make-hash-table :test endb/sql/expr:+hash-table-test+))
+                                   ,@sip-init-src)
+                              ,(%table-scan->cl ctx
+                                                vars
+                                                (mapcar #'%unqualified-column-name (from-table-projection from-table))
+                                                src
+                                                scan-where-clauses
+                                                `(when (and ,@sip-probe-src)
+                                                   (push (list ,@vars)
+                                                         (gethash (list ,@out-vars) ,index-table-sym)))
+                                                sip-stats-src)
+                              (endb/lib:log-debug "join table: ~A ~A~%"
+                                                  ,(from-table-alias from-table)
+                                                  (reduce #'+ (mapcar #'length
+                                                                      (alexandria:hash-table-values ,index-table-sym))))
+
+                              (maphash
+                               (lambda (,lambda-sym ,row-sym)
+                                 (setf (gethash ,lambda-sym ,index-table-sym) (reverse ,row-sym)))
+                               ,index-table-sym)
+
+                              ,index-table-sym))))
+               (fset:with ctx :index-sip (fset:with (or (fset:lookup ctx :index-sip) (fset:empty-map)) index-key-form from-table))))))))))
 
 (defun %selection-with-limit-offset->cl (ctx selected-src &optional limit offset)
   (let ((acc-sym (fset:lookup ctx :acc-sym)))
@@ -531,6 +618,9 @@
                                   candidate-tables)
                          (first candidate-tables)))
          (from-tables (remove from-table from-tables))
+         (equi-join-participant-p (loop for c in where-clauses
+                                        thereis (%equi-join-participant-p (from-table-vars from-table)
+                                                                          (where-clause-src c))))
          (new-vars (from-table-vars from-table))
          (vars (append new-vars vars)))
     (multiple-value-bind (scan-clauses equi-join-clauses pushdown-clauses)
@@ -544,29 +634,34 @@
                      collect c into pushdown-clauses
               finally
                  (return (values scan-clauses equi-join-clauses pushdown-clauses)))
-      (let* ((new-where-clauses (append scan-clauses equi-join-clauses pushdown-clauses))
-             (where-clauses (set-difference where-clauses new-where-clauses))
-             (nested-src (cond
-                           (from-tables
-                            (%from->cl ctx from-tables where-clauses selected-src vars))
-                           (where-clauses
-                            `(when (and ,@(loop for clause in where-clauses collect `(eq t ,(where-clause-src clause))))
-                               ,selected-src))
-                           (t selected-src)))
-             (projection (mapcar #'%unqualified-column-name (from-table-projection from-table))))
-        (if equi-join-clauses
-            (%table-scan->cl ctx
-                             new-vars
-                             projection
-                             (%join->cl ctx from-table scan-clauses equi-join-clauses)
-                             pushdown-clauses
-                             nested-src)
-            (%table-scan->cl ctx
-                             new-vars
-                             projection
-                             (from-table-src from-table)
-                             (append scan-clauses pushdown-clauses)
-                             nested-src))))))
+      (multiple-value-bind (join-src join-ctx)
+          (when equi-join-participant-p
+            (%join->cl ctx from-table scan-clauses equi-join-clauses))
+        (let* ((new-where-clauses (append scan-clauses equi-join-clauses pushdown-clauses))
+               (where-clauses (set-difference where-clauses new-where-clauses))
+               (nested-src (cond
+                             (from-tables
+                              (%from->cl (or join-ctx ctx) from-tables where-clauses selected-src vars))
+                             (where-clauses
+                              `(when (and ,@(loop for clause in where-clauses collect `(eq t ,(where-clause-src clause))))
+                                 ,selected-src))
+                             (t selected-src)))
+               (projection (mapcar #'%unqualified-column-name (from-table-projection from-table))))
+          (if equi-join-participant-p
+              (%table-scan->cl join-ctx
+                               new-vars
+                               projection
+                               join-src
+                               pushdown-clauses
+                               nested-src)
+              (progn
+                (endb/lib:log-debug "table scan: ~A~%" (from-table-alias from-table))
+                (%table-scan->cl ctx
+                                 new-vars
+                                 projection
+                                 (from-table-src from-table)
+                                 (append scan-clauses pushdown-clauses)
+                                 nested-src))))))))
 
 (defun %group-by->cl (ctx from-tables where-clauses selected-src limit offset group-by having-src correlated-vars selected-non-aggregate-columns)
   (alexandria:with-gensyms (group-acc-sym group-key-sym group-sym)
@@ -637,6 +732,17 @@
   (and (symbolp table-or-subquery)
        (equal (fset:lookup ctx :current-cte)
               (symbol-name table-or-subquery))))
+
+(defun %pick-initial-join-order (from-tables where-clauses)
+  (loop for from-table in from-tables
+        if (loop for c in where-clauses
+                 thereis (and (subsetp (where-clause-free-vars c) (from-table-vars from-table))
+                              (%scan-where-clause-p (where-clause-ast c))))
+          collect from-table into filtered-tables
+        else
+          collect from-table into unfiltered-tables
+        finally (return (append (stable-sort filtered-tables #'< :key #'from-table-size)
+                                (stable-sort unfiltered-tables #'< :key #'from-table-size)))))
 
 (defmethod sql->cl (ctx (type (eql :select)) &rest args)
   (destructuring-bind (select-list &key distinct (from '(((:values ((:null))) #:dual))) (where :true)
@@ -736,7 +842,7 @@
                                                                (make-where-clause :src src
                                                                                   :free-vars free-vars
                                                                                   :ast clause))))
-                                (from-tables (sort from-tables-acc #'> :key #'from-table-size))
+                                (from-tables (%pick-initial-join-order from-tables-acc where-clauses))
                                 (having-src (ast->cl selected-ctx having))
                                 (limit (unless order-by
                                          limit))
