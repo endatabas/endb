@@ -155,6 +155,14 @@
            (or (and (member lhs vars) (symbolp rhs))
                (and (member rhs vars) (symbolp lhs)))))))
 
+(defun %maybe-equi-join-p (clause-src)
+  (when (%binary-predicate-p clause-src)
+    (destructuring-bind (op lhs rhs)
+        clause-src
+      (and (equal 'endb/sql/expr:sql-= op)
+           (and (symbolp rhs)
+                (symbolp lhs))))))
+
 (defun %unique-vars (vars)
   (let ((seen ()))
     (loop for x in (reverse vars)
@@ -478,7 +486,7 @@
 (defun %uncorrelated-index-key-form (index-key-form)
   (= 2 (length index-key-form)))
 
-(defun %join->cl (ctx from-table scan-where-clauses equi-join-clauses)
+(defun %join->cl (ctx from-table scan-where-clauses equi-join-clauses var-groups)
   (with-slots (src vars free-vars)
       from-table
     (multiple-value-bind (in-vars out-vars)
@@ -499,52 +507,74 @@
                (sip-probe-src)
                (sip-stats-src)
                (ctx (fset:with ctx :stats-md-sym stats-md-sym)))
-          (fset:do-map (sip-index-key-form sip-from-table (or (fset:lookup ctx :index-sip) (fset:empty-map)))
-            (let* ((sip-row-vars (from-table-vars sip-from-table))
-                   (sip-in-vars (intersection in-vars sip-row-vars)))
-              (when (and sip-in-vars (%uncorrelated-index-key-form sip-index-key-form))
+          (fset:do-map (sip-index-key-form sip (or (fset:lookup ctx :index-sip) (fset:empty-map)))
+            (let* ((source-from-table (fset:lookup sip :from-table))
+                   (source-out-vars (fset:lookup sip :out-vars))
+                   (source-vars (from-table-vars source-from-table))
+
+                   (out-var-groups (remove nil (loop for v in source-out-vars
+                                                     collect (find-if (lambda (xs)
+                                                                        (member v xs))
+                                                                      var-groups))))
+
+                   (sip-in-vars (intersection in-vars source-vars))
+                   (sip-can-reuse-index-p (and out-var-groups
+                                               (loop for out-var-group in out-var-groups
+                                                     always (intersection out-vars out-var-group))))
+
+                   (sip-out-vars (if sip-can-reuse-index-p
+                                     (loop for out-var-group in out-var-groups
+                                           collect (first (intersection out-vars out-var-group)))
+                                     (loop for v in sip-in-vars
+                                           collect (nth (position v in-vars) out-vars)))))
+              (when (and sip-out-vars (%uncorrelated-index-key-form sip-index-key-form))
                 (alexandria:with-gensyms (sip-table-sym sip-hashes-sym)
-                  (let* ((sip-out-vars (loop for v in sip-in-vars
-                                             collect (nth (position v in-vars) out-vars)))
-                         (sip-in-key-form (if (= 1 (length sip-in-vars))
-                                              `(nth ,(position (first sip-in-vars) sip-row-vars) ,row-sym)
-                                              `(list ,@(loop for v in sip-in-vars
-                                                             collect `(nth ,(position v sip-row-vars) ,row-sym)))))
-                         (sip-out-key-form (if (= 1 (length sip-in-vars))
-                                               (first sip-out-vars)
-                                               `(list ,@sip-out-vars))))
+                  (when (and (base-table-p (from-table-src from-table))
+                             (= 1 (length sip-out-vars)))
+                    (alexandria:with-gensyms (bloom-sym)
+                      (push `(,sip-hashes-sym (when (< (hash-table-count ,sip-table-sym) +sip-hashes-limit+)
+                                                (let ((,sip-hashes-sym (make-array 0
+                                                                                   :element-type '(unsigned-byte 64)
+                                                                                   :fill-pointer 0)))
+                                                  (alexandria:maphash-keys
+                                                   (lambda (,lambda-sym)
+                                                     (dolist (,lambda-sym (endb/sql/expr:ra-bloom-hashes ,(if sip-can-reuse-index-p
+                                                                                                              `(first ,lambda-sym)
+                                                                                                              lambda-sym)))
+                                                       (vector-push-extend ,lambda-sym ,sip-hashes-sym)))
+                                                   ,sip-table-sym)
+                                                  ,sip-hashes-sym)))
+                            sip-init-src)
+                      (push `(or (null ,sip-hashes-sym)
+                                 (let ((,bloom-sym (fset:lookup
+                                                    (fset:lookup ,stats-md-sym ,(get (first sip-out-vars) :column))
+                                                    "bloom")))
+                                   (some (lambda (,lambda-sym)
+                                           (endb/bloom:sbbf-check-p ,bloom-sym ,lambda-sym))
+                                         ,sip-hashes-sym)))
+                            sip-stats-src)))
 
-                    (when (and (base-table-p (from-table-src from-table))
-                               (= 1 (length sip-in-vars)))
-                      (alexandria:with-gensyms (bloom-sym)
-                        (push `(,sip-hashes-sym (when (< (hash-table-count ,sip-table-sym) +sip-hashes-limit+)
-                                                  (let ((,sip-hashes-sym (make-array 0
-                                                                                     :element-type '(unsigned-byte 64)
-                                                                                     :fill-pointer 0)))
-                                                    (alexandria:maphash-keys
-                                                     (lambda (,lambda-sym)
-                                                       (dolist (,lambda-sym (endb/sql/expr:ra-bloom-hashes ,lambda-sym))
-                                                         (vector-push-extend ,lambda-sym ,sip-hashes-sym)))
-                                                     ,sip-table-sym)
-                                                    ,sip-hashes-sym)))
-                              sip-init-src)
-                        (push `(or (null ,sip-hashes-sym)
-                                   (let ((,bloom-sym (fset:lookup
-                                                      (fset:lookup ,stats-md-sym ,(get (first sip-out-vars) :column))
-                                                      "bloom")))
-                                     (some (lambda (,lambda-sym)
-                                             (endb/bloom:sbbf-check-p ,bloom-sym ,lambda-sym))
-                                           ,sip-hashes-sym)))
-                              sip-stats-src)))
+                  (let ((sip-in-key-form (if (= 1 (length sip-in-vars))
+                                             `(nth ,(position (first sip-in-vars) source-vars) ,row-sym)
+                                             `(list ,@(loop for v in sip-in-vars
+                                                            collect `(nth ,(position v source-vars) ,row-sym)))))
+                        (sip-out-key-form (if (and (= 1 (length sip-in-vars))
+                                                   (not sip-can-reuse-index-p))
+                                              (first sip-out-vars)
+                                              `(list ,@sip-out-vars))))
 
-                    (push `(,sip-table-sym (let ((,sip-table-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
-                                             (alexandria:maphash-values
-                                              (lambda (,lambda-sym)
-                                                (dolist (,row-sym ,lambda-sym)
-                                                  (setf (gethash ,sip-in-key-form ,sip-table-sym) t)))
-                                              (gethash ,sip-index-key-form ,index-sym))
-                                             (endb/lib:log-debug "sip: ~A ~A~%" ,(from-table-alias sip-from-table) (hash-table-count ,sip-table-sym))
-                                             ,sip-table-sym))
+                    (push `(,sip-table-sym ,(if sip-can-reuse-index-p
+                                                `(let ((,sip-table-sym (gethash ,sip-index-key-form ,index-sym)))
+                                                   (endb/lib:log-debug "reuse sip: ~A ~A~%" ,(from-table-alias source-from-table) (hash-table-count ,sip-table-sym))
+                                                   ,sip-table-sym)
+                                                `(let ((,sip-table-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
+                                                   (alexandria:maphash-values
+                                                    (lambda (,lambda-sym)
+                                                      (dolist (,row-sym ,lambda-sym)
+                                                        (setf (gethash ,sip-in-key-form ,sip-table-sym) t)))
+                                                    (gethash ,sip-index-key-form ,index-sym))
+                                                   (endb/lib:log-debug "sip: ~A ~A~%" ,(from-table-alias source-from-table) (hash-table-count ,sip-table-sym))
+                                                   ,sip-table-sym)))
                           sip-init-src)
                     (push `(gethash ,sip-out-key-form ,sip-table-sym) sip-probe-src))))))
           (alexandria:with-gensyms (index-table-sym index-key-form-sym)
@@ -578,7 +608,8 @@
                                ,index-table-sym)
 
                               ,index-table-sym))))
-               (fset:with ctx :index-sip (fset:with (or (fset:lookup ctx :index-sip) (fset:empty-map)) index-key-form from-table))))))))))
+               (fset:with ctx :index-sip (fset:with (or (fset:lookup ctx :index-sip) (fset:empty-map))
+                                                    index-key-form (fset:map (:from-table from-table) (:out-vars out-vars))))))))))))
 
 (defun %selection-with-limit-offset->cl (ctx selected-src &optional limit offset)
   (let ((acc-sym (fset:lookup ctx :acc-sym)))
@@ -605,8 +636,26 @@
           (not (eq :exists (first ast))))
       t))
 
-(defun %from->cl (ctx from-tables where-clauses selected-src &optional vars)
-  (let* ((candidate-tables (remove-if-not (lambda (x)
+(defun %build-var-groups (groups)
+  (let ((new-groups (delete-duplicates
+                     (loop for g1 in groups
+                           collect (delete-duplicates
+                                    (loop for g2 in groups
+                                          when (intersection g1 g2)
+                                            append g2)))
+                     :test 'equal)))
+    (if (equal new-groups groups)
+        groups
+        (%build-var-groups new-groups))))
+
+(defun %from->cl (ctx from-tables where-clauses selected-src &optional vars (var-groups nil var-groups-p))
+  (let* ((var-groups (if var-groups-p
+                         var-groups
+                         (let ((var-pairs (loop for clause in where-clauses
+                                                when (%maybe-equi-join-p (where-clause-src clause))
+                                                  collect (rest (where-clause-src clause)))))
+                           (%build-var-groups var-pairs))))
+         (candidate-tables (remove-if-not (lambda (x)
                                             (subsetp (from-table-free-vars x) vars))
                                           from-tables))
          (from-table (or (find-if (lambda (x)
@@ -634,12 +683,12 @@
                  (return (values scan-clauses equi-join-clauses pushdown-clauses)))
       (multiple-value-bind (join-src join-ctx)
           (when equi-join-participant-p
-            (%join->cl ctx from-table scan-clauses equi-join-clauses))
+            (%join->cl ctx from-table scan-clauses equi-join-clauses var-groups))
         (let* ((new-where-clauses (append scan-clauses equi-join-clauses pushdown-clauses))
                (where-clauses (set-difference where-clauses new-where-clauses))
                (nested-src (cond
                              (from-tables
-                              (%from->cl (or join-ctx ctx) from-tables where-clauses selected-src vars))
+                              (%from->cl (or join-ctx ctx) from-tables where-clauses selected-src vars var-groups))
                              (where-clauses
                               `(when (and ,@(loop for clause in where-clauses collect `(eq t ,(where-clause-src clause))))
                                  ,selected-src))
