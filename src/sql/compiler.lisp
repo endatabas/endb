@@ -504,10 +504,8 @@
                    (sip-in-vars (intersection in-vars sip-row-vars)))
               (when (and sip-in-vars (%uncorrelated-index-key-form sip-index-key-form))
                 (alexandria:with-gensyms (sip-table-sym sip-hashes-sym)
-                  (let* ((sip-out-vars (loop for in-var in in-vars
-                                             for out-var in out-vars
-                                             when (find in-var sip-in-vars)
-                                               collect out-var))
+                  (let* ((sip-out-vars (loop for v in sip-in-vars
+                                             collect (nth (position v in-vars) out-vars)))
                          (sip-in-key-form (if (= 1 (length sip-in-vars))
                                               `(nth ,(position (first sip-in-vars) sip-row-vars) ,row-sym)
                                               `(list ,@(loop for v in sip-in-vars
