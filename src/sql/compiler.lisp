@@ -538,9 +538,7 @@
                                                                                    :fill-pointer 0)))
                                                   (alexandria:maphash-keys
                                                    (lambda (,lambda-sym)
-                                                     (dolist (,lambda-sym (endb/sql/expr:ra-bloom-hashes ,(if sip-can-reuse-index-p
-                                                                                                              `(first ,lambda-sym)
-                                                                                                              lambda-sym)))
+                                                     (dolist (,lambda-sym (endb/sql/expr:ra-bloom-hashes ,lambda-sym))
                                                        (vector-push-extend ,lambda-sym ,sip-hashes-sym)))
                                                    ,sip-table-sym)
                                                   ,sip-hashes-sym)))
@@ -554,34 +552,37 @@
                                          ,sip-hashes-sym)))
                             sip-stats-src)))
 
-                  (let ((sip-in-key-form (if (= 1 (length sip-in-vars))
-                                             `(nth ,(position (first sip-in-vars) source-vars) ,row-sym)
-                                             `(list ,@(loop for v in sip-in-vars
-                                                            collect `(nth ,(position v source-vars) ,row-sym)))))
-                        (sip-out-key-form (if (and (= 1 (length sip-in-vars))
-                                                   (not sip-can-reuse-index-p))
+                  (if sip-can-reuse-index-p
+                      (push `(,sip-table-sym (let ((,sip-table-sym (gethash ,sip-index-key-form ,index-sym)))
+                                               (endb/lib:log-debug "reuse sip: ~A ~A~%" ,(from-table-alias source-from-table) (hash-table-count ,sip-table-sym))
+                                               ,sip-table-sym))
+                            sip-init-src)
+                      (let ((sip-in-key-form (if (= 1 (length sip-in-vars))
+                                                 `(nth ,(position (first sip-in-vars) source-vars) ,row-sym)
+                                                 `(vector ,@(loop for v in sip-in-vars
+                                                                  collect `(nth ,(position v source-vars) ,row-sym))))))
+                        (push `(,sip-table-sym (let ((,sip-table-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
+                                                 (alexandria:maphash-values
+                                                  (lambda (,lambda-sym)
+                                                    (dolist (,row-sym ,lambda-sym)
+                                                      (setf (gethash ,sip-in-key-form ,sip-table-sym) t)))
+                                                  (gethash ,sip-index-key-form ,index-sym))
+                                                 (endb/lib:log-debug "sip: ~A ~A~%" ,(from-table-alias source-from-table) (hash-table-count ,sip-table-sym))
+                                                 ,sip-table-sym))
+                              sip-init-src)))
+                  (let ((sip-out-key-form (if (= 1 (length sip-out-vars))
                                               (first sip-out-vars)
-                                              `(list ,@sip-out-vars))))
-
-                    (push `(,sip-table-sym ,(if sip-can-reuse-index-p
-                                                `(let ((,sip-table-sym (gethash ,sip-index-key-form ,index-sym)))
-                                                   (endb/lib:log-debug "reuse sip: ~A ~A~%" ,(from-table-alias source-from-table) (hash-table-count ,sip-table-sym))
-                                                   ,sip-table-sym)
-                                                `(let ((,sip-table-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
-                                                   (alexandria:maphash-values
-                                                    (lambda (,lambda-sym)
-                                                      (dolist (,row-sym ,lambda-sym)
-                                                        (setf (gethash ,sip-in-key-form ,sip-table-sym) t)))
-                                                    (gethash ,sip-index-key-form ,index-sym))
-                                                   (endb/lib:log-debug "sip: ~A ~A~%" ,(from-table-alias source-from-table) (hash-table-count ,sip-table-sym))
-                                                   ,sip-table-sym)))
-                          sip-init-src)
+                                              `(vector ,@sip-out-vars))))
                     (push `(gethash ,sip-out-key-form ,sip-table-sym) sip-probe-src))))))
           (alexandria:with-gensyms (index-table-sym index-key-form-sym)
             (let* ((new-free-vars (set-difference free-vars in-vars))
-                   (index-key-form `(list ',index-key-form-sym ,@new-free-vars)))
+                   (index-key-form (if new-free-vars
+                                       `(vector ',index-key-form-sym ,@new-free-vars)
+                                       (vector 'quote index-key-form-sym))))
               (values
-               `(gethash (list ,@in-vars)
+               `(gethash ,(if (= 1 (length in-vars))
+                              (first in-vars)
+                              `(vector ,@in-vars))
                          (endb/sql/expr:ra-compute-index-if-absent
                           ,index-sym
                           ,index-key-form
@@ -595,7 +596,10 @@
                                                 scan-where-clauses
                                                 `(when (and ,@sip-probe-src)
                                                    (push (list ,@vars)
-                                                         (gethash (list ,@out-vars) ,index-table-sym)))
+                                                         (gethash ,(if (= 1 (length out-vars))
+                                                                       (first out-vars)
+                                                                       `(vector ,@out-vars))
+                                                                  ,index-table-sym)))
                                                 sip-stats-src)
                               (endb/lib:log-debug "join table: ~A ~A~%"
                                                   ,(from-table-alias from-table)
