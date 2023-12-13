@@ -33,7 +33,7 @@
 (defvar *parse-sql-cst-on-open*)
 
 (cffi:defcallback parse-sql-cst-on-open :void
-    ((label-ptr :pointer)
+    ((label-ptr :uintptr)
      (label-size :size))
   (funcall *parse-sql-cst-on-open* label-ptr label-size))
 
@@ -46,7 +46,7 @@
 (defvar *parse-sql-cst-on-literal*)
 
 (cffi:defcallback parse-sql-cst-on-literal :void
-    ((literal-ptr :pointer)
+    ((literal-ptr :uintptr)
      (literal-size :size)
      (start :size)
      (end :size))
@@ -60,7 +60,7 @@
   (funcall *parse-sql-cst-on-pattern* start end))
 
 (defparameter +kw-cache+ (make-hash-table))
-(defvar *literal-cache*)
+(defparameter +literal-cache+ (make-hash-table))
 
 (defun parse-sql-cst (input &key (filename ""))
   (endb/lib:init-lib)
@@ -69,11 +69,10 @@
       (let* ((result (list (list)))
              (err)
              (input-bytes (trivial-utf-8:string-to-utf-8-bytes input :null-terminate t))
-             (*literal-cache* (make-hash-table))
-             (*parse-sql-cst-on-open* (lambda (label-ptr label-size)
-                                        (let* ((address (cffi:pointer-address label-ptr))
-                                               (kw (or (gethash address +kw-cache+)
-                                                       (let* ((kw-string (make-array label-size :element-type 'character)))
+             (*parse-sql-cst-on-open* (lambda (address label-size)
+                                        (let* ((kw (or (gethash address +kw-cache+)
+                                                       (let* ((label-ptr (cffi:make-pointer address))
+                                                              (kw-string (make-array label-size :element-type 'character)))
                                                          (dotimes (n label-size)
                                                            (setf (aref kw-string n)
                                                                  (code-char (cffi:mem-ref label-ptr :char n))))
@@ -82,14 +81,14 @@
                                           (push (list kw) result))))
              (*parse-sql-cst-on-close* (lambda ()
                                          (push (nreverse (pop result)) (first result))))
-             (*parse-sql-cst-on-literal* (lambda (literal-ptr literal-size start end)
-                                           (let* ((address (cffi:pointer-address literal-ptr))
-                                                  (literal (or (gethash address *literal-cache*)
-                                                               (let* ((literal-string (make-array literal-size :element-type 'character)))
+             (*parse-sql-cst-on-literal* (lambda (address literal-size start end)
+                                           (let* ((literal (or (gethash address +literal-cache+)
+                                                               (let* ((literal-ptr (cffi:make-pointer address))
+                                                                      (literal-string (make-array literal-size :element-type 'character)))
                                                                  (dotimes (n literal-size)
                                                                    (setf (aref literal-string n)
                                                                          (code-char (cffi:mem-ref literal-ptr :char n))))
-                                                                 (setf (gethash address *literal-cache*) literal-string)))))
+                                                                 (setf (gethash address +literal-cache+) literal-string)))))
                                              (push (list literal start end) (first result)))))
              (*parse-sql-cst-on-pattern* (lambda (start end)
                                            (let ((token (trivial-utf-8:utf-8-bytes-to-string input-bytes :start start :end end)))
