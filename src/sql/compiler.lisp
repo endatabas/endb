@@ -221,7 +221,7 @@
                               "bloom")))
              (some (lambda (,lambda-sym)
                      (endb/bloom:sbbf-check-p ,bloom-sym ,lambda-sym))
-                   (list ,@hashes)))))))
+                   ',hashes))))))
 
 (defun %where-clause-stats-src (clause vars stats-md-sym)
   (labels ((free-var-or-constant-p (y)
@@ -251,7 +251,7 @@
             (some (lambda (,lambda-sym)
                     (endb/bloom:sbbf-check-p ,bloom-sym ,lambda-sym))
                   ,(if (constantp y)
-                       `(list ,@(endb/sql/expr:ra-bloom-hashes y))
+                       `',(endb/sql/expr:ra-bloom-hashes y)
                        `(endb/sql/expr:ra-bloom-hashes ,y))))))
 
       ((trivia:guard
@@ -266,7 +266,7 @@
             (some (lambda (,lambda-sym)
                     (endb/bloom:sbbf-check-p ,bloom-sym ,lambda-sym))
                   ,(if (constantp y)
-                       `(list ,@(endb/sql/expr:ra-bloom-hashes y))
+                       `',(endb/sql/expr:ra-bloom-hashes y)
                        `(endb/sql/expr:ra-bloom-hashes ,y))))))
 
       ((trivia:guard
@@ -282,7 +282,7 @@
                                                (rest y)
                                                y)
                                   collect (if (constantp v)
-                                              `(list ,@(endb/sql/expr:ra-bloom-hashes v))
+                                              `',(endb/sql/expr:ra-bloom-hashes v)
                                               `(endb/sql/expr:ra-bloom-hashes ,v))))))))
 
       ((trivia:guard
@@ -474,7 +474,7 @@
           `(symbol-macrolet (,@(loop for v in (%unique-vars vars)
                                      for idx from 0
                                      when v
-                                       collect `(,v (nth ,idx ,row-sym))))
+                                       collect `(,v (aref ,row-sym ,idx))))
              (dolist (,row-sym ,from-src)
                ,(if where-src
                     `(when (and ,@where-src)
@@ -484,7 +484,8 @@
 (defparameter +sip-hashes-limit+ 1024)
 
 (defun %uncorrelated-index-key-form (index-key-form)
-  (= 2 (length index-key-form)))
+  (and (vectorp index-key-form)
+       (= 1 (length index-key-form))))
 
 (defun %join->cl (ctx from-table scan-where-clauses equi-join-clauses var-groups)
   (with-slots (src vars free-vars)
@@ -558,9 +559,9 @@
                                                ,sip-table-sym))
                             sip-init-src)
                       (let ((sip-in-key-form (if (= 1 (length sip-in-vars))
-                                                 `(nth ,(position (first sip-in-vars) source-vars) ,row-sym)
+                                                 `(aref ,row-sym ,(position (first sip-in-vars) source-vars))
                                                  `(vector ,@(loop for v in sip-in-vars
-                                                                  collect `(nth ,(position v source-vars) ,row-sym))))))
+                                                                  collect `(aref ,row-sym ,(position v source-vars)))))))
                         (push `(,sip-table-sym (let ((,sip-table-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
                                                  (alexandria:maphash-values
                                                   (lambda (,lambda-sym)
@@ -578,7 +579,7 @@
             (let* ((new-free-vars (set-difference free-vars in-vars))
                    (index-key-form (if new-free-vars
                                        `(vector ',index-key-form-sym ,@new-free-vars)
-                                       (vector 'quote index-key-form-sym))))
+                                       (vector index-key-form-sym))))
               (values
                `(gethash ,(if (= 1 (length in-vars))
                               (first in-vars)
@@ -595,7 +596,7 @@
                                                 src
                                                 scan-where-clauses
                                                 `(when (and ,@sip-probe-src)
-                                                   (push (list ,@vars)
+                                                   (push (vector ,@vars)
                                                          (gethash ,(if (= 1 (length out-vars))
                                                                        (first out-vars)
                                                                        `(vector ,@out-vars))
@@ -628,10 +629,10 @@
              (when (and (>= ,rows-sym ,offset)
                         (not (eql ,rows-sym ,limit)))
                (incf ,rows-sym)
-               (push (list ,@selected-src) ,acc-sym))
+               (push (vector ,@selected-src) ,acc-sym))
              (when (eql ,rows-sym ,limit)
                (return-from ,block-sym ,acc-sym))))
-        `(push (list ,@selected-src) ,acc-sym))))
+        `(push (vector ,@selected-src) ,acc-sym))))
 
 (defun %scan-where-clause-p (ast)
   (if (listp ast)
@@ -721,28 +722,27 @@
                                       collect (ast->cl ctx g)))
            (group-by-exprs-projection (loop for k being the hash-key of aggregate-table
                                             collect k))
-           (group-key-form `(list ,@group-by-projection))
+           (group-key-form `(vector ,@group-by-projection))
            (init-srcs (loop for v being the hash-value of aggregate-table
                             collect (aggregate-init-src v)))
            (group-by-selected-src `(symbol-macrolet (,@(loop for v in group-by-exprs-projection
                                                              for idx from 0
-                                                             collect `(,v (nth ,idx ,group-sym))))
+                                                             collect `(,v (aref ,group-sym ,idx))))
                                      (let* ((,group-key-sym ,group-key-form)
                                             (,group-sym  (gethash ,group-key-sym ,group-acc-sym)))
                                        (unless ,group-sym
-                                         (setf ,group-sym (list ,@init-srcs))
+                                         (setf ,group-sym (vector ,@init-srcs))
                                          (setf (gethash ,group-key-sym ,group-acc-sym) ,group-sym))
                                        ,@(loop for v being the hash-value of aggregate-table
                                                collect `(when (eq t ,(aggregate-where-src v))
                                                           (endb/sql/expr:agg-accumulate ,(aggregate-var v) ,@(aggregate-src v)))))))
-           (empty-group-key-form `(list ,@(loop repeat (length group-by-projection)
-                                                collect :null)))
+           (empty-group-key-form (make-array (length group-by-projection) :initial-element :null))
            (group-by-src `(let ((,group-acc-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
                             ,(%from->cl ctx from-tables where-clauses group-by-selected-src correlated-vars)
                             ,(unless group-by
                                `(when (zerop (hash-table-count ,group-acc-sym))
                                   (setf (gethash ,empty-group-key-form ,group-acc-sym)
-                                        (list ,@init-srcs))))
+                                        (vector ,@init-srcs))))
                             ,group-acc-sym))
            (non-group-selected-vars (loop for v in selected-non-aggregate-columns
                                           unless (find (fset:lookup ctx v) group-by-projection)
@@ -755,10 +755,10 @@
         `(symbol-macrolet (,@(loop for v in (%unique-vars group-by-projection)
                                    for idx from 0
                                    when v
-                                     collect `(,v (nth ,idx ,key-sym)))
+                                     collect `(,v (aref ,key-sym ,idx)))
                            ,@(loop for v in group-by-exprs-projection
                                    for idx from 0
-                                   collect `(,v (nth ,idx ,val-sym))))
+                                   collect `(,v (aref ,val-sym ,idx))))
            (maphash
             (lambda (,key-sym ,val-sym)
               (declare (ignorable ,key-sym ,val-sym))
@@ -940,6 +940,16 @@
   (loop for idx from 1 upto arity
         collect (%anonymous-column-name idx)))
 
+(defun %maybe-constant-list (asts)
+  (if (every #'constantp asts)
+      `',asts
+      `(list ,@asts)))
+
+(defun %maybe-constant-vector (asts)
+  (if (every #'constantp asts)
+      `#(,@asts)
+      `(vector ,@asts)))
+
 (defmethod sql->cl (ctx (type (eql :values)) &rest args)
   (destructuring-bind (values-list &key order-by limit offset)
       args
@@ -947,7 +957,11 @@
            (projection (%values-projection arity)))
       (unless (apply #'= (mapcar #'length values-list))
         (error 'endb/sql/expr:sql-runtime-error :message (format nil "All VALUES must have the same number of columns: ~A" arity)))
-      (values (%wrap-with-order-by-and-limit (ast->cl ctx values-list)
+      (values (%wrap-with-order-by-and-limit (%maybe-constant-list
+                                              (loop for ast in values-list
+                                                    collect (%maybe-constant-vector
+                                                             (loop for ast in ast
+                                                                   collect (ast->cl ctx ast)))))
                                              (%resolve-order-by order-by projection) limit offset)
               projection))))
 
@@ -974,11 +988,14 @@
                              #'string<)))
       (alexandria:with-gensyms (object-sym key-sym)
         (values (%wrap-with-order-by-and-limit
-                 `(loop for ,object-sym in ,(ast->cl (fset:less ctx :inside-from-p) objects-list)
-                        collect (append (loop for ,key-sym in ',projection
-                                              collect (endb/sql/expr:syn-access-finish ,object-sym ,key-sym nil))
-                                        ,(when (fset:lookup ctx :inside-from-p)
-                                           `(list ,object-sym))))
+                 `(loop for ,object-sym in ,(let ((ctx (fset:less ctx :inside-from-p)))
+                                              (%maybe-constant-list (loop for ast in objects-list
+                                                                          collect (ast->cl ctx ast))))
+                        collect (coerce (append (loop for ,key-sym in ',projection
+                                                      collect (endb/sql/expr:syn-access-finish ,object-sym ,key-sym nil))
+                                                ,(when (fset:lookup ctx :inside-from-p)
+                                                   `(list ,object-sym)))
+                                        'vector))
                  (%resolve-order-by order-by projection) limit offset)
                 projection)))))
 
@@ -990,15 +1007,15 @@
 (defmethod sql->cl (ctx (type (eql :in)) &rest args)
   (destructuring-bind (expr query)
       args
-    `(endb/sql/expr:ra-in ,(ast->cl ctx expr) ,(ast->cl ctx query))))
+    `(endb/sql/expr:ra-in ,(ast->cl ctx expr) ,(%maybe-constant-list (loop for ast in query
+                                                                           collect (ast->cl ctx ast))))))
 
 (defmethod sql->cl (ctx (type (eql :left-join)) &rest args)
   (destructuring-bind (table on)
       args
     (multiple-value-bind (src projection free-vars)
         (%ast->cl-with-free-vars ctx (list :select (list (list :*)) :from (list table) :where on))
-      (values `(or ,src (list (list ,@(loop for idx below (length projection)
-                                            collect :null))))
+      (values `(or ,src '(,(make-array (length projection) :initial-element :null)))
               projection
               free-vars))))
 
@@ -1010,14 +1027,16 @@
       (declare (ignore projection))
       (alexandria:with-gensyms (index-key-form-sym)
         (let* ((index-sym (fset:lookup ctx :index-sym))
-               (index-key-form `(list ',index-key-form-sym ,@free-vars)))
+               (index-key-form `(vector ',index-key-form-sym ,@free-vars)))
           `(endb/sql/expr:ra-scalar-subquery
             (endb/sql/expr:ra-compute-index-if-absent ,index-sym ,index-key-form (lambda () ,src))))))))
 
 (defmethod sql->cl (ctx (type (eql :unnest)) &rest args)
   (destructuring-bind (exprs &key with-ordinality)
       args
-    (values `(endb/sql/expr:ra-unnest ,(ast->cl ctx exprs) :with-ordinality ,with-ordinality)
+    (values `(endb/sql/expr:ra-unnest ,(%maybe-constant-list (loop for ast in exprs
+                                                                   collect (ast->cl ctx ast)))
+                                      :with-ordinality ,with-ordinality)
             (%values-projection (if with-ordinality
                                     (1+ (length exprs))
                                     (length exprs))))))
@@ -1231,9 +1250,10 @@
                                                collect `(,(fset:lookup excluded-env-extension v)
                                                          (endb/sql/expr:syn-access-finish ,object-sym ,v nil))))
                        (dolist (,object-sym (let ((,object-sym ,(if objectsp
-                                                                    (ast->cl ctx (second values))
+                                                                    (%maybe-constant-list (loop for ast in (second values)
+                                                                                                collect (ast->cl ctx ast)))
                                                                     `(mapcar (lambda (,value-sym)
-                                                                               (fset:convert 'fset:map (pairlis ',excluded-projection ,value-sym)))
+                                                                               (fset:convert 'fset:map (pairlis ',excluded-projection (coerce ,value-sym 'list))))
                                                                              ,(ast->cl ctx values)))))
                                               (unless (= (length ,object-sym)
                                                          (length (delete-duplicates
@@ -1270,7 +1290,10 @@
     (if (eq :objects (first values))
         (if on-conflict
             (%insert-on-conflict ctx table-name on-conflict update :values values)
-            `(endb/sql/db:dml-insert-objects ,(fset:lookup ctx :db-sym) ,(symbol-name table-name) ,(ast->cl ctx (second values))))
+            `(endb/sql/db:dml-insert-objects ,(fset:lookup ctx :db-sym)
+                                             ,(symbol-name table-name)
+                                             ,(%maybe-constant-list (loop for ast in (second values)
+                                                                          collect (ast->cl ctx ast)))))
         (multiple-value-bind (src projection)
             (ast->cl ctx values)
           (let ((column-names (if (or column-names endb/sql/expr:*sqlite-mode*)
@@ -1350,7 +1373,7 @@
         (error 'endb/sql/expr:sql-runtime-error :message "IN query must return single column"))
       (alexandria:with-gensyms (index-key-form-sym)
         (let* ((index-sym (fset:lookup ctx :index-sym))
-               (index-key-form `(list ',index-key-form-sym ,@free-vars)))
+               (index-key-form `(vector ',index-key-form-sym ,@free-vars)))
           `(endb/sql/expr:ra-in-query
             (endb/sql/expr:ra-compute-index-if-absent
              ,index-sym
@@ -1481,7 +1504,10 @@
         (ast->cl ctx query)
       (unless (= 1 (length projection))
         (error 'endb/sql/expr:sql-runtime-error :message "ARRAY query must return single column"))
-      `(fset:convert 'fset:seq (mapcar #'car ,src)))))
+      (alexandria:with-gensyms (row-sym)
+        `(fset:convert 'fset:seq (mapcar (lambda (,row-sym)
+                                           (aref ,row-sym 0))
+                                         ,src))))))
 
 (defmethod sql->cl (ctx (type (eql :object)) &rest args)
   (destructuring-bind (args)
@@ -1830,22 +1856,6 @@
      `(endb/sql/db:syn-current_timestamp ,(fset:lookup ctx :db-sym)))
     ((%ast-function-call-p ast)
      (apply #'sql->cl ctx ast))
-    ((listp ast)
-     (cond
-       ((some (lambda (x)
-                (or (%ast-function-call-p x)
-                    (and (symbolp x)
-                         (not (keywordp x)))
-                    (listp x)))
-              ast)
-        (cons 'list (loop for ast in ast
-                          collect (ast->cl ctx ast))))
-       ((fset:lookup ctx :quote)
-        (loop for ast in ast
-              collect (ast->cl ctx ast)))
-       (t (let ((ctx (fset:with ctx :quote t)))
-            (list 'quote (loop for ast in ast
-                               collect (ast->cl ctx ast)))))))
     ((and (symbolp ast)
           (not (keywordp ast)))
      (let* ((k (symbol-name ast))
@@ -1865,7 +1875,9 @@
                        (ast->cl ctx (list :access (make-symbol column) path))
                        (%annotated-error (fset:lookup ctx :sql) ast "Unknown column")))
                  (%annotated-error (fset:lookup ctx :sql) ast "Unknown column"))))))
-    (t ast)))
+    (t (progn
+         (assert (not (listp ast)))
+         ast))))
 
 (defun %ast->cl-with-free-vars (ctx ast)
   (let* ((vars ())

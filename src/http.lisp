@@ -29,7 +29,7 @@
   (with-output-to-string (out)
     (com.inuoe.jzon:with-writer (writer :stream out)
       (com.inuoe.jzon:with-object writer
-        (loop for column in row
+        (loop for column across row
               for column-name in column-names
               do (com.inuoe.jzon:write-key writer column-name)
                  (com.inuoe.jzon:write-value writer column))))))
@@ -59,7 +59,7 @@
                 (funcall on-response-send (format nil "~%"))))
       ((equal "text/csv" content-type)
        (loop for row in (cons column-names rows)
-             do (funcall on-response-send (format nil "~{~A~^,~}~A" (mapcar #'%format-csv row) +crlf+)))))))
+             do (funcall on-response-send (format nil "~{~A~^,~}~A" (map 'list #'%format-csv row) +crlf+)))))))
 
 (defun endb-query (request-method content-type sql parameters manyp on-response-init on-response-send)
   (handler-bind ((endb/lib/server:sql-abort-query-error
@@ -100,7 +100,7 @@
                                           (progn
                                             (setf endb/lib/server:*db* (endb/sql:commit-write-tx endb/lib/server:*db* write-db))
                                             (funcall on-response-init +http-created+ content-type)
-                                            (%stream-response on-response-send content-type '("result") (list (list result-code))))
+                                            (%stream-response on-response-send content-type '("result") (list (vector result-code))))
                                           (funcall on-response-init +http-conflict+ "")))
                                     (funcall on-response-init +http-bad-request+ "")))
                    (t (funcall on-response-init +http-conflict+ "")))))))

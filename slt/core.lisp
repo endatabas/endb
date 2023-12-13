@@ -65,7 +65,7 @@
     (loop for row-offset from 0 by (length zTypes)
           for row in result
           do (loop for col-offset from row-offset
-                   for col in row
+                   for col across row
                    for type across zTypes
                    do (setf (cffi:mem-aref az-result :pointer col-offset)
                             (cffi:foreign-string-alloc (%slt-format (if (and (null col) nil-is-null)

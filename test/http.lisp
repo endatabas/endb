@@ -48,9 +48,9 @@
                (%do-query "POST" "application/json" "INSERT INTO foo {:a, :b}" "[{\"a\":1,\"b\":2},{\"a\":3,\"b\":4}]" "true")))
 
     (is (equal (list +http-ok+
-                     '(:content-type "application/json")
-                     (format nil "[[1,2],[3,4]]~%"))
-               (%do-query "GET" "application/json" "SELECT * FROM foo ORDER BY a" "[]" "false")))))
+                     '(:content-type "application/x-ndjson")
+                     (format nil "{\"a\":1,\"b\":2}~%{\"a\":3,\"b\":4}~%"))
+               (%do-query "GET" "application/x-ndjson" "SELECT * FROM foo ORDER BY a" "[]" "false")))))
 
 (test errors
   (let* ((endb/lib/server:*db* (endb/sql:make-db)))

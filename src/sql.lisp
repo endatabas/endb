@@ -54,13 +54,13 @@
 (defun %execute-constraints (db)
   (let ((ctx (fset:map (:db db))))
     (fset:do-map (k v (endb/sql/db:constraint-definitions db))
-      (when (equal '((nil)) (handler-case
-                                (funcall (endb/sql/compiler:compile-sql (fset:with ctx :sql v)
-                                                                        (endb/lib/parser:parse-sql v))
-                                         db
-                                         (fset:empty-seq))
-                              (endb/sql/expr:sql-runtime-error (e)
-                                (endb/lib:log-warn "Constraint ~A raised an error, ignoring: ~A" k e))))
+      (when (equalp '(#(nil)) (handler-case
+                                  (funcall (endb/sql/compiler:compile-sql (fset:with ctx :sql v)
+                                                                          (endb/lib/parser:parse-sql v))
+                                           db
+                                           (fset:empty-seq))
+                                (endb/sql/expr:sql-runtime-error (e)
+                                  (endb/lib:log-warn "Constraint ~A raised an error, ignoring: ~A" k e))))
         (error 'endb/sql/expr:sql-runtime-error :message (format nil "Constraint failed: ~A" k))))))
 
 (defun commit-write-tx (current-db write-db &key (fsyncp t))

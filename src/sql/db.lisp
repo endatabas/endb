@@ -84,8 +84,8 @@
                                                               (fset:find row-id batch-erased))
                                                      collect (if arrow-file-idx-row-id-p
                                                                  (cons (list arrow-file batch-idx row-id)
-                                                                       (endb/arrow:arrow-struct-projection batch row-id kw-projection))
-                                                                 (endb/arrow:arrow-struct-projection batch row-id kw-projection)))))))
+                                                                       (endb/arrow:arrow-struct-projection batch row-id kw-projection 'vector))
+                                                                 (endb/arrow:arrow-struct-projection batch row-id kw-projection 'vector)))))))
             (when cachep
               (setf (gethash table-md information-schema-cache) acc))
             acc)))))
@@ -109,23 +109,25 @@
   (if (%information-schema-table-p table-name)
       "BASE TABLE"
       (let* ((table-row (find-if (lambda (row)
-                                   (equal table-name (nth 2 row)))
+                                   (equal table-name (aref row 2)))
                                  (base-table-visible-rows db "information_schema.tables"))))
-        (nth 3 table-row))))
+        (when table-row
+          (aref table-row 3)))))
 
 (defun view-definition (db view-name)
   (let* ((view-row (find-if (lambda (row)
-                              (equal view-name (nth 2 row)))
+                              (equal view-name (aref row 2)))
                             (base-table-visible-rows db "information_schema.views"))))
-    (endb/lib/parser:parse-sql (nth 3 view-row))))
+    (when view-row
+      (endb/lib/parser:parse-sql (aref view-row 3)))))
 
 (defun constraint-definitions (db)
   (if endb/sql/expr:*sqlite-mode*
       (fset:empty-map)
       (fset:convert 'fset:map
                     (loop for constraint-row in (base-table-visible-rows db "information_schema.check_constraints")
-                          collect (cons (nth 2 constraint-row)
-                                        (format nil "SELECT ~A" (nth 3 constraint-row)))))))
+                          collect (cons (aref constraint-row 2)
+                                        (format nil "SELECT ~A" (aref constraint-row 3)))))))
 
 (defun table-columns (db table-name)
   (cond
@@ -137,16 +139,25 @@
      '("table_catalog" "table_schema" "table_name" "view_definition"))
     ((equal "information_schema.check_constraints" table-name)
      '("constraint_catalog" "constraint_schema" "constraint_name" "check_clause"))
-    (t (mapcar #'second (endb/sql/expr:ra-order-by (loop with rows = (base-table-visible-rows db "information_schema.columns")
-                                                         for (nil nil table c idx) in rows
-                                                         when (equal table-name table)
-                                                           collect (list idx c))
-                                                   (list (list 1 :asc) (list 2 :asc)))))))
+    (t (mapcar (lambda (row)
+                 (aref row 1))
+               (endb/sql/expr:ra-order-by (loop with rows = (base-table-visible-rows db "information_schema.columns")
+                                                for row in rows
+                                                for table = (aref row 2)
+                                                for column = (aref row 3)
+                                                for idx = (aref row 4)
+                                                when (equal table-name table)
+                                                  collect (vector idx column))
+                                          (list (list 1 :asc) (list 2 :asc)))))))
+
+
 
 (defun base-table-created-p (db table-name)
   (or (%information-schema-table-p table-name)
       (loop with rows = (base-table-visible-rows db "information_schema.columns")
-            for (nil nil table nil idx) in rows
+            for row in rows
+            for table = (aref row 2)
+            for idx = (aref row 4)
             thereis (and (equal table-name table)
                          (plusp idx)))))
 
@@ -180,11 +191,11 @@
   (unless (%find-arrow-file-idx-row-id db
                                        "information_schema.tables"
                                        (lambda (row)
-                                         (equal table-name (nth 2 row))))
-    (dml-insert db "information_schema.tables" (list (list :null *default-schema* table-name "BASE TABLE")))
+                                         (equal table-name (aref row 2))))
+    (dml-insert db "information_schema.tables" (list (vector :null *default-schema* table-name "BASE TABLE")))
     (dml-insert db "information_schema.columns" (loop for c in columns
                                                       for idx from 1
-                                                      collect  (list :null *default-schema* table-name c idx)))
+                                                      collect (vector :null *default-schema* table-name c idx)))
     (values nil t)))
 
 (defun ddl-drop-table (db table-name &key if-exists)
@@ -194,14 +205,14 @@
     (let* ((batch-file-row-id (%find-arrow-file-idx-row-id db
                                                            "information_schema.tables"
                                                            (lambda (row)
-                                                             (and (equal table-name (nth 2 row)) (equal "BASE TABLE" (nth 3 row)))))))
+                                                             (and (equal table-name (aref row 2)) (equal "BASE TABLE" (aref row 3)))))))
       (when batch-file-row-id
         (dml-delete db "information_schema.tables" (list batch-file-row-id))
         (dml-delete db "information_schema.columns" (loop for c in (table-columns db table-name)
                                                           collect (%find-arrow-file-idx-row-id db
                                                                                                "information_schema.columns"
                                                                                                (lambda (row)
-                                                                                                 (and (equal table-name (nth 2 row)) (equal c (nth 3 row)))))))
+                                                                                                 (and (equal table-name (aref row 2)) (equal c (aref row 3)))))))
 
         (setf meta-data (fset:less meta-data table-name)))
 
@@ -212,30 +223,30 @@
   (unless (%find-arrow-file-idx-row-id db
                                        "information_schema.tables"
                                        (lambda (row)
-                                         (equal view-name (nth 2 row))))
-    (dml-insert db "information_schema.tables" (list (list :null *default-schema* view-name "VIEW")))
-    (dml-insert db "information_schema.views" (list (list :null *default-schema* view-name query)))
+                                         (equal view-name (aref row 2))))
+    (dml-insert db "information_schema.tables" (list (vector :null *default-schema* view-name "VIEW")))
+    (dml-insert db "information_schema.views" (list (vector :null *default-schema* view-name query)))
     (dml-insert db "information_schema.columns" (loop for c in columns
                                                       for idx from 1
-                                                      collect  (list :null *default-schema* view-name c idx)))
+                                                      collect (vector :null *default-schema* view-name c idx)))
     (values nil t)))
 
 (defun ddl-drop-view (db view-name &key if-exists)
   (let* ((batch-file-row-id (%find-arrow-file-idx-row-id db
                                                          "information_schema.tables"
                                                          (lambda (row)
-                                                           (and (equal view-name (nth 2 row)) (equal "VIEW" (nth 3 row)))))))
+                                                           (and (equal view-name (aref row 2)) (equal "VIEW" (aref row 3)))))))
     (when batch-file-row-id
       (dml-delete db "information_schema.tables" (list batch-file-row-id))
       (dml-delete db "information_schema.columns" (loop for c in (table-columns db view-name)
                                                         collect (%find-arrow-file-idx-row-id db
                                                                                              "information_schema.columns"
                                                                                              (lambda (row)
-                                                                                               (and (equal view-name (nth 2 row)) (equal c (nth 3 row)))))))
+                                                                                               (and (equal view-name (aref row 2)) (equal c (aref row 3)))))))
       (let* ((batch-file-row-id (%find-arrow-file-idx-row-id db
                                                              "information_schema.views"
                                                              (lambda (row)
-                                                               (equal view-name (nth 2 row))))))
+                                                               (equal view-name (aref row 2))))))
         (dml-delete db "information_schema.views" (list batch-file-row-id))))
     (when (or batch-file-row-id if-exists)
       (values nil t))))
@@ -244,16 +255,16 @@
   (unless (%find-arrow-file-idx-row-id db
                                        "information_schema.check_constraints"
                                        (lambda (row)
-                                         (equal constraint-name (nth 2 row))))
+                                         (equal constraint-name (aref row 2))))
     (dml-insert db "information_schema.check_constraints"
-                (list (list :null *default-schema* constraint-name check-clause)))
+                (list (vector :null *default-schema* constraint-name check-clause)))
     (values nil t)))
 
 (defun ddl-drop-assertion (db constraint-name &key if-exists)
   (let* ((batch-file-row-id (%find-arrow-file-idx-row-id db
                                                          "information_schema.check_constraints"
                                                          (lambda (row)
-                                                           (equal constraint-name (nth 2 row))))))
+                                                           (equal constraint-name (aref row 2))))))
     (when batch-file-row-id
       (dml-delete db "information_schema.check_constraints" (list batch-file-row-id)))
     (when (or batch-file-row-id if-exists)
@@ -502,7 +513,7 @@
                :message (format nil "Cannot insert into table: ~A without all values containing same number of columns: ~A" table-name number-of-columns)))
       (when new-columns
         (dml-insert db "information_schema.columns" (loop for c in new-columns
-                                                          collect (list :null *default-schema* table-name c 0))))
+                                                          collect (vector :null *default-schema* table-name c 0))))
 
       (if columns
           (let* ((permutation (if (and created-p column-names)
@@ -532,7 +543,7 @@
                        (loop with acc = (fset:empty-map)
                              for idx in permutation
                              for cn in kw-columns
-                             do (setf acc (fset:with acc cn (nth idx row)))
+                             do (setf acc (fset:with acc cn (aref row idx)))
                              finally (return acc))))
 
               (dotimes (n (length values))
@@ -551,7 +562,7 @@
                         for cn in kw-columns
                         for a = (gethash cn children)
                         do (dolist (row values)
-                             (setf a (endb/arrow:arrow-push a (nth idx row))))
+                             (setf a (endb/arrow:arrow-push a (aref row idx))))
                         finally (setf (gethash cn children) a))))
 
             (setf (gethash kw-table-name batch-children) table-array)
@@ -565,7 +576,7 @@
 
             (values nil (length values)))
           (unless (table-type db table-name)
-            (dml-insert db "information_schema.tables" (list (list :null *default-schema* table-name "BASE TABLE")))
+            (dml-insert db "information_schema.tables" (list (vector :null *default-schema* table-name "BASE TABLE")))
             (dml-insert db table-name values :column-names column-names))))))
 
 (defun dml-insert-objects (db table-name objects)
@@ -574,7 +585,7 @@
           do (error 'endb/sql/expr:sql-runtime-error :message "Cannot insert empty object")
         else
           do (dml-insert db table-name
-                         (list (coerce (%fset-values object) 'list))
+                         (list (%fset-values object))
                          :column-names (fset:convert 'list (fset:domain object))))
   (values nil (length objects)))
 

@@ -1185,16 +1185,18 @@
     (with-slots (children) array
       (gethash column children))))
 
-(defun arrow-struct-projection (array n projection)
+(defun arrow-struct-projection (array n projection &optional (result-type 'list))
   (if (typep array 'dense-union-array)
       (with-slots (type-ids offsets children) array
-        (arrow-struct-projection (aref children (aref type-ids n)) (aref offsets n) projection))
+        (arrow-struct-projection (aref children (aref type-ids n)) (aref offsets n) projection result-type))
       (with-slots (children) array
-        (loop for c in projection
-              for v = (gethash c children)
-              collect (if v
-                          (arrow-get v n)
-                          :null)))))
+        (map result-type
+             (lambda (c)
+               (let ((v (gethash c children)))
+                 (if v
+                     (arrow-get v n)
+                     :null)))
+             projection))))
 
 (defclass dense-union-array (arrow-array)
   ((type-ids :initarg :type-ids :initform nil :type (or null (vector int8)))

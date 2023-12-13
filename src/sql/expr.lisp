@@ -1831,7 +1831,8 @@
 
 (defun ra-in-query-index (rows)
   (loop with index-table = (make-hash-table :test +hash-table-test+)
-        for (in) in rows
+        for row in rows
+        for in = (aref row 0)
         do (setf (gethash in index-table)
                  (if (eq :null in)
                      :null
@@ -1881,7 +1882,7 @@
     (error 'sql-runtime-error :message "Scalar subquery must return max one row"))
   (if (null rows)
       :null
-      (caar rows)))
+      (aref (first rows) 0)))
 
 (defun ra-compute-index-if-absent (index k f)
   (multiple-value-bind (result resultp)
@@ -1900,16 +1901,18 @@
       (let ((len (apply #'max (mapcar #'fset:size arrays))))
         (reverse (if (eq :with-ordinality with-ordinality)
                      (loop for idx below len
-                           collect (append (loop for a in arrays
+                           collect (coerce (append (loop for a in arrays
+                                                         collect (if (< idx (fset:size a))
+                                                                     (fset:lookup a idx)
+                                                                     :null))
+                                                   (list idx))
+                                           'vector))
+                     (loop for idx below len
+                           collect (coerce (loop for a in arrays
                                                  collect (if (< idx (fset:size a))
                                                              (fset:lookup a idx)
                                                              :null))
-                                           (list idx)))
-                     (loop for idx below len
-                           collect (loop for a in arrays
-                                         collect (if (< idx (fset:size a))
-                                                     (fset:lookup a idx)
-                                                     :null)))))))))
+                                           'vector))))))))
 
 (defun ra-limit (rows limit offset)
   (subseq rows (or offset 0) (min (length rows)
@@ -1933,8 +1936,8 @@
                        for cmp = (ecase direction
                                    ((nil :asc) #'asc)
                                    (:desc #'desc))
-                       for xv = (nth (1- idx) x)
-                       for yv = (nth (1- idx) y)
+                       for xv = (aref x (1- idx))
+                       for yv = (aref y (1- idx))
                        thereis (funcall cmp xv yv)
                        until (funcall cmp yv xv))))))
 
@@ -2154,14 +2157,16 @@
 
 (defmethod agg-accumulate ((agg agg-array_agg) x &rest args)
   (with-slots (acc order-by) agg
-    (push (cons x args) acc)
+    (push (coerce (cons x args) 'vector) acc)
     agg))
 
 (defmethod agg-finish ((agg agg-array_agg))
   (with-slots (acc order-by) agg
-    (fset:convert 'fset:seq (mapcar #'car (if order-by
-                                              (ra-order-by acc order-by)
-                                              (reverse acc))))))
+    (fset:convert 'fset:seq (mapcar (lambda (row)
+                                      (aref row 0))
+                                    (if order-by
+                                        (ra-order-by acc order-by)
+                                        (reverse acc))))))
 
 (defstruct agg-object_agg (acc (make-hash-table :test +hash-table-test+)))
 
