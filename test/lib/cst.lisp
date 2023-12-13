@@ -61,18 +61,18 @@
 
 (test parse-escapes
   (let* ((sql "SELECT \"\\/f\\bo\\fo\\nb\\\\a\\\"\\tr\\r\\u03BB\"")
-         (result (caaadr (cst->ast sql (parse-sql-cst sql)))))
+         (result (caaadr (cst->ast (parse-sql-cst sql)))))
     (is (equalp (format nil "/f~Ao~Ao~Ab\\a\"~Ar~Aλ" #\Backspace #\Page #\NewLine #\Tab #\Return) result)))
 
   (let* ((sql "SELECT '\\/f\\0o\\fo\\nb\\\\a\\'\\v\\
 r\\r\\u03BB'")
-         (result (caaadr (cst->ast sql (parse-sql-cst sql)))))
+         (result (caaadr (cst->ast (parse-sql-cst sql)))))
     (is (equalp (format nil "/f~Ao~Ao~Ab\\a'~Ar~Aλ" #\Nul #\Page #\NewLine #\Vt #\Return) result))))
 
 (defun is-valid (sql)
   (is (equal
        (prin1-to-string (endb/lib/parser:parse-sql sql))
-       (prin1-to-string (cst->ast sql (parse-sql-cst sql))))))
+       (prin1-to-string (cst->ast (parse-sql-cst sql))))))
 
 (test cst-to-ast
   (is-valid "SELECT 1")

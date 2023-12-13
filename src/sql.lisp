@@ -118,10 +118,10 @@
 
 (defun %parse-sql (sql)
   (if *use-cst-parser-only*
-      (endb/lib/cst:cst->ast sql (endb/lib/cst:parse-sql-cst sql))
+      (endb/lib/cst:cst->ast (endb/lib/cst:parse-sql-cst sql))
       (let ((ast (endb/lib/parser:parse-sql sql)))
         (if *use-cst-parser*
-            (let ((ast-via-cst (endb/lib/cst:cst->ast sql (endb/lib/cst:parse-sql-cst sql))))
+            (let ((ast-via-cst (endb/lib/cst:cst->ast (endb/lib/cst:parse-sql-cst sql))))
               (assert (equal
                        (prin1-to-string ast)
                        (prin1-to-string ast-via-cst)))

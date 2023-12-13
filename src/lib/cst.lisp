@@ -60,7 +60,7 @@
   (funcall *parse-sql-cst-on-pattern* start end))
 
 (defparameter +kw-cache+ (make-hash-table))
-(defparameter +literal-cache+ (make-hash-table))
+(defvar *literal-cache*)
 
 (defun parse-sql-cst (input &key (filename ""))
   (endb/lib:init-lib)
@@ -69,6 +69,7 @@
       (let* ((result (list (list)))
              (err)
              (input-bytes (trivial-utf-8:string-to-utf-8-bytes input :null-terminate t))
+             (*literal-cache* (make-hash-table))
              (*parse-sql-cst-on-open* (lambda (label-ptr label-size)
                                         (let* ((address (cffi:pointer-address label-ptr))
                                                (kw (or (gethash address +kw-cache+)
@@ -83,12 +84,12 @@
                                          (push (nreverse (pop result)) (first result))))
              (*parse-sql-cst-on-literal* (lambda (literal-ptr literal-size start end)
                                            (let* ((address (cffi:pointer-address literal-ptr))
-                                                  (literal (or (gethash address +literal-cache+)
+                                                  (literal (or (gethash address *literal-cache*)
                                                                (let* ((literal-string (make-array literal-size :element-type 'character)))
                                                                  (dotimes (n literal-size)
                                                                    (setf (aref literal-string n)
                                                                          (code-char (cffi:mem-ref literal-ptr :char n))))
-                                                                 (setf (gethash address +literal-cache+) literal-string)))))
+                                                                 (setf (gethash address *literal-cache*) literal-string)))))
                                              (push (list literal start end) (first result)))))
              (*parse-sql-cst-on-pattern* (lambda (start end)
                                            (let ((token (trivial-utf-8:utf-8-bytes-to-string input-bytes :start start :end end)))
@@ -136,7 +137,7 @@
       (error err))
     (endb/lib/parser:strip-ansi-escape-codes result)))
 
-(defun cst->ast (input cst)
+(defun cst->ast (cst)
   (labels ((strip-delimiters (delimiters xs)
              (remove-if (lambda (x)
                           (trivia:match x
