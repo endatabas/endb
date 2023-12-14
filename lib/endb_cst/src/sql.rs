@@ -26,7 +26,7 @@ peg! {
     datetime_field <- YEAR / MONTH / DAY / HOUR / MINUTE / SECOND;
     interval_literal <- INTERVAL r#"('\d+(:?-\d+)?'|"\d+(:?-\d+)?")|('(:?\d+ )?\d{2}(:?\:\d{2})?(:?\:\d{2})?(:?\.\d+)?'|"(:?\d+ )?\d{2}(:?\:\d{2})?(:?\:\d{2})?(:?\.\d+)?")"# datetime_field ( TO datetime_field )?;
 
-    literal <-
+    <literal> <-
         iso_timestamp_literal
         / iso_date_literal
         / iso_time_literal
@@ -57,6 +57,7 @@ peg! {
     all_distinct <- ALL / DISTINCT;
 
     subquery <- "(" select_stmt ")";
+    scalar_subquery <- subquery;
     paren_expr <- "(" expr ")";
     extract_expr <- EXTRACT ^( "(" datetime_field FROM expr ")" );
     cast_expr <- CAST ^( "(" expr AS type_name ")" );
@@ -88,10 +89,10 @@ peg! {
     path_element <- path_object_label / path_array_access;
     path_expr <- "$" path_element*;
 
-    atom <-
+    <atom> <-
         literal
         / bind_parameter
-        / subquery
+        / scalar_subquery
         / paren_expr
         / extract_expr
         / cast_expr
@@ -113,15 +114,15 @@ peg! {
     property_bracket_wildcard_access <- "[" star "]";
     property_recursive_bracket_access <- ".." ( property_bracket_access / property_bracket_wildcard_access );
 
-    property_access <- property_field_access / property_recursive_field_access / property_bracket_access / property_bracket_wildcard_access / property_recursive_bracket_access;
-    access_expr <- atom property_access*;
-    unary_expr <- ("+" / "-" / "~" )* access_expr;
-    concat_expr <- unary_expr ( "||" unary_expr )*;
-    mul_expr <- concat_expr ( ( "*" / "/" / "%" ) concat_expr )*;
-    add_expr <- mul_expr ( ( "+" / "-" ) mul_expr )*;
-    bit_expr <- add_expr ( ( "<<" / ">>" / "&" / "|" ) add_expr )*;
-    rel_expr <- bit_expr ( ( "<=" / "<" / ">=" / ">" ) bit_expr )*;
-    equal_expr <-
+    <property_access> <- property_field_access / property_recursive_field_access / property_bracket_access / property_bracket_wildcard_access / property_recursive_bracket_access;
+    <access_expr> <- atom property_access*;
+    <unary_expr> <- ("+" / "-" / "~" )* access_expr;
+    <concat_expr> <- unary_expr ( "||" unary_expr )*;
+    <mul_expr> <- concat_expr ( ( "*" / "/" / "%" ) concat_expr )*;
+    <add_expr> <- mul_expr ( ( "+" / "-" ) mul_expr )*;
+    <bit_expr> <- add_expr ( ( "<<" / ">>" / "&" / "|" ) add_expr )*;
+    <rel_expr> <- bit_expr ( ( "<=" / "<" / ">=" / ">" ) bit_expr )*;
+    <equal_expr> <-
         rel_expr (
             ( ( "==" / "=" / "!=" / "<>" / OVERLAPS / EQUALS / CONTAINS / IMMEDIATELY? PRECEDES / IMMEDIATELY? SUCCEEDS ) rel_expr )
                 / NOT? ( LIKE ^( rel_expr ( ESCAPE rel_expr )? ) / ( GLOB / REGEXP / MATCH / "@>" ) ^rel_expr )
@@ -131,11 +132,11 @@ peg! {
                 / NOT? IN ^( subquery / paren_expr_list / empty_list / table_name )
         )*;
 
-    not_expr <- NOT* equal_expr;
-    and_expr <- not_expr ( AND not_expr )*;
-    or_expr <- and_expr ( OR and_expr )*;
+    <not_expr> <- NOT* equal_expr;
+    <and_expr> <- not_expr ( AND not_expr )*;
+    <or_expr> <- and_expr ( OR and_expr )*;
 
-    expr <- or_expr;
+    <expr> <- or_expr;
 
     column_alias <- ident;
     table_name <- INFORMATION_SCHEMA "." ident / ident;
@@ -230,7 +231,7 @@ peg! {
     drop_table_stmt <- DROP TABLE if_exists? table_name;
     drop_view_stmt <- DROP VIEW if_exists? view_name;
 
-    sql_stmt <-
+    <sql_stmt> <-
         select_stmt
         / insert_stmt
         / delete_stmt

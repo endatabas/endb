@@ -23,8 +23,12 @@ pub enum Event<'a> {
     Open {
         label: &'a str,
         pos: usize,
+        hide: bool,
     },
-    Close,
+    Close {
+        open_idx: usize,
+        hide: bool,
+    },
     Literal {
         literal: &'a str,
         range: Range<usize>,
@@ -71,7 +75,9 @@ fn events_to_sexp_into(
 
     for e in events {
         match e {
-            Event::Open { label, .. } => {
+            Event::Open {
+                label, hide: false, ..
+            } => {
                 if !out.is_empty() {
                     out.push(' ');
                 }
@@ -79,6 +85,7 @@ fn events_to_sexp_into(
                 out.push_str(label);
                 out.push('|');
             }
+            Event::Open { hide: true, .. } => {}
             Event::Pattern { ref range } | Event::Literal { ref range, .. } => {
                 out.push_str(" (\"");
                 out.push_str(&src[range.clone()].replace('"', "\\\""));
@@ -88,7 +95,8 @@ fn events_to_sexp_into(
                 write!(out, "{}", range.end)?;
                 out.push(')');
             }
-            Event::Close => out.push(')'),
+            Event::Close { hide: false, .. } => out.push(')'),
+            Event::Close { hide: true, .. } => {}
             Event::Error { .. } => {}
         }
     }
@@ -107,10 +115,15 @@ pub fn events_to_errors<'a>(events: &'a [Event<'a>]) -> Vec<ParseError<'a>> {
     let mut max_error_pos = 0;
     for e in events {
         match e {
-            Event::Open { label, pos } => {
+            Event::Open {
+                hide: false,
+                label,
+                pos,
+                ..
+            } => {
                 context.push((*label, *pos));
             }
-            Event::Close => {
+            Event::Close { hide: false, .. } => {
                 context.pop().expect("unbalanced tree");
             }
             Event::Error {

@@ -123,13 +123,13 @@ pub extern "C" fn endb_arrow_array_stream_consumer(
     }
 }
 
-type endb_parse_sql_cst_on_open_callback = extern "C" fn(*const u8, usize);
+type endb_parse_sql_cst_on_open_callback = extern "C" fn(*const u8, u32);
 
 type endb_parse_sql_cst_on_close_callback = extern "C" fn();
 
-type endb_parse_sql_cst_on_literal_callback = extern "C" fn(*const u8, usize, usize, usize);
+type endb_parse_sql_cst_on_literal_callback = extern "C" fn(*const u8, u32, u32, u32);
 
-type endb_parse_sql_cst_on_pattern_callback = extern "C" fn(usize, usize);
+type endb_parse_sql_cst_on_pattern_callback = extern "C" fn(u32, u32);
 
 #[no_mangle]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
@@ -149,19 +149,31 @@ pub extern "C" fn endb_parse_sql_cst(
 
     match endb_cst::sql::sql_stmt_list(input, 0, &mut state) {
         Ok(_) => {
-            for e in state.events {
+            for e in state.events.iter().rev() {
                 match e {
-                    endb_cst::Event::Open { label, .. } => {
-                        on_open(label.as_ptr(), label.len());
+                    endb_cst::Event::Open {
+                        hide: false, label, ..
+                    } => {
+                        on_open(label.as_ptr(), label.len().try_into().unwrap());
                     }
-                    endb_cst::Event::Close {} => {
+                    endb_cst::Event::Open { hide: true, .. } => {}
+                    endb_cst::Event::Close { hide: false, .. } => {
                         on_close();
                     }
+                    endb_cst::Event::Close { hide: true, .. } => {}
                     endb_cst::Event::Literal { literal, range } => {
-                        on_literal(literal.as_ptr(), literal.len(), range.start, range.end);
+                        on_literal(
+                            literal.as_ptr(),
+                            literal.len().try_into().unwrap(),
+                            range.start.try_into().unwrap(),
+                            range.end.try_into().unwrap(),
+                        );
                     }
                     endb_cst::Event::Pattern { range, .. } => {
-                        on_pattern(range.start, range.end);
+                        on_pattern(
+                            range.start.try_into().unwrap(),
+                            range.end.try_into().unwrap(),
+                        );
                     }
                     endb_cst::Event::Error { .. } => {}
                 }

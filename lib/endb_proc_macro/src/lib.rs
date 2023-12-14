@@ -292,6 +292,7 @@ struct Rule {
     visibility: Option<Visibility>,
     id: Ident,
     body: PegParser,
+    hide: bool,
 }
 
 impl ToTokens for Rule {
@@ -301,20 +302,42 @@ impl ToTokens for Rule {
         let body = &self.body;
         let id_string = id.to_string();
 
+        let hide_src = if self.hide {
+            quote! {
+                let mut close_event = Event::Close { hide: false, open_idx };
+                if let Event::Close { open_idx: event_open_idx, .. } = &state.events[state.events.len() - 1] {
+                    if *event_open_idx == open_idx + 1 {
+                        close_event = Event::Close { hide: true, open_idx };
+                        if let Event::Open { ref mut hide, .. } = state.events[open_idx] {
+                            *hide = true;
+                        }
+                    }
+                }
+            }
+        } else {
+            quote! {
+                let close_event = Event::Close { hide: false, open_idx };
+            }
+        };
+
         quote_spanned! {
                 id.span()=>
                 #[allow(clippy::redundant_closure_call)]
                 #visibility fn #id<'a, 'b: 'a>(input: &'a str, pos: usize, state: &mut ParseState<'b>) -> ParseResult {
-                    state.events.push(Event::Open { label: #id_string, pos });
+                    let open_idx = state.events.len();
+                    let open_event = Event::Open { label: #id_string, pos, hide: false };
+                    state.events.push(open_event.clone());
                     if state.track_errors {
-                        state.errors.push(Event::Open { label: #id_string, pos });
+                        state.errors.push(open_event.clone());
                     }
 
                     let result = (#body)(input, pos, state);
 
-                    state.events.push(Event::Close);
+                    #hide_src
+
+                    state.events.push(close_event.clone());
                     if state.track_errors {
-                        state.errors.push(Event::Close);
+                        state.errors.push(close_event);
                     }
 
                     result
@@ -326,7 +349,11 @@ impl ToTokens for Rule {
 impl Parse for Rule {
     fn parse(input: ParseStream) -> Result<Self> {
         let visibility = input.parse::<Visibility>().ok();
+        let hide = input.parse::<Token![<]>().is_ok();
         let id = input.parse::<Ident>()?;
+        if hide {
+            input.parse::<Token![>]>()?;
+        }
         input.parse::<Token![<]>()?;
         input.parse::<Token![-]>()?;
 
@@ -335,6 +362,7 @@ impl Parse for Rule {
             visibility,
             id,
             body,
+            hide,
         })
     }
 }
