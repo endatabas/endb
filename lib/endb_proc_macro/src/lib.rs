@@ -96,21 +96,21 @@ impl ToTokens for PegParser {
                     lazy_static::lazy_static! {
                         static ref RE: regex::Regex = regex::Regex::new(#pattern).unwrap();
                     }
-                    match RE.find_at(input, pos as usize) {
-                        Some(m) if m.range().start == (pos as usize) => {
+                    match RE.find(&input[(pos as usize)..]) {
+                        Some(m) => {
                             let range = m.range();
+                            let new_pos = (pos as usize) + range.end;
                             if !range.is_empty() {
                                 state.events.push(Event::Pattern {
-                                    range: (range.start.try_into().unwrap())..(range.end.try_into().unwrap()),
+                                    range: pos..new_pos.try_into().unwrap(),
                                 });
                             }
 
-                            let pos = range.end;
-                            match WHITESPACE.find_at(input, pos) {
-                                Some(m) if m.range().start == pos => {
-                                    Ok(m.range().end.try_into().unwrap())
+                            match WHITESPACE.find(&input[new_pos..]) {
+                                Some(m) => {
+                                    Ok((new_pos + m.range().end).try_into().unwrap())
                                 }
-                                _ => Ok(pos.try_into().unwrap())
+                                _ => Ok(new_pos.try_into().unwrap())
                             }
                         }
                         _ => {
@@ -149,12 +149,12 @@ impl ToTokens for PegParser {
                                     range: (range.start.try_into().unwrap())..(range.end.try_into().unwrap())
                                 });
                             }
-                            let pos = range.end;
-                            match WHITESPACE.find_at(input, pos) {
-                                Some(m) if m.range().start == pos => {
-                                    Ok(m.range().end.try_into().unwrap())
+                            let new_pos = range.end;
+                            match WHITESPACE.find(&input[new_pos..]) {
+                                Some(m) => {
+                                    Ok((new_pos + m.range().end).try_into().unwrap())
                                 }
-                                _ => Ok(pos.try_into().unwrap())
+                                _ => Ok(new_pos.try_into().unwrap())
                             }
                         } else {
                             if state.track_errors {

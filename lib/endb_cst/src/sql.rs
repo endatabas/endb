@@ -2,29 +2,29 @@ use crate::{Event, ParseErr, ParseErrorDescriptor, ParseResult, ParseState};
 use endb_proc_macro::peg;
 
 lazy_static::lazy_static! {
-    static ref WHITESPACE: regex::Regex = regex::Regex::new("(\\s+|--[^\n\r]*)*").unwrap();
+    static ref WHITESPACE: regex::Regex = regex::Regex::new(r"\A(\s+|--[^\n\r]*)*").unwrap();
 }
 
 peg! {
 
-    ident <- r"\b\p{XID_START}\p{XID_CONTINUE}*\b";
+    ident <- r"\A\b\p{XID_START}\p{XID_CONTINUE}*\b";
 
-    numeric_literal <- r"\b(0[xX][0-9A-Fa-f]+|[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?)\b";
-    string_literal <- r#"(?s)("(?:[^\\"]|\\.)*"|'(?:[^\\']|''|\\.)*')"#;
-    blob_literal <- r#"(\b[xX]'[0-9A-Fa-f]*?'|[xX]"[0-9A-Fa-f]*?")"#;
+    numeric_literal <- r"\A\b(0[xX][0-9A-Fa-f]+|[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?)\b";
+    string_literal <- r#"\A(?s)("(?:[^\\"]|\\.)*"|'(?:[^\\']|''|\\.)*')"#;
+    blob_literal <- r#"\A(\b[xX]'[0-9A-Fa-f]*?'|[xX]"[0-9A-Fa-f]*?")"#;
 
-    iso_time_literal <- r"\d{2}:\d{2}:\d{2}(:?\.\d+)?";
-    iso_date_literal <- r"\d{4}-\d{2}-\d{2}";
-    iso_timestamp_literal <- r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(:?\.\d+)?Z?";
+    iso_time_literal <- r"\A\d{2}:\d{2}:\d{2}(:?\.\d+)?";
+    iso_date_literal <- r"\A\d{4}-\d{2}-\d{2}";
+    iso_timestamp_literal <- r"\A\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(:?\.\d+)?Z?";
 
-    time_literal <- TIME r#"('\d{2}:\d{2}:\d{2}(:?\.\d+)?'|"\d{2}:\d{2}:\d{2}(:?\.\d+)?")"#;
-    date_literal <- DATE r#"('\d{4}-\d{2}-\d{2}'|"\d{4}-\d{2}-\d{2}")"#;
-    timestamp_literal <- TIMESTAMP r#"('\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(:?\.\d+)?Z?'|"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(:?\.\d+)?Z?")"#;
+    time_literal <- TIME r#"\A('\d{2}:\d{2}:\d{2}(:?\.\d+)?'|"\d{2}:\d{2}:\d{2}(:?\.\d+)?")"#;
+    date_literal <- DATE r#"\A('\d{4}-\d{2}-\d{2}'|"\d{4}-\d{2}-\d{2}")"#;
+    timestamp_literal <- TIMESTAMP r#"\A('\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(:?\.\d+)?Z?'|"\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(:?\.\d+)?Z?")"#;
 
-    iso_duration_literal <- r"P(\d+(:?[,.]\d+)?[YMD])+(T(\d+(:?[,.]\d+)?[HMS])+)?" / r"PT(\d+(:?[,.]\d+)?[HMS])+";
+    iso_duration_literal <- r"\AP(\d+(:?[,.]\d+)?[YMD])+(T(\d+(:?[,.]\d+)?[HMS])+)?" / r"\APT(\d+(:?[,.]\d+)?[HMS])+";
 
     datetime_field <- YEAR / MONTH / DAY / HOUR / MINUTE / SECOND;
-    interval_literal <- INTERVAL r#"('\d+(:?-\d+)?'|"\d+(:?-\d+)?")|('(:?\d+ )?\d{2}(:?\:\d{2})?(:?\:\d{2})?(:?\.\d+)?'|"(:?\d+ )?\d{2}(:?\:\d{2})?(:?\:\d{2})?(:?\.\d+)?")"# datetime_field ( TO datetime_field )?;
+    interval_literal <- INTERVAL r#"\A('\d+(:?-\d+)?'|"\d+(:?-\d+)?")|('(:?\d+ )?\d{2}(:?\:\d{2})?(:?\:\d{2})?(:?\.\d+)?'|"(:?\d+ )?\d{2}(:?\:\d{2})?(:?\:\d{2})?(:?\.\d+)?")"# datetime_field ( TO datetime_field )?;
 
     <literal> <-
         iso_timestamp_literal
@@ -45,7 +45,7 @@ peg! {
         / CURRENT_DATE
         / CURRENT_TIMESTAMP;
 
-    bind_parameter <- r"(:?\?|:\p{XID_START}\p{XID_CONTINUE}*\b)";
+    bind_parameter <- r"\A(:?\?|:\p{XID_START}\p{XID_CONTINUE}*\b)";
 
     simple_func <- ident;
     type_name <- ident;
@@ -246,6 +246,6 @@ peg! {
         / drop_table_stmt
         / drop_view_stmt;
 
-    pub sql_stmt_list <- r"^" sql_stmt ( ";" sql_stmt )* ";"? !r".";
+    pub sql_stmt_list <- r"\A" sql_stmt ( ";" sql_stmt )* ";"? !r"\A.";
 
 }

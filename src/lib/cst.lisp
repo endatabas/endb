@@ -117,7 +117,7 @@
 
 (defun cst->ast (cst)
   (labels ((strip-delimiters (delimiters xs)
-             (remove-if (lambda (x)
+             (delete-if (lambda (x)
                           (trivia:match x
                             ((trivia:guard (cons x _)
                                            (member x delimiters))
