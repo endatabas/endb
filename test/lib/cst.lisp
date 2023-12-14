@@ -11,10 +11,10 @@
 (test parse-cst
   (is (equal `(:|sql_stmt_list|
                 (:|select_stmt|
-                  (:|select_core| ("SELECT" 0 6)
+                  (:|select_core| (:SELECT . 0)
                     (:|result_expr_list|
                       (:|result_column|
-                        (:|numeric_literal| ("1" 7 8)))))))
+                        (:|numeric_literal| ("1" . 7)))))))
              (parse-sql-cst "SELECT 1"))))
 
 (defvar report-json

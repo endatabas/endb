@@ -55,23 +55,23 @@
 
 (cffi:defcallback parse-sql-cst-on-literal :void
     ((address :uintptr)
-     (literal-size :uint32)
      (start :uint32)
      (end :uint32))
   (let* ((literal (or (gethash address +literal-cache+)
                       (let* ((literal-ptr (cffi:make-pointer address))
+                             (literal-size (- end start))
                              (literal-string (make-array literal-size :element-type 'character)))
                         (dotimes (n literal-size)
                           (setf (aref literal-string n)
                                 (code-char (cffi:mem-ref literal-ptr :char n))))
-                        (setf (gethash address +literal-cache+) literal-string)))))
-    (push (list literal start end) (first *parse-result*))))
+                        (setf (gethash address +literal-cache+) (intern literal-string :keyword))))))
+    (push (cons literal start) (first *parse-result*))))
 
 (cffi:defcallback parse-sql-cst-on-pattern :void
     ((start :uint32)
      (end :uint32))
   (let ((token (trivial-utf-8:utf-8-bytes-to-string *parse-input-bytes* :start start :end end)))
-    (push (list token start end) (first *parse-result*))))
+    (push (cons token start) (first *parse-result*))))
 
 (defun parse-sql-cst (input &key (filename ""))
   (endb/lib:init-lib)
@@ -91,7 +91,7 @@
                               (cffi:callback parse-sql-cst-on-error)))
         (when *parse-err*
           (error 'endb/lib/parser:sql-parse-error :message *parse-err*))
-        (caar *parse-result*))))
+        (values (caar *parse-result*) *parse-input-bytes*))))
 
 (defvar *render-json-error-report-on-success*)
 
@@ -125,63 +125,63 @@
   (labels ((strip-delimiters (delimiters xs)
              (remove-if (lambda (x)
                           (trivia:match x
-                            ((trivia:guard (list x _ _)
-                                           (member x delimiters :test 'equalp))
+                            ((trivia:guard (cons x _)
+                                           (member x delimiters))
                              t)))
                         xs))
            (binary-equal-op-tree (acc xs)
              (trivia:ematch xs
-               ((list* (list "IMMEDIATELY" _ _) (list "PRECEDES" _ _) x xs)
+               ((list* (cons :IMMEDIATELY _) (cons :PRECEDES _) x xs)
                 (binary-equal-op-tree (list :immediately_precedes acc (walk x)) xs))
-               ((list* (list "IMMEDIATELY" _ _) (list "SUCCEEDS" _ _) x xs)
+               ((list* (cons :IMMEDIATELY _) (list :SUCCEEDS _) x xs)
                 (binary-equal-op-tree (list :immediately_succeeds acc (walk x)) xs))
-               ((list* (list "BETWEEN" _ _) x (list "AND" _ _) y xs)
+               ((list* (cons :BETWEEN _) x (cons :AND _) y xs)
                 (binary-equal-op-tree (list :between acc (walk x) (walk y)) xs))
-               ((list* (list "NOT" _ _) (list "BETWEEN" _ _) x (list "AND" _ _) y xs)
+               ((list* (cons :NOT _) (cons :BETWEEN _) x (cons :AND _) y xs)
                 (binary-equal-op-tree (list :not (list :between acc (walk x) (walk y))) xs))
-               ((list* (list "LIKE" _ _) x (list "ESCAPE" _ _) y xs)
+               ((list* (cons :LIKE _) x (cons :ESCAPE _) y xs)
                 (binary-equal-op-tree (list :like acc (walk x) (walk y)) xs))
-               ((list* (list "NOT" _ _) (list "LIKE" _ _) x (list "ESCAPE" _ _) y xs)
+               ((list* (cons :NOT _) (cons :LIKE _) x (cons :ESCAPE _) y xs)
                 (binary-equal-op-tree (list :not (list :like acc (walk x) (walk y))) xs))
-               ((list* (list "NOT" _ _) (list "IN" _ _) (and x (list* :|subquery| _)) xs)
+               ((list* (cons :NOT _) (cons :IN _) (and x (list* :|subquery| _)) xs)
                 (binary-equal-op-tree (list :not (list :in-query acc (walk x))) xs))
-               ((list* (list "IN" _ _) (and x (list* :|subquery| _)) xs)
+               ((list* (cons :IN _) (and x (list* :|subquery| _)) xs)
                 (binary-equal-op-tree (list :in-query acc (walk x)) xs))
-               ((list* (list "NOT" _ _) (list "IN" _ _) (list :|table_name| x) xs)
+               ((list* (cons :NOT _) (cons :IN _) (list :|table_name| x) xs)
                 (binary-equal-op-tree (list :not (list :in-query acc (walk x))) xs))
-               ((list* (list "IN" _ _) (list :|table_name| x) xs)
+               ((list* (cons :IN _) (list :|table_name| x) xs)
                 (binary-equal-op-tree (list :in-query acc (walk x)) xs))
-               ((list* (list "NOT" _ _) (list "NULL" _ _) xs)
+               ((list* (cons :NOT _) (cons :NULL _) xs)
                 (binary-equal-op-tree (list :not (list :is acc :null)) xs))
-               ((list* (list (and op (type string)) _ _) (list "NOT" _ _) x xs)
-                (binary-equal-op-tree (list :not (list (intern op :keyword) acc (walk x))) xs))
-               ((list* (list "NOT" _ _) (list (and op (type string)) _ _) x xs)
-                (binary-equal-op-tree (list :not (list (intern op :keyword) acc (walk x))) xs))
-               ((list* (list "==" _ _) x xs)
+               ((list* (cons (and op (type keyword)) _) (cons :NOT _) x xs)
+                (binary-equal-op-tree (list :not (list op acc (walk x))) xs))
+               ((list* (cons :NOT _) (cons (and op (type keyword)) _) x xs)
+                (binary-equal-op-tree (list :not (list op acc (walk x))) xs))
+               ((list* (cons :== _) x xs)
                 (binary-equal-op-tree (list := acc (walk x)) xs))
-               ((list* (list "!=" _ _) x xs)
+               ((list* (cons :!= _) x xs)
                 (binary-equal-op-tree (list :<> acc (walk x)) xs))
-               ((list* (list "@>" _ _) x xs)
+               ((list* (cons :@> _) x xs)
                 (binary-equal-op-tree (list :match acc (walk x)) xs))
-               ((list* (list (and op (type string)) _ _) x xs)
-                (binary-equal-op-tree (list (intern op :keyword) acc (walk x)) xs))
+               ((list* (cons (and op (type keyword)) _) x xs)
+                (binary-equal-op-tree (list op acc (walk x)) xs))
                (() acc)))
            (binary-op-tree (acc xs)
              (trivia:ematch xs
-               ((list* (list op _ _) x xs)
-                (binary-op-tree (list (intern op :keyword) acc (walk x)) xs))
+               ((list* (cons op _) x xs)
+                (binary-op-tree (list op acc (walk x)) xs))
                (() acc)))
            (flatten-join (acc xs)
              (trivia:ematch xs
-               ((list* (list* :|join_operator| (list op _ _) _) x (list :|join_constraint| _ expr) xs)
+               ((list* (list* :|join_operator| (cons op _) _) x (list :|join_constraint| _ expr) xs)
                 (flatten-join (list (append (butlast acc)
                                             (list :join (first (last acc)) (walk x)
                                                   :on (walk expr)
-                                                  :type (if (equal "LEFT" op)
+                                                  :type (if (eq :LEFT op)
                                                             :left
                                                             :inner))))
                               xs))
-               ((list* (list* :|join_operator| (list "LEFT" _ _) _) x xs)
+               ((list* (list* :|join_operator| (cons :LEFT _) _) x xs)
                 (flatten-join (list (append (butlast acc)
                                             (list :join (first (last acc)) (walk x)
                                                   :on :true
@@ -194,24 +194,26 @@
                (() acc)))
            (build-compound-select-stmt (acc xs)
              (trivia:ematch xs
-               ((list* (list :|compound_operator| (list "UNION" _ _) (list "ALL" _ _)) x xs)
+               ((list* (list :|compound_operator| (cons :UNION _) (cons :ALL _)) x xs)
                 (build-compound-select-stmt (list :union-all acc (walk x)) xs))
-               ((list* (list :|compound_operator| (list op _ _)) x xs)
-                (build-compound-select-stmt (list (intern op :keyword) acc (walk x)) xs))
+               ((list* (list :|compound_operator| (cons op _)) x xs)
+                (build-compound-select-stmt (list op acc (walk x)) xs))
                ((list* xs)
                 (append acc (mapcan #'walk xs)))))
            (walk (cst)
              (trivia:ematch cst
-               ((list :|ident| (list id start end))
-                (let ((s (make-symbol id)))
+               ((list :|ident| (cons id start))
+                (let* ((end (+ start (trivial-utf-8:utf-8-byte-length id)))
+                       (s (make-symbol id)))
                   (setf (get s :start) start (get s :end) end)
                   s))
 
-               ((list :|bind_parameter| (list "?" _ _))
+               ((list :|bind_parameter| (cons "?" _))
                 (list :parameter))
 
-               ((list :|bind_parameter| (list parameter start end))
-                (list :parameter (let ((s (make-symbol (subseq parameter 1))))
+               ((list :|bind_parameter| (cons parameter start))
+                (list :parameter (let ((s (make-symbol (subseq parameter 1)))
+                                       (end (+ start (trivial-utf-8:utf-8-byte-length parameter))))
                                    (setf (get s :start) start (get s :end) end)
                                    s)))
 
@@ -219,9 +221,9 @@
                 (walk x))
 
                ((list* :|sql_stmt_list| xs)
-                (list :multiple-statments (mapcar #'walk (strip-delimiters '(";") xs))))
+                (list :multiple-statments (mapcar #'walk (strip-delimiters '(:|;|) xs))))
 
-               ((list* :|select_stmt| (and with (list* :|with_clause| _ (list "RECURSIVE" _ _) _)) xs)
+               ((list* :|select_stmt| (and with (list* :|with_clause| _ (cons :RECURSIVE _) _)) xs)
                 (append (walk with) (list (walk (cons :|select_stmt| xs))) (list :recursive :recursive)))
 
                ((list* :|select_stmt| (and with (list* :|with_clause| _)) xs)
@@ -231,14 +233,14 @@
                 (build-compound-select-stmt (walk x) xs))
 
                ((list* :|create_table_stmt| _ _ table-name xs)
-                (list :create-table (walk table-name) (remove nil (mapcar #'walk (strip-delimiters '("(" ")" ",") xs)))))
+                (list :create-table (walk table-name) (remove nil (mapcar #'walk (strip-delimiters '(:|(| :|)| :|,|) xs)))))
 
                ((list* :|column_def| column-name _)
                 (walk column-name))
 
                ((list* :|table_constraint| _))
 
-               ((list* :|create_index_stmt| _ (list "UNIQUE" _ _) _ index-name _ table-name _)
+               ((list* :|create_index_stmt| _ (cons :UNIQUE _) _ index-name _ table-name _)
                 (list :create-index (walk index-name) (walk table-name)))
 
                ((list* :|create_index_stmt| _ _ index-name _ table-name _)
@@ -247,7 +249,7 @@
                ((list :|create_view_stmt| _ _ view-name _ query)
                 (list :create-view (walk view-name) (walk query)))
 
-               ((list :|create_view_stmt| _ (or (list "TEMP" _ _) (list "TEMPORARY" _ _)) _ view-name _ query)
+               ((list :|create_view_stmt| _ (or (cons :TEMP _) (cons :TEMPORARY _)) _ view-name _ query)
                 (list :create-view (walk view-name) (walk query)))
 
                ((list :|create_view_stmt| _ _ view-name column-name-list _ query)
@@ -307,10 +309,10 @@
                 (list (walk target) (walk expr)))
 
                ((list* :|update_set_clause| _ xs)
-                (list (mapcar #'walk (strip-delimiters '(",") xs))))
+                (list (mapcar #'walk (strip-delimiters '(:|,|) xs))))
 
                ((list* :|update_remove_clause| _ xs)
-                (cons :unset (list (mapcar #'walk (strip-delimiters '(",") xs)))))
+                (cons :unset (list (mapcar #'walk (strip-delimiters '(:|,|) xs)))))
 
                ((list :|update_patch_clause| _ expr)
                 (list :patch (walk expr)))
@@ -346,34 +348,34 @@
                 (list :drop-assertion (walk assertion-name) :if-exists :if-exists))
 
                ((list* :|column_name_list| xs)
-                (mapcar #'walk (strip-delimiters '("(" ")" ",") xs)))
+                (mapcar #'walk (strip-delimiters '(:|(| :|)| :|,|) xs)))
 
-               ((list :|all_distinct| (list "ALL" _ _))
+               ((list :|all_distinct| (cons :ALL _))
                 (list :distinct :all))
 
-               ((list :|all_distinct| (list "DISTINCT" _ _))
+               ((list :|all_distinct| (cons :DISTINCT _))
                 (list :distinct :distinct))
 
-               ((list* :|select_core| (list "SELECT" _ _) (and all-distinct (list :|all_distinct| _)) result-expr-list xs)
+               ((list* :|select_core| (cons :SELECT _) (and all-distinct (list :|all_distinct| _)) result-expr-list xs)
                 (append (cons :select (walk result-expr-list)) (walk all-distinct) (mapcan #'walk xs)))
 
-               ((list* :|select_core| (list "SELECT" _ _) xs)
+               ((list* :|select_core| (cons :SELECT _) xs)
                 (cons :select (mapcan #'walk xs)))
 
                ((list* :|values_clause| _ xs)
-                (cons :values (list (mapcar #'walk (strip-delimiters '(",") xs)))))
+                (cons :values (list (mapcar #'walk (strip-delimiters '(:|,|) xs)))))
 
-               ((list* :|objects_clause| (list "OBJECTS" _ _) xs)
-                (cons :objects (list (mapcar #'walk (strip-delimiters '(",") xs)))))
+               ((list* :|objects_clause| (cons :OBJECTS _) xs)
+                (cons :objects (list (mapcar #'walk (strip-delimiters '(:|,|) xs)))))
 
                ((list* :|objects_clause| xs)
-                (cons :objects (list (mapcar #'walk (strip-delimiters '(",") xs)))))
+                (cons :objects (list (mapcar #'walk (strip-delimiters '(:|,|) xs)))))
 
-               ((list* :|with_clause| _ (list "RECURSIVE" _ _) xs)
-                (list :with (mapcar #'walk (strip-delimiters '(",") xs))))
+               ((list* :|with_clause| _ (cons :RECURSIVE _) xs)
+                (list :with (mapcar #'walk (strip-delimiters '(:|,|) xs))))
 
                ((list* :|with_clause| _ xs)
-                (list :with (mapcar #'walk (strip-delimiters '(",") xs))))
+                (list :with (mapcar #'walk (strip-delimiters '(:|,|) xs))))
 
                ((list :|common_table_expression| table-name _ subquery)
                 (list (walk table-name) (walk subquery)))
@@ -382,7 +384,7 @@
                 (list (walk table-name) (walk subquery) (walk column-name-list)))
 
                ((list* :|result_expr_list| xs)
-                (list (mapcar #'walk (strip-delimiters '(",") xs))))
+                (list (mapcar #'walk (strip-delimiters '(:|,|) xs))))
 
                ((list :|result_column| (list :|star| _))
                 (list :*))
@@ -405,19 +407,19 @@
                ((list* :|join_clause| x xs)
                 (flatten-join (list (walk x)) xs))
 
-               ((list :|table_name| (list "INFORMATION_SCHEMA" start _) _ table-name)
+               ((list :|table_name| (cons :INFORMATION_SCHEMA start) _ table-name)
                 (let* ((table-name (walk table-name))
                        (s (make-symbol (concatenate 'string "information_schema." (symbol-name table-name)))))
                   (setf (get s :start) start (get s :end) (get table-name :end))
                   s))
 
-               ((list :|system_time_clause| _ _ (list "ALL" _ _))
+               ((list :|system_time_clause| _ _ (cons :ALL _))
                 (list (list :all)))
 
-               ((list :|system_time_clause| _ _ _ from (list "TO" _ _) to)
+               ((list :|system_time_clause| _ _ _ from (cons :TO _) to)
                 (list (list :from (walk from) (walk to))))
 
-               ((list :|system_time_clause| _ _ _ from (list "AND" _ _) to)
+               ((list :|system_time_clause| _ _ _ from (cons :AND _) to)
                 (list (list :between (walk from) (walk to))))
 
                ((list :|system_time_clause| _ _ _ _ as-of)
@@ -435,7 +437,7 @@
                ((list :|table_or_subquery| (and unnest (list* :|unnest_table_function| _)) _ alias)
                 (cons (walk unnest) (walk alias)))
 
-               ((list :|table_or_subquery| (list "(" _ _) join-clause (list ")" _ _))
+               ((list :|table_or_subquery| (cons :|(| _) join-clause (cons :|)| _))
                 (append (cons :join (walk join-clause)) (list :on :true :type :inner)))
 
                ((list :|table_or_subquery| table-name (and sys-time (list* :|system_time_clause| _)))
@@ -475,7 +477,7 @@
                 (list :having (walk expr)))
 
                ((list* :|order_by_clause| _ _ xs)
-                (list :order-by (mapcar #'walk (strip-delimiters '(",") xs))))
+                (list :order-by (mapcar #'walk (strip-delimiters '(:|,|) xs))))
 
                ((list :|limit_offset_clause| _ limit)
                 (list :limit (walk limit)))
@@ -483,8 +485,8 @@
                ((list :|limit_offset_clause| _ limit _ offset)
                 (list :limit (walk limit) :offset (walk offset)))
 
-               ((list :|ordering_term| expr (list dir _ _))
-                (list (walk expr) (intern dir :keyword)))
+               ((list :|ordering_term| expr (cons dir _))
+                (list (walk expr) dir))
 
                ((list :|ordering_term| expr)
                 (list (walk expr) :asc))
@@ -518,8 +520,8 @@
                  (mapcar #'walk xs)
                  :initial-value (walk expr)))
 
-               ((list* :|unary_expr| (list (and op (type string)) _ _) xs)
-                (list (intern op :keyword) (walk (cons :|unary_expr| xs))))
+               ((list* :|unary_expr| (cons (and op (or :+ :- :~)) _) xs)
+                (list op (walk (cons :|unary_expr| xs))))
 
                ((list* :|concat_expr| x xs)
                 (binary-op-tree (walk x) xs))
@@ -539,7 +541,7 @@
                ((list* :|equal_expr| x xs)
                 (binary-equal-op-tree (walk x) xs))
 
-               ((list* :|not_expr| (list "NOT" _ _) xs)
+               ((list* :|not_expr| (cons :NOT _) xs)
                 (list :not (walk (cons :|not_expr| xs))))
 
                ((list* :|and_expr| x xs)
@@ -557,34 +559,34 @@
                ((list :|simple_function_invocation| simple-func _ expr-list _)
                 (list :function (walk simple-func) (walk expr-list)))
 
-               ((list :|aggregate_func| (list fn _ _))
-                (intern (string-upcase fn) :keyword))
+               ((list :|aggregate_func| (cons fn _))
+                fn)
 
                ((list* :|aggregate_function_invocation| aggregate-func _ (and all-distinct (list :|all_distinct| _)) (list :|star| _) xs)
                 (append (list :aggregate-function (intern (string-upcase (concatenate 'string (symbol-name (walk aggregate-func)) "-star")) :keyword))
                         (list nil)
-                        (mapcan #'walk (strip-delimiters '(")") xs))
+                        (mapcan #'walk (strip-delimiters '(:|)|) xs))
                         (walk all-distinct)))
 
                ((list* :|aggregate_function_invocation| aggregate-func _ (list :|star| _) xs)
                 (append (list :aggregate-function (intern (string-upcase (concatenate 'string (symbol-name (walk aggregate-func)) "-star")) :keyword))
                         (list nil)
-                        (mapcan #'walk (strip-delimiters '(")") xs))))
+                        (mapcan #'walk (strip-delimiters '(:|)|) xs))))
 
                ((list* :|aggregate_function_invocation| aggregate-func _ (and all-distinct (list :|all_distinct| _)) expr-list xs)
                 (append (list :aggregate-function (walk aggregate-func) (walk expr-list))
-                        (mapcan #'walk (strip-delimiters '(")") xs))
+                        (mapcan #'walk (strip-delimiters '(:|)|) xs))
                         (walk all-distinct)))
 
                ((list* :|aggregate_function_invocation| aggregate-func _ expr-list xs)
                 (append (list :aggregate-function (walk aggregate-func) (walk expr-list))
-                        (mapcan #'walk (strip-delimiters '(")") xs))))
+                        (mapcan #'walk (strip-delimiters '(:|)|) xs))))
 
                ((list* :|case_expr| _ (list :|case_operand| case-operand) xs)
-                (cons :case (cons (walk case-operand) (list (mapcar #'walk (strip-delimiters '("END") xs))))))
+                (cons :case (cons (walk case-operand) (list (mapcar #'walk (strip-delimiters '(:END) xs))))))
 
                ((list* :|case_expr| _ xs)
-                (cons :case (list (mapcar #'walk (strip-delimiters '("END") xs)))))
+                (cons :case (list (mapcar #'walk (strip-delimiters '(:END) xs)))))
 
                ((list :|case_when_then_expr| _ when-expr _ then-expr)
                 (list (walk when-expr) (walk then-expr)))
@@ -611,61 +613,61 @@
                 (walk query))
 
                ((list* :|expr_list| xs)
-                (mapcar #'walk (strip-delimiters '(",") xs)))
+                (mapcar #'walk (strip-delimiters '(:|,|) xs)))
 
                ((list :|paren_expr_list| _ expr-list _)
                 (walk expr-list))
 
                ((list :|empty_list| _ _))
 
-               ((list :|numeric_literal| (trivia:guard (list x _ _)
+               ((list :|numeric_literal| (trivia:guard (cons x _)
                                                        (or (alexandria:starts-with-subseq "0x" x)
                                                            (alexandria:starts-with-subseq "0X" x))))
                 (parse-integer x :start 2 :radix 16))
 
-               ((list :|numeric_literal| (list x _ _))
+               ((list :|numeric_literal| (cons x _))
                 (read-from-string x))
 
-               ((list :|string_literal| (list x _ _))
+               ((list :|string_literal| (cons x _))
                 (endb/lib/parser:sql-string-to-cl (eql #\' (char x 0)) (subseq x 1 (1- (length x)))))
 
-               ((list :|blob_literal| (list x _ _))
+               ((list :|blob_literal| (cons x _))
                 (list :blob (subseq x 2 (1- (length x)))))
 
-               ((list :|iso_date_literal| (list x _ _))
+               ((list :|iso_date_literal| (cons x _))
                 (list :date x))
 
-               ((list :|date_literal| _ (list x _ _))
+               ((list :|date_literal| _ (cons x _))
                 (list :date (subseq x 1 (1- (length x)))))
 
-               ((list :|iso_time_literal| (list x _ _))
+               ((list :|iso_time_literal| (cons x _))
                 (list :time x))
 
-               ((list :|time_literal| _ (list x _ _))
+               ((list :|time_literal| _ (cons x _))
                 (list :time (subseq x 1 (1- (length x)))))
 
-               ((list :|iso_timestamp_literal| (list x _ _))
+               ((list :|iso_timestamp_literal| (cons x _))
                 (list :timestamp x))
 
-               ((list :|timestamp_literal| _ (list x _ _))
+               ((list :|timestamp_literal| _ (cons x _))
                 (list :timestamp (subseq x 1 (1- (length x)))))
 
-               ((list :|iso_duration_literal| (list x _ _))
+               ((list :|iso_duration_literal| (cons x _))
                 (list :duration x))
 
-               ((list :|interval_literal| _ (list x _ _) from)
+               ((list :|interval_literal| _ (cons x _) from)
                 (list :interval (subseq x 1 (1- (length x))) (walk from)))
 
-               ((list :|interval_literal| _ (list x _ _) from _ to)
+               ((list :|interval_literal| _ (cons x _) from _ to)
                 (list :interval (subseq x 1 (1- (length x))) (walk from) (walk to)))
 
-               ((list :|datetime_field| (list x _ _))
-                (intern x :keyword))
+               ((list :|datetime_field| (cons x _))
+                x)
 
-               ((list :|object_expr| (list "OBJECT" _ _) _ object-key-value-list _)
+               ((list :|object_expr| (cons :OBJECT _) _ object-key-value-list _)
                 (list :object (walk object-key-value-list)))
 
-               ((list :|object_expr| (list "OBJECT" _ _) _ _)
+               ((list :|object_expr| (cons :OBJECT _) _ _)
                 (list :object nil))
 
                ((list :|object_expr| _ object-key-value-list _)
@@ -675,7 +677,7 @@
                 (list :object nil))
 
                ((list* :|object_key_value_list| xs)
-                (mapcar #'walk (strip-delimiters '(",") xs)))
+                (mapcar #'walk (strip-delimiters '(:|,|) xs)))
 
                ((list :|object_key_value_pair| (list :|spread_expr| _ expr))
                 (list :spread-property (walk expr)))
@@ -695,16 +697,16 @@
                ((list :|array_element| (list :|spread_expr| _ expr))
                 (list :spread-property (walk expr)))
 
-               ((list :|array_expr| (list "ARRAY" _ _) (list :|subquery| _ query _))
+               ((list :|array_expr| (cons :ARRAY _) (list :|subquery| _ query _))
                 (list :array-query (walk query)))
 
-               ((list* :|array_expr| (list "ARRAY" _ _) xs)
-                (list :array (mapcar #'walk (strip-delimiters '("[" "]" ",") xs))))
+               ((list* :|array_expr| (cons :ARRAY _) xs)
+                (list :array (mapcar #'walk (strip-delimiters '(:|[| :|]| :|,|) xs))))
 
                ((list* :|array_expr| xs)
-                (list :array (mapcar #'walk (strip-delimiters '("[" "]" ",") xs))))
+                (list :array (mapcar #'walk (strip-delimiters '(:|[| :|]| :|,|) xs))))
 
-               ((list :|path_array_index| (list :|path_array_length| _) (list "-" _ _) expr)
+               ((list :|path_array_index| (list :|path_array_length| _) (cons :- _) expr)
                 (list :- (walk expr)))
 
                ((list :|path_array_index| (list :|path_array_length| _))
@@ -719,22 +721,22 @@
                ((list* :|path_expr| _ xs)
                 (list :path (mapcar #'walk xs)))
 
-               ((list "NULL" _ _)
+               ((cons :NULL _)
                 :null)
 
-               ((list "TRUE" _ _)
+               ((cons :TRUE _)
                 :true)
 
-               ((list "FALSE" _ _)
+               ((cons :FALSE _)
                 :false)
 
-               ((list "CURRENT_TIMESTAMP" _ _)
+               ((cons :CURRENT_TIMESTAMP _)
                 :current_timestamp)
 
-               ((list "CURRENT_TIME" _ _)
+               ((cons :CURRENT_TIME _)
                 :current_time)
 
-               ((list "CURRENT_DATE" _ _)
+               ((cons :CURRENT_DATE _)
                 :current_date)
 
                ((list (type keyword) x)

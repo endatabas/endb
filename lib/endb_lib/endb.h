@@ -235,7 +235,7 @@ typedef void (*endb_parse_sql_cst_on_open_callback)(const uint8_t*, uint32_t);
 
 typedef void (*endb_parse_sql_cst_on_close_callback)(void);
 
-typedef void (*endb_parse_sql_cst_on_literal_callback)(const uint8_t*, uint32_t, uint32_t, uint32_t);
+typedef void (*endb_parse_sql_cst_on_literal_callback)(const uint8_t*, uint32_t, uint32_t);
 
 typedef void (*endb_parse_sql_cst_on_pattern_callback)(uint32_t, uint32_t);
 

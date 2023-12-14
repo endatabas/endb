@@ -127,7 +127,7 @@ type endb_parse_sql_cst_on_open_callback = extern "C" fn(*const u8, u32);
 
 type endb_parse_sql_cst_on_close_callback = extern "C" fn();
 
-type endb_parse_sql_cst_on_literal_callback = extern "C" fn(*const u8, u32, u32, u32);
+type endb_parse_sql_cst_on_literal_callback = extern "C" fn(*const u8, u32, u32);
 
 type endb_parse_sql_cst_on_pattern_callback = extern "C" fn(u32, u32);
 
@@ -164,7 +164,6 @@ pub extern "C" fn endb_parse_sql_cst(
                     endb_cst::Event::Literal { literal, range } => {
                         on_literal(
                             literal.as_ptr(),
-                            literal.len().try_into().unwrap(),
                             range.start.try_into().unwrap(),
                             range.end.try_into().unwrap(),
                         );
