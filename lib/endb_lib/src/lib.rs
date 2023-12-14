@@ -156,25 +156,16 @@ pub extern "C" fn endb_parse_sql_cst(
                     } => {
                         on_open(label.as_ptr(), label.len().try_into().unwrap());
                     }
-                    endb_cst::Event::Open { hide: true, .. } => {}
                     endb_cst::Event::Close { hide: false, .. } => {
                         on_close();
                     }
-                    endb_cst::Event::Close { hide: true, .. } => {}
                     endb_cst::Event::Literal { literal, range } => {
-                        on_literal(
-                            literal.as_ptr(),
-                            range.start.try_into().unwrap(),
-                            range.end.try_into().unwrap(),
-                        );
+                        on_literal(literal.as_ptr(), range.start, range.end);
                     }
                     endb_cst::Event::Pattern { range, .. } => {
-                        on_pattern(
-                            range.start.try_into().unwrap(),
-                            range.end.try_into().unwrap(),
-                        );
+                        on_pattern(range.start, range.end);
                     }
-                    endb_cst::Event::Error { .. } => {}
+                    _ => {}
                 }
             }
         }

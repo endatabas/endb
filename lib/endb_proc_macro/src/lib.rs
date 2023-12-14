@@ -92,24 +92,25 @@ impl ToTokens for PegParser {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self {
             PegParser::Pattern(pattern) => quote! {
-                |input: &str, pos: usize, state: &mut ParseState| {
+                |input: &str, pos: u32, state: &mut ParseState| {
                     lazy_static::lazy_static! {
                         static ref RE: regex::Regex = regex::Regex::new(#pattern).unwrap();
                     }
-                    match RE.find_at(input, pos) {
-                        Some(m) if m.range().start == pos => {
-                            if !m.range().is_empty() {
+                    match RE.find_at(input, pos as usize) {
+                        Some(m) if m.range().start == (pos as usize) => {
+                            let range = m.range();
+                            if !range.is_empty() {
                                 state.events.push(Event::Pattern {
-                                    range: m.range(),
+                                    range: (range.start.try_into().unwrap())..(range.end.try_into().unwrap()),
                                 });
                             }
 
-                            let pos = m.range().end;
+                            let pos = range.end;
                             match WHITESPACE.find_at(input, pos) {
                                 Some(m) if m.range().start == pos => {
-                                    Ok(m.range().end)
+                                    Ok(m.range().end.try_into().unwrap())
                                 }
-                                _ => Ok(pos)
+                                _ => Ok(pos.try_into().unwrap())
                             }
                         }
                         _ => {
@@ -139,27 +140,27 @@ impl ToTokens for PegParser {
                     }
                 };
                 quote! {
-                    |input: &str, pos: usize, state: &mut ParseState| {
-                        let range = pos..(pos + #literal_len).min(input.len());
+                    |input: &str, pos: u32, state: &mut ParseState| {
+                        let range = (pos as usize)..((pos as usize) + #literal_len).min(input.len());
                         if input[range.clone()].eq_ignore_ascii_case(#literal) && #valid_next_char {
                             if !range.is_empty() {
                                 state.events.push(Event::Literal {
                                     literal: #literal,
-                                    range: range.clone(),
+                                    range: (range.start.try_into().unwrap())..(range.end.try_into().unwrap())
                                 });
                             }
                             let pos = range.end;
                             match WHITESPACE.find_at(input, pos) {
                                 Some(m) if m.range().start == pos => {
-                                    Ok(m.range().end)
+                                    Ok(m.range().end.try_into().unwrap())
                                 }
-                                _ => Ok(pos)
+                                _ => Ok(pos.try_into().unwrap())
                             }
                         } else {
                             if state.track_errors {
                                 state.errors.push(Event::Error {
                                     descriptor: ParseErrorDescriptor::ExpectedLiteral(#literal),
-                                    range,
+                                    range: (range.start.try_into().unwrap())..(range.end.try_into().unwrap()),
                                 });
                             }
                             Err(ParseErr::Fail)
@@ -168,7 +169,7 @@ impl ToTokens for PegParser {
                 }
             }
             PegParser::Seq(parsers) => quote! {
-                |input: &str, pos: usize, state: &mut ParseState| {
+                |input: &str, pos: u32, state: &mut ParseState| {
                     let mut pos = pos;
                     let idx = state.events.len();
 
@@ -189,7 +190,7 @@ impl ToTokens for PegParser {
                 }
             },
             PegParser::Ord(parsers) => quote! {
-                |input: &str, pos: usize, state: &mut ParseState| {
+                |input: &str, pos: u32, state: &mut ParseState| {
                     let idx = state.events.len();
 
                     #(
@@ -209,7 +210,7 @@ impl ToTokens for PegParser {
                 }
             },
             PegParser::Star(parser) => quote! {
-                |input: &str, pos: usize, state: &mut ParseState| {
+                |input: &str, pos: u32, state: &mut ParseState| {
                     let mut pos = pos;
                     loop {
                         let idx = state.events.len();
@@ -230,7 +231,7 @@ impl ToTokens for PegParser {
                 }
             },
             PegParser::Neg(parser) => quote! {
-                |input: &str, pos: usize, state: &mut ParseState| {
+                |input: &str, pos: u32, state: &mut ParseState| {
                     let idx = state.events.len();
                     let err_idx = state.errors.len();
                     let result = (#parser)(input, pos, state);
@@ -253,7 +254,7 @@ impl ToTokens for PegParser {
                 }
             },
             PegParser::Cut(parser) => quote! {
-                |input: &str, pos: usize, state: &mut ParseState| {
+                |input: &str, pos: u32, state: &mut ParseState| {
                     (#parser)(input, pos, state).or(Err(ParseErr::Error))
                 }
             },
@@ -308,7 +309,7 @@ impl ToTokens for Rule {
                 if let Event::Close { open_idx: event_open_idx, .. } = &state.events[state.events.len() - 1] {
                     if *event_open_idx == open_idx + 1 {
                         close_event = Event::Close { hide: true, open_idx };
-                        if let Event::Open { ref mut hide, .. } = state.events[open_idx] {
+                        if let Event::Open { ref mut hide, .. } = state.events[open_idx as usize] {
                             *hide = true;
                         }
                     }
@@ -323,8 +324,8 @@ impl ToTokens for Rule {
         quote_spanned! {
                 id.span()=>
                 #[allow(clippy::redundant_closure_call)]
-                #visibility fn #id<'a, 'b: 'a>(input: &'a str, pos: usize, state: &mut ParseState<'b>) -> ParseResult {
-                    let open_idx = state.events.len();
+                #visibility fn #id<'a, 'b: 'a>(input: &'a str, pos: u32, state: &mut ParseState<'b>) -> ParseResult {
+                    let open_idx = state.events.len().try_into().unwrap();
                     let open_event = Event::Open { label: #id_string, pos, hide: false };
                     state.events.push(open_event.clone());
                     if state.track_errors {

@@ -22,22 +22,22 @@ pub enum ParseErrorDescriptor<'a> {
 pub enum Event<'a> {
     Open {
         label: &'a str,
-        pos: usize,
+        pos: u32,
         hide: bool,
     },
     Close {
-        open_idx: usize,
+        open_idx: u32,
         hide: bool,
     },
     Literal {
         literal: &'a str,
-        range: Range<usize>,
+        range: Range<u32>,
     },
     Pattern {
-        range: Range<usize>,
+        range: Range<u32>,
     },
     Error {
-        range: Range<usize>,
+        range: Range<u32>,
         descriptor: ParseErrorDescriptor<'a>,
     },
 }
@@ -45,7 +45,7 @@ pub enum Event<'a> {
 #[derive(Clone, PartialEq, Debug)]
 pub struct ParseError<'a> {
     descriptor: ParseErrorDescriptor<'a>,
-    range: Range<usize>,
+    range: Range<u32>,
     context: ParseContext<'a>,
 }
 
@@ -62,9 +62,9 @@ pub enum ParseErr {
     Error,
 }
 
-type ParseContextEntry<'a> = (&'a str, usize);
+type ParseContextEntry<'a> = (&'a str, u32);
 type ParseContext<'a> = Vec<ParseContextEntry<'a>>;
-pub type ParseResult = Result<usize, ParseErr>;
+pub type ParseResult = Result<u32, ParseErr>;
 
 fn events_to_sexp_into(
     out: &mut String,
@@ -88,7 +88,9 @@ fn events_to_sexp_into(
             Event::Open { hide: true, .. } => {}
             Event::Pattern { ref range } | Event::Literal { ref range, .. } => {
                 out.push_str(" (\"");
-                out.push_str(&src[range.clone()].replace('"', "\\\""));
+                out.push_str(
+                    &src[(range.start as usize)..(range.end as usize)].replace('"', "\\\""),
+                );
                 out.push_str("\" ");
                 write!(out, "{}", range.start)?;
                 out.push(' ');
@@ -152,7 +154,7 @@ pub fn parse_errors_to_string<'a>(
     src: &'a str,
     errors: &'a [ParseError<'a>],
 ) -> Result<String, Box<dyn Error>> {
-    let start = errors.first().map(|e| e.range.start).unwrap_or(0);
+    let start = errors.first().map(|e| e.range.start).unwrap_or(0) as usize;
     let punctuation = src
         .chars()
         .nth(start)
@@ -249,7 +251,10 @@ pub fn parse_errors_to_string<'a>(
         for e in errs {
             if let ParseErrorDescriptor::Labeled(label) = e.descriptor {
                 labels.push(ParseReportLabel {
-                    span: (filename.to_string(), e.range.clone()),
+                    span: (
+                        filename.to_string(),
+                        (e.range.start as usize)..(e.range.end as usize),
+                    ),
                     msg: Some(label.to_string()),
                     color: Some(ParseReportColor::Yellow),
                     ..ParseReportLabel::default()
@@ -334,12 +339,12 @@ pub fn parse_errors_to_string<'a>(
             labels.push(ParseReportLabel {
                 span: (
                     filename.to_string(),
-                    errs[0]
+                    (errs[0]
                         .context
                         .iter()
                         .find(|(e_label, _)| e_label == label)
                         .map(|(_, pos)| *pos)
-                        .unwrap_or(0)..range.start,
+                        .unwrap_or(0) as usize)..range.start,
                 ),
                 color: Some(ParseReportColor::Blue),
                 msg,
