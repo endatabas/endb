@@ -356,13 +356,13 @@
                ((list* :|select_core| (cons :SELECT _) xs)
                 (cons :select (mapcan #'walk xs)))
 
-               ((list* :|values_clause| _ xs)
+               ((list* :|values_stmt| _ xs)
                 (cons :values (list (mapcar #'walk (strip-delimiters '(:|,|) xs)))))
 
-               ((list* :|objects_clause| (cons :OBJECTS _) xs)
+               ((list* :|objects_stmt| (cons :OBJECTS _) xs)
                 (cons :objects (list (mapcar #'walk (strip-delimiters '(:|,|) xs)))))
 
-               ((list* :|objects_clause| xs)
+               ((list* :|objects_stmt| xs)
                 (cons :objects (list (mapcar #'walk (strip-delimiters '(:|,|) xs)))))
 
                ((list* :|with_clause| _ (cons :RECURSIVE _) xs)

@@ -167,15 +167,15 @@ peg! {
     group_by_clause <- GROUP BY expr_list;
     having_clause <- HAVING expr;
 
-    values_clause <- VALUES paren_expr_list ( "," paren_expr_list )*;
-    objects_clause <- OBJECTS? object_expr ( "," object_expr)*;
+    values_stmt <- VALUES paren_expr_list ( "," paren_expr_list )*;
+    objects_stmt <- OBJECTS? object_expr ( "," object_expr)*;
 
     result_expr_list <- result_column ( "," result_column )*;
 
     select_core <-
         SELECT all_distinct? result_expr_list from_clause? where_clause? group_by_clause? having_clause?
-        / values_clause
-        / objects_clause;
+        / values_stmt
+        / objects_stmt;
 
     compound_operator <- UNION ALL? / INTERSECT / EXCEPT;
 
