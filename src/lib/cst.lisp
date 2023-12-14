@@ -1,14 +1,48 @@
 (defpackage :endb/lib/cst
   (:use :cl)
-  (:export  #:parse-sql-cst #:render-error-report #:cst->ast)
+  (:export  #:parse-sql-cst #:render-error-report #:cst->ast #:sql-parse-error)
   (:import-from :endb/lib)
-  (:import-from :endb/lib/parser)
   (:import-from :endb/json)
   (:import-from :alexandria)
   (:import-from :cffi)
   (:import-from :trivial-utf-8)
   (:import-from :trivia))
 (in-package :endb/lib/cst)
+
+(defparameter +double-single-quote-scanner+ (ppcre:create-scanner "''"))
+(defparameter +backslash-escape-scanner+ (ppcre:create-scanner "(?s)(\\\\u[0-9a-fA-F]{4}|\\\\.)"))
+
+(defun sql-string-to-cl (single-quote-p s)
+  (let* ((s (if (and single-quote-p (find #\' s))
+                (ppcre:regex-replace-all +double-single-quote-scanner+ s "'")
+                s)))
+    (if (find #\\ s)
+        (ppcre:regex-replace-all +backslash-escape-scanner+
+                                 s
+                                 (lambda (target-string start end match-start match-end reg-starts reg-ends)
+                                   (declare (ignore start end match-end reg-starts reg-ends))
+                                   (let ((c (char target-string (1+ match-start))))
+                                     (string
+                                      (case c
+                                        ((#\" #\' #\\ #\/) c)
+                                        ((#\Newline #\Return #\Line_Separator #\Paragraph_Separator) "")
+                                        (#\0 #\Nul)
+                                        (#\t #\Tab)
+                                        (#\n #\Newline)
+                                        (#\r #\Return)
+                                        (#\f #\Page)
+                                        (#\b #\Backspace)
+                                        (#\v #\Vt)
+                                        (#\u (code-char (parse-integer (subseq target-string (+ 2 match-start) (+ 6 match-start)) :radix 16))))))))
+        s)))
+
+(defun strip-ansi-escape-codes (s)
+  (ppcre:regex-replace-all "\\[3\\d(?:;\\d+;\\d+)?m(.+?)\\[0m" s "\\1"))
+
+(define-condition sql-parse-error (error)
+  ((message :initarg :message :reader sql-parse-error-message))
+  (:report (lambda (condition stream)
+             (write (strip-ansi-escape-codes (sql-parse-error-message condition)) :stream stream))))
 
 (defparameter +kw-cache+ (make-hash-table))
 (defparameter +literal-cache+ (make-hash-table))
@@ -70,7 +104,7 @@
 (defun parse-sql-cst (input &key (filename ""))
   (endb/lib:init-lib)
   (if (zerop (length input))
-      (error 'endb/lib/parser:sql-parse-error :message "Empty input")
+      (error 'sql-parse-error :message "Empty input")
       (let* ((*parse-result* (list nil))
              (*parse-err*)
              (*parse-input-bytes* (trivial-utf-8:string-to-utf-8-bytes input :null-terminate t)))
@@ -84,7 +118,7 @@
                               (cffi:callback parse-sql-cst-on-pattern)
                               (cffi:callback parse-sql-cst-on-error)))
         (when *parse-err*
-          (error 'endb/lib/parser:sql-parse-error :message *parse-err*))
+          (error 'sql-parse-error :message *parse-err*))
         (values (caar *parse-result*) *parse-input-bytes*))))
 
 (defvar *render-json-error-report-on-success*)
@@ -113,7 +147,7 @@
                                    (cffi:callback render-json-error-report-on-error))
     (when err
       (error err))
-    (endb/lib/parser:strip-ansi-escape-codes result)))
+    (strip-ansi-escape-codes result)))
 
 (defun cst->ast (cst)
   (labels ((strip-delimiters (delimiters xs)
@@ -623,7 +657,7 @@
                 (read-from-string x))
 
                ((list :|string_literal| (cons x _))
-                (endb/lib/parser:sql-string-to-cl (eql #\' (char x 0)) (subseq x 1 (1- (length x)))))
+                (sql-string-to-cl (eql #\' (char x 0)) (subseq x 1 (1- (length x)))))
 
                ((list :|blob_literal| (cons x _))
                 (list :blob (subseq x 2 (1- (length x)))))

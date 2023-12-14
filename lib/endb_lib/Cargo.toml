@@ -14,13 +14,11 @@ crate-type = ["cdylib"]
 
 [dependencies]
 libc = "0.2.0"
-endb_parser = { path = "../endb_parser/" }
 endb_arrow = { path = "../endb_arrow/" }
 endb_cst = { path = "../endb_cst/" }
 endb_server = { path = "../endb_server/" }
 base64.workspace = true
 arrow2.workspace = true
-chumsky.workspace = true
 log.workspace = true
 sha1_smol = "1.0.0"
 uuid =  { version = "1.6.1", features = [ "v4", "fast-rng" ] }

@@ -55,9 +55,7 @@ r\\r\\u03BB'")
     (is (equalp (format nil "/f~Ao~Ao~Ab\\a'~Ar~Aλ" #\Nul #\Page #\NewLine #\Vt #\Return) result))))
 
 (defun is-valid (sql)
-  (is (equal
-       (prin1-to-string (endb/lib/parser:parse-sql sql))
-       (prin1-to-string (cst->ast (parse-sql-cst sql))))))
+  (is (cst->ast (parse-sql-cst sql))))
 
 (test cst-to-ast
   (is-valid "SELECT 1")

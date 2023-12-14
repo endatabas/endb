@@ -5,11 +5,7 @@ use std::ffi::{CStr, CString};
 
 use arrow2::ffi::ArrowArrayStream;
 use base64::Engine;
-use chumsky::Parser;
 use endb_arrow::arrow;
-use endb_parser::parser::ast::Ast;
-use endb_parser::parser::sql_parser;
-use endb_parser::{SQL_AST_PARSER_NO_ERRORS, SQL_AST_PARSER_WITH_ERRORS};
 
 use std::panic;
 
@@ -19,69 +15,6 @@ fn string_callback<T: Into<Vec<u8>>>(s: T, cb: extern "C" fn(*const c_char)) {
 }
 
 type endb_on_error_callback = extern "C" fn(*const c_char);
-
-type endb_parse_sql_on_success_callback = extern "C" fn(&Ast);
-
-#[no_mangle]
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-pub extern "C" fn endb_parse_sql(
-    input: *const c_char,
-    on_success: endb_parse_sql_on_success_callback,
-    on_error: endb_on_error_callback,
-) {
-    SQL_AST_PARSER_NO_ERRORS.with(|parser| {
-        let input = unsafe { CStr::from_ptr(input).to_str().unwrap() };
-        let result = parser.parse(input);
-        if result.has_output() {
-            on_success(&result.into_output().unwrap());
-        } else {
-            SQL_AST_PARSER_WITH_ERRORS.with(|parser| {
-                let result = parser.parse(input);
-                let error = sql_parser::parse_errors_to_string(input, result.into_errors());
-                string_callback(error, on_error);
-            });
-        }
-    });
-}
-
-type endb_annotate_input_with_error_on_success_callback = extern "C" fn(*const c_char);
-
-#[no_mangle]
-#[allow(clippy::not_unsafe_ptr_arg_deref)]
-pub extern "C" fn endb_annotate_input_with_error(
-    input: *const c_char,
-    message: *const c_char,
-    start: usize,
-    end: usize,
-    on_success: endb_annotate_input_with_error_on_success_callback,
-) {
-    let input = unsafe { CStr::from_ptr(input).to_str().unwrap() };
-    let message = unsafe { CStr::from_ptr(message).to_str().unwrap() };
-
-    let error = sql_parser::annotate_input_with_error(input, message, start, end);
-    string_callback(error, on_success);
-}
-
-#[no_mangle]
-pub extern "C" fn endb_ast_vec_len(ast: &Vec<Ast>) -> usize {
-    ast.len()
-}
-
-#[no_mangle]
-pub extern "C" fn endb_ast_vec_ptr(ast: &Vec<Ast>) -> *const Ast {
-    ast.as_ptr()
-}
-
-#[no_mangle]
-pub extern "C" fn endb_ast_size() -> usize {
-    std::mem::size_of::<Ast>()
-}
-
-#[no_mangle]
-#[allow(clippy::ptr_arg)]
-pub extern "C" fn endb_ast_vec_element(ast: &Vec<Ast>, idx: usize) -> *const Ast {
-    &ast[idx]
-}
 
 #[no_mangle]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]

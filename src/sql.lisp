@@ -1,6 +1,6 @@
 (defpackage :endb/sql
   (:use :cl)
-  (:export #:*query-timing* #:*use-cst-parser* #:*use-cst-parser-only*
+  (:export #:*query-timing*
            #:make-db #:make-directory-db #:db-close #:begin-write-tx #:commit-write-tx #:execute-sql #:interpret-sql-literal)
   (:import-from :alexandria)
   (:import-from :endb/arrow)
@@ -10,7 +10,6 @@
   (:import-from :endb/sql/compiler)
   (:import-from :endb/lib/arrow)
   (:import-from :endb/lib/cst)
-  (:import-from :endb/lib/parser)
   (:import-from :endb/lib)
   (:import-from :endb/storage)
   (:import-from :endb/storage/buffer-pool)
@@ -22,8 +21,6 @@
 (in-package :endb/sql)
 
 (defvar *query-timing* nil)
-(defvar *use-cst-parser* nil)
-(defvar *use-cst-parser-only* nil)
 
 (defun make-db (&key (store (make-instance 'endb/storage:in-memory-store)))
   (endb/lib:init-lib)
@@ -51,12 +48,15 @@
     (setf (endb/sql/db:db-current-timestamp write-db) (endb/sql/db:syn-current_timestamp db))
     write-db))
 
+(defun %parse-sql (sql)
+  (endb/lib/cst:cst->ast (endb/lib/cst:parse-sql-cst sql)))
+
 (defun %execute-constraints (db)
   (let ((ctx (fset:map (:db db))))
     (fset:do-map (k v (endb/sql/db:constraint-definitions db))
       (when (equalp '(#(nil)) (handler-case
                                   (funcall (endb/sql/compiler:compile-sql (fset:with ctx :sql v)
-                                                                          (endb/lib/parser:parse-sql v))
+                                                                          (%parse-sql v))
                                            db
                                            (fset:empty-seq))
                                 (endb/sql/expr:sql-runtime-error (e)
@@ -115,18 +115,6 @@
                   (mapcar #'walk x))
                  (t x))))
       (values (walk ast) parameters))))
-
-(defun %parse-sql (sql)
-  (if *use-cst-parser-only*
-      (endb/lib/cst:cst->ast (endb/lib/cst:parse-sql-cst sql))
-      (let ((ast (endb/lib/parser:parse-sql sql)))
-        (if *use-cst-parser*
-            (let ((ast-via-cst (endb/lib/cst:cst->ast (endb/lib/cst:parse-sql-cst sql))))
-              (assert (equal
-                       (prin1-to-string ast)
-                       (prin1-to-string ast-via-cst)))
-              ast-via-cst)
-            ast))))
 
 (defun %execute-sql (db sql parameters manyp)
   (when (and manyp (not (fset:seq? parameters)))
@@ -232,7 +220,7 @@
 (defun interpret-sql-literal (src)
   (let* ((select-list (handler-case
                           (cadr (%parse-sql (format nil "SELECT ~A" src)))
-                        (endb/lib/parser:sql-parse-error (e)
+                        (endb/lib/cst:sql-parse-error (e)
                           (declare (ignore e)))))
          (ast (car select-list))
          (literal (if (or (not (= 1 (length select-list)))

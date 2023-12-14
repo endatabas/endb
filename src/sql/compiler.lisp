@@ -3,7 +3,7 @@
   (:export #:compile-sql)
   (:import-from :endb/sql/db)
   (:import-from :endb/sql/expr)
-  (:import-from :endb/lib/parser)
+  (:import-from :endb/lib/cst)
   (:import-from :endb/lib)
   (:import-from :endb/arrow)
   (:import-from :alexandria)
@@ -60,8 +60,19 @@
                  (t (list (%anonymous-column-name idx))))))
 
 (defun %annotated-error (input s message)
-  (error 'endb/sql/expr:sql-runtime-error
-         :message (endb/lib/parser:annotate-input-with-error input message (get s :start) (get s :end))))
+  (let* ((location "<unknown>")
+         (report (fset:map ("kind" "Error")
+                           ("msg" message)
+                           ("location" (fset:seq location (get s :start)))
+                           ("source" input)
+                           ("labels" (fset:seq (fset:map ("span" (fset:seq location (fset:map ("start" (get s :start)) ("end" (get s :end)))))
+                                                         ("msg" message)
+                                                         ("color" "Red")
+                                                         ("order" 0)
+                                                         ("priority" 0)))))))
+
+    (error 'endb/sql/expr:sql-runtime-error
+           :message (endb/lib/cst:render-error-report report))))
 
 (defun %base-table-or-view->cl (ctx table-name &key temporal (errorp t))
   (let* ((db (fset:lookup ctx :db))

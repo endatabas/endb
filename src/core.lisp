@@ -40,8 +40,7 @@
           (endb/lib:log-warn "could not close the database cleanly")))))
 
 (defun %endb-main ()
-  (setf endb/sql:*use-cst-parser* (equal "1" (uiop:getenv "ENDB_USE_CST_PARSER"))
-        endb/lib:*panic-hook* #'%endb-close-db)
+  (setf endb/lib:*panic-hook* #'%endb-close-db)
   (handler-bind ((#+sbcl sb-sys:interactive-interrupt (lambda (e)
                                                         (declare (ignore e))
                                                         (return-from %endb-main 130)))

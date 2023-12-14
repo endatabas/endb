@@ -6,7 +6,6 @@
   (:import-from :endb-test/json)
   (:import-from :endb-test/lib/arrow)
   (:import-from :endb-test/lib/cst)
-  (:import-from :endb-test/lib/parser)
   (:import-from :endb-test/sql/expr)
   (:import-from :endb-test/sql)
   (:import-from :endb-test/storage))

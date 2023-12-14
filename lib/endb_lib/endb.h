@@ -3,187 +3,11 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef enum Keyword {
-  Select,
-  From,
-  Where,
-  GroupBy,
-  Having,
-  OrderBy,
-  Lt,
-  Le,
-  Gt,
-  Ge,
-  Eq,
-  Ne,
-  Is,
-  In,
-  InQuery,
-  Between,
-  Like,
-  Case,
-  Exists,
-  ScalarSubquery,
-  Else,
-  Plus,
-  Minus,
-  Mul,
-  Div,
-  Mod,
-  Lsh,
-  Rsh,
-  And,
-  Or,
-  Not,
-  Function,
-  AggregateFunction,
-  Count,
-  CountStar,
-  Avg,
-  Sum,
-  Min,
-  Max,
-  Total,
-  GroupConcat,
-  Cast,
-  Asc,
-  Desc,
-  Distinct,
-  All,
-  True,
-  False,
-  Null,
-  Limit,
-  Offset,
-  Join,
-  Type,
-  Left,
-  Inner,
-  On,
-  Except,
-  Intersect,
-  Union,
-  UnionAll,
-  Values,
-  Insert,
-  ColumnNames,
-  Delete,
-  Update,
-  CreateIndex,
-  DropIndex,
-  CreateView,
-  DropView,
-  IfExists,
-  CreateTable,
-  DropTable,
-  MultipleStatements,
-  Date,
-  Time,
-  Timestamp,
-  Array,
-  Object,
-  Access,
-  AsOf,
-  With,
-  ArrayAgg,
-  ObjectAgg,
-  ArrayQuery,
-  Unnest,
-  WithOrdinality,
-  Objects,
-  Parameter,
-  Concat,
-  ShorthandProperty,
-  SpreadProperty,
-  ComputedProperty,
-  Duration,
-  CurrentDate,
-  CurrentTime,
-  CurrentTimestamp,
-  Unset,
-  Recursive,
-  Overlaps,
-  Contains,
-  Precedes,
-  Succeeds,
-  ImmediatelyPrecedes,
-  ImmediatelySucceeds,
-  Year,
-  Month,
-  Day,
-  Hour,
-  Minute,
-  Second,
-  Interval,
-  OnConflict,
-  Blob,
-  Glob,
-  Regexp,
-  Patch,
-  Match,
-  BitNot,
-  BitAnd,
-  BitOr,
-  Hash,
-  Path,
-  CreateAssertion,
-  DropAssertion,
-  Extract,
-  Erase,
-} Keyword;
-
-typedef struct Vec_Ast Vec_Ast;
-
 typedef struct endb_server_http_response endb_server_http_response;
 
 typedef struct endb_server_http_sender endb_server_http_sender;
 
 typedef struct endb_server_one_shot_sender endb_server_one_shot_sender;
-
-typedef enum Ast_Tag {
-  List,
-  KW,
-  Integer,
-  Float,
-  Id,
-  String,
-} Ast_Tag;
-
-typedef struct Id_Body {
-  int32_t start;
-  int32_t end;
-} Id_Body;
-
-typedef struct String_Body {
-  int32_t start;
-  int32_t end;
-} String_Body;
-
-typedef struct Ast {
-  Ast_Tag tag;
-  union {
-    struct {
-      struct Vec_Ast list;
-    };
-    struct {
-      enum Keyword kw;
-    };
-    struct {
-      i128 integer;
-    };
-    struct {
-      double float_;
-    };
-    Id_Body id;
-    String_Body string;
-  };
-} Ast;
-
-typedef void (*endb_parse_sql_on_success_callback)(const struct Ast*);
-
-typedef void (*endb_on_error_callback)(const char*);
-
-typedef void (*endb_annotate_input_with_error_on_success_callback)(const char*);
 
 /**
  * ABI-compatible struct for [`ArrowSchema`](https://arrow.apache.org/docs/format/CDataInterface.html#structure-definitions)
@@ -226,6 +50,8 @@ typedef struct ArrowArrayStream {
   void (*release)(struct ArrowArrayStream *arg1);
   void *private_data;
 } ArrowArrayStream;
+
+typedef void (*endb_on_error_callback)(const char*);
 
 typedef void (*endb_arrow_array_stream_consumer_on_init_stream_callback)(struct ArrowArrayStream*);
 
@@ -278,24 +104,6 @@ typedef void (*endb_sha1_on_success_callback)(const char*);
 typedef void (*endb_uuid_v4_on_success_callback)(const char*);
 
 typedef void (*endb_uuid_str_on_success_callback)(const char*);
-
-void endb_parse_sql(const char *input,
-                    endb_parse_sql_on_success_callback on_success,
-                    endb_on_error_callback on_error);
-
-void endb_annotate_input_with_error(const char *input,
-                                    const char *message,
-                                    uintptr_t start,
-                                    uintptr_t end,
-                                    endb_annotate_input_with_error_on_success_callback on_success);
-
-uintptr_t endb_ast_vec_len(const struct Vec_Ast *ast);
-
-const struct Ast *endb_ast_vec_ptr(const struct Vec_Ast *ast);
-
-uintptr_t endb_ast_size(void);
-
-const struct Ast *endb_ast_vec_element(const struct Vec_Ast *ast, uintptr_t idx);
 
 void endb_arrow_array_stream_producer(struct ArrowArrayStream *stream,
                                       const uint8_t *buffer_ptr,
