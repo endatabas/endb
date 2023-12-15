@@ -13,15 +13,16 @@
             do (or (bt:condition-wait cv lock :timeout timeout)
                    (return-from queue-pop (values nil t))))
       (let ((x (car (last data))))
-        (setf data (butlast data))
         (unless (eq 'close x)
+          (setf data (butlast data))
           x)))))
 
 (defun queue-push (queue x)
   (with-slots (lock cv data) queue
     (bt:with-lock-held (lock)
-      (push x data)
-      (bt:condition-notify cv))))
+      (unless (eq 'close (car (last data)))
+        (push x data)
+        (bt:condition-notify cv)))))
 
 (defun queue-close (queue)
   (queue-push queue 'close))
