@@ -6,6 +6,7 @@
   (:import-from :endb/lib/cst)
   (:import-from :endb/lib)
   (:import-from :endb/arrow)
+  (:import-from :endb/bloom)
   (:import-from :alexandria)
   (:import-from :fset)
   (:import-from :trivia))

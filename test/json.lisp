@@ -1,6 +1,7 @@
 (defpackage :endb-test/json
   (:use :cl :fiveam :endb/json)
-  (:import-from :endb/arrow))
+  (:import-from :endb/arrow)
+  (:import-from :fset))
 (in-package :endb-test/json)
 
 (in-suite* :json)

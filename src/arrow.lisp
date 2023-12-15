@@ -238,33 +238,33 @@
                                 (unless (equal "" time-part)
                                   (format nil "T~A" time-part))))))
 
-(fset:define-cross-type-compare-methods endb/arrow:arrow-date-millis)
-(fset:define-cross-type-compare-methods endb/arrow:arrow-timestamp-micros)
-(fset:define-cross-type-compare-methods endb/arrow:arrow-time-micros)
-(fset:define-cross-type-compare-methods endb/arrow:arrow-interval-month-day-nanos)
+(fset:define-cross-type-compare-methods arrow-date-millis)
+(fset:define-cross-type-compare-methods arrow-timestamp-micros)
+(fset:define-cross-type-compare-methods arrow-time-micros)
+(fset:define-cross-type-compare-methods arrow-interval-month-day-nanos)
 
-(defmethod fset:compare ((x endb/arrow:arrow-date-millis) (y endb/arrow:arrow-date-millis))
-  (fset:compare (endb/arrow:arrow-date-millis-ms x)
-                (endb/arrow:arrow-date-millis-ms y)))
+(defmethod fset:compare ((x arrow-date-millis) (y arrow-date-millis))
+  (fset:compare (arrow-date-millis-ms x)
+                (arrow-date-millis-ms y)))
 
-(defmethod fset:compare ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-timestamp-micros))
-  (fset:compare (endb/arrow:arrow-timestamp-micros-us x)
-                (endb/arrow:arrow-timestamp-micros-us y)))
+(defmethod fset:compare ((x arrow-timestamp-micros) (y arrow-timestamp-micros))
+  (fset:compare (arrow-timestamp-micros-us x)
+                (arrow-timestamp-micros-us y)))
 
-(defmethod fset:compare ((x endb/arrow:arrow-time-micros) (y endb/arrow:arrow-time-micros))
-  (fset:compare (endb/arrow:arrow-time-micros-us x)
-                (endb/arrow:arrow-time-micros-us y)))
+(defmethod fset:compare ((x arrow-time-micros) (y arrow-time-micros))
+  (fset:compare (arrow-time-micros-us x)
+                (arrow-time-micros-us y)))
 
-(defmethod fset:compare ((x endb/arrow:arrow-interval-month-day-nanos) (y endb/arrow:arrow-interval-month-day-nanos))
-  (fset:compare (endb/arrow:arrow-interval-month-day-nanos-uint128 x)
-                (endb/arrow:arrow-interval-month-day-nanos-uint128 y)))
+(defmethod fset:compare ((x arrow-interval-month-day-nanos) (y arrow-interval-month-day-nanos))
+  (fset:compare (arrow-interval-month-day-nanos-uint128 x)
+                (arrow-interval-month-day-nanos-uint128 y)))
 
-(defmethod fset:compare ((x endb/arrow:arrow-date-millis) (y endb/arrow:arrow-timestamp-micros))
-  (fset:compare (endb/arrow:local-time-to-arrow-timestamp-micros (endb/arrow:arrow-date-millis-to-local-time x)) y))
+(defmethod fset:compare ((x arrow-date-millis) (y arrow-timestamp-micros))
+  (fset:compare (local-time-to-arrow-timestamp-micros (arrow-date-millis-to-local-time x)) y))
 
 
-(defmethod fset:compare ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-millis))
-  (fset:compare x (endb/arrow:local-time-to-arrow-timestamp-micros (endb/arrow:arrow-date-millis-to-local-time y))))
+(defmethod fset:compare ((x arrow-timestamp-micros) (y arrow-date-millis))
+  (fset:compare x (local-time-to-arrow-timestamp-micros (arrow-date-millis-to-local-time y))))
 
 (defmethod fset:lookup ((collection (eql nil)) key)
   (values nil nil))

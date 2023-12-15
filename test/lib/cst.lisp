@@ -2,8 +2,7 @@
   (:use :cl :fiveam :endb/lib/cst)
   (:import-from :endb/json)
   (:import-from :fset)
-  (:import-from :alexandria)
-  (:import-from :trivial-utf-8))
+  (:import-from :alexandria))
 (in-package :endb-test/lib/cst)
 
 (in-suite* :lib)

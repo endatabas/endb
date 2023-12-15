@@ -2,7 +2,6 @@
   (:use :cl)
   (:export #:*query-timing*
            #:make-db #:make-directory-db #:db-close #:begin-write-tx #:commit-write-tx #:execute-sql #:interpret-sql-literal)
-  (:import-from :alexandria)
   (:import-from :endb/arrow)
   (:import-from :endb/json)
   (:import-from :endb/sql/db)
@@ -13,10 +12,7 @@
   (:import-from :endb/lib)
   (:import-from :endb/storage)
   (:import-from :endb/storage/buffer-pool)
-  (:import-from :endb/storage/object-store)
-  (:import-from :endb/storage/wal)
   (:import-from :fset)
-  (:import-from :trivial-utf-8)
   (:import-from :uiop))
 (in-package :endb/sql)
 

@@ -5,6 +5,7 @@
   (:import-from :endb/json)
   (:import-from :alexandria)
   (:import-from :cffi)
+  (:import-from :cl-ppcre)
   (:import-from :trivial-utf-8)
   (:import-from :trivia))
 (in-package :endb/lib/cst)

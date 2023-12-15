@@ -5,7 +5,6 @@
   (:import-from :archive)
   (:import-from :flexi-streams)
   (:import-from :fset)
-  (:import-from :trivial-gray-streams)
   (:import-from :trivial-utf-8)
   (:import-from :uiop))
 (in-package :endb-test/storage)

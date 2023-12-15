@@ -2,12 +2,8 @@
   (:use :cl)
   (:export #:json-parse #:*json-ld-scalars* #:json-stringify #:json-merge-patch #:json-diff
            #:resolve-json-ld-xsd-scalars)
-  (:import-from :alexandria)
-  (:import-from :cl-ppcre)
-  (:import-from :cffi)
   (:import-from :com.inuoe.jzon)
   (:import-from :endb/arrow)
-  (:import-from :endb/lib/arrow)
   (:import-from :endb/lib)
   (:import-from :fset))
 (in-package :endb/json)

@@ -5,7 +5,6 @@
   (:import-from :endb/sql/db)
   (:import-from :endb/sql/expr)
   (:import-from :endb/storage)
-  (:import-from :endb/storage/object-store)
   (:import-from :alexandria)
   (:import-from :cffi)
   (:import-from :cl-ppcre)
