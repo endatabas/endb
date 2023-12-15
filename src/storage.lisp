@@ -45,7 +45,7 @@
 (defgeneric store-write-tx (store tx-id md md-diff arrow-buffers-map &key fsyncp mtime))
 (defgeneric store-get-object (store path))
 (defgeneric store-put-object (store path buffer))
-(defgeneric store-close (os))
+(defgeneric store-close (store))
 
 (defclass disk-store ()
   ((directory :initarg :directory)
