@@ -5,7 +5,9 @@
   (:import-from :cl-ppcre)
   (:import-from :com.inuoe.jzon)
   (:import-from :fset)
+  (:import-from :endb/arrow)
   (:import-from :endb/json)
+  (:import-from :endb/lib/arrow)
   (:import-from :endb/lib/cst)
   (:import-from :endb/lib/server)
   (:import-from :endb/sql)
@@ -59,7 +61,13 @@
                 (funcall on-response-send (format nil "~%"))))
       ((equal "text/csv" content-type)
        (loop for row in (cons column-names rows)
-             do (funcall on-response-send (format nil "~{~A~^,~}~A" (map 'list #'%format-csv row) +crlf+)))))))
+             do (funcall on-response-send (format nil "~{~A~^,~}~A" (map 'list #'%format-csv row) +crlf+))))
+      ((equal "application/vnd.apache.arrow.file" content-type)
+       (funcall on-response-send
+                (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer
+                 (list (endb/arrow:to-arrow
+                        (loop for row in rows
+                              collect (fset:convert 'fset:map (pairlis column-names (coerce row 'list))))))))))))
 
 (defun endb-query (request-method content-type sql parameters manyp on-response-init on-response-send)
   (handler-bind ((endb/lib/server:sql-abort-query-error

@@ -155,6 +155,7 @@ where
                 "*/*" | "application/*" | "application/json" => "application/json",
                 "application/ld+json" => "application/ld+json",
                 "application/x-ndjson" => "application/x-ndjson",
+                "application/vnd.apache.arrow.file" => "application/vnd.apache.arrow.file",
                 "text/*" | "text/csv" => "text/csv",
                 _ => {
                     return Ok(Response::builder()

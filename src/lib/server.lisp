@@ -86,7 +86,8 @@
              (let* ((abortp)
                     (*start-server-on-query-on-abort* (lambda ()
                                                         (setf abortp t)))
-                    (body (if (typep body 'base-string)
+                    (body (if (or (typep body 'base-string)
+                                  (typep body '(vector (unsigned-byte 8))))
                               body
                               (trivial-utf-8:string-to-utf-8-bytes body))))
                (cffi:with-pointer-to-vector-data (body-ptr  #+sbcl (sb-ext:array-storage-vector body)
