@@ -289,7 +289,7 @@ pub fn parse_errors_to_string<'a>(
 
         if let Some(e) = expected
             .iter()
-            .find(|e| found.len() > 1 && e.starts_with(found))
+            .find(|e| found.len() > 1 && e.starts_with(&found.to_uppercase()))
         {
             report.help = Some(format!("did you mean {}?", e));
         }

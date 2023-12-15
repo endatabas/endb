@@ -1,6 +1,6 @@
 (defpackage :endb/lib/cst
   (:use :cl)
-  (:export  #:parse-sql-cst #:render-error-report #:cst->ast #:sql-parse-error)
+  (:export  #:parse-sql-cst #:render-error-report #:cst->ast #:sql-parse-error #:*default-filename*)
   (:import-from :endb/lib)
   (:import-from :endb/json)
   (:import-from :alexandria)
@@ -9,6 +9,8 @@
   (:import-from :trivial-utf-8)
   (:import-from :trivia))
 (in-package :endb/lib/cst)
+
+(defvar *default-filename* "<unknown>")
 
 (defparameter +double-single-quote-scanner+ (ppcre:create-scanner "''"))
 (defparameter +backslash-escape-scanner+ (ppcre:create-scanner "(?s)(\\\\u[0-9a-fA-F]{4}|\\\\.)"))
@@ -102,7 +104,7 @@
   (let ((token (trivial-utf-8:utf-8-bytes-to-string *parse-input-bytes* :start start :end end)))
     (push (cons token start) (first *parse-result*))))
 
-(defun parse-sql-cst (input &key (filename ""))
+(defun parse-sql-cst (input &key (filename *default-filename*))
   (endb/lib:init-lib)
   (if (zerop (length input))
       (error 'sql-parse-error :message "Empty input")
