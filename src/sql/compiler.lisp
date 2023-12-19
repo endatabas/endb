@@ -235,11 +235,17 @@
                      (endb/bloom:sbbf-check-p ,bloom-sym ,lambda-sym))
                    ',hashes))))))
 
-(defun %where-clause-stats-src (clause vars stats-md-sym)
+(defun %parameter-lookup-p (src param-sym)
+  (and (listp src)
+       (eq 'fset:lookup (first src))
+       (eq param-sym (second src))))
+
+(defun %where-clause-stats-src (clause vars stats-md-sym param-sym)
   (labels ((free-var-or-constant-p (y)
              (or (and (symbolp y)
                       (not (member y vars)))
-                 (constantp y))))
+                 (constantp y)
+                 (%parameter-lookup-p y param-sym))))
     (trivia:match (where-clause-src clause)
       ((trivia:guard
         (list 'endb/sql/expr:sql-= x y)
@@ -417,7 +423,7 @@
                  (array-vars (loop repeat (length kw-projection)
                                    collect (gensym)))
                  (stats-src (loop for clause in where-clauses
-                                  for stats-src = (%where-clause-stats-src clause vars stats-md-sym)
+                                  for stats-src = (%where-clause-stats-src clause vars stats-md-sym (fset:lookup ctx :param-sym))
                                   when stats-src
                                     collect stats-src))
                  (stats-src (append stats-src extra-stats-src)))
