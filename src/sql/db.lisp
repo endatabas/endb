@@ -17,8 +17,8 @@
 
            #:syn-current_date #:syn-current_time #:syn-current_timestamp
 
-           #:make-db #:copy-db #:db-buffer-pool #:db-store #:db-meta-data #:db-current-timestamp #:db-write-lock #:db-compaction-thread #:db-compaction-queue
-           #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions
+           #:make-db #:copy-db #:db-buffer-pool #:db-store #:db-meta-data #:db-current-timestamp #:db-write-lock #:db-compaction-thread #:db-compaction-queue #:db-query-cache
+           #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions #:query-cache-key
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
            #:view-definition #:calculate-stats #:run-compaction #:start-background-compaction))
 (in-package :endb/sql/db)
@@ -35,7 +35,8 @@
   (information-schema-cache (make-hash-table :weakness :key :test 'eq))
   (write-lock (bt:make-lock))
   compaction-thread
-  (compaction-queue (endb/queue:make-queue)))
+  (compaction-queue (endb/queue:make-queue))
+  (query-cache (make-hash-table :synchronized t :weakness :value :test 'equal)))
 
 (defun syn-current_date (db)
   (endb/sql/expr:syn-cast (syn-current_timestamp db) :date))
@@ -97,13 +98,18 @@
                    (fset:map ("system_time_end" endb/sql/expr:+end-of-time+)))
                "system_time_end"))
 
+(defparameter +information-schema-tables+ '("information_schema.columns"
+                                            "information_schema.tables"
+                                            "information_schema.views"
+                                            "information_schema.check_constraints"))
+
+(defun query-cache-key (db sql)
+  (cons sql
+        (loop for table-name in +information-schema-tables+
+              collect (base-table-meta db table-name))))
+
 (defun %information-schema-table-p (table-name)
-  (member table-name
-          '("information_schema.columns"
-            "information_schema.tables"
-            "information_schema.views"
-            "information_schema.check_constraints")
-          :test 'equal))
+  (member table-name +information-schema-tables+ :test 'equal))
 
 (defun table-type (db table-name)
   (if (%information-schema-table-p table-name)

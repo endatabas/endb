@@ -1939,9 +1939,12 @@
                                                                                   (or (fset:convert 'list (fset:domain ,param-sym)) "()"))))
                        (let ((,index-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
                          (declare (ignorable ,index-sym))
-                         ,src))))
-          #+sbcl (let ((sb-ext:*evaluator-mode* (if (%interpretp ast)
-                                                    :interpret
-                                                    sb-ext:*evaluator-mode*)))
-                   (eval src))
-          #-sbcl (eval src))))))
+                         ,src)))
+               (cachep (not (%interpretp ast))))
+          (values
+           #+sbcl (let ((sb-ext:*evaluator-mode* (if (%interpretp ast)
+                                                     :interpret
+                                                     sb-ext:*evaluator-mode*)))
+                    (eval src))
+           #-sbcl (eval src)
+           cachep))))))

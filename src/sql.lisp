@@ -48,16 +48,12 @@
   (endb/lib/cst:cst->ast (endb/lib/cst:parse-sql-cst sql)))
 
 (defun %execute-constraints (db)
-  (let ((ctx (fset:map (:db db))))
-    (fset:do-map (k v (endb/sql/db:constraint-definitions db))
-      (when (equalp '(#(nil)) (handler-case
-                                  (funcall (endb/sql/compiler:compile-sql (fset:with ctx :sql v)
-                                                                          (%parse-sql v))
-                                           db
-                                           (fset:empty-seq))
-                                (endb/sql/expr:sql-runtime-error (e)
-                                  (endb/lib:log-warn "Constraint ~A raised an error, ignoring: ~A" k e))))
-        (error 'endb/sql/expr:sql-runtime-error :message (format nil "Constraint failed: ~A" k))))))
+  (fset:do-map (k v (endb/sql/db:constraint-definitions db))
+    (when (equalp '(#(nil)) (handler-case
+                                (execute-sql db v)
+                              (endb/sql/expr:sql-runtime-error (e)
+                                (endb/lib:log-warn "Constraint ~A raised an error, ignoring: ~A" k e))))
+      (error 'endb/sql/expr:sql-runtime-error :message (format nil "Constraint failed: ~A" k)))))
 
 (defun commit-write-tx (current-db write-db &key (fsyncp t))
   (let ((current-md (endb/sql/db:db-meta-data current-db))
@@ -112,28 +108,39 @@
                  (t x))))
       (values (walk ast) parameters))))
 
+(defun %compile-sql-fn (db sql)
+  (let ((k (endb/sql/db:query-cache-key db sql)))
+    (or (gethash k (endb/sql/db:db-query-cache db))
+        (let* ((ast (%parse-sql sql))
+               (ctx (fset:map (:db db) (:sql sql)))
+               (*print-length* 16))
+          (multiple-value-bind (sql-fn cachep)
+              (multiple-value-bind (ast expected-parameters)
+                  (%resolve-parameters ast)
+                (if (eq :multiple-statments (first ast))
+                    (let ((asts (second ast)))
+                      (if (= 1 (length asts))
+                          (endb/sql/compiler:compile-sql ctx (first asts) expected-parameters)
+                          (values
+                           (lambda (db parameters)
+                             (loop with end-idx = (length asts)
+                                   for ast in asts
+                                   for idx from 1
+                                   for sql-fn = (endb/sql/compiler:compile-sql ctx ast expected-parameters)
+                                   if (= end-idx idx)
+                                     do (return (funcall sql-fn db parameters))
+                                   else
+                                     do (funcall sql-fn db parameters)))
+                           nil)))
+                    (endb/sql/compiler:compile-sql ctx ast expected-parameters)))
+            (when cachep
+              (setf (gethash k (endb/sql/db:db-query-cache db)) sql-fn))
+            sql-fn)))))
+
 (defun %execute-sql (db sql parameters manyp)
   (when (and manyp (not (fset:seq? parameters)))
     (error 'endb/sql/expr:sql-runtime-error :message "Many parameters must be an array"))
-  (let* ((ast (%parse-sql sql))
-         (ctx (fset:map (:db db) (:sql sql)))
-         (*print-length* 16)
-         (sql-fn (multiple-value-bind (ast expected-parameters)
-                     (%resolve-parameters ast)
-                   (if (eq :multiple-statments (first ast))
-                       (let ((asts (second ast)))
-                         (if (= 1 (length asts))
-                             (endb/sql/compiler:compile-sql ctx (first asts) expected-parameters)
-                             (lambda (db parameters)
-                               (loop with end-idx = (length asts)
-                                     for ast in asts
-                                     for idx from 1
-                                     for sql-fn = (endb/sql/compiler:compile-sql ctx ast expected-parameters)
-                                     if (= end-idx idx)
-                                       do (return (funcall sql-fn db parameters))
-                                     else
-                                       do (funcall sql-fn db parameters)))))
-                       (endb/sql/compiler:compile-sql ctx ast expected-parameters))))
+  (let* ((sql-fn (%compile-sql-fn db sql))
          (all-parameters (if manyp
                              (fset:convert 'list parameters)
                              (list parameters)))
