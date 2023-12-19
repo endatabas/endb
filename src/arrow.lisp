@@ -563,10 +563,12 @@
    (element-type :initform 'int32)))
 
 (defmethod arrow-push ((array int32-array) (x integer))
-  (with-slots (values) array
-    (%push-valid array)
-    (vector-push-extend x values)
-    array))
+  (if (typep x 'int32)
+      (with-slots (values) array
+        (%push-valid array)
+        (vector-push-extend x values)
+        array)
+      (call-next-method)))
 
 (defmethod arrow-value ((array int32-array) (n fixnum))
   (aref (slot-value array 'values) n))
@@ -681,7 +683,7 @@
     row))
 
 (defmethod arrow-push ((array float64-array) (x number))
-  (if (typep x 'int64)
+  (if (typep x 'int128)
       (call-next-method)
       (with-slots (values) array
         (%push-valid array)
@@ -695,7 +697,7 @@
   "g")
 
 (defmethod arrow-lisp-type ((array float64-array))
-  '(and number (not int64)))
+  '(and number (not int128)))
 
 (defclass boolean-array (primitive-array)
   ((values :type (vector bit))
@@ -797,7 +799,8 @@
   ((element-size :initform 16)))
 
 (defmethod arrow-push ((array decimal-array) (x integer))
-  (if (typep x 'int128)
+  (if (and (typep x 'int128)
+           (not (typep x 'int64)))
       (with-slots (element-size) array
         (loop with xs = (make-array element-size :element-type 'uint8)
               for idx from 0 below element-size
@@ -817,7 +820,7 @@
                               v)))))
 
 (defmethod arrow-lisp-type ((array decimal-array))
-  'integer)
+  '(and int128 (not int64)))
 
 (defmethod arrow-data-type ((array decimal-array))
   "d:38,0")

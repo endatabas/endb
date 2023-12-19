@@ -269,9 +269,13 @@
     (is (equal '(1.7014118346046923d38 -1.7014118346046923d38) (coerce array 'list))))
 
   (let* ((expected '(170141183460469231731687303715884105727 -170141183460469231731687303715884105728 -1 -9223372036854775808 :null 0 2))
-         (array (to-arrow expected)))
-    (is (typep array 'endb/arrow::decimal-array))
-    (is (= 16 (slot-value array 'endb/arrow::element-size)))
+         (array (to-arrow expected))
+         (children (slot-value array 'endb/arrow::children))
+         (d (elt children 0))
+         (i (elt children 1)))
+    (is (typep d 'endb/arrow::decimal-array))
+    (is (typep i 'endb/arrow::int64-array))
+    (is (= 16 (slot-value d 'endb/arrow::element-size)))
     (is (equal expected (coerce array 'list))))
 
   (let* ((array (to-arrow '(170141183460469231731687303715884105727))))
