@@ -58,6 +58,8 @@ class Endb:
         with urllib.request.urlopen(req) as response:
             if accept == 'text/csv':
                 return response.read().decode()
+            elif accept == 'application/vnd.apache.arrow.file':
+                return response.read()
             else:
                 return json.loads(response.read(), object_hook=self._from_json_ld)
 

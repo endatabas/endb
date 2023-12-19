@@ -62,6 +62,8 @@ class Endb {
         if (response.ok) {
             if (accept === 'text/csv') {
                 return await response.text();
+            } else if (accept === 'application/vnd.apache.arrow.file') {
+                return response.body;
             } else {
                 return JSON.parse(await response.text(), (k, v) => fromJSONLD(v));
             }
