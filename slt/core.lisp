@@ -168,6 +168,7 @@
              (setf *endb* (endb/sql:commit-write-tx *endb* write-db)))))
        (lambda (path buffer)
          (endb/storage:store-put-object (endb/sql/db:db-store *endb*) path buffer))))
+    (endb/sql/db:start-background-indexer *endb*)
     0))
 
 (cffi:defcallback endbGetEngineName :int

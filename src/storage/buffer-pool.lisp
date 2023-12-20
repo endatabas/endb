@@ -76,8 +76,10 @@
 
 (defmethod buffer-pool-get ((bp writeable-buffer-pool) path &key sha1 read-through-p)
   (with-slots (parent-pool pool) bp
-    (or (gethash path pool)
-        (buffer-pool-get parent-pool path :sha1 sha1 :read-through-p read-through-p))))
+    (let ((buffer (gethash path pool)))
+      (if buffer
+          (values buffer t)
+          (buffer-pool-get parent-pool path :sha1 sha1 :read-through-p read-through-p)))))
 
 (defmethod buffer-pool-put ((bp writeable-buffer-pool) path arrays)
   (with-slots (pool) bp

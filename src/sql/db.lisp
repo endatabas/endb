@@ -17,10 +17,11 @@
 
            #:syn-current_date #:syn-current_time #:syn-current_timestamp
 
-           #:make-db #:copy-db #:db-buffer-pool #:db-store #:db-meta-data #:db-current-timestamp #:db-write-lock #:db-compaction-thread #:db-compaction-queue #:db-query-cache
+           #:make-db #:copy-db #:db-buffer-pool #:db-store #:db-meta-data #:db-current-timestamp #:db-write-lock
+           #:db-compaction-thread #:db-compaction-queue #:db-query-cache #:db-hash-index-cache #:db-indexer-queue #:db-indexer-thread
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions #:query-cache-key
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
-           #:view-definition #:calculate-stats #:run-compaction #:start-background-compaction))
+           #:view-definition #:calculate-stats #:run-compaction #:start-background-compaction #:start-background-indexer))
 (in-package :endb/sql/db)
 
 ;; DML/DDL
@@ -35,8 +36,11 @@
   (information-schema-cache (make-hash-table :weakness :key :test 'eq))
   (write-lock (bt:make-lock))
   compaction-thread
-  (compaction-queue (endb/queue:make-queue))
-  (query-cache (make-hash-table :synchronized t :weakness :value :test 'equal)))
+  compaction-queue
+  (query-cache (make-hash-table :synchronized t :weakness :value :test 'equal))
+  indexer-thread
+  indexer-queue
+  (hash-index-cache (make-hash-table :synchronized t :test 'equal)))
 
 (defun syn-current_date (db)
   (endb/sql/expr:syn-cast (syn-current_timestamp db) :date))
@@ -384,8 +388,10 @@
               (endb/lib:log-info "compacted ~A" batch-key))))))))
 
 (defun start-background-compaction (db db-access-fn db-commit-fn object-put-fn &key (target-size (* 4 1024 1024)) (timeout 0.5))
-  (let ((compaction-queue (db-compaction-queue db)))
-    (setf (endb/sql/db:db-compaction-thread db)
+  (let ((compaction-queue (endb/queue:make-queue)))
+    (setf (db-compaction-queue db)
+          compaction-queue
+          (db-compaction-thread db)
           (bt:make-thread
            (lambda ()
              (loop
@@ -396,6 +402,20 @@
                    (return-from nil)))
                (run-compaction (funcall db-access-fn) db-commit-fn object-put-fn :target-size target-size)))
            :name "endb compaction thread"))))
+
+(defun start-background-indexer (db)
+  (let ((indexer-queue (endb/queue:make-queue)))
+    (setf (db-indexer-queue db)
+          indexer-queue
+          (db-indexer-thread db)
+          (bt:make-thread
+           (lambda ()
+             (loop for job = (endb/queue:queue-pop indexer-queue)
+                   if (null job)
+                     do (return-from nil)
+                   else
+                     do (funcall job)) )
+           :name "endb indexer thread"))))
 
 (defun %find-files-to-compact (db table-name target-size)
   (let ((table-md (base-table-meta db table-name))

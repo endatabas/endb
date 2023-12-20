@@ -25,7 +25,8 @@
          (funcall tx-fn write-db)
          (setf endb/lib/server:*db* (endb/sql:commit-write-tx endb/lib/server:*db* write-db)))))
    (lambda (path buffer)
-     (endb/storage:store-put-object (endb/sql/db:db-store endb/lib/server:*db*) path buffer))))
+     (endb/storage:store-put-object (endb/sql/db:db-store endb/lib/server:*db*) path buffer)))
+  (endb/sql/db:start-background-indexer endb/lib/server:*db*))
 
 (defun %endb-close-db ()
   (when (boundp 'endb/lib/server:*db*)

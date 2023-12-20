@@ -25,4 +25,5 @@
         (bt:condition-notify cv)))))
 
 (defun queue-close (queue)
-  (queue-push queue 'close))
+  (when queue
+    (queue-push queue 'close)))

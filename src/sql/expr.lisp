@@ -7,6 +7,7 @@
   (:import-from :endb/arrow)
   (:import-from :endb/json)
   (:import-from :endb/lib)
+  (:import-from :endb/queue)
   (:import-from :fset)
   (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
@@ -28,7 +29,7 @@
 
            #:ra-distinct #:ra-unnest #:ra-union-all #:ra-union #:ra-except #:ra-intersect
            #:ra-scalar-subquery #:ra-in  #:ra-in-query #:ra-in-query-index #:ra-exists #:ra-limit #:ra-order-by #:ra-compute-index-if-absent #:ra-visible-row-p
-           #:ra-bloom-hashes
+           #:ra-bloom-hashes #:ra-hash-index
 
            #:make-agg #:agg-accumulate #:agg-finish
 
@@ -1963,6 +1964,37 @@
          (loop for array in arrays
                collect (endb/lib:xxh64 (endb/arrow:arrow-row-format array 0)))))
       (list (endb/lib:xxh64 (endb/arrow:to-arrow-row-format x)))))
+
+(defparameter +hash-index-limit+ 128)
+(defparameter +hash-index-min-size+ 32)
+(deftype hash-index-type () '(or string (signed-byte 64) boolean (eql :null) endb/arrow:arrow-date-millis))
+
+(defun ra-hash-index (hash-index indexer-queue k batch column-kw x)
+  (when (and indexer-queue
+             (typep x 'hash-index-type)
+             (<= +hash-index-min-size+ (endb/arrow:arrow-length batch)))
+    (multiple-value-bind (index foundp)
+        (gethash k hash-index)
+      (if foundp
+          (gethash x index)
+          (progn
+            (endb/queue:queue-push
+             indexer-queue
+             (lambda ()
+               (when (<= +hash-index-limit+ (hash-table-count hash-index))
+                 (clrhash hash-index))
+               (ra-compute-index-if-absent
+                hash-index
+                k
+                (lambda ()
+                  (let ((index (make-hash-table :test +hash-table-test+)))
+                    (dotimes (idx (endb/arrow:arrow-length batch))
+                      (let* ((v (endb/arrow:arrow-struct-column-value batch idx column-kw))
+                             (idxs (or (gethash v index)
+                                       (setf (gethash v index) (make-array 0 :fill-pointer 0 :element-type 'fixnum)))))
+                        (vector-push-extend idx idxs)))
+                    index)))))
+            nil)))))
 
 ;; Aggregates
 
