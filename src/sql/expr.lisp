@@ -66,7 +66,13 @@
       (number (equalp x y))
       (t (fset:equal? x y)))))
 
-#+sbcl (sb-impl::define-hash-table-test equalp-case-sensitive sb-int:psxhash)
+#+sbcl (defun equalp-case-sensitive-hash-fn (x)
+         (sb-int:psxhash
+          (if (typep x 'endb/arrow:arrow-date-millis)
+              (endb/arrow:local-time-to-arrow-timestamp-micros (endb/arrow:arrow-date-millis-to-local-time x))
+              x)))
+
+#+sbcl (sb-impl::define-hash-table-test equalp-case-sensitive equalp-case-sensitive-hash-fn)
 (defparameter +hash-table-test+ #+sbcl 'endb/sql/expr:equalp-case-sensitive #-sbcl 'equalp)
 
 (defparameter +unix-epoch-time+ (endb/arrow:parse-arrow-timestamp-micros "1970-01-01"))
