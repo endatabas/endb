@@ -39,14 +39,31 @@
 (defvar *sqlite-mode* nil)
 
 (defun equalp-case-sensitive (x y)
-  (etypecase x
-    (string
-     (and (stringp y)
-          (string= x y)))
-    (fset:collection
-     (and (fset:collection? y)
-          (fset:equal? x y)))
-    (t (equalp x y))))
+  (labels ((fset-walk (x y)
+             (and
+              (= (fset:size x) (fset:size y))
+              (let ((x-domain (fset:domain x))
+                    (y-domain (fset:domain y)))
+                (and (fset:equal? x-domain y-domain)
+                     (fset:reduce
+                      (lambda (acc k)
+                        (if (equalp-case-sensitive (fset:lookup x k)
+                                                   (fset:lookup y k))
+                            acc
+                            (return-from fset-walk nil)))
+                      x-domain
+                      :initial-value t))))))
+    (etypecase x
+      (string
+       (and (stringp y)
+            (string= x y)))
+      (fset:seq
+       (and (fset:seq? y)
+            (fset-walk x y)))
+      (fset:map
+       (and (fset:map? y)
+            (fset-walk x y)))
+      (t (fset:equal? x y)))))
 
 #+sbcl (sb-impl::define-hash-table-test equalp-case-sensitive sb-int:psxhash)
 (defparameter +hash-table-test+ #+sbcl 'endb/sql/expr:equalp-case-sensitive #-sbcl 'equalp)
@@ -71,7 +88,7 @@
   (= x y))
 
 (defmethod sql-= (x y)
-  (fset:equal? x y))
+  (equalp-case-sensitive x y))
 
 (defun sql-<> (x y)
   (sql-not (sql-= x y)))
