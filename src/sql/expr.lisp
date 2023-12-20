@@ -1967,27 +1967,39 @@
                        until (funcall cmp yv xv))))))
 
 (defun ra-bloom-hashes (x)
-  (if (numberp x)
-      (let* ((float64-array (make-instance 'endb/arrow:float64-array))
-             (int64-array (make-instance 'endb/arrow:int64-array))
-             (decimal-array (make-instance 'endb/arrow:decimal-array))
-             (arrays (etypecase x
-                       (double-float
-                        (append
-                         (list (endb/arrow:arrow-push float64-array x))
-                         (when (= x (ceiling x))
-                           (list (endb/arrow:arrow-push int64-array (ceiling x))
-                                 (endb/arrow:arrow-push decimal-array (ceiling x))))))
-                       (integer
-                        (append
-                         (when (= x (coerce x 'double-float))
-                           (list (endb/arrow:arrow-push float64-array (coerce x 'double-float))))
-                         (list (endb/arrow:arrow-push int64-array x)
-                               (endb/arrow:arrow-push decimal-array x)))))))
-        (remove-duplicates
-         (loop for array in arrays
-               collect (endb/lib:xxh64 (endb/arrow:arrow-row-format array 0)))))
-      (list (endb/lib:xxh64 (endb/arrow:to-arrow-row-format x)))))
+  (cond
+    ((numberp x)
+     (let* ((float64-array (make-instance 'endb/arrow:float64-array))
+            (int64-array (make-instance 'endb/arrow:int64-array))
+            (decimal-array (make-instance 'endb/arrow:decimal-array))
+            (arrays (etypecase x
+                      (double-float
+                       (append
+                        (list (endb/arrow:arrow-push float64-array x))
+                        (when (= x (ceiling x))
+                          (list (endb/arrow:arrow-push int64-array (ceiling x))
+                                (endb/arrow:arrow-push decimal-array (ceiling x))))))
+                      (integer
+                       (append
+                        (when (= x (coerce x 'double-float))
+                          (list (endb/arrow:arrow-push float64-array (coerce x 'double-float))))
+                        (list (endb/arrow:arrow-push int64-array x)
+                              (endb/arrow:arrow-push decimal-array x)))))))
+       (remove-duplicates
+        (loop for array in arrays
+              collect (endb/lib:xxh64 (endb/arrow:arrow-row-format array 0))))))
+    ((typep x 'endb/arrow:arrow-date-millis)
+     (let ((timestamp (endb/arrow:local-time-to-arrow-timestamp-micros
+                       (endb/arrow:arrow-date-millis-to-local-time x))))
+       (list (endb/lib:xxh64 (endb/arrow:to-arrow-row-format x))
+             (endb/lib:xxh64 (endb/arrow:to-arrow-row-format timestamp)))))
+    ((typep x 'endb/arrow:arrow-timestamp-micros)
+     (let ((date (endb/arrow:local-time-to-arrow-date-millis (endb/arrow:arrow-timestamp-micros-to-local-time x))))
+       (if (fset:equal? x date)
+           (list (endb/lib:xxh64 (endb/arrow:to-arrow-row-format date))
+                 (endb/lib:xxh64 (endb/arrow:to-arrow-row-format x)))
+           (list (endb/lib:xxh64 (endb/arrow:to-arrow-row-format x))))))
+    (t (list (endb/lib:xxh64 (endb/arrow:to-arrow-row-format x))))))
 
 (defparameter +hash-index-limit+ 128)
 (defparameter +hash-index-min-size+ 32)
