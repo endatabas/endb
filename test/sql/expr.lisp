@@ -57,68 +57,11 @@
 
   (is (eq t (sql-or (sql-= :null 1) (sql-= 1 1)))))
 
-(test three-valued-logic-compare
-  (is (eq :null (sql-< 2 :null)))
-  (is (eq :null (sql-<= :null 2)))
-  (is (eq :null (sql-> 1 :null)))
-  (is (eq :null (sql->= :null 3)))
-
-  (is (eq t (sql-between 2 1 3)))
-  (is (eq nil (sql-between 4 1 3)))
-  (is (eq :null (sql-between 1 1 :null)))
-  (is (eq :null (sql-between :null 1 2))))
-
-(test three-valued-logic-in
-  (is (eq :null (sql-not (ra-in 1 '(:null)))))
-  (is (eq t (sql-not (ra-in 1 '(0)))))
-  (is (eq :null (sql-not (ra-in 1 '(:null 2)))))
-  (is (eq nil (sql-not (ra-in 1 '(:null 1)))))
-
-  (is (eq t (ra-exists '(1))))
-  (is (eq t (ra-exists '(:null))))
-  (is (eq nil (ra-exists '()))))
-
-(test three-valued-logic-coalesce
-  (is (eq :null (sql-coalesce :null :null)))
-  (is (eq 1 (sql-coalesce :null 1)))
-  (is (eq 1 (sql-coalesce 1 :null)))
-  (is (eq 1 (sql-coalesce 1 :null 2)))
-  (is (eq 2 (sql-coalesce :null :null 2 3)))
-  (is (eq nil (sql-coalesce nil 2))))
-
-(test arithmetic
-  (is (eq :null (sql-+ 2 :null)))
-  (is (eq :null (sql-- 0 :null)))
-  (is (eq :null (sql-* :null 3)))
-  (is (eq :null (sql-/ :null 3)))
-  (is (= 0 (sql-/ 2 3)))
-  (is (= 0.5 (sql-/ 1 2.0)))
-  (is (= 2 (sql-abs -2)))
-  (is (eq :null (sql-abs :null)))
-  (is (= -2 (sql-- 0 2))))
-
 (test sorting
   (is (equalp '(#(:null) #(1) #(2)) (endb/sql/expr:ra-order-by (copy-list '(#(2) #(:null) #(1))) '((1 :ASC)))))
   (is (equalp '(#(2) #(1) #(:null)) (endb/sql/expr:ra-order-by (copy-list '(#(1) #(2) #(:null))) '((1 :DESC)))))
   (is (equalp '(#(2 1) #(2 2) #(1 1)) (endb/sql/expr:ra-order-by (copy-list '(#(1 1) #(2 2) #(2 1))) '((1 :DESC) (2 :ASC)))))
   (is (equalp '(#(2 2) #(1 1) #(2 1)) (endb/sql/expr:ra-order-by (copy-list '(#(1 1) #(2 2) #(2 1))) '((2 :DESC))))))
-
-(test like
-  (is (eq t (sql-like "foo" "foo")))
-  (is (eq nil (sql-like "foo" "fo")))
-  (is (eq nil (sql-like "fo" "foo")))
-  (is (eq t (sql-like "fo%" "foo")))
-  (is (eq t (sql-like "%oo" "foo")))
-  (is (eq t (sql-like "%o%" "foo")))
-  (is (eq :null (sql-like "%o%" :null)))
-  (is (eq :null (sql-like :null "foo"))))
-
-(test substring
-  (is (equal "foo" (sql-substring "foo" 1)))
-  (is (equal "oo" (sql-substring "foo" 2)))
-  (is (equal "fo" (sql-substring "foo" 1 2)))
-  (is (eq :null (sql-substring "foo" 4)))
-  (is (equal "foo" (sql-substring "foo" 1 5))))
 
 (defun %aggregate (type xs &key distinct)
   (agg-finish (reduce #'agg-accumulate xs :initial-value (make-agg type :distinct distinct))))

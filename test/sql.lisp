@@ -2726,6 +2726,20 @@ SELECT s FROM x WHERE ind=0")
   (is-valid (expr "NULL IS NULL"))
   (is-valid (expr "NULL IS NOT NULL"))
 
+  (is-valid (expr "2 BETWEEN 1 AND 3"))
+  (is-valid (expr "4 BETWEEN 1 AND 3"))
+  (is-valid (expr "1 BETWEEN 1 AND NULL"))
+  (is-valid (expr "NULL BETWEEN 1 AND 2"))
+
+  (is-valid (expr "1 NOT IN (NULL)"))
+  (is-valid (expr "1 NOT IN (0)"))
+  (is-valid (expr "1 NOT IN (NULL, 2)"))
+  (is-valid (expr "1 NOT IN (NULL, 1)"))
+
+  (is-valid (expr "EXISTS (VALUES (1))"))
+  (is-valid (expr "EXISTS (VALUES (NULL))"))
+  (is-valid (expr "EXISTS (SELECT 1 FROM (VALUES (1)) AS x WHERE FALSE)"))
+
   (is-valid (expr "abs(2.0)"))
   (is-valid (expr "abs(-2)"))
   (is-valid (expr "abs(NULL)"))
@@ -2734,6 +2748,12 @@ SELECT s FROM x WHERE ind=0")
   (is-valid (expr "nullif(1, 'foo')"))
   (is-valid (expr "nullif('foo', 1)"))
 
+  (is-valid (expr "coalesce(NULL, NULL)"))
+  (is-valid (expr "coalesce(NULL, 1)"))
+  (is-valid (expr "coalesce(1, NULL)"))
+  (is-valid (expr "coalesce(1, NULL, 2)"))
+  (is-valid (expr "coalesce(NULL, NULL, 2, 3)"))
+  (is-valid (expr "coalesce(FALSE, 2)"))
   (is-valid (expr "coalesce(NULL, 'foo', 1)"))
   (is-valid (expr "coalesce(NULL, NULL, 1)"))
 
