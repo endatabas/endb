@@ -63,6 +63,7 @@
       (fset:map
        (and (fset:map? y)
             (fset-walk x y)))
+      (number (equalp x y))
       (t (fset:equal? x y)))))
 
 #+sbcl (sb-impl::define-hash-table-test equalp-case-sensitive sb-int:psxhash)
