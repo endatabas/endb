@@ -1,6 +1,6 @@
 (defpackage :endb/lib/cst
   (:use :cl)
-  (:export  #:parse-sql-cst #:render-error-report #:cst->ast #:sql-parse-error #:*default-filename*)
+  (:export  #:parse-sql-cst #:render-error-report #:cst->ast #:sql-parse-error #:*default-filename* #:parse-sql-ast)
   (:import-from :endb/lib)
   (:import-from :endb/json)
   (:import-from :alexandria)
@@ -775,3 +775,6 @@
     (let ((*read-eval* nil)
           (*read-default-float-format* 'double-float))
       (walk cst))))
+
+(defun parse-sql-ast (input &key (filename *default-filename*))
+  (cst->ast (parse-sql-cst input :filename filename)))

@@ -47,9 +47,6 @@
     (setf (endb/sql/db:db-current-timestamp write-db) (endb/sql/db:syn-current_timestamp db))
     write-db))
 
-(defun %parse-sql (sql)
-  (endb/lib/cst:cst->ast (endb/lib/cst:parse-sql-cst sql)))
-
 (defun %execute-constraints (db)
   (fset:do-map (k v (endb/sql/db:constraint-definitions db))
     (when (equalp '(#(nil)) (handler-case
@@ -114,7 +111,7 @@
 (defun %compile-sql-fn (db sql)
   (let ((k (endb/sql/db:query-cache-key db sql)))
     (or (gethash k (endb/sql/db:db-query-cache db))
-        (let* ((ast (%parse-sql sql))
+        (let* ((ast (endb/lib/cst:parse-sql-ast sql))
                (ctx (fset:map (:db db) (:sql sql)))
                (*print-length* 16))
           (multiple-value-bind (sql-fn cachep)
@@ -225,7 +222,7 @@
 
 (defun interpret-sql-literal (src)
   (let* ((select-list (handler-case
-                          (cadr (%parse-sql (format nil "SELECT ~A" src)))
+                          (cadr (endb/lib/cst:parse-sql-ast (format nil "SELECT ~A" src)))
                         (endb/lib/cst:sql-parse-error (e)
                           (declare (ignore e)))))
          (ast (car select-list))

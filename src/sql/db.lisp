@@ -6,7 +6,6 @@
   (:import-from :endb/arrow)
   (:import-from :endb/bloom)
   (:import-from :endb/lib)
-  (:import-from :endb/lib/cst)
   (:import-from :endb/sql/expr)
   (:import-from :endb/storage/buffer-pool)
   (:import-from :endb/queue)
@@ -129,7 +128,7 @@
                               (equal view-name (aref row 2)))
                             (base-table-visible-rows db "information_schema.views"))))
     (when view-row
-      (endb/lib/cst:cst->ast (endb/lib/cst:parse-sql-cst (aref view-row 3))))))
+      (aref view-row 3))))
 
 (defun constraint-definitions (db)
   (if endb/sql/expr:*sqlite-mode*
