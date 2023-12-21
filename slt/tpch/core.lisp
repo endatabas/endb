@@ -1,4 +1,4 @@
-(defpackage :endb-test/tpch/core
+(defpackage :endb-slt/tpch/core
   (:use :cl)
   (:export #:main)
   (:import-from :ppcre)
