@@ -172,4 +172,11 @@
     (let ((ht (make-hash-table :test +hash-table-test+)))
       (setf (gethash x ht) t)
       (is (gethash x ht))
-      (is (not (gethash y ht))))))
+      (is (not (gethash y ht)))))
+
+  (is (eq t (equalp-case-sensitive :null :null)))
+  (is (equalp-case-sensitive (fset:seq :null) (fset:seq :null)))
+
+  (let ((ht (make-hash-table :test +hash-table-test+)))
+    (setf (gethash :null ht) t)
+    (is (gethash :null ht))))

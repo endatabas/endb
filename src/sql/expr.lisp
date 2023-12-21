@@ -40,7 +40,8 @@
 (defvar *sqlite-mode* nil)
 
 (defun equalp-case-sensitive (x y)
-  (sql-= x y))
+  (or (and (eq :null x) (eq :null y))
+      (eq t (sql-= x y))))
 
 (defun equalp-case-sensitive-hash-fn (x)
   (#+sbcl sb-int:psxhash #-sbcl sxhash
