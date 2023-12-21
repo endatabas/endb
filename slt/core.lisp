@@ -2,9 +2,10 @@
   (:use :cl)
   (:export #:main)
   (:import-from :cffi)
-  (:import-from :sqlite)
+  (:import-from :cl-ppcre)
   (:import-from :asdf)
   (:import-from :uiop)
+  (:import-from :endb/arrow)
   (:import-from :endb/lib)
   (:import-from :endb/sql)
   (:import-from :endb/sql/expr)
@@ -23,12 +24,8 @@
 
 (cffi:defctype DbEngine (:struct DbEngine))
 
-(defvar *connections* (make-hash-table))
 (defvar *endb*)
-
-(defvar *sqlite-db-engine*)
 (defvar *endb-db-engine*)
-
 (defvar *endb-db-engine-reported-name* "postgresql")
 
 (cffi:defcfun "sqlite3_snprintf" :int
@@ -42,6 +39,14 @@
     ((eq :null value) "NULL")
     ((eq t value) "1")
     ((null value) "0")
+    ((typep value 'endb/arrow:arrow-date-millis)
+     (format nil "~A" value))
+    ((typep value 'endb/arrow:arrow-time-micros)
+     (let ((s (format nil "~A" value)))
+       (subseq s 0 (- (length s) 7))))
+    ((typep value 'endb/arrow:arrow-timestamp-micros)
+     (let ((s (format nil "~A" value)))
+       (ppcre:regex-replace "T" (subseq s 0 (- (length s) 8)) " ")))
     (t (ecase type
          (#\T (if (equal "" value)
                   "(empty)"
@@ -78,72 +83,6 @@
   (dotimes (n nResult)
     (cffi:foreign-free (cffi:mem-aref azResult :pointer n)))
   (cffi:foreign-free azResult))
-
-(cffi:defcallback sqliteConnect :int
-    ((NotUsed :pointer)
-     (zCon :string)
-     (ppConn (:pointer :pointer))
-     (zOpt :string))
-  (declare (ignorable NotUsed ppConn zOpt))
-  (let* ((handle (sqlite:connect (or zCon ":memory:")))
-         (pConn (sqlite::handle handle)))
-    (setf (cffi:mem-ref ppConn :pointer) pConn)
-    (setf (gethash (cffi:pointer-address pConn) *connections*) handle)
-    0))
-
-(cffi:defcallback sqliteGetEngineName :int
-    ((pConn :pointer)
-     (zName (:pointer :char)))
-  (declare (ignorable pConn zName))
-  (if *sqlite-db-engine*
-      (progn
-        (setf zName (cffi:foreign-slot-value *sqlite-db-engine* 'DbEngine 'zName))
-        0)
-      1))
-
-(cffi:defcallback sqliteStatement :int
-    ((pConn :pointer)
-     (zSql :string)
-     (bQuiet :int))
-  (declare (ignore bQuiet))
-  (let ((handle (gethash (cffi:pointer-address pConn) *connections*)))
-    (if handle
-        (progn
-          (sqlite:execute-non-query handle zSql)
-          0)
-        1)))
-
-(cffi:defcallback sqliteQuery :int
-    ((pConn :pointer)
-     (zSql :string)
-     (zTypes :string)
-     (pazResult (:pointer (:pointer (:pointer :char))))
-     (pnResult (:pointer :int)))
-  (declare (ignorable pazResult pnResult))
-  (let ((handle (gethash (cffi:pointer-address pConn) *connections*)))
-    (if handle
-        (progn
-          (%slt-result (sqlite:execute-to-list handle zSql) zTypes pazResult pnResult :nil-is-null t)
-          0)
-        1)))
-
-(cffi:defcallback sqliteFreeResult :int
-    ((pConn :pointer)
-     (azResult (:pointer (:pointer :char)))
-     (nResult :int))
-  (declare (ignore pConn))
-  (%slt-free-result azResult nResult)
-  0)
-
-(cffi:defcallback sqliteDisconnect :int
-    ((pConn :pointer))
-  (let ((handle (gethash (cffi:pointer-address pConn) *connections*)))
-    (if handle
-        (progn
-          (remhash (cffi:pointer-address pConn) *connections*)
-          (sqlite:disconnect handle)
-          0)
-        1)))
 
 (cffi:defcallback endbConnect :int
     ((NotUsed :pointer)
@@ -253,21 +192,6 @@
 (cffi:defcfun "sqllogictestRegisterEngine" :void
   (p (:pointer (:struct DbEngine))))
 
-(defun %register-sqlite-engine ()
-  (let* ((engine (cffi:foreign-alloc 'DbEngine))
-         (engine-name (cffi:foreign-string-alloc "CLSQLite")))
-    (cffi:with-foreign-slots ((zName pAuxData xConnect xGetEngineName xStatement xQuery xFreeResults xDisconnect) engine DBEngine)
-      (setf zName engine-name
-            pAuxData (cffi:null-pointer)
-            xConnect (cffi:callback sqliteConnect)
-            xGetEngineName (cffi:callback sqliteGetEngineName)
-            xStatement (cffi:callback sqliteStatement)
-            xQuery (cffi:callback sqliteQuery)
-            xFreeResults (cffi:callback sqliteFreeResult)
-            xDisconnect (cffi:callback sqliteDisconnect))
-      (sqllogictestRegisterEngine engine)
-      (setq *sqlite-db-engine* engine))))
-
 (defun %register-endb-engine ()
   (let* ((engine (cffi:foreign-alloc 'DbEngine))
          (engine-name (cffi:foreign-string-alloc "endb"))
@@ -285,12 +209,11 @@
       (setq *endb-db-engine* engine))))
 
 (defun %register-db-engines ()
-  (when (not (boundp '*sqlite-db-engine*))
+  (when (not (boundp '*endb-db-engine*))
     (pushnew (or (uiop:pathname-directory-pathname (uiop:argv0))
                  (asdf:system-relative-pathname :endb-slt "target/"))
              cffi:*foreign-library-directories*)
     (cffi:use-foreign-library libsqllogictest)
-    (%register-sqlite-engine)
     (%register-endb-engine)))
 
 (defun %slt-main (args)
@@ -344,7 +267,6 @@
                               exit-code)
                        (%slt-main args))
             #-sbcl (%slt-main args))))
-    (%free-db-engine *sqlite-db-engine*)
     (%free-db-engine *endb-db-engine*)))
 
 (defun slt-sanity (&key (engine "endb"))

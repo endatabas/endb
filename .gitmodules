@@ -101,6 +101,3 @@
 [submodule "_build/asdf-flv"]
 	path = _build/asdf-flv
 	url = https://github.com/didierverna/asdf-flv
-[submodule "_build/cl-sqlite"]
-	path = _build/cl-sqlite
-	url = https://github.com/TeMPOraL/cl-sqlite

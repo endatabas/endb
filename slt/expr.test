@@ -1,0 +1,1107 @@
+query I nosort
+SELECT FALSE
+----
+
+query I nosort
+SELECT TRUE
+----
+
+query T nosort
+SELECT NULL
+----
+
+query I nosort
+SELECT 1 + 2
+----
+
+query I nosort
+SELECT 1 - 2
+----
+
+query I nosort
+SELECT 1 * 2
+----
+
+query I nosort
+SELECT 1 / 2
+----
+
+query I nosort
+SELECT 1 % 2
+----
+
+query I nosort
+SELECT 1 < 2
+----
+
+query I nosort
+SELECT 1 <= 2
+----
+
+query I nosort
+SELECT 1 > 2
+----
+
+query I nosort
+SELECT 1 >= 2
+----
+
+query R nosort
+SELECT 1 + 2.0
+----
+
+query R nosort
+SELECT 1 - 2.0
+----
+
+query R nosort
+SELECT 1 * 2.0
+----
+
+query R nosort
+SELECT 1 / 2.0
+----
+
+query R nosort
+SELECT 1 % 2.0
+----
+
+query I nosort
+SELECT 1 < 2.0
+----
+
+query I nosort
+SELECT 1 <= 2.0
+----
+
+query I nosort
+SELECT 1 > 2.0
+----
+
+query I nosort
+SELECT 1 >= 2.0
+----
+
+query T nosort
+SELECT 1 + NULL
+----
+
+query T nosort
+SELECT 1 - NULL
+----
+
+query T nosort
+SELECT 1 * NULL
+----
+
+query T nosort
+SELECT 1 / NULL
+----
+
+query T nosort
+SELECT 1 % NULL
+----
+
+query T nosort
+SELECT 1 < NULL
+----
+
+query T nosort
+SELECT 1 <= NULL
+----
+
+query T nosort
+SELECT 1 > NULL
+----
+
+query T nosort
+SELECT 1 >= NULL
+----
+
+query T nosort
+SELECT NULL + 2.0
+----
+
+query T nosort
+SELECT NULL - 2.0
+----
+
+query T nosort
+SELECT NULL * 2.0
+----
+
+query T nosort
+SELECT NULL / 2.0
+----
+
+query T nosort
+SELECT NULL % 2.0
+----
+
+query T nosort
+SELECT NULL < 2.0
+----
+
+query T nosort
+SELECT NULL <= 2.0
+----
+
+query T nosort
+SELECT NULL > 2.0
+----
+
+query T nosort
+SELECT NULL >= 2.0
+----
+
+query I nosort
+SELECT 1 + 'foo'
+----
+
+query I nosort
+SELECT 1 - 'foo'
+----
+
+query I nosort
+SELECT 1 * 'foo'
+----
+
+query T nosort
+SELECT 1 / 'foo'
+----
+
+query T nosort
+SELECT 1 % 'foo'
+----
+
+query I nosort
+SELECT 1 < 'foo'
+----
+
+query I nosort
+SELECT 1 <= 'foo'
+----
+
+query I nosort
+SELECT 1 > 'foo'
+----
+
+query I nosort
+SELECT 1 >= 'foo'
+----
+
+query R nosort
+SELECT 'foo' + 2.0
+----
+
+query R nosort
+SELECT 'foo' - 2.0
+----
+
+query R nosort
+SELECT 'foo' * 2.0
+----
+
+query R nosort
+SELECT 'foo' / 2.0
+----
+
+query R nosort
+SELECT 'foo' % 2.0
+----
+
+query I nosort
+SELECT 'foo' < 2.0
+----
+
+query I nosort
+SELECT 'foo' <= 2.0
+----
+
+query I nosort
+SELECT 'foo' > 2.0
+----
+
+query I nosort
+SELECT 'foo' >= 2.0
+----
+
+query T nosort
+SELECT NULL + NULL
+----
+
+query T nosort
+SELECT NULL + 'foo'
+----
+
+query T nosort
+SELECT 'foo' + NULL
+----
+
+query I nosort
+SELECT 'foo' + 'foo'
+----
+
+query I nosort
+SELECT 'foo' - 'foo'
+----
+
+query I nosort
+SELECT 'foo' * 'foo'
+----
+
+query T nosort
+SELECT 'foo' / 'foo'
+----
+
+query T nosort
+SELECT 'foo' % 'foo'
+----
+
+query I nosort
+SELECT +1
+----
+
+query I nosort
+SELECT -1
+----
+
+query T nosort
+SELECT +NULL
+----
+
+query T nosort
+SELECT -NULL
+----
+
+query T nosort
+SELECT +'foo'
+----
+
+query I nosort
+SELECT -'foo'
+----
+
+query T nosort
+SELECT 1 / 0
+----
+
+query T nosort
+SELECT 1 % 0
+----
+
+query T nosort
+SELECT 1 / 0.0
+----
+
+query T nosort
+SELECT 1 % 0.0
+----
+
+query I nosort
+SELECT 2 IS 2
+----
+
+query I nosort
+SELECT 2 IS 3
+----
+
+query I nosort
+SELECT 2 IS NULL
+----
+
+query I nosort
+SELECT 2 IS NOT NULL
+----
+
+query I nosort
+SELECT NULL IS NULL
+----
+
+query I nosort
+SELECT NULL IS NOT NULL
+----
+
+query I nosort
+SELECT 2 BETWEEN 1 AND 3
+----
+
+query I nosort
+SELECT 4 BETWEEN 1 AND 3
+----
+
+query T nosort
+SELECT 1 BETWEEN 1 AND NULL
+----
+
+query T nosort
+SELECT NULL BETWEEN 1 AND 2
+----
+
+query T nosort
+SELECT 1 NOT IN (NULL)
+----
+
+query I nosort
+SELECT 1 NOT IN (0)
+----
+
+query T nosort
+SELECT 1 NOT IN (NULL, 2)
+----
+
+query I nosort
+SELECT 1 NOT IN (NULL, 1)
+----
+
+query I nosort
+SELECT EXISTS (VALUES (1))
+----
+
+query I nosort
+SELECT EXISTS (VALUES (NULL))
+----
+
+query I nosort
+SELECT EXISTS (SELECT 1 FROM (VALUES (1)) AS x WHERE FALSE)
+----
+
+query R nosort
+SELECT abs(2.0)
+----
+
+query I nosort
+SELECT abs(-2)
+----
+
+query T nosort
+SELECT abs(NULL)
+----
+
+query T nosort
+SELECT nullif(1, 1)
+----
+
+query I nosort
+SELECT nullif(1, 'foo')
+----
+
+query T nosort
+SELECT nullif('foo', 1)
+----
+
+query T nosort
+SELECT coalesce(NULL, NULL)
+----
+
+query I nosort
+SELECT coalesce(NULL, 1)
+----
+
+query I nosort
+SELECT coalesce(1, NULL)
+----
+
+query I nosort
+SELECT coalesce(1, NULL, 2)
+----
+
+query I nosort
+SELECT coalesce(NULL, NULL, 2, 3)
+----
+
+query I nosort
+SELECT coalesce(FALSE, 2)
+----
+
+query T nosort
+SELECT coalesce(NULL, 'foo', 1)
+----
+
+query I nosort
+SELECT coalesce(NULL, NULL, 1)
+----
+
+query T nosort
+SELECT IFNULL(NULL, 'foo')
+----
+
+query T nosort
+SELECT IFNULL(NULL, NULL)
+----
+
+query T nosort
+SELECT date('2001-01-01')
+----
+
+query T nosort
+SELECT date(NULL)
+----
+
+query T nosort
+SELECT date('foo')
+----
+
+query T nosort
+SELECT strftime('%Y', date('2001-01-01'))
+----
+
+query T nosort
+SELECT strftime('%Y', NULL)
+----
+
+query T nosort
+SELECT strftime(NULL, date('2001-01-01'))
+----
+
+query T nosort
+SELECT strftime(NULL, NULL)
+----
+
+query T nosort
+SELECT time('14:43:39')
+----
+
+query T nosort
+SELECT time(NULL)
+----
+
+query T nosort
+SELECT datetime('2023-05-16T14:43:39')
+----
+
+query T nosort
+SELECT datetime(NULL)
+----
+
+query R nosort
+SELECT julianday('2023-08-23T07:40:00Z')
+----
+
+query R nosort
+SELECT julianday('2001-01-01')
+----
+
+query I nosort
+SELECT date('2001-01-01') = date('2001-01-01')
+----
+
+query I nosort
+SELECT date('2001-01-01') < date('2002-01-01')
+----
+
+query I nosort
+SELECT date('2001-01-01') <= date('2002-01-01')
+----
+
+query I nosort
+SELECT date('2001-01-01') > date('2002-01-01')
+----
+
+query I nosort
+SELECT date('2001-01-01') >= date('2002-01-01')
+----
+
+query I nosort
+SELECT time('14:43:39') = time('14:43:39')
+----
+
+query I nosort
+SELECT time('14:43:39') < time('15:43:39')
+----
+
+query I nosort
+SELECT time('14:43:39') <= time('15:43:39')
+----
+
+query I nosort
+SELECT time('14:43:39') > time('15:43:39')
+----
+
+query I nosort
+SELECT time('14:43:39') >= time('15:43:39')
+----
+
+query I nosort
+SELECT datetime('2023-05-16T14:43:39') = datetime('2023-05-16T14:43:39')
+----
+
+query I nosort
+SELECT datetime('2023-05-16T14:43:39') < datetime('2024-05-16T14:43:39')
+----
+
+query I nosort
+SELECT datetime('2023-05-16T14:43:39') <= datetime('2024-05-16T14:43:39')
+----
+
+query I nosort
+SELECT datetime('2023-05-16T14:43:39') > datetime('2024-05-16T14:43:39')
+----
+
+query I nosort
+SELECT datetime('2023-05-16T14:43:39') >= datetime('2024-05-16T14:43:39')
+----
+
+query T nosort
+SELECT cast(date('2001-01-01') AS VARCHAR)
+----
+
+query I nosort
+SELECT cast(10 AS DECIMAL)
+----
+
+query R nosort
+SELECT cast(10 AS REAL)
+----
+
+query I nosort
+SELECT cast(10.5 AS INTEGER)
+----
+
+query T nosort
+SELECT cast(10 AS VARCHAR)
+----
+
+query T nosort
+SELECT cast(10.5 AS VARCHAR)
+----
+
+query T nosort
+SELECT cast(10.5 AS varchar)
+----
+
+query T nosort
+SELECT cast(TRUE AS VARCHAR)
+----
+
+query T nosort
+SELECT cast(FALSE AS VARCHAR)
+----
+
+query T nosort
+SELECT cast(NULL AS VARCHAR)
+----
+
+query T nosort
+SELECT cast('foo' AS VARCHAR)
+----
+
+query I nosort
+SELECT cast(TRUE AS INTEGER)
+----
+
+query I nosort
+SELECT cast(FALSE AS INTEGER)
+----
+
+query T nosort
+SELECT cast(NULL AS INTEGER)
+----
+
+query I nosort
+SELECT cast('foo' AS INTEGER)
+----
+
+query I nosort
+SELECT cast('10' AS INTEGER)
+----
+
+query I nosort
+SELECT cast('-10' AS INTEGER)
+----
+
+query I nosort
+SELECT cast(10.5 AS INTEGER)
+----
+
+query I nosort
+SELECT cast(10 AS INTEGER)
+----
+
+query I nosort
+SELECT cast(TRUE AS DECIMAL)
+----
+
+query I nosort
+SELECT cast(FALSE AS DECIMAL)
+----
+
+query T nosort
+SELECT cast(NULL AS DECIMAL)
+----
+
+query I nosort
+SELECT cast('foo' AS DECIMAL)
+----
+
+query I nosort
+SELECT cast('10' AS DECIMAL)
+----
+
+query R nosort
+SELECT cast('-10.5' AS DECIMAL)
+----
+
+query R nosort
+SELECT cast(10.5 AS DECIMAL)
+----
+
+query I nosort
+SELECT cast(10 AS DECIMAL)
+----
+
+query R nosort
+SELECT cast(TRUE AS REAL)
+----
+
+query R nosort
+SELECT cast(FALSE AS REAL)
+----
+
+query T nosort
+SELECT cast(NULL AS REAL)
+----
+
+query R nosort
+SELECT cast('foo' AS REAL)
+----
+
+query R nosort
+SELECT cast('10' AS REAL)
+----
+
+query R nosort
+SELECT cast('-10' AS REAL)
+----
+
+query R nosort
+SELECT cast(10.5 AS REAL)
+----
+
+query R nosort
+SELECT cast(10 AS REAL)
+----
+
+query I nosort
+SELECT cast(TRUE AS SIGNED)
+----
+
+query I nosort
+SELECT cast(FALSE AS SIGNED)
+----
+
+query T nosort
+SELECT cast(NULL AS SIGNED)
+----
+
+query I nosort
+SELECT cast('foo' AS SIGNED)
+----
+
+query I nosort
+SELECT cast('10' AS SIGNED)
+----
+
+query I nosort
+SELECT cast('-10' AS SIGNED)
+----
+
+query R nosort
+SELECT cast('-10.5' AS SIGNED)
+----
+
+query R nosort
+SELECT cast(10.5 AS SIGNED)
+----
+
+query I nosort
+SELECT cast(10 AS SIGNED)
+----
+
+query T nosort
+SELECT substring('foo', 1, 2)
+----
+
+query T nosort
+SELECT substring('foo', 1, 5)
+----
+
+query T nosort
+SELECT substring('foo', 1)
+----
+
+query T nosort
+SELECT substring('foo', -1)
+----
+
+query T nosort
+SELECT substring('foo', 2, 1)
+----
+
+query T nosort
+SELECT substring(NULL, 1)
+----
+
+query T nosort
+SELECT substring('foo', NULL)
+----
+
+query T nosort
+SELECT substring('foo', NULL, NULL)
+----
+
+query T nosort
+SELECT substring(NULL, NULL, NULL)
+----
+
+query I nosort
+SELECT 'foo' LIKE '%fo'
+----
+
+query I nosort
+SELECT 'foo' LIKE 'fo%'
+----
+
+query I nosort
+SELECT 'foo' LIKE 'f_o'
+----
+
+query I nosort
+SELECT 'foo' LIKE 'bar'
+----
+
+query T nosort
+SELECT NULL LIKE 'bar'
+----
+
+query T nosort
+SELECT 'foo' LIKE NULL
+----
+
+query I nosort
+SELECT 'fo%' LIKE 'foX%' ESCAPE 'X'
+----
+
+query I nosort
+SELECT 'foo' LIKE '.oo'
+----
+
+query I nosort
+SELECT 'foo' LIKE '.*oo'
+----
+
+query T nosort
+SELECT 'foo' || 'bar'
+----
+
+query T nosort
+SELECT 1 || 2
+----
+
+query T nosort
+SELECT 1 || NULL
+----
+
+query T nosort
+SELECT NULL || 'bar'
+----
+
+query T nosort
+SELECT LENGTH(NULL)
+----
+
+query I nosort
+SELECT LENGTH('bar')
+----
+
+query T nosort
+SELECT TRIM(' bar  ')
+----
+
+query T nosort
+SELECT LTRIM(' bar  ')
+----
+
+query T nosort
+SELECT RTRIM(' bar  ')
+----
+
+query T nosort
+SELECT LOWER('FooBar')
+----
+
+query T nosort
+SELECT UPPER('FooBar')
+----
+
+query R nosort
+SELECT ROUND(2.4)
+----
+
+query R nosort
+SELECT FLOOR(2.4)
+----
+
+query R nosort
+SELECT CEIL(-2.4)
+----
+
+query I nosort
+SELECT CEILING(4)
+----
+
+query R nosort
+SELECT SIN(2.4)
+----
+
+query R nosort
+SELECT ATAN(2)
+----
+
+query R nosort
+SELECT ATAN2(2, 4)
+----
+
+query T nosort
+SELECT COS(NULL)
+----
+
+query R nosort
+SELECT ACOSH(4)
+----
+
+query R nosort
+SELECT SQRT(2)
+----
+
+query R nosort
+SELECT POWER(2, 2)
+----
+
+query T nosort
+SELECT POWER(2, NULL)
+----
+
+query R nosort
+SELECT LN(4.2)
+----
+
+query R nosort
+SELECT LOG10(2)
+----
+
+query R nosort
+SELECT LOG10(3.0)
+----
+
+query T nosort
+SELECT LOG10(0)
+----
+
+query R nosort
+SELECT LOG(2, 64)
+----
+
+query T nosort
+SELECT LOG(0, 64)
+----
+
+query I nosort
+SELECT SIGN(-2.4)
+----
+
+query R nosort
+SELECT PI()
+----
+
+query R nosort
+SELECT DEGREES(1.0)
+----
+
+query R nosort
+SELECT RADIANS(1.0)
+----
+
+query T nosort
+SELECT TYPEOF('foo')
+----
+
+query T nosort
+SELECT TYPEOF(2)
+----
+
+query T nosort
+SELECT TYPEOF(2.0)
+----
+
+query T nosort
+SELECT TYPEOF(x'CAFEBABE')
+----
+
+query T nosort
+SELECT TYPEOF(NULL)
+----
+
+query T nosort
+SELECT HEX(12345678)
+----
+
+query T nosort
+SELECT HEX(x'ABCD')
+----
+
+query T nosort
+SELECT HEX('ABCD')
+----
+
+query I nosort
+SELECT HEX(15) = HEX('15')
+----
+
+query T nosort
+SELECT HEX(NULL)
+----
+
+query T nosort
+SELECT REPLACE('foobar', 'oo', 'aa')
+----
+
+query I nosort
+SELECT UNICODE('foo')
+----
+
+query T nosort
+SELECT UNICODE(NULL)
+----
+
+query T nosort
+SELECT UNICODE('')
+----
+
+query I nosort
+SELECT INSTR('foo', 'o')
+----
+
+query T nosort
+SELECT INSTR('foo', NULL)
+----
+
+query I nosort
+SELECT UNICODE('foo')
+----
+
+query T nosort
+SELECT UNICODE(NULL)
+----
+
+query T nosort
+SELECT CHAR(102, 111, 111)
+----
+
+query T nosort
+SELECT CHAR()
+----
+
+query T nosort
+SELECT CHAR(NULL, 102)
+----
+
+query I nosort
+SELECT GLOB('*foo', 'barfoo')
+----
+
+query I nosort
+SELECT 'barfoo' GLOB '*fo'
+----
+
+query I nosort
+SELECT GLOB('?arfoo', 'barfoo')
+----
+
+query I nosort
+SELECT GLOB('?rfoo', 'barfoo')
+----
+
+query I nosort
+SELECT GLOB('*/b', 'a/b')
+----
+
+query I nosort
+SELECT GLOB('.b', 'ab')
+----
+
+query I nosort
+SELECT LENGTH(ZEROBLOB(8))
+----
+
+query I nosort
+SELECT IIF(FALSE, 1, 2)
+----
+
+query I nosort
+SELECT IIF(TRUE, 1, 2)
+----
+
+query I nosort
+SELECT IIF(NULL, 1, 2)
+----
+
+query I nosort
+SELECT IIF('foo', 1, 2)
+----
+
+query I nosort
+SELECT ~1
+----
+
+query I nosort
+SELECT 1 | 2
+----
+
+query I nosort
+SELECT 1 & 2
+----
+
+query T nosort
+SELECT 1 & NULL
+----
+
+query I nosort
+SELECT 'foo' | 2
+----
+
+query I nosort
+SELECT 2 != 2
+----
+
+query I nosort
+SELECT 2 == 2
+----
+
+query I nosort
+SELECT 0xcaFE
+----
+
+query T nosort
+SELECT 'fo''o'
+----
+
+query T nosort
+SELECT "fo''o"
+----
+
+query I nosort
+SELECT MIN(1, 2)
+----
+
+query I nosort
+SELECT MAX(1, 2)
+----
+
+query T nosort
+SELECT MIN(1, NULL)
+----
+
+query T nosort
+SELECT MAX(-1, 1, NULL)
+----

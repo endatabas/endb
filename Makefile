@@ -82,6 +82,8 @@ test: lib-test target/libendb$(SHARED_LIB_EXT)
 		--eval '(asdf:load-system :endb-test)' \
 		--eval '(uiop:quit (if (fiveam:run-all-tests) 0 1))'
 
+check: test slt-test-expr slt-test-tpch
+
 update-submodules:
 	git submodule update --init --recursive --force --jobs 4
 
@@ -113,7 +115,7 @@ target/sqllogictest_src: sqllogictest/src
 	cp -a $< $@
 	$(SED_CMD) s/int\ main/int\ sqllogictest_main/ $@/sqllogictest.c
 
-target/libsqllogictest$(SHARED_LIB_EXT): CFLAGS += -DSQLITE_NO_SYNC=1 -DSQLITE_THREADSAFE=0 -DOMIT_ODBC=1 -shared -fPIC
+target/libsqllogictest$(SHARED_LIB_EXT): CFLAGS += -DSQLITE_NO_SYNC=1 -DSQLITE_THREADSAFE=0 -DOMIT_ODBC=1 -DSQLITE_ENABLE_MATH_FUNCTIONS=1 -shared -fPIC
 target/libsqllogictest$(SHARED_LIB_EXT): Makefile target/sqllogictest_src
 	cd target/sqllogictest_src && $(CC) $(CFLAGS) -o $(CURDIR)/$@ $(SLT_SOURCES)
 
@@ -143,9 +145,9 @@ slt-test-evidence: slt-test
 slt-test-all: SLT_TESTS = $(shell find sqllogictest/test -iname *.test | grep -v evidence)
 slt-test-all: slt-test
 
-TPCH_SCHEMA_FILE = test/tpch/tpch_schema.test
-TPCH_QUERIES_FILE = test/tpch/$(TPCH_SF)/tpch_queries.test
-TPCH_TABLE_FILES = test/tpch/$(TPCH_SF)/*_tbl.test.gz
+TPCH_SCHEMA_FILE = slt/tpch/tpch_schema.test
+TPCH_QUERIES_FILE = slt/tpch/$(TPCH_SF)/tpch_queries.test
+TPCH_TABLE_FILES = slt/tpch/$(TPCH_SF)/*_tbl.test.gz
 
 target/tpch_$(TPCH_SF).test: $(TPCH_SCHEMA_FILE) $(TPCH_TABLE_FILES) $(TPCH_QUERIES_FILE)
 	rm -f $@
@@ -161,8 +163,15 @@ slt-test-tpch: SLT_ENV += ENDB_ENGINE_REPORTED_NAME=endb
 slt-test-tpch: target/slt target/tpch_$(TPCH_SF)_sqlite.test
 	$(SLT_ENV) ./target/slt -e $(SLT_ENGINE) $(SLT_ARGS) target/tpch_$(TPCH_SF)_sqlite.test
 
+target/expr_sqlite.test: target/slt slt/expr.test
+	SLT_TIMING=0 SB_SPROF=0 ./target/slt -e sqlite slt/expr.test > $@
+
+slt-test-expr: target/expr_sqlite.test
+	$(SLT_ENV) ./target/slt -e $(SLT_ENGINE) $(SLT_ARGS) $<
+
 slt-test-ci: SLT_ENV += SLT_TIMING=1
 slt-test-ci:
+	$(SLT_ENV) make slt-test-expr
 	$(SLT_ENV) make slt-test-select
 	$(SLT_ENV) make slt-test-evidence
 	$(SLT_ENV) make slt-test-random
@@ -204,6 +213,6 @@ clean:
 	(cd lib; $(CARGO) clean)
 	rm -rf target $(FASL_FILES)
 
-.PHONY: repl run run-binary test lib-check lib-lint lib-update lib-test lib-microbench update-submodules \
+.PHONY: repl run run-binary test check lib-check lib-lint lib-update lib-test lib-microbench update-submodules \
 	slt-test slt-test-select slt-test-random slt-test-index slt-test-evidence slt-test-all slt-test-tpch slt-test-ci \
 	docker docker-alpine run-docker push-docker clean
