@@ -1,6 +1,6 @@
 (defpackage :endb/lib/cst
   (:use :cl)
-  (:export  #:parse-sql-cst #:render-error-report #:cst->ast #:sql-parse-error #:*default-filename* #:parse-sql-ast)
+  (:export  #:parse-sql-cst #:render-error-report #:cst->ast #:sql-parse-error #:*default-filename* #:parse-sql-ast #:sql-string-to-cl)
   (:import-from :endb/lib)
   (:import-from :endb/json)
   (:import-from :alexandria)

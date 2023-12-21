@@ -44,19 +44,19 @@
                                        (render-error-report report)))))
 
 (test parse-escapes
-  (let* ((sql "SELECT \"\\/f\\bo\\fo\\nb\\\\a\\\"\\tr\\r\\u03BB\"")
-         (result (caaadr (cst->ast (parse-sql-cst sql)))))
+  (let* ((sql-string "\\/f\\bo\\fo\\nb\\\\a\\\"\\tr\\r\\u03BB")
+         (result (sql-string-to-cl nil sql-string)))
     (is (equalp (format nil "/f~Ao~Ao~Ab\\a\"~Ar~Aλ" #\Backspace #\Page #\NewLine #\Tab #\Return) result)))
 
-  (let* ((sql "SELECT '\\/f\\0o\\fo\\nb\\\\a\\'\\v\\
-r\\r\\u03BB'")
-         (result (caaadr (cst->ast (parse-sql-cst sql)))))
+  (let* ((sql-string "\\/f\\0o\\fo\\nb\\\\a\\'\\v\\
+r\\r\\u03BB")
+         (result (sql-string-to-cl t sql-string)))
     (is (equalp (format nil "/f~Ao~Ao~Ab\\a'~Ar~Aλ" #\Nul #\Page #\NewLine #\Vt #\Return) result))))
 
 (defun is-valid (sql)
   (is (cst->ast (parse-sql-cst sql))))
 
-(test cst-to-ast
+(test parse-sql
   (is-valid "SELECT 1")
   (is-valid "SELECT a, b, 123, myfunc(b) FROM table_1 WHERE a > b AND b < 100 ORDER BY a DESC, b")
 
