@@ -1150,7 +1150,7 @@ SELECT s FROM x WHERE ind=0")
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT CURRENT_DATE")
-      (is (equalp (list (vector(endb/arrow:parse-arrow-date-millis "2023-05-16"))) result))
+      (is (equalp (list (vector (endb/arrow:parse-arrow-date-millis "2023-05-16"))) result))
       (is (equal '("CURRENT_DATE") columns)))))
 
 (test system-time

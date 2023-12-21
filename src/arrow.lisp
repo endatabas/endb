@@ -5,6 +5,7 @@
            #:arrow-date-millis-ms #:arrow-time-micros-us #:arrow-timestamp-micros-us #:arrow-interval-month-day-nanos-ns #:arrow-interval-month-day-nanos-uint128
            #:arrow-timestamp-micros-to-local-time #:arrow-time-micros-to-local-time #:arrow-date-millis-to-local-time #:arrow-interval-month-day-nanos-to-periods-duration
            #:local-time-to-arrow-timestamp-micros #:local-time-to-arrow-date-millis #:local-time-to-arrow-time-micros #:periods-duration-to-arrow-interval-month-day-nanos
+           #:arrow-timestamp-micros-to-arrow-date-millis #:arrow-date-millis-to-arrow-timestamp-micros
            #:to-arrow #:to-arrow-row-format #:make-arrow-array-for #:arrow-class-for-format
            #:arrow-push #:arrow-valid-p #:arrow-get #:arrow-value #:arrow-row-format
            #:arrow-length #:arrow-null-count #:arrow-data-type #:arrow-lisp-type
@@ -59,6 +60,9 @@
 (defun arrow-timestamp-micros-to-local-time (x)
   (%micros-to-timestamp (arrow-timestamp-micros-us x)))
 
+(defun arrow-timestamp-micros-to-arrow-date-millis (x)
+  (local-time-to-arrow-date-millis (arrow-timestamp-micros-to-local-time x)))
+
 (defun local-time-to-arrow-timestamp-micros (x)
   (make-arrow-timestamp-micros :us (%timestamp-to-micros x)))
 
@@ -76,6 +80,9 @@
 
 (defun arrow-date-millis-to-local-time (x)
   (%micros-to-timestamp (* (arrow-date-millis-ms x) 1000)))
+
+(defun arrow-date-millis-to-arrow-timestamp-micros (x)
+  (make-arrow-timestamp-micros :us (* (arrow-date-millis-ms x) 1000)))
 
 (defparameter +millis-per-day+ (* local-time:+seconds-per-day+ 1000))
 
@@ -258,13 +265,6 @@
 (defmethod fset:compare ((x arrow-interval-month-day-nanos) (y arrow-interval-month-day-nanos))
   (fset:compare (arrow-interval-month-day-nanos-uint128 x)
                 (arrow-interval-month-day-nanos-uint128 y)))
-
-(defmethod fset:compare ((x arrow-date-millis) (y arrow-timestamp-micros))
-  (fset:compare (local-time-to-arrow-timestamp-micros (arrow-date-millis-to-local-time x)) y))
-
-
-(defmethod fset:compare ((x arrow-timestamp-micros) (y arrow-date-millis))
-  (fset:compare x (local-time-to-arrow-timestamp-micros (arrow-date-millis-to-local-time y))))
 
 (defmethod fset:lookup ((collection (eql nil)) key)
   (values nil nil))

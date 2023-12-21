@@ -33,44 +33,20 @@
 
            #:make-agg #:agg-accumulate #:agg-finish
 
-           #:sql-runtime-error #:*sqlite-mode* #:+unix-epoch-time+ #:+end-of-time+ #:+hash-table-test+ #:equalp-case-sensitive #:+impure-functions+))
+           #:sql-runtime-error #:*sqlite-mode* #:+unix-epoch-time+ #:+end-of-time+ #:+hash-table-test+ #:equalp-case-sensitive #:equalp-case-sensitive-hash-fn
+           #:+impure-functions+))
 (in-package :endb/sql/expr)
 
 (defvar *sqlite-mode* nil)
 
 (defun equalp-case-sensitive (x y)
-  (labels ((fset-walk (x y)
-             (and
-              (= (fset:size x) (fset:size y))
-              (let ((x-domain (fset:domain x))
-                    (y-domain (fset:domain y)))
-                (and (fset:equal? x-domain y-domain)
-                     (fset:reduce
-                      (lambda (acc k)
-                        (if (equalp-case-sensitive (fset:lookup x k)
-                                                   (fset:lookup y k))
-                            acc
-                            (return-from fset-walk nil)))
-                      x-domain
-                      :initial-value t))))))
-    (etypecase x
-      (string
-       (and (stringp y)
-            (string= x y)))
-      (fset:seq
-       (and (fset:seq? y)
-            (fset-walk x y)))
-      (fset:map
-       (and (fset:map? y)
-            (fset-walk x y)))
-      (number (equalp x y))
-      (t (fset:equal? x y)))))
+  (sql-= x y))
 
-#+sbcl (defun equalp-case-sensitive-hash-fn (x)
-         (sb-int:psxhash
-          (if (typep x 'endb/arrow:arrow-date-millis)
-              (endb/arrow:local-time-to-arrow-timestamp-micros (endb/arrow:arrow-date-millis-to-local-time x))
-              x)))
+(defun equalp-case-sensitive-hash-fn (x)
+  (#+sbcl sb-int:psxhash #-sbcl sxhash
+   (if (typep x 'endb/arrow:arrow-date-millis)
+       (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros x)
+       x)))
 
 #+sbcl (sb-impl::define-hash-table-test equalp-case-sensitive equalp-case-sensitive-hash-fn)
 (defparameter +hash-table-test+ #+sbcl 'endb/sql/expr:equalp-case-sensitive #-sbcl 'equalp)
@@ -94,8 +70,14 @@
 (defmethod sql-= ((x number) (y number))
   (= x y))
 
+(defmethod sql-= ((x endb/arrow:arrow-date-millis) (y endb/arrow:arrow-timestamp-micros))
+  (equalp (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros x) y))
+
+(defmethod sql-= ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-millis))
+  (equalp x (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros y)))
+
 (defmethod sql-= (x y)
-  (equalp-case-sensitive x y))
+  (fset:equal? x y))
 
 (defun sql-<> (x y)
   (sql-not (sql-= x y)))
@@ -139,6 +121,12 @@
 (defmethod sql-< ((x string) (y string))
   (not (null (string< x y))))
 
+(defmethod sql-< ((x endb/arrow:arrow-date-millis) (y endb/arrow:arrow-timestamp-micros))
+  (sql-< (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros x) y))
+
+(defmethod sql-< ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-millis))
+  (sql-< x (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros y)))
+
 (defmethod sql-<= (x y)
   (case (fset:compare x y)
     ((:less :equal) t)
@@ -166,6 +154,12 @@
 
 (defmethod sql-<= ((x string) (y string))
   (not (null (string<= x y))))
+
+(defmethod sql-<= ((x endb/arrow:arrow-date-millis) (y endb/arrow:arrow-timestamp-micros))
+  (sql-<= (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros x) y))
+
+(defmethod sql-<= ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-millis))
+  (sql-<= x (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros y)))
 
 (defmethod sql-> (x y)
   (case (fset:compare x y)
@@ -195,6 +189,12 @@
 (defmethod sql-> ((x string) (y string))
   (not (null (string> x y))))
 
+(defmethod sql-> ((x endb/arrow:arrow-date-millis) (y endb/arrow:arrow-timestamp-micros))
+  (sql-> (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros x) y))
+
+(defmethod sql-> ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-millis))
+  (sql-> x (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros y)))
+
 (defmethod sql->= (x y)
   (case (fset:compare x y)
     ((:greater :equal) t)
@@ -222,6 +222,12 @@
 
 (defmethod sql->= ((x string) (y string))
   (not (null (string>= x y))))
+
+(defmethod sql->= ((x endb/arrow:arrow-date-millis) (y endb/arrow:arrow-timestamp-micros))
+  (sql->= (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros x) y))
+
+(defmethod sql->= ((x endb/arrow:arrow-timestamp-micros) (y endb/arrow:arrow-date-millis))
+  (sql->= x (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros y)))
 
 (defmethod sql-<< ((x (eql :null)) y)
   :null)
@@ -1683,10 +1689,10 @@
   (syn-cast x :real))
 
 (defmethod syn-cast ((x endb/arrow:arrow-date-millis) (type (eql :timestamp)))
-  (endb/arrow:local-time-to-arrow-timestamp-micros (endb/arrow:arrow-date-millis-to-local-time x)))
+  (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros x))
 
 (defmethod syn-cast ((x endb/arrow:arrow-timestamp-micros) (type (eql :date)))
-  (endb/arrow:local-time-to-arrow-date-millis (endb/arrow:arrow-timestamp-micros-to-local-time x)))
+  (endb/arrow:arrow-timestamp-micros-to-arrow-date-millis x))
 
 (defmethod syn-cast ((x endb/arrow:arrow-timestamp-micros) (type (eql :time)))
   (endb/arrow:local-time-to-arrow-time-micros (endb/arrow:arrow-timestamp-micros-to-local-time x)))
@@ -1989,13 +1995,12 @@
         (loop for array in arrays
               collect (endb/lib:xxh64 (endb/arrow:arrow-row-format array 0))))))
     ((typep x 'endb/arrow:arrow-date-millis)
-     (let ((timestamp (endb/arrow:local-time-to-arrow-timestamp-micros
-                       (endb/arrow:arrow-date-millis-to-local-time x))))
+     (let ((timestamp (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros x)))
        (list (endb/lib:xxh64 (endb/arrow:to-arrow-row-format x))
              (endb/lib:xxh64 (endb/arrow:to-arrow-row-format timestamp)))))
     ((typep x 'endb/arrow:arrow-timestamp-micros)
-     (let ((date (endb/arrow:local-time-to-arrow-date-millis (endb/arrow:arrow-timestamp-micros-to-local-time x))))
-       (if (fset:equal? x date)
+     (let ((date (endb/arrow:arrow-timestamp-micros-to-arrow-date-millis x)))
+       (if (equalp x (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros date))
            (list (endb/lib:xxh64 (endb/arrow:to-arrow-row-format date))
                  (endb/lib:xxh64 (endb/arrow:to-arrow-row-format x)))
            (list (endb/lib:xxh64 (endb/arrow:to-arrow-row-format x))))))
