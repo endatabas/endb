@@ -55,6 +55,6 @@
         (format out "~%~%")))))
 
 (defun main ()
-  (let ((tbl-dir (or (uiop:getenv "ENDB_TPCH_TBL_DIR") "test/tpch/1/")))
+  (let ((tbl-dir (or (uiop:getenv "ENDB_TPCH_TBL_DIR") "slt/tpch/1/")))
     (dolist (file (uiop:directory-files tbl-dir "*.tbl"))
       (tpch-pipe-delimited-to-slt file))))
