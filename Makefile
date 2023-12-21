@@ -163,8 +163,8 @@ slt-test-tpch: SLT_ENV += ENDB_ENGINE_REPORTED_NAME=endb
 slt-test-tpch: target/slt target/tpch_$(TPCH_SF)_sqlite.test
 	$(SLT_ENV) ./target/slt -e $(SLT_ENGINE) $(SLT_ARGS) target/tpch_$(TPCH_SF)_sqlite.test
 
-target/expr_sqlite.test: target/slt slt/expr.test
-	SLT_TIMING=0 SB_SPROF=0 ./target/slt -e sqlite slt/expr.test > $@
+target/%_sqlite.test: slt/%.test target/slt
+	SLT_TIMING=0 SB_SPROF=0 ./target/slt -e sqlite $< > $@
 
 slt-test-expr: target/expr_sqlite.test
 	$(SLT_ENV) ./target/slt -e $(SLT_ENGINE) $(SLT_ARGS) $<
@@ -214,5 +214,5 @@ clean:
 	rm -rf target $(FASL_FILES)
 
 .PHONY: repl run run-binary test check lib-check lib-lint lib-update lib-test lib-microbench update-submodules \
-	slt-test slt-test-select slt-test-random slt-test-index slt-test-evidence slt-test-all slt-test-tpch slt-test-ci \
+	slt-test slt-test-select slt-test-random slt-test-index slt-test-evidence slt-test-all slt-test-tpch slt-test-expr slt-test-ci \
 	docker docker-alpine run-docker push-docker clean
