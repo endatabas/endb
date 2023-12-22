@@ -212,7 +212,7 @@
       (is (equal '("b") columns)))
 
     (signals-with-msg endb/sql/expr:sql-runtime-error
-        "Number of column names: 1 does not match projection: 2"
+        "Number of column names does not match projection"
       (execute-sql db "SELECT * FROM (VALUES (1, 2)) AS foo(a)"))
 
     (multiple-value-bind (result result-code)
@@ -1562,6 +1562,10 @@ SELECT s FROM x WHERE ind=0")
       (is (equalp '(#(1 :null) #(:null 2)) result))
       (is (equal '("a" "b") columns)))
 
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "All OBJECTS must have literal keys"
+      (execute-sql db "OBJECTS {a: 1}, {[2 + 2]: 2}"))
+
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT x.* FROM (OBJECTS {a: 1}, {a: 3,  b: 2}) AS x ORDER BY a")
       (is (equalp `(#(1 :null) #(3 2)) result))
@@ -2512,7 +2516,11 @@ SELECT s FROM x WHERE ind=0")
 
     (signals-with-msg endb/sql/expr:sql-runtime-error
         "Selecting columns: \\(foo.x\\) that does not match group by: \\(y\\)"
-      (execute-sql db "SELECT AVG(x), foo.* FROM (VALUES (1, 2)) AS foo(x, y) GROUP BY y"))))
+      (execute-sql db "SELECT AVG(x), foo.* FROM (VALUES (1, 2)) AS foo(x, y) GROUP BY y"))
+
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "IN query must return single column"
+      (execute-sql db "SELECT 2 IN (VALUES (1, 2), (2, 3))"))))
 
 (test interpret-sql-literal
   (is (equal "foo" (interpret-sql-literal "'foo'")))

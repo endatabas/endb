@@ -43,7 +43,7 @@
                   (let ((projection (fset:lookup table-projections (symbol-name (second expr)))))
                     (if projection
                         (mapcar #'%unqualified-column-name projection)
-                        (%annotated-error (fset:lookup ctx :sql) (second expr) "Unknown table"))))
+                        (%annotated-error (fset:lookup ctx :sql) (second expr) (format nil "Unknown table: ~A" (second expr)) "Unknown table"))))
                  ((and (listp expr)
                        (eq :parameter (first expr))
                        (symbolp (second expr)))
@@ -60,20 +60,23 @@
                            (symbolp (nth 2 expr)))) (list (format nil "~A" (nth 2 expr))))
                  (t (list (%anonymous-column-name idx))))))
 
-(defun %annotated-error (input s message)
+(defun %annotated-error-with-span (input message label-message start end)
   (let* ((filename endb/lib/cst:*default-filename*)
          (report (fset:map ("kind" "Error")
                            ("msg" message)
-                           ("location" (fset:seq filename (get s :start)))
+                           ("location" (fset:seq filename start))
                            ("source" input)
-                           ("labels" (fset:seq (fset:map ("span" (fset:seq filename (fset:map ("start" (get s :start)) ("end" (get s :end)))))
-                                                         ("msg" message)
+                           ("labels" (fset:seq (fset:map ("span" (fset:seq filename (fset:map ("start" start) ("end" end))))
+                                                         ("msg" label-message)
                                                          ("color" "Red")
                                                          ("order" 0)
                                                          ("priority" 0)))))))
 
     (error 'endb/sql/expr:sql-runtime-error
            :message (endb/lib/cst:render-error-report report))))
+
+(defun %annotated-error (input s message &optional (label-message message))
+  (%annotated-error-with-span input message label-message (get s :start) (get s :end)))
 
 (defun %base-table-or-view->cl (ctx table-name &key temporal (errorp t))
   (let* ((db (fset:lookup ctx :db))
@@ -97,7 +100,7 @@
              (%ast->cl-with-free-vars ctx (endb/lib/cst:parse-sql-ast view-sql))
            (declare (ignore projection))
            (values src (endb/sql/db:table-columns db (symbol-name table-name)) free-vars))))
-      (errorp (%annotated-error (fset:lookup ctx :sql) table-name "Unknown table")))))
+      (errorp (%annotated-error (fset:lookup ctx :sql) table-name (format nil "Unknown table: ~A" table-name) "Unknown table")))))
 
 (defun %wrap-with-order-by-and-limit (src order-by limit offset)
   (let* ((src (if order-by
@@ -108,21 +111,33 @@
                   src)))
     src))
 
-(defun %resolve-order-by (order-by projection &key allow-expr-p)
+(defun %resolve-order-by (ctx order-by projection &key allow-expr-p)
   (loop with expr-idx = (length projection)
-        for (expr direction) in order-by
+        for ordering-term in order-by
+        for span = (nthcdr 2 ordering-term)
+        for start = (getf span :start)
+        for end = (getf span :end)
+        for (expr direction) = ordering-term
         for projected-idx = (when (symbolp expr)
                               (position (symbol-name expr) projection :test 'equal))
         collect (list (cond
                         ((numberp expr)
                          (if (<= 1 expr (length projection))
                              expr
-                             (error 'endb/sql/expr:sql-runtime-error :message (format nil "ORDER BY index not in range: ~A" expr))))
+                             (%annotated-error-with-span (fset:lookup ctx :sql)
+                                                         (format nil "ORDER BY index not in range: ~A" expr)
+                                                         "ORDER BY index not in range"
+                                                         start
+                                                         end)))
                         (projected-idx (1+ projected-idx))
                         (allow-expr-p (incf expr-idx))
                         (t (if (symbolp expr)
-                               (error 'endb/sql/expr:sql-runtime-error :message (format nil "Cannot resolve ORDER BY column: ~A" expr))
-                               (error 'endb/sql/expr:sql-runtime-error :message (format nil "Invalid ORDER BY expression")))))
+                               (%annotated-error (fset:lookup ctx :sql) expr (format nil "Cannot resolve ORDER BY column: ~A" expr) "Cannot resolve ORDER BY column")
+                               (%annotated-error-with-span (fset:lookup ctx :sql)
+                                                           "Invalid ORDER BY expression"
+                                                           "Invalid ORDER BY expression"
+                                                           start
+                                                           end))))
                       (or direction :asc))))
 
 (defun %and-clauses (expr)
@@ -818,9 +833,14 @@
                                           unless (find (fset:lookup ctx v) group-by-projection)
                                             collect v)))
       (when non-group-selected-vars
-        (error 'endb/sql/expr:sql-runtime-error :message (format nil "Selecting columns: ~A that does not match group by: ~A"
-                                                                 non-group-selected-vars
-                                                                 (or group-by "()"))))
+        (%annotated-error-with-span (fset:lookup ctx :sql)
+                                    (format nil "Selecting columns: ~A that does not match group by: ~A"
+                                            non-group-selected-vars
+                                            (or group-by "()"))
+                                    (format nil "Selecting columns: ~A that does not match group by"
+                                            non-group-selected-vars)
+                                    (get (first group-by) :start)
+                                    (get (first (last group-by)) :end)))
       (alexandria:with-gensyms (key-sym val-sym)
         `(symbol-macrolet (,@(loop for v in (%unique-vars group-by-projection)
                                    for idx from 0
@@ -868,10 +888,12 @@
 (defmethod sql->cl (ctx (type (eql :select)) &rest args)
   (destructuring-bind (select-list &key distinct (from '(((:values ((:null))) #:dual))) (where :true)
                                      (group-by () group-by-p) (having :true havingp)
-                                     order-by limit offset)
+                                     order-by limit offset
+                                     start end)
       args
+    (declare (ignore start end))
     (labels ((select->cl (ctx from-ast from-tables-acc)
-               (destructuring-bind (table-or-subquery &optional table-alias column-names temporal)
+               (destructuring-bind (table-or-subquery &optional (table-alias table-or-subquery) column-names temporal)
                    (first from-ast)
                  (multiple-value-bind (table-src projection free-vars)
                      (cond
@@ -882,13 +904,8 @@
                         (%ast->cl-with-free-vars (fset:with ctx :inside-from-p t) table-or-subquery))
                        (t (%ast->cl-with-free-vars ctx table-or-subquery)))
                    (when (and column-names (not (= (length projection) (length column-names))))
-                     (if (symbolp table-or-subquery)
-                         (%annotated-error (fset:lookup ctx :sql) table-or-subquery "Number of column names does not match projection")
-                         (error 'endb/sql/expr:sql-runtime-error :message (format nil "Number of column names: ~A does not match projection: ~A"
-                                                                                  (length column-names)
-                                                                                  (length projection)))))
-                   (let* ((table-alias (or table-alias table-or-subquery))
-                          (projection (or (mapcar #'symbol-name column-names) projection))
+                     (%annotated-error (fset:lookup ctx :sql) table-alias "Number of column names does not match projection"))
+                   (let* ((projection (or (mapcar #'symbol-name column-names) projection))
                           (table-alias (%unqualified-column-name (symbol-name table-alias)))
                           (qualified-projection (loop for column in projection
                                                       collect (%qualified-column-name table-alias column)))
@@ -997,7 +1014,7 @@
                    (src (if (eq :distinct distinct)
                             `(endb/sql/expr:ra-distinct ,src)
                             src))
-                   (resolved-order-by (%resolve-order-by order-by select-projection :allow-expr-p t))
+                   (resolved-order-by (%resolve-order-by ctx order-by select-projection :allow-expr-p t))
                    (src (%wrap-with-order-by-and-limit src resolved-order-by limit offset)))
               (values (if (loop for (idx) in resolved-order-by
                                 thereis (> idx (length select-projection)))
@@ -1021,21 +1038,25 @@
       `(vector ,@asts)))
 
 (defmethod sql->cl (ctx (type (eql :values)) &rest args)
-  (destructuring-bind (values-list &key order-by limit offset)
+  (destructuring-bind (values-list &key order-by limit offset start end)
       args
     (let* ((arity (length (first values-list)))
            (projection (%values-projection arity)))
       (unless (apply #'= (mapcar #'length values-list))
-        (error 'endb/sql/expr:sql-runtime-error :message (format nil "All VALUES must have the same number of columns: ~A" arity)))
+        (%annotated-error-with-span (fset:lookup ctx :sql)
+                                    (format nil "All VALUES must have the same number of columns: ~A" arity)
+                                    "All VALUES must have the same number of columns"
+                                    start
+                                    end))
       (values (%wrap-with-order-by-and-limit (%maybe-constant-list
                                               (loop for ast in values-list
                                                     collect (%maybe-constant-vector
                                                              (loop for ast in ast
                                                                    collect (ast->cl ctx ast)))))
-                                             (%resolve-order-by order-by projection) limit offset)
+                                             (%resolve-order-by ctx order-by projection) limit offset)
               projection))))
 
-(defun %object-ast-keys (object &key (require-literal-p t))
+(defun %object-ast-keys (ctx object &key (require-literal-p t))
   (loop for (k v) in (second object)
         for x = (cond
                   ((and (symbolp k)
@@ -1045,15 +1066,20 @@
                    (symbol-name (second v)))
                   ((stringp k) k)
                   (require-literal-p
-                   (error 'endb/sql/expr:sql-runtime-error :message "All OBJECTS must have literal keys")))
+                   (%annotated-error-with-span (fset:lookup ctx :sql)
+                                               "All OBJECTS must have literal keys"
+                                               "All OBJECTS must have literal keys"
+                                               (getf object :start) (getf object :end))))
         when x
           collect x))
 
 (defmethod sql->cl (ctx (type (eql :objects)) &rest args)
-  (destructuring-bind (objects-list &key order-by limit offset)
+  (destructuring-bind (objects-list &key order-by limit offset start end)
       args
+    (declare (ignore start end))
     (let* ((projection (sort (delete-duplicates
-                              (mapcan #'%object-ast-keys objects-list)
+                              (loop for object in objects-list
+                                    append (%object-ast-keys ctx object))
                               :test 'equal)
                              #'string<)))
       (alexandria:with-gensyms (object-sym key-sym)
@@ -1066,7 +1092,7 @@
                                                 ,(when (fset:lookup ctx :inside-from-p)
                                                    `(list ,object-sym)))
                                         'vector))
-                 (%resolve-order-by order-by projection) limit offset)
+                 (%resolve-order-by ctx order-by projection) limit offset)
                 projection)))))
 
 (defmethod sql->cl (ctx (type (eql :exists)) &rest args)
@@ -1112,7 +1138,7 @@
                                     (length exprs))))))
 
 (defun %compound-select->cl (ctx fn-name fn args)
-  (destructuring-bind (lhs rhs &key order-by limit offset)
+  (destructuring-bind (lhs rhs &key order-by limit offset start end)
       args
     (multiple-value-bind (lhs-src lhs-projection)
         (ast->cl ctx lhs)
@@ -1120,13 +1146,15 @@
           (ast->cl ctx rhs)
         (unless (= (length lhs-projection)
                    (length rhs-projection))
-          (error 'endb/sql/expr:sql-runtime-error
-                 :message (format nil "Number of ~A left columns: ~A does not match right columns: ~A"
-                                  fn-name
-                                  (length lhs-projection)
-                                  (length rhs-projection))))
+          (%annotated-error-with-span (fset:lookup ctx :sql)
+                                      (format nil "Number of ~A left columns: ~A does not match right columns: ~A"
+                                              fn-name
+                                              (length lhs-projection)
+                                              (length rhs-projection))
+                                      "Number of left columns does not match right columns"
+                                      start end))
         (values (%wrap-with-order-by-and-limit `(,fn ,lhs-src ,rhs-src)
-                                               (%resolve-order-by order-by lhs-projection) limit offset)
+                                               (%resolve-order-by ctx order-by lhs-projection) limit offset)
                 lhs-projection)))))
 
 (defmethod sql->cl (ctx (type (eql :union)) &rest args)
@@ -1244,7 +1272,7 @@
                  (excluded-projection (when upsertp
                                         (if objectsp
                                             (sort (delete-duplicates (loop for object in (second values)
-                                                                           for keys = (%object-ast-keys object :require-literal-p nil)
+                                                                           for keys = (%object-ast-keys ctx object :require-literal-p nil)
                                                                            unless (subsetp on-conflict keys :test 'equal)
                                                                              do (%annotated-error (fset:lookup ctx :sql)
                                                                                                   table-name
@@ -1433,14 +1461,17 @@
     (%insert-on-conflict ctx table-name nil (list update-cols :where where :unset unset :patch patch))))
 
 (defmethod sql->cl (ctx (type (eql :in-query)) &rest args)
-  (destructuring-bind (expr query)
+  (destructuring-bind (expr query &key start end)
       args
     (multiple-value-bind (src projection free-vars)
         (if (symbolp query)
             (ast->cl ctx (list :select (list (list :*)) :from (list (list query))))
             (%ast->cl-with-free-vars ctx query))
       (unless (= 1 (length projection))
-        (error 'endb/sql/expr:sql-runtime-error :message "IN query must return single column"))
+        (%annotated-error-with-span (fset:lookup ctx :sql)
+                                    (format nil "IN query must return single column, got: ~A" (length projection))
+                                    "IN query must return single column"
+                                    start end))
       (alexandria:with-gensyms (index-key-form-sym)
         (let* ((index-sym (fset:lookup ctx :index-sym))
                (index-key-form `(vector ',index-key-form-sym ,@free-vars)))
@@ -1568,20 +1599,24 @@
          (fset:convert 'fset:seq ,acc-sym)))))
 
 (defmethod sql->cl (ctx (type (eql :array-query)) &rest args)
-  (destructuring-bind (query)
+  (destructuring-bind (query &key start end)
       args
     (multiple-value-bind (src projection)
         (ast->cl ctx query)
       (unless (= 1 (length projection))
-        (error 'endb/sql/expr:sql-runtime-error :message "ARRAY query must return single column"))
+        (%annotated-error-with-span (fset:lookup ctx :sql)
+                                    (format nil "ARRAY query must return single column, got: ~A" (length projection))
+                                    "ARRAY query must return single column"
+                                    start end))
       (alexandria:with-gensyms (row-sym)
         `(fset:convert 'fset:seq (mapcar (lambda (,row-sym)
                                            (aref ,row-sym 0))
                                          ,src))))))
 
 (defmethod sql->cl (ctx (type (eql :object)) &rest args)
-  (destructuring-bind (args)
+  (destructuring-bind (args &key start end)
       args
+    (declare (ignore start end))
     `(fset:convert
       'fset:map
       (append ,@(loop for kv in args
@@ -1607,7 +1642,7 @@
                                      (projection `(list ,@(loop for p in projection
                                                                 collect `(cons ,(%unqualified-column-name p)
                                                                                ,(ast->cl ctx (make-symbol p))))))
-                                     (t (%annotated-error (fset:lookup ctx :sql) k "Unknown table")))))
+                                     (t (%annotated-error (fset:lookup ctx :sql) k (format nil "Unknown table: ~A" k) "Unknown table")))))
                                 (:spread-property
                                  (alexandria:with-gensyms (spread-sym idx-sym)
                                    `(let* ((,spread-sym ,(ast->cl ctx (second kv)))
@@ -1782,7 +1817,7 @@
 (defun %find-expr-symbol (fn prefix)
   (find-symbol (string-upcase (concatenate 'string prefix (symbol-name fn))) :endb/sql/expr))
 
-(defun %valid-sql-fn-call-p (fn-sym fn args)
+(defun %valid-sql-fn-call-p (ctx fn-sym fn args start end)
   (handler-case
       (let ((sql-fn (symbol-function fn-sym)))
         #+sbcl (let* ((arg-list (if (typep sql-fn 'standard-generic-function)
@@ -1801,12 +1836,20 @@
                                     (max (+ min-args optional-args) (length args))
                                     (+ min-args optional-args))))
                  (unless (<= min-args (length args) max-args)
-                   (error 'endb/sql/expr:sql-runtime-error
-                          :message (format nil "Invalid number of arguments: ~A to: ~A min: ~A max: ~A"
-                                           (length args)
-                                           (string-upcase (symbol-name fn))
-                                           min-args
-                                           max-args))))
+                   (if (and start end)
+                       (%annotated-error-with-span (fset:lookup ctx :sql)
+                                                   (format nil "Invalid number of arguments: ~A to: ~A min: ~A max: ~A"
+                                                           (length args)
+                                                           (string-upcase (symbol-name fn))
+                                                           min-args
+                                                           max-args)
+                                                   "Invalid number of arguments" start end)
+                       (error 'endb/sql/expr:sql-runtime-error
+                              :message (format nil "Invalid number of arguments: ~A to: ~A min: ~A max: ~A"
+                                               (length args)
+                                               (string-upcase (symbol-name fn))
+                                               min-args
+                                               max-args)))))
         t)
     (undefined-function (e)
       (declare (ignore e)))))
@@ -1824,11 +1867,14 @@
                                  (t (ast->cl ctx ast)))))))
 
 (defmethod sql->cl (ctx (type (eql :function)) &rest args)
-  (destructuring-bind (fn args)
+  (destructuring-bind (fn args &key start end)
       args
     (let ((fn-sym (%find-expr-symbol fn "sql-")))
-      (unless (and fn-sym (%valid-sql-fn-call-p fn-sym fn args))
-        (error 'endb/sql/expr:sql-runtime-error :message (format nil "Unknown built-in function: ~A" fn)))
+      (unless (and fn-sym (%valid-sql-fn-call-p ctx fn-sym fn args start end))
+        (if (and start end)
+            (%annotated-error-with-span (fset:lookup ctx :sql) (format nil "Unknown built-in function: ~A" fn)
+                                        "Unknown built-in function" start (+ start (length (symbol-name fn))))
+            (error 'endb/sql/expr:sql-runtime-error :message (format nil "Unknown built-in function: ~A" fn))))
       (let ((args (loop for ast in args
                         collect (ast->cl ctx ast))))
         (if (and (not (member fn-sym endb/sql/expr:+impure-functions+))
@@ -1838,16 +1884,18 @@
             `(,fn-sym ,@args))))))
 
 (defmethod sql->cl (ctx (type (eql :aggregate-function)) &rest args)
-  (destructuring-bind (fn args &key distinct (where :true) order-by)
+  (destructuring-bind (fn args &key distinct (where :true) order-by start end)
       args
     (if (and (member fn '(:min :max))
              (> (length args) 1))
         (ast->cl ctx (cons fn args))
         (progn
           (when (fset:lookup ctx :aggregate)
-            (error 'endb/sql/expr:sql-runtime-error :message (format nil "Cannot nest aggregate functions: ~A" (string-upcase (symbol-name fn)))))
+            (%annotated-error-with-span (fset:lookup ctx :sql) (format nil "Cannot nest aggregate functions: ~A" (string-upcase (symbol-name fn)))
+                                        "Cannot nest aggregate functions" start (+ start (length (symbol-name fn)))))
           (when (fset:lookup ctx :recursive-select)
-            (error 'endb/sql/expr:sql-runtime-error :message (format nil "Cannot use aggregate functions in recursion: ~A" (string-upcase (symbol-name fn)))))
+            (%annotated-error-with-span (fset:lookup ctx :sql) (format nil "Cannot use aggregate functions in recursion: ~A" (string-upcase (symbol-name fn)))
+                                        "Cannot use aggregate functions in recursion" start (+ start (length (symbol-name fn)))))
           (let ((min-args (if (eq :object_agg fn)
                               2
                               1))
@@ -1858,12 +1906,13 @@
                           (list :null)
                           args)))
             (unless (<= min-args (length args) max-args)
-              (error 'endb/sql/expr:sql-runtime-error
-                     :message (format nil "Invalid number of arguments: ~A to: ~A min: ~A max: ~A"
-                                      (length args)
-                                      (string-upcase (symbol-name fn))
-                                      min-args
-                                      max-args)))
+              (%annotated-error-with-span (fset:lookup ctx :sql)
+                                          (format nil "Invalid number of arguments: ~A to: ~A min: ~A max: ~A"
+                                                  (length args)
+                                                  (string-upcase (symbol-name fn))
+                                                  min-args
+                                                  max-args)
+                                          "Invalid number of arguments" start end))
             (alexandria:with-gensyms (aggregate-sym)
               (let* ((aggregate-table (fset:lookup ctx :aggregate-table))
                      (ctx (fset:with ctx :aggregate t))
@@ -1943,8 +1992,8 @@
                        (path (subseq k (1+ idx))))
                    (if (fset:lookup ctx column)
                        (ast->cl ctx (list :access (make-symbol column) path))
-                       (%annotated-error (fset:lookup ctx :sql) ast "Unknown column")))
-                 (%annotated-error (fset:lookup ctx :sql) ast "Unknown column"))))))
+                       (%annotated-error (fset:lookup ctx :sql) ast (format nil "Unknown column: ~A" ast) "Unknown column")))
+                 (%annotated-error (fset:lookup ctx :sql) ast (format nil "Unknown column: ~A" ast) "Unknown column"))))))
     (t (progn
          (assert (not (listp ast)))
          ast))))
