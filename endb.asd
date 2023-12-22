@@ -19,7 +19,6 @@
                "local-time"
                "periods"
                "trivial-backtrace"
-               "trivial-gray-streams"
                "trivial-utf-8"
                "trivia")
   :pathname "src"
