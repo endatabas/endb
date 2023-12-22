@@ -167,17 +167,17 @@
                                       :from-end t))))
                (when idx
                  (+ idx (length (symbol-name delimiter))))))
-           (find-cst-start (xs)
-             (find-if #'integerp (alexandria:flatten xs)))
-           (find-cst-end (xs)
+           (find-cst-span (xs)
              (let* ((xs (alexandria:flatten xs))
                     (idx (position-if #'integerp xs :from-end t)))
-               (when idx
-                 (let ((literal (nth (1- idx) xs)))
-                   (+ (nth idx xs) (trivial-utf-8:utf-8-byte-length
-                                    (if (symbolp literal)
-                                        (symbol-name literal)
-                                        literal)))))))
+               (values
+                (find-if #'integerp xs)
+                (when idx
+                  (let ((literal (nth (1- idx) xs)))
+                    (+ (nth idx xs) (trivial-utf-8:utf-8-byte-length
+                                     (if (symbolp literal)
+                                         (symbol-name literal)
+                                         literal))))))))
            (binary-equal-op-tree (acc xs)
              (trivia:ematch xs
                ((list* (cons :IMMEDIATELY _) (cons :PRECEDES _) x xs)
@@ -537,10 +537,14 @@
                 (list :limit (walk limit) :offset (walk offset)))
 
                ((list :|ordering_term| expr (cons dir _))
-                (list (walk expr) dir :start (find-cst-start expr) :end (find-cst-end expr)))
+                (multiple-value-bind (start end)
+                    (find-cst-span expr)
+                  (list (walk expr) dir :start start :end end)))
 
                ((list :|ordering_term| expr)
-                (list (walk expr) :asc :start (find-cst-start expr) :end (find-cst-end expr)))
+                (multiple-value-bind (start end)
+                    (find-cst-span expr)
+                  (list (walk expr) :asc :start start :end end)))
 
                ((list :|column_reference| table-name _ column-name)
                 (let* ((table-name (walk table-name))
