@@ -1105,6 +1105,3 @@ SELECT MIN(1, NULL)
 query T nosort
 SELECT MAX(-1, 1, NULL)
 ----
-
-statement ok
-ROLLBACK
