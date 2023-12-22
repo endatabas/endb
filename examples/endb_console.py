@@ -5,6 +5,7 @@ import endb
 import pprint
 import urllib.error
 import re
+import time
 
 class EndbConsole(cmd.Cmd):
     def __init__(self, url, accept='application/ld+json', username=None, password=None, prompt='-> '):
@@ -14,9 +15,22 @@ class EndbConsole(cmd.Cmd):
         self.username = username
         self.password = password
         self.prompt = prompt
+        self.timer = False
 
     def emptyline(self):
         pass
+
+    def complete_timer(self, text, line, begidx, endidx):
+        return [x for x in ['on', 'off'] if x.startswith(text)]
+
+    def do_timer(self, arg):
+        'Sets or shows timer.'
+        if arg:
+            self.timer = arg == 'on'
+        if self.timer:
+            print('on')
+        else:
+            print('off')
 
     def complete_accept(self, text, line, begidx, endidx):
         return [x for x in ['application/json', 'application/ld+json', 'text/csv', 'application/vnd.apache.arrow.file'] if x.startswith(text)]
@@ -53,9 +67,11 @@ class EndbConsole(cmd.Cmd):
         return 'stop'
 
     def default(self, line):
+        start_time = None
         if line == 'EOF':
             return 'stop'
         try:
+            start_time = time.time()
             result = endb.Endb(self.url, self.accept, self.username, self.password).sql(line)
             if self.accept == 'text/csv':
                 print(result.strip())
@@ -71,6 +87,8 @@ class EndbConsole(cmd.Cmd):
         except urllib.error.URLError as e:
             print(self.url)
             print(e.reason)
+        if start_time and self.timer:
+            print('Elapsed: %f ms' % (time.time() - start_time))
 
 if __name__ == '__main__':
     import sys
