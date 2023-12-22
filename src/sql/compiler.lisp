@@ -888,10 +888,8 @@
 (defmethod sql->cl (ctx (type (eql :select)) &rest args)
   (destructuring-bind (select-list &key distinct (from '(((:values ((:null))) #:dual))) (where :true)
                                      (group-by () group-by-p) (having :true havingp)
-                                     order-by limit offset
-                                     start end)
+                                     order-by limit offset)
       args
-    (declare (ignore start end))
     (labels ((select->cl (ctx from-ast from-tables-acc)
                (destructuring-bind (table-or-subquery &optional (table-alias table-or-subquery) column-names temporal)
                    (first from-ast)
@@ -1074,9 +1072,8 @@
           collect x))
 
 (defmethod sql->cl (ctx (type (eql :objects)) &rest args)
-  (destructuring-bind (objects-list &key order-by limit offset start end)
+  (destructuring-bind (objects-list &key order-by limit offset)
       args
-    (declare (ignore start end))
     (let* ((projection (sort (delete-duplicates
                               (loop for object in objects-list
                                     append (%object-ast-keys ctx object))
@@ -1692,8 +1689,10 @@
                       (progn
                         (setf init-operator (first ast))
                         (setf init-ast (second ast))
-                        (append (nth 2 ast)
-                                (nthcdr 3 ast)))))
+                        (let ((rest-ast (nthcdr 3 ast)))
+                          (remf rest-ast :start)
+                          (remf rest-ast :end)
+                          (append (nth 2 ast) rest-ast)))))
                  ((and (listp ast)
                        (member (first ast) '(:intersect :except)))
                   (append (list (first ast))
