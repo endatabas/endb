@@ -168,12 +168,16 @@
                (when idx
                  (+ idx (length (symbol-name delimiter))))))
            (find-cst-start (xs)
-             (find-if #'numberp (alexandria:flatten xs)))
+             (find-if #'integerp (alexandria:flatten xs)))
            (find-cst-end (xs)
              (let* ((xs (alexandria:flatten xs))
-                    (idx (position-if #'numberp xs :from-end t)))
+                    (idx (position-if #'integerp xs :from-end t)))
                (when idx
-                 (+ (nth idx xs) (length (format nil "~A" (nth (1- idx) xs)))))))
+                 (let ((literal (nth (1- idx) xs)))
+                   (+ (nth idx xs) (trivial-utf-8:utf-8-byte-length
+                                    (if (symbolp literal)
+                                        (symbol-name literal)
+                                        literal)))))))
            (binary-equal-op-tree (acc xs)
              (trivia:ematch xs
                ((list* (cons :IMMEDIATELY _) (cons :PRECEDES _) x xs)
