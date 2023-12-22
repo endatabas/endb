@@ -14,7 +14,7 @@
   (:export #:ddl-create-table #:ddl-drop-table #:ddl-create-view #:ddl-drop-view #:ddl-create-index #:ddl-drop-index #:ddl-create-assertion #:ddl-drop-assertion
            #:dml-insert #:dml-insert-objects #:dml-delete #:dml-erase
 
-           #:syn-current_date #:syn-current_time #:syn-current_timestamp
+           #:sql-rollback-error #:syn-current_date #:syn-current_time #:syn-current_timestamp
 
            #:make-db #:copy-db #:db-buffer-pool #:db-store #:db-meta-data #:db-current-timestamp #:db-write-lock
            #:db-compaction-thread #:db-compaction-queue #:db-query-cache #:db-hash-index-cache #:db-indexer-queue #:db-indexer-thread
@@ -40,6 +40,8 @@
   indexer-thread
   indexer-queue
   (hash-index-cache (make-hash-table :synchronized t :test 'equal)))
+
+(define-condition sql-rollback-error (error) ())
 
 (defun syn-current_date (db)
   (endb/sql/expr:syn-cast (syn-current_timestamp db) :date))

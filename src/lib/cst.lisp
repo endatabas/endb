@@ -283,6 +283,15 @@
                ((list* :|select_stmt| x xs)
                 (build-compound-select-stmt (walk x) xs))
 
+               ((list* :|begin_stmt| _)
+                (list :begin))
+
+               ((list* :|commit_stmt| _)
+                (list :commit))
+
+               ((list* :|rollback_stmt| _)
+                (list :rollback))
+
                ((list* :|create_table_stmt| _ _ table-name xs)
                 (list :create-table (walk table-name) (remove nil (mapcar #'walk (strip-delimiters '(:|(| :|)| :|,|) xs)))))
 

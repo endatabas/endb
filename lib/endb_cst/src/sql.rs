@@ -231,6 +231,10 @@ peg! {
     drop_table_stmt <- DROP TABLE if_exists? table_name;
     drop_view_stmt <- DROP VIEW if_exists? view_name;
 
+    begin_stmt <- BEGIN TRANSACTION?;
+    commit_stmt <- ( COMMIT / END ) TRANSACTION?;
+    rollback_stmt <- ROLLBACK TRANSACTION?;
+
     <sql_stmt> <-
         select_stmt
         / insert_stmt
@@ -244,7 +248,10 @@ peg! {
         / drop_assertion_stmt
         / drop_index_stmt
         / drop_table_stmt
-        / drop_view_stmt;
+        / drop_view_stmt
+        / begin_stmt
+        / commit_stmt
+        / rollback_stmt;
 
     pub sql_stmt_list <- r"\A" sql_stmt ( ";" sql_stmt )* ";"? !r"\A.";
 

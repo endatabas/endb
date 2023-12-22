@@ -105,9 +105,13 @@
                    (result-code (if (equal "POST" request-method)
                                     (bt:with-lock-held ((endb/sql/db:db-write-lock endb/lib/server:*db*))
                                       (if (eq original-md (endb/sql/db:db-meta-data endb/lib/server:*db*))
-                                          (progn
-                                            (setf endb/lib/server:*db* (endb/sql:commit-write-tx endb/lib/server:*db* write-db))
-                                            (funcall on-response-init +http-created+ content-type)
+                                          (let* ((new-db (endb/sql:commit-write-tx endb/lib/server:*db* write-db))
+                                                 (unchangedp (eq new-db endb/lib/server:*db*)))
+                                            (setf endb/lib/server:*db* new-db)
+                                            (funcall on-response-init (if unchangedp
+                                                                          +http-ok+
+                                                                          +http-created+)
+                                                     content-type)
                                             (%stream-response on-response-send content-type '("result") (list (vector result-code))))
                                           (funcall on-response-init +http-conflict+ "")))
                                     (funcall on-response-init +http-bad-request+ "")))

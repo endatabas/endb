@@ -33,7 +33,8 @@
 
            #:make-agg #:agg-accumulate #:agg-finish
 
-           #:sql-runtime-error #:*sqlite-mode* #:+unix-epoch-time+ #:+end-of-time+ #:+hash-table-test+ #:equalp-case-sensitive #:equalp-case-sensitive-hash-fn
+           #:sql-runtime-error #:*sqlite-mode* #:+unix-epoch-time+ #:+end-of-time+
+           #:+hash-table-test+ #:equalp-case-sensitive #:equalp-case-sensitive-hash-fn
            #:+impure-functions+))
 (in-package :endb/sql/expr)
 

@@ -98,6 +98,22 @@
                          (error ,e-sym)
                          (is (ppcre:scan ,msg (format nil "~A" ,e-sym)))))))))
 
+(test explicit-transactions
+  (let* ((endb/sql/expr:*sqlite-mode* t)
+         (db (make-db))
+         (write-db (begin-write-tx db)))
+
+    (signals-with-msg endb/sql/expr:sql-runtime-error "Explicit transactions not supported"
+      (execute-sql db "BEGIN TRANSACTION"))
+
+    (signals-with-msg endb/sql/expr:sql-runtime-error "Explicit transactions not supported"
+      (execute-sql db "COMMIT"))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql db "ROLLBACK TRANSACTION")
+      (is (null result))
+      (is (eq t result-code)))))
+
 (test empty-db
   (let* ((db (make-db))
          (write-db (begin-write-tx db)))

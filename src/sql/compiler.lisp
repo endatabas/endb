@@ -1954,6 +1954,18 @@
                        (symbol-name parameter)
                        parameter))))
 
+(defmethod sql->cl (ctx (type (eql :begin)) &rest args)
+  (declare (ignore args))
+  (error 'endb/sql/expr:sql-runtime-error :message "Explicit transactions not supported"))
+
+(defmethod sql->cl (ctx (type (eql :commit)) &rest args)
+  (declare (ignore args))
+  (error 'endb/sql/expr:sql-runtime-error :message "Explicit transactions not supported"))
+
+(defmethod sql->cl (ctx (type (eql :rollback)) &rest args)
+  (declare (ignore args))
+  (error 'endb/sql/db:sql-rollback-error))
+
 (defmethod sql->cl (ctx fn &rest args)
   (sql->cl ctx :function fn args))
 
@@ -2016,7 +2028,7 @@
 (defun %interpretp (ast)
   (when (listp ast)
     (case (first ast)
-      ((:create-table :create-index :drop-table :drop-view :create-assertion :drop-assertion) t)
+      ((:create-table :create-index :drop-table :drop-view :create-assertion :drop-assertion :begin :commit :rollback) t)
       (:insert (member (first (third ast)) '(:values :objects)))
       (:select (let ((from (getf ast :from)))
                  (or (> (length from)
