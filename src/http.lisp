@@ -1,6 +1,6 @@
 (defpackage :endb/http
   (:use :cl)
-  (:export #:endb-query #:+http-ok+ #:+http-created+ #:+http-bad-request+ #:+http-conflict+ #:+http-internal-server-error+)
+  (:export #:endb-query #:+http-ok+ #:+http-created+ #:+http-no-content+ #:+http-bad-request+ #:+http-conflict+ #:+http-internal-server-error+)
   (:import-from :bordeaux-threads)
   (:import-from :cl-ppcre)
   (:import-from :com.inuoe.jzon)
@@ -18,6 +18,7 @@
 
 (defconstant +http-ok+ 200)
 (defconstant +http-created+ 201)
+(defconstant +http-no-content+ 204)
 (defconstant +http-bad-request+ 400)
 (defconstant +http-conflict+ 409)
 (defconstant +http-internal-server-error+ 500)
@@ -124,7 +125,7 @@
         (funcall on-response-send (format nil "~A~%" e)))
       (endb/sql/db:sql-rollback-error ()
         (funcall on-response-init (if (equal "POST" request-method)
-                                      +http-ok+
+                                      +http-no-content+
                                       +http-bad-request+)
                  ""))
       (cl-ppcre:ppcre-syntax-error (e)
