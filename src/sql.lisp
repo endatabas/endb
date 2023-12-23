@@ -167,9 +167,6 @@
       (if *query-timing*
           (time (%execute-sql db sql parameters manyp))
           (%execute-sql db sql parameters manyp))
-    (endb/sql/db:sql-rollback-error (e)
-      (declare (ignore e))
-      (values nil t))
     #+sbcl (sb-pcl::effective-method-condition (e)
              (let ((fn (sb-pcl::generic-function-name
                         (sb-pcl::effective-method-condition-generic-function e))))

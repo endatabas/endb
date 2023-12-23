@@ -122,6 +122,11 @@
       (endb/sql/expr:sql-runtime-error (e)
         (funcall on-response-init +http-bad-request+ "text/plain")
         (funcall on-response-send (format nil "~A~%" e)))
+      (endb/sql/db:sql-rollback-error ()
+        (funcall on-response-init (if (equal "POST" request-method)
+                                      +http-ok+
+                                      +http-bad-request+)
+                 ""))
       (cl-ppcre:ppcre-syntax-error (e)
         (funcall on-response-init +http-bad-request+ "text/plain")
         (funcall on-response-send (format nil "~A~%" e))))))

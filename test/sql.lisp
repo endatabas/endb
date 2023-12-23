@@ -113,10 +113,7 @@
          (db (make-db))
          (write-db (begin-write-tx db)))
 
-    (multiple-value-bind (result result-code)
-        (execute-sql db "ROLLBACK TRANSACTION")
-      (is (null result))
-      (is (eq t result-code)))))
+    (signals endb/sql/db:sql-rollback-error (execute-sql db "ROLLBACK TRANSACTION"))))
 
 (test empty-db
   (let* ((db (make-db))

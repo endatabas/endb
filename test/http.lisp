@@ -60,10 +60,11 @@
                      (format nil "[[1]]~%"))
                (%do-query "POST" "application/json" "INSERT INTO foo {a: 1, b: 2}" "[]" "false")))
 
-    (is (equal (list +http-ok+
-                     '(:content-type "application/json")
-                     (format nil "[[true]]~%"))
+    (is (equal (list +http-ok+ () "")
                (%do-query "POST" "application/json" "ROLLBACK" "[]" "false")))
+
+    (is (equal (list +http-bad-request+ () "")
+               (%do-query "GET" "application/json" "ROLLBACK" "[]" "false")))
 
     (is (equal (list +http-bad-request+
                      '(:content-type "text/plain")
