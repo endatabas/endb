@@ -11,7 +11,10 @@
 
 (cffi:defcfun "endb_start_server" :void
   (on-query :pointer)
-  (on-error :pointer))
+  (on-error :pointer)
+  (on-ws-init :pointer)
+  (on-ws-close :pointer)
+  (on-ws-message :pointer))
 
 (cffi:defcfun "endb_parse_command_line_to_json" :void
   (on-success :pointer))
@@ -107,15 +110,74 @@
     ((err :string))
   (funcall *start-server-on-error* err))
 
-(defun start-server (on-query)
+(defvar *start-server-on-websocket-init*)
+
+(cffi:defcallback start-server-on-websocket-init :void
+    ((remote-addr :string))
+  (funcall *start-server-on-websocket-init* remote-addr))
+
+(defvar *start-server-on-websocket-close*)
+
+(cffi:defcallback start-server-on-websocket-close :void
+    ((remote-addr :string))
+  (funcall *start-server-on-websocket-close* remote-addr))
+
+(defvar *start-server-on-websocket-message-on-abort*)
+
+(cffi:defcallback start-server-on-websocket-message-on-abort :void
+    ()
+  (funcall *start-server-on-websocket-message-on-abort*))
+
+(defvar *start-server-on-websocket-message*)
+
+(cffi:defcallback start-server-on-websocket-message :void
+    ((remote-addr :string)
+     (ws-stream :pointer)
+     (message-ptr :pointer)
+     (message-size :size)
+     (on-ws-send :pointer))
+  (let ((message (endb/lib:buffer-to-vector message-ptr message-size)))
+    (funcall *start-server-on-websocket-message*
+             remote-addr
+             message
+             (lambda (body)
+               (let* ((abortp)
+                      (*start-server-on-websocket-message-on-abort* (lambda ()
+                                                                      (setf abortp t)))
+                      (body (if (or (typep body 'base-string)
+                                    (typep body '(vector (unsigned-byte 8))))
+                                body
+                                (trivial-utf-8:string-to-utf-8-bytes body))))
+                 (cffi:with-pointer-to-vector-data (body-ptr  #+sbcl (sb-ext:array-storage-vector body)
+                                                              #-sbcl body)
+                   (cffi:foreign-funcall-pointer on-ws-send ()
+                                                 :pointer ws-stream
+                                                 :pointer body-ptr
+                                                 :size (length body)
+                                                 :pointer (cffi:callback start-server-on-websocket-message-on-abort)
+                                                 :void))
+                 (when abortp
+                   (error 'sql-abort-query-error)))))))
+
+(defun start-server (on-query &optional on-ws-message)
   (endb/lib:init-lib)
   (let* ((errorp nil)
          (*start-server-on-error* (lambda (err)
                                     (setf errorp t)
-                                    (endb/lib:log-error err))))
+                                    (endb/lib:log-error err)))
+         (active-ws-connections (make-hash-table :test 'equal))
+         (*start-server-on-websocket-init* (lambda (remote-addr)
+                                             (setf (gethash remote-addr active-ws-connections) remote-addr)))
+         (*start-server-on-websocket-close* (lambda (remote-addr)
+                                              (remhash remote-addr active-ws-connections)))
+         (*start-server-on-websocket-message* (lambda (remote-addr message on-ws-send)
+                                                (funcall on-ws-message (gethash remote-addr active-ws-connections) message on-ws-send))))
     (setf *start-server-on-query* on-query)
     (endb-start-server (cffi:callback start-server-on-query)
-                       (cffi:callback start-server-on-error))
+                       (cffi:callback start-server-on-error)
+                       (cffi:callback start-server-on-websocket-init)
+                       (cffi:callback start-server-on-websocket-close)
+                       (cffi:callback start-server-on-websocket-message))
     (if errorp
         1
         0)))

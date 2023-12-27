@@ -67,9 +67,24 @@ type OnQueryFn = Arc<
         + Send,
 >;
 
+pub type HttpWebsocketStream = hyper_tungstenite::HyperWebsocketStream;
+
+type OnWebsocketInitFn = Arc<dyn Fn(&str) + Sync + Send>;
+type OnWebsocketCloseFn = Arc<dyn Fn(&str) + Sync + Send>;
+type OnWebsocketMessageFn = Arc<dyn Fn(&str, &mut HttpWebsocketStream, &[u8]) + Sync + Send>;
+
+pub fn on_websocket_send(stream: &mut HttpWebsocketStream, message: &[u8]) -> Result<(), Error> {
+    Ok(tokio::runtime::Handle::current()
+        .block_on(stream.send(tungstenite::Message::binary(message.to_vec())))?)
+}
+
 struct EndbService {
     basic_auth: Option<String>,
     on_query: OnQueryFn,
+    on_ws_init: OnWebsocketInitFn,
+    on_ws_close: OnWebsocketCloseFn,
+    on_ws_message: OnWebsocketMessageFn,
+    remote_addr: std::net::SocketAddr,
 }
 
 fn empty_response(status_code: StatusCode) -> Result<Response<BoxBody>, Error> {
@@ -114,6 +129,36 @@ async fn sql_response(
     }
 }
 
+async fn serve_websocket(
+    websocket: hyper_tungstenite::HyperWebsocket,
+    remote_addr: std::net::SocketAddr,
+    on_ws_init: OnWebsocketInitFn,
+    on_ws_close: OnWebsocketCloseFn,
+    on_ws_message: OnWebsocketMessageFn,
+) -> Result<(), Error> {
+    use futures::StreamExt;
+
+    let mut ws_stream = websocket.await?;
+    let remote_addr_string = remote_addr.to_string();
+
+    on_ws_init(remote_addr_string.as_str());
+
+    while let Some(message) = ws_stream.next().await {
+        let message = message?;
+        if message.is_text() || message.is_binary() {
+            on_ws_message(
+                remote_addr_string.as_str(),
+                &mut ws_stream,
+                &message.into_data(),
+            );
+        }
+    }
+
+    on_ws_close(remote_addr_string.as_str());
+
+    Ok(())
+}
+
 impl<B> Service<Request<B>> for EndbService
 where
     B: hyper::body::Body + Send + Sync + 'static,
@@ -124,14 +169,27 @@ where
     type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
-    fn call(&self, req: Request<B>) -> Self::Future {
+    fn call(&self, mut req: Request<B>) -> Self::Future {
         let on_query = self.on_query.clone();
+        let on_ws_init = self.on_ws_init.clone();
+        let on_ws_close = self.on_ws_close.clone();
+        let on_ws_message = self.on_ws_message.clone();
+        let remote_addr = self.remote_addr;
+
+        let auth_header = if hyper_tungstenite::is_upgrade_request(&req) {
+            hyper::header::SEC_WEBSOCKET_PROTOCOL
+        } else {
+            hyper::header::AUTHORIZATION
+        };
         let unauthorized = self.basic_auth.is_some()
             && self.basic_auth.as_deref()
                 != req
                     .headers()
-                    .get(hyper::header::AUTHORIZATION)
-                    .and_then(|x| x.to_str().ok());
+                    .get(auth_header)
+                    .and_then(|x| x.to_str().ok())
+                    .and_then(|x| percent_encoding::percent_decode_str(x).decode_utf8().ok())
+                    .as_deref();
+
         Box::pin(async move {
             if unauthorized {
                 return Ok(Response::builder()
@@ -141,6 +199,23 @@ where
                         format!("Basic realm=\"{}\"", REALM),
                     )
                     .body(Empty::new().boxed())?);
+            }
+
+            if hyper_tungstenite::is_upgrade_request(&req) {
+                return if req.uri().path() == "/sql" {
+                    let (response, websocket) = hyper_tungstenite::upgrade(&mut req, None)?;
+                    tokio::spawn(serve_websocket(
+                        websocket,
+                        remote_addr,
+                        on_ws_init,
+                        on_ws_close,
+                        on_ws_message,
+                    ));
+                    let (parts, body) = response.into_parts();
+                    Ok(Response::from_parts(parts, body.boxed()))
+                } else {
+                    empty_response(StatusCode::NOT_FOUND)
+                };
             }
 
             let accept = req
@@ -272,11 +347,17 @@ pub fn start_server(
         + Sync
         + Send
         + 'static,
+    on_ws_init: impl Fn(&str) + Sync + Send + 'static,
+    on_ws_close: impl Fn(&str) + Sync + Send + 'static,
+    on_ws_message: impl Fn(&str, &mut HttpWebsocketStream, &[u8]) + Sync + Send + 'static,
 ) -> Result<(), Error> {
     let args = CommandLineArguments::parse();
 
     let basic_auth = make_basic_auth_header(args.username, args.password);
     let on_query = Arc::new(on_query);
+    let on_ws_init = Arc::new(on_ws_init);
+    let on_ws_close = Arc::new(on_ws_close);
+    let on_ws_message = Arc::new(on_ws_message);
     let addr: std::net::SocketAddr = ([0, 0, 0, 0], args.http_port).into();
 
     tokio::runtime::Builder::new_multi_thread()
@@ -286,20 +367,22 @@ pub fn start_server(
             let listener = tokio::net::TcpListener::bind(addr).await?;
             log::info!(target: "endb/lib/server", "listening on port {}", args.http_port);
             loop {
-                let (stream, _) = listener.accept().await?;
+                let (stream, remote_addr) = listener.accept().await?;
                 let io = hyper_util::rt::tokio::TokioIo::new(stream);
                 let svc = EndbService {
                     basic_auth: basic_auth.clone(),
                     on_query: on_query.clone(),
+                    on_ws_init: on_ws_init.clone(),
+                    on_ws_close: on_ws_close.clone(),
+                    on_ws_message: on_ws_message.clone(),
+                    remote_addr,
                 };
                 tokio::task::spawn(async move {
-                    hyper_util::server::conn::auto::Builder::new(
+                    let mut builder = hyper_util::server::conn::auto::Builder::new(
                         hyper_util::rt::TokioExecutor::new(),
-                    )
-                    .http1()
-                    .title_case_headers(true)
-                    .serve_connection(io, svc)
-                    .await
+                    );
+                    builder.http1().title_case_headers(true).keep_alive(true);
+                    builder.serve_connection_with_upgrades(io, svc).await
                 });
             }
         })
@@ -373,6 +456,10 @@ mod tests {
         crate::EndbService {
             basic_auth,
             on_query,
+            remote_addr: ([0, 0, 0, 0], 3803).into(),
+            on_ws_init: Arc::new(|_| {}),
+            on_ws_close: Arc::new(|_| {}),
+            on_ws_message: Arc::new(|_, _, _| {}),
         }
     }
 

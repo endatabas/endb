@@ -216,13 +216,39 @@ type endb_start_server_on_query_callback = extern "C" fn(
     endb_start_server_on_query_on_response_send_callback,
 );
 
+pub struct endb_server_http_websocket_stream(endb_server::HttpWebsocketStream);
+
+type endb_start_server_on_websocket_init_callback = extern "C" fn(*const c_char);
+
+type endb_start_server_on_websocket_close_callback = extern "C" fn(*const c_char);
+
+type endb_start_server_on_websocket_message_on_abort_callback = extern "C" fn();
+
+type endb_start_server_on_websocket_message_on_response_send_callback = extern "C" fn(
+    *mut endb_server_http_websocket_stream,
+    *const u8,
+    usize,
+    endb_start_server_on_websocket_message_on_abort_callback,
+);
+
+type endb_start_server_on_websocket_message_callback = extern "C" fn(
+    *const c_char,
+    *mut endb_server_http_websocket_stream,
+    *const u8,
+    usize,
+    endb_start_server_on_websocket_message_on_response_send_callback,
+);
+
 #[no_mangle]
 pub extern "C" fn endb_start_server(
     on_query: endb_start_server_on_query_callback,
     on_error: endb_on_error_callback,
+    on_ws_init: endb_start_server_on_websocket_init_callback,
+    on_ws_close: endb_start_server_on_websocket_close_callback,
+    on_ws_message: endb_start_server_on_websocket_message_callback,
 ) {
-    if let Err(err) =
-        endb_server::start_server(move |response, sender, tx, method, media_type, q, p, m| {
+    if let Err(err) = endb_server::start_server(
+        move |response, sender, tx, method, media_type, q, p, m| {
             let method_cstring = CString::new(method).unwrap();
             let media_type_cstring = CString::new(media_type).unwrap();
             let q_cstring = CString::new(q).unwrap();
@@ -271,8 +297,42 @@ pub extern "C" fn endb_start_server(
                 on_response_init_callback,
                 on_response_send_callback,
             );
-        })
-    {
+        },
+        move |remote_addr| {
+            let remote_addr_cstring = CString::new(remote_addr).unwrap();
+            on_ws_init(remote_addr_cstring.as_ptr());
+        },
+        move |remote_addr| {
+            let remote_addr_cstring = CString::new(remote_addr).unwrap();
+            on_ws_close(remote_addr_cstring.as_ptr());
+        },
+        move |remote_addr, ws_stream, message| {
+            let remote_addr_cstring = CString::new(remote_addr).unwrap();
+
+            extern "C" fn on_websocket_send_callback(
+                ws_stream: *mut endb_server_http_websocket_stream,
+                message_ptr: *const u8,
+                message_size: usize,
+                on_abort: endb_start_server_on_websocket_message_on_abort_callback,
+            ) {
+                let message = unsafe { std::slice::from_raw_parts(message_ptr, message_size) };
+                let ws_stream =
+                    unsafe { &mut *(ws_stream as *mut endb_server::HttpWebsocketStream) };
+
+                if endb_server::on_websocket_send(ws_stream, message).is_err() {
+                    on_abort();
+                }
+            }
+
+            on_ws_message(
+                remote_addr_cstring.as_ptr(),
+                ws_stream as *mut _ as *mut endb_server_http_websocket_stream,
+                message.as_ptr(),
+                message.len(),
+                on_websocket_send_callback,
+            );
+        },
+    ) {
         string_callback(err.to_string(), on_error);
     }
 }

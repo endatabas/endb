@@ -7,6 +7,8 @@ typedef struct endb_server_http_response endb_server_http_response;
 
 typedef struct endb_server_http_sender endb_server_http_sender;
 
+typedef struct endb_server_http_websocket_stream endb_server_http_websocket_stream;
+
 typedef struct endb_server_one_shot_sender endb_server_one_shot_sender;
 
 /**
@@ -91,6 +93,23 @@ typedef void (*endb_start_server_on_query_callback)(struct endb_server_http_resp
                                                     endb_start_server_on_query_on_response_init_callback,
                                                     endb_start_server_on_query_on_response_send_callback);
 
+typedef void (*endb_start_server_on_websocket_init_callback)(const char*);
+
+typedef void (*endb_start_server_on_websocket_close_callback)(const char*);
+
+typedef void (*endb_start_server_on_websocket_message_on_abort_callback)(void);
+
+typedef void (*endb_start_server_on_websocket_message_on_response_send_callback)(struct endb_server_http_websocket_stream*,
+                                                                                 const uint8_t*,
+                                                                                 uintptr_t,
+                                                                                 endb_start_server_on_websocket_message_on_abort_callback);
+
+typedef void (*endb_start_server_on_websocket_message_callback)(const char*,
+                                                                struct endb_server_http_websocket_stream*,
+                                                                const uint8_t*,
+                                                                uintptr_t,
+                                                                endb_start_server_on_websocket_message_on_response_send_callback);
+
 typedef void (*endb_parse_command_line_to_json_on_success_callback)(const char*);
 
 typedef void (*endb_version_on_success_callback)(const char*);
@@ -139,7 +158,10 @@ void endb_log_debug(const char *target, const char *message);
 void endb_log_trace(const char *target, const char *message);
 
 void endb_start_server(endb_start_server_on_query_callback on_query,
-                       endb_on_error_callback on_error);
+                       endb_on_error_callback on_error,
+                       endb_start_server_on_websocket_init_callback on_ws_init,
+                       endb_start_server_on_websocket_close_callback on_ws_close,
+                       endb_start_server_on_websocket_message_callback on_ws_message);
 
 void endb_set_panic_hook(endb_on_error_callback on_panic);
 
