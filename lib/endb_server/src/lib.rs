@@ -74,8 +74,10 @@ type OnWebsocketCloseFn = Arc<dyn Fn(&str) + Sync + Send>;
 type OnWebsocketMessageFn = Arc<dyn Fn(&str, &mut HttpWebsocketStream, &[u8]) + Sync + Send>;
 
 pub fn on_websocket_send(stream: &mut HttpWebsocketStream, message: &[u8]) -> Result<(), Error> {
-    Ok(tokio::runtime::Handle::current()
-        .block_on(stream.send(tungstenite::Message::binary(message.to_vec())))?)
+    tokio::task::block_in_place(|| {
+        Ok(tokio::runtime::Handle::current()
+            .block_on(stream.send(tungstenite::Message::binary(message.to_vec())))?)
+    })
 }
 
 struct EndbService {

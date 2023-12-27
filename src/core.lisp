@@ -53,7 +53,7 @@
     (unwind-protect
          (progn
            (%endb-init (endb/lib/server:parse-command-line))
-           (endb/lib/server:start-server #'endb/http:endb-query))
+           (endb/lib/server:start-server #'endb/http:endb-query #'endb/http:endb-on-ws-message))
       (%endb-close-db))))
 
 (defun main ()
