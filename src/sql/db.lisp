@@ -20,7 +20,8 @@
            #:db-compaction-thread #:db-compaction-queue #:db-query-cache #:db-hash-index-cache #:db-indexer-queue #:db-indexer-thread
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions #:query-cache-key
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
-           #:view-definition #:calculate-stats #:run-compaction #:start-background-compaction #:start-background-indexer))
+           #:view-definition #:calculate-stats #:run-compaction #:start-background-compaction #:start-background-indexer
+           #:tx-begin #:tx-commit #:tx-rollback))
 (in-package :endb/sql/db)
 
 ;; DML/DDL
@@ -648,3 +649,15 @@
                       :initial-value (fset:lookup meta-data table-name))))
       (setf meta-data (fset:with meta-data table-name table-md))
       (values nil (length new-batch-file-idx-erased-row-ids)))))
+
+(defun tx-begin (db)
+  (declare (ignore db))
+  (error 'endb/sql/expr:sql-runtime-error :message "Explicit transactions not supported"))
+
+(defun tx-commit (db)
+  (declare (ignore db))
+  (error 'endb/sql/expr:sql-runtime-error :message "Explicit transactions not supported"))
+
+(defun tx-rollback (db)
+  (declare (ignore db))
+  (error 'sql-rollback-error))

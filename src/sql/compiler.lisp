@@ -1956,15 +1956,15 @@
 
 (defmethod sql->cl (ctx (type (eql :begin)) &rest args)
   (declare (ignore args))
-  (error 'endb/sql/expr:sql-runtime-error :message "Explicit transactions not supported"))
+  `(endb/sql/db:tx-begin ,(fset:lookup ctx :db-sym)))
 
 (defmethod sql->cl (ctx (type (eql :commit)) &rest args)
   (declare (ignore args))
-  (error 'endb/sql/expr:sql-runtime-error :message "Explicit transactions not supported"))
+  `(endb/sql/db:tx-commit ,(fset:lookup ctx :db-sym)))
 
 (defmethod sql->cl (ctx (type (eql :rollback)) &rest args)
   (declare (ignore args))
-  (error 'endb/sql/db:sql-rollback-error))
+  `(endb/sql/db:tx-rollback ,(fset:lookup ctx :db-sym)))
 
 (defmethod sql->cl (ctx fn &rest args)
   (sql->cl ctx :function fn args))

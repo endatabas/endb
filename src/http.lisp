@@ -211,6 +211,7 @@
             (funcall on-ws-send (%json-rpc-error json-rpc-id +json-rpc-internal-error+ (format nil "~A" e))))
           (endb/sql/expr:sql-runtime-error (e)
             (funcall on-ws-send (%json-rpc-error json-rpc-id +json-rpc-internal-error+ (format nil "~A" e))))
-          (endb/sql/db:sql-rollback-error ())
+          (endb/sql/db:sql-rollback-error ()
+            (funcall on-ws-send (%json-rpc-result json-rpc-id (endb/json:json-stringify :null))))
           (cl-ppcre:ppcre-syntax-error (e)
             (funcall on-ws-send (%json-rpc-error json-rpc-id +json-rpc-internal-error+ (format nil "~A" e)))))))))
