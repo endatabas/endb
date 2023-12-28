@@ -136,28 +136,27 @@
      (message-ptr :pointer)
      (message-size :size)
      (on-ws-send :pointer))
-  (let ((message (endb/lib:buffer-to-vector message-ptr message-size)))
-    (funcall *start-server-on-websocket-message*
-             remote-addr
-             message
-             (lambda (body)
-               (let* ((abortp)
-                      (*start-server-on-websocket-message-on-abort* (lambda ()
-                                                                      (setf abortp t)))
-                      (body (if (or (typep body 'base-string)
-                                    (typep body '(vector (unsigned-byte 8))))
-                                body
-                                (trivial-utf-8:string-to-utf-8-bytes body))))
-                 (cffi:with-pointer-to-vector-data (body-ptr  #+sbcl (sb-ext:array-storage-vector body)
-                                                              #-sbcl body)
-                   (cffi:foreign-funcall-pointer on-ws-send ()
-                                                 :pointer ws-stream
-                                                 :pointer body-ptr
-                                                 :size (length body)
-                                                 :pointer (cffi:callback start-server-on-websocket-message-on-abort)
-                                                 :void))
-                 (when abortp
-                   (error 'sql-abort-query-error)))))))
+  (funcall *start-server-on-websocket-message*
+           remote-addr
+           (cffi:foreign-string-to-lisp message-ptr :count message-size)
+           (lambda (body)
+             (let* ((abortp)
+                    (*start-server-on-websocket-message-on-abort* (lambda ()
+                                                                    (setf abortp t)))
+                    (body (if (or (typep body 'base-string)
+                                  (typep body '(vector (unsigned-byte 8))))
+                              body
+                              (trivial-utf-8:string-to-utf-8-bytes body))))
+               (cffi:with-pointer-to-vector-data (body-ptr  #+sbcl (sb-ext:array-storage-vector body)
+                                                            #-sbcl body)
+                 (cffi:foreign-funcall-pointer on-ws-send ()
+                                               :pointer ws-stream
+                                               :pointer body-ptr
+                                               :size (length body)
+                                               :pointer (cffi:callback start-server-on-websocket-message-on-abort)
+                                               :void))
+               (when abortp
+                 (error 'sql-abort-query-error))))))
 
 (defun start-server (on-query &optional on-ws-message)
   (endb/lib:init-lib)
