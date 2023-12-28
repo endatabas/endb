@@ -4,6 +4,7 @@
   (:import-from :cffi)
   (:import-from :endb/json)
   (:import-from :endb/lib)
+  (:import-from :endb/sql/db)
   (:import-from :trivial-utf-8))
 (in-package :endb/lib/server)
 
@@ -167,7 +168,7 @@
          (active-ws-connections (make-hash-table :test 'equal)))
     (setf *start-server-on-query* on-query
           *start-server-on-websocket-init* (lambda (remote-addr)
-                                             (setf (gethash remote-addr active-ws-connections) remote-addr))
+                                             (setf (gethash remote-addr active-ws-connections) (endb/sql/db:make-db-connection :remote-addr remote-addr)))
           *start-server-on-websocket-close* (lambda (remote-addr)
                                               (remhash remote-addr active-ws-connections))
           *start-server-on-websocket-message* (lambda (remote-addr message on-ws-send)

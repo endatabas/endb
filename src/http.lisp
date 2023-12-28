@@ -124,6 +124,12 @@
       (endb/sql/expr:sql-runtime-error (e)
         (funcall on-response-init +http-bad-request+ "text/plain")
         (funcall on-response-send (format nil "~A~%" e)))
+      (endb/sql/db:sql-begin-error ()
+        (funcall on-response-init +http-bad-request+ "text/plain")
+        (funcall on-response-send (format nil "Explicit transactions not supported~%")))
+      (endb/sql/db:sql-commit-error ()
+        (funcall on-response-init +http-bad-request+ "text/plain")
+        (funcall on-response-send (format nil "Explicit transactions not supported~%")))
       (endb/sql/db:sql-rollback-error ()
         (if (equal "POST" request-method)
             (progn
@@ -150,7 +156,6 @@
   (format nil "{\"jsonrpc\":\"2.0\",\"id\":~A,\"result\":~A}" id (string-right-trim (list #\Newline) result)))
 
 (defun endb-on-ws-message (connection message on-ws-send)
-  (declare (ignore connection))
   (handler-bind ((endb/lib/server:sql-abort-query-error
                    (lambda (e)
                      (declare (ignore e))
@@ -193,33 +198,61 @@
                     (t (let* ((sql (fset:lookup json-rpc-params "q"))
                               (parameters (or (fset:lookup json-rpc-params "p") (fset:empty-seq)))
                               (manyp (fset:lookup json-rpc-params "m"))
-                              (write-db (endb/sql:begin-write-tx endb/lib/server:*db*))
-                              (original-md (endb/sql/db:db-meta-data write-db))
-                              (content-type "application/ld+json"))
-                         (if (or (not (stringp sql))
-                                 (not (fset:collection? parameters))
-                                 (not (typep manyp 'boolean)))
-                             (funcall on-ws-send (%json-rpc-error +json-rpc-invalid-params+ "Invalid params" json-rpc-id))
-                             (handler-case
-                                 (multiple-value-bind (result result-code)
-                                     (endb/sql:execute-sql write-db sql parameters manyp)
-                                   (cond
-                                     ((or result (and (listp result-code)
-                                                      (not (null result-code))))
-                                      (progn
-                                        (%stream-response #'on-response-send content-type result-code result)
-                                        (funcall on-ws-send (%json-rpc-result acc json-rpc-id))))
-                                     (result-code (bt:with-lock-held ((endb/sql/db:db-write-lock endb/lib/server:*db*))
-                                                    (if (eq original-md (endb/sql/db:db-meta-data endb/lib/server:*db*))
-                                                        (let* ((new-db (endb/sql:commit-write-tx endb/lib/server:*db* write-db)))
-                                                          (setf endb/lib/server:*db* new-db)
-                                                          (%stream-response #'on-response-send content-type '("result") (list (vector result-code)))
-                                                          (funcall on-ws-send (%json-rpc-result acc json-rpc-id)))
-                                                        (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ "Conflict" json-rpc-id)))))
-                                     (t (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ "Conflict" json-rpc-id)))))
-                               (endb/sql/db:sql-rollback-error ()
-                                 (%stream-response #'on-response-send content-type '("result") (list (vector t)))
-                                 (funcall on-ws-send (%json-rpc-result acc json-rpc-id))))))))
+                              (interactive-tx-p (not (null (endb/sql/db:db-connection-db connection))))
+                              (write-db (or (endb/sql/db:db-connection-db connection)
+                                            (endb/sql:begin-write-tx endb/lib/server:*db*)))
+                              (original-md (or (endb/sql/db:db-connection-original-md connection)
+                                               (endb/sql/db:db-meta-data write-db)))
+                              (content-type "application/ld+json")
+                              (endb/sql:*allow-multiple-statements-p* nil))
+                         (labels ((commit-tx (result-code)
+                                    (bt:with-lock-held ((endb/sql/db:db-write-lock endb/lib/server:*db*))
+                                      (if (eq original-md (endb/sql/db:db-meta-data endb/lib/server:*db*))
+                                          (let* ((new-db (endb/sql:commit-write-tx endb/lib/server:*db* write-db)))
+                                            (setf endb/lib/server:*db* new-db)
+                                            (%stream-response #'on-response-send content-type '("result") (list (vector result-code)))
+                                            (funcall on-ws-send (%json-rpc-result acc json-rpc-id)))
+                                          (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ "Conflict" json-rpc-id))))))
+                           (if (or (not (stringp sql))
+                                   (not (fset:collection? parameters))
+                                   (not (typep manyp 'boolean)))
+                               (funcall on-ws-send (%json-rpc-error +json-rpc-invalid-params+ "Invalid params" json-rpc-id))
+                               (handler-case
+                                   (multiple-value-bind (result result-code)
+                                       (endb/sql:execute-sql write-db sql parameters manyp)
+                                     (cond
+                                       ((or result (and (listp result-code)
+                                                        (not (null result-code))))
+                                        (progn
+                                          (%stream-response #'on-response-send content-type result-code result)
+                                          (funcall on-ws-send (%json-rpc-result acc json-rpc-id))))
+                                       (result-code
+                                        (if interactive-tx-p
+                                            (progn
+                                              (%stream-response #'on-response-send content-type '("result") (list (vector result-code)))
+                                              (funcall on-ws-send (%json-rpc-result acc json-rpc-id)))
+                                            (commit-tx result-code)))
+                                       (t (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ "Conflict" json-rpc-id)))))
+                                 (endb/sql/db:sql-begin-error ()
+                                   (if interactive-tx-p
+                                       (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ "Cannot nest transactions" json-rpc-id))
+                                       (progn
+                                         (setf (endb/sql/db:db-connection-db connection) write-db
+                                               (endb/sql/db:db-connection-original-md connection) original-md)
+                                         (%stream-response #'on-response-send content-type '("result") (list (vector t)))
+                                         (funcall on-ws-send (%json-rpc-result acc json-rpc-id)))))
+                                 (endb/sql/db:sql-commit-error ()
+                                   (if interactive-tx-p
+                                       (progn
+                                         (setf (endb/sql/db:db-connection-db connection) nil
+                                               (endb/sql/db:db-connection-original-md connection) nil)
+                                         (commit-tx t))
+                                       (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ "No active transaction" json-rpc-id))))
+                                 (endb/sql/db:sql-rollback-error ()
+                                   (setf (endb/sql/db:db-connection-db connection) nil
+                                         (endb/sql/db:db-connection-original-md connection) nil)
+                                   (%stream-response #'on-response-send content-type '("result") (list (vector t)))
+                                   (funcall on-ws-send (%json-rpc-result acc json-rpc-id)))))))))
                 (endb/lib/cst:sql-parse-error (e)
                   (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ (format nil "~A" e) json-rpc-id)))
                 (endb/sql/expr:sql-runtime-error (e)

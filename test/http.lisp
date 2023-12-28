@@ -150,13 +150,15 @@
       (when prev-db
         (setf endb/lib/server:*db* prev-db)))))
 
-(test websocket
-  (let* ((endb/lib/server:*db* (endb/sql:make-db)))
 
-    (let* ((response (%do-websocket nil (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
-                                                                            ("id" 1)
-                                                                            ("method" "sql")
-                                                                            ("params" (fset:map ("q" "select 1")))))))
+(test websocket
+  (let* ((endb/lib/server:*db* (endb/sql:make-db))
+         (conn (endb/sql/db:make-db-connection :remote-addr "foo")))
+
+    (let* ((response (%do-websocket conn (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                             ("id" 1)
+                                                                             ("method" "sql")
+                                                                             ("params" (fset:map ("q" "select 1")))))))
            (response-map (endb/json:json-parse response)))
 
       (is (equal "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}}"
@@ -166,48 +168,48 @@
       (is (equalp (fset:seq (fset:map ("column1" 1)))
                   (fset:lookup (fset:lookup response-map "result") "@graph"))))
 
-    (let* ((response (%do-websocket nil (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
-                                                                            ("id" 1)
-                                                                            ("method" "sql")
-                                                                            ("params" (fset:seq "select 1"))))))
+    (let* ((response (%do-websocket conn (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                             ("id" 1)
+                                                                             ("method" "sql")
+                                                                             ("params" (fset:seq "select 1"))))))
            (response-map (endb/json:json-parse response)))
       (is (equalp (fset:seq (fset:map ("column1" 1)))
                   (fset:lookup (fset:lookup response-map "result") "@graph"))))
 
-    (let* ((response (%do-websocket nil (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
-                                                                            ("id" 1)
-                                                                            ("method" "sql")
-                                                                            ("params" (fset:seq "select ?" (fset:seq 1)))))))
+    (let* ((response (%do-websocket conn (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                             ("id" 1)
+                                                                             ("method" "sql")
+                                                                             ("params" (fset:seq "select ?" (fset:seq 1)))))))
            (response-map (endb/json:json-parse response)))
 
       (is (equalp (fset:seq (fset:map ("column1" 1)))
                   (fset:lookup (fset:lookup response-map "result") "@graph"))))
 
-    (let* ((response (%do-websocket nil (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
-                                                                            ("id" 1)
-                                                                            ("method" "sql")
-                                                                            ("params" (fset:map ("q" "select ?")
-                                                                                                ("p" (fset:seq (fset:seq 1) (fset:seq 2)))
-                                                                                                ("m" t)))))))
+    (let* ((response (%do-websocket conn (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                             ("id" 1)
+                                                                             ("method" "sql")
+                                                                             ("params" (fset:map ("q" "select ?")
+                                                                                                 ("p" (fset:seq (fset:seq 1) (fset:seq 2)))
+                                                                                                 ("m" t)))))))
            (response-map (endb/json:json-parse response)))
       (is (equalp (fset:seq (fset:map ("column1" 2)))
                   (fset:lookup (fset:lookup response-map "result") "@graph"))))
 
-    (let* ((response (%do-websocket nil (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
-                                                                            ("id" 1)
-                                                                            ("method" "sql")
-                                                                            ("params" (fset:map ("q" "select :x")
-                                                                                                ("p" (fset:map ("x" 2)))))))))
+    (let* ((response (%do-websocket conn (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                             ("id" 1)
+                                                                             ("method" "sql")
+                                                                             ("params" (fset:map ("q" "select :x")
+                                                                                                 ("p" (fset:map ("x" 2)))))))))
            (response-map (endb/json:json-parse response)))
       (is (equalp (fset:seq (fset:map ("x" 2)))
                   (fset:lookup (fset:lookup response-map "result") "@graph"))))
 
-    (let* ((response (%do-websocket nil (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
-                                                                            ("id" 1)
-                                                                            ("method" "sql")
-                                                                            ("params" (fset:map ("q" "select :x")
-                                                                                                ("p" (fset:map ("x" 2)))
-                                                                                                ("m" t)))))))
+    (let* ((response (%do-websocket conn (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                             ("id" 1)
+                                                                             ("method" "sql")
+                                                                             ("params" (fset:map ("q" "select :x")
+                                                                                                 ("p" (fset:map ("x" 2)))
+                                                                                                 ("m" t)))))))
            (response-map (endb/json:json-parse response)))
       (is (equalp (fset:map ("jsonrpc" "2.0")
                             ("id" 1)
@@ -215,9 +217,9 @@
                                                ("code" +json-rpc-internal-error+))))
                   response-map)))
 
-    (let* ((response (%do-websocket nil (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
-                                                                            ("method" "sql")
-                                                                            ("params" (fset:map ("q" "select 1")))))))
+    (let* ((response (%do-websocket conn (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                             ("method" "sql")
+                                                                             ("params" (fset:map ("q" "select 1")))))))
            (response-map (endb/json:json-parse response)))
 
       (is (equalp (fset:map ("jsonrpc" "2.0")
@@ -226,10 +228,10 @@
                                                ("code" +json-rpc-invalid-request+))))
                   response-map)))
 
-    (let* ((response (%do-websocket nil (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
-                                                                            ("id" 1)
-                                                                            ("method" "foo")
-                                                                            ("params" (fset:map ("q" "select 1")))))))
+    (let* ((response (%do-websocket conn (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                             ("id" 1)
+                                                                             ("method" "foo")
+                                                                             ("params" (fset:map ("q" "select 1")))))))
            (response-map (endb/json:json-parse response)))
 
       (is (equalp (fset:map ("jsonrpc" "2.0")
@@ -238,7 +240,7 @@
                                                ("code" +json-rpc-method-not-found+))))
                   response-map)))
 
-    (let* ((response (%do-websocket nil "foo"))
+    (let* ((response (%do-websocket conn "foo"))
            (response-map (endb/json:json-parse response)))
 
       (is (equalp (fset:map ("jsonrpc" "2.0")
@@ -247,11 +249,11 @@
                                                ("code" +json-rpc-parse-error+))))
                   response-map)))
 
-    (let* ((response (%do-websocket nil (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
-                                                                            ("id" 1)
-                                                                            ("method" "sql")
-                                                                            ("params" (fset:map ("q" "select 1")
-                                                                                                ("m" "foo")))))))
+    (let* ((response (%do-websocket conn (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                             ("id" 1)
+                                                                             ("method" "sql")
+                                                                             ("params" (fset:map ("q" "select 1")
+                                                                                                 ("m" "foo")))))))
            (response-map (endb/json:json-parse response)))
 
       (is (equalp (fset:map ("jsonrpc" "2.0")
@@ -260,11 +262,11 @@
                                                ("code" +json-rpc-invalid-params+))))
                   response-map)))
 
-    (let* ((response (%do-websocket nil (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
-                                                                            ("id" 1)
-                                                                            ("method" "sql")
-                                                                            ("params" (fset:map ("q" "select 1")
-                                                                                                ("p" "foo")))))))
+    (let* ((response (%do-websocket conn (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                             ("id" 1)
+                                                                             ("method" "sql")
+                                                                             ("params" (fset:map ("q" "select 1")
+                                                                                                 ("p" "foo")))))))
            (response-map (endb/json:json-parse response)))
 
       (is (equalp (fset:map ("jsonrpc" "2.0")
@@ -273,12 +275,156 @@
                                                ("code" +json-rpc-invalid-params+))))
                   response-map)))
 
-    (let* ((response (%do-websocket nil (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
-                                                                            ("id" 1)
-                                                                            ("method" "sql")
-                                                                            ("params" (fset:map ("q" "select")))))))
+    (let* ((response (%do-websocket conn (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                             ("id" 1)
+                                                                             ("method" "sql")
+                                                                             ("params" (fset:map ("q" "select")))))))
            (response-map (endb/json:json-parse response)))
 
       (is (equalp "2.0" (fset:lookup response-map "jsonrpc")))
       (is (equalp 1 (fset:lookup response-map "id")))
       (is (equalp +json-rpc-internal-error+ (fset:lookup (fset:lookup response-map "error") "code"))))))
+
+(test websocket-interactive-tx
+  (let* ((endb/lib/server:*db* (endb/sql:make-db))
+         (conn-1 (endb/sql/db:make-db-connection :remote-addr "foo"))
+         (conn-2 (endb/sql/db:make-db-connection :remote-addr "bar")))
+
+    (let* ((response (%do-websocket conn-1 (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                               ("id" 1)
+                                                                               ("method" "sql")
+                                                                               ("params" (fset:seq "select 1; select 2;"))))))
+           (response-map (endb/json:json-parse response)))
+      (is (equalp (fset:map ("jsonrpc" "2.0")
+                            ("id" 1)
+                            ("error" (fset:map ("message" "Multiple statements not allowed")
+                                               ("code" +json-rpc-internal-error+))))
+                  response-map)))
+
+    (is (null (endb/sql/db:db-connection-db conn-1)))
+
+    (let* ((response (%do-websocket conn-1 (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                               ("id" 1)
+                                                                               ("method" "sql")
+                                                                               ("params" (fset:seq "begin"))))))
+           (response-map (endb/json:json-parse response)))
+
+      (is (equalp (fset:seq (fset:map ("result" t)))
+                  (fset:lookup (fset:lookup response-map "result") "@graph")))
+
+      (is (endb/sql/db:db-connection-db conn-1))
+      (is (endb/sql/db:db-connection-original-md conn-1))
+      (is (not (eq endb/lib/server:*db* (endb/sql/db:db-connection-db conn-1)))))
+
+    (let* ((response (%do-websocket conn-1 (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                               ("id" 1)
+                                                                               ("method" "sql")
+                                                                               ("params" (fset:seq "rollback"))))))
+           (response-map (endb/json:json-parse response)))
+
+      (is (equalp (fset:seq (fset:map ("result" t)))
+                  (fset:lookup (fset:lookup response-map "result") "@graph")))
+
+      (is (null (endb/sql/db:db-connection-db conn-1)))
+      (is (null (endb/sql/db:db-connection-original-md conn-1))))
+
+    (let* ((response (%do-websocket conn-1 (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                               ("id" 1)
+                                                                               ("method" "sql")
+                                                                               ("params" (fset:seq "begin"))))))
+           (response-map (endb/json:json-parse response)))
+
+      (is (equalp (fset:seq (fset:map ("result" t)))
+                  (fset:lookup (fset:lookup response-map "result") "@graph"))))
+
+    (let* ((response (%do-websocket conn-1 (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                               ("id" 1)
+                                                                               ("method" "sql")
+                                                                               ("params" (fset:seq "INSERT INTO foo {a: 1, b: 2}"))))))
+           (response-map (endb/json:json-parse response)))
+
+      (is (equalp (fset:seq (fset:map ("result" 1)))
+                  (fset:lookup (fset:lookup response-map "result") "@graph"))))
+
+
+    (let* ((response (%do-websocket conn-1 (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                               ("id" 1)
+                                                                               ("method" "sql")
+                                                                               ("params" (fset:seq "SELECT * FROM foo"))))))
+           (response-map (endb/json:json-parse response)))
+
+      (is (equalp (fset:seq (fset:map ("a" 1) ("b" 2)))
+                  (fset:lookup (fset:lookup response-map "result") "@graph"))))
+
+    (let* ((response (%do-websocket conn-2 (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                               ("id" 1)
+                                                                               ("method" "sql")
+                                                                               ("params" (fset:seq "SELECT * FROM foo"))))))
+           (response-map (endb/json:json-parse response)))
+
+      (is (equalp +json-rpc-internal-error+ (fset:lookup (fset:lookup response-map "error") "code"))))
+
+    (let* ((response (%do-websocket conn-2 (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                               ("id" 1)
+                                                                               ("method" "sql")
+                                                                               ("params" (fset:seq "begin"))))))
+           (response-map (endb/json:json-parse response)))
+
+      (is (equalp (fset:seq (fset:map ("result" t)))
+                  (fset:lookup (fset:lookup response-map "result") "@graph"))))
+
+    (let* ((response (%do-websocket conn-2 (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                               ("id" 1)
+                                                                               ("method" "sql")
+                                                                               ("params" (fset:seq "BEGIN TRANSACTION"))))))
+           (response-map (endb/json:json-parse response)))
+
+      (is (equalp (fset:map ("jsonrpc" "2.0")
+                            ("id" 1)
+                            ("error" (fset:map ("message" "Cannot nest transactions")
+                                               ("code" +json-rpc-internal-error+))))
+                  response-map)))
+
+    (let* ((response (%do-websocket conn-2 (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                               ("id" 1)
+                                                                               ("method" "sql")
+                                                                               ("params" (fset:seq "INSERT INTO bar {a: 1, b: 2}"))))))
+           (response-map (endb/json:json-parse response)))
+
+      (is (equalp (fset:seq (fset:map ("result" 1)))
+                  (fset:lookup (fset:lookup response-map "result") "@graph"))))
+
+    (let* ((response (%do-websocket conn-1 (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                               ("id" 1)
+                                                                               ("method" "sql")
+                                                                               ("params" (fset:seq "commit"))))))
+           (response-map (endb/json:json-parse response)))
+
+      (is (equalp (fset:seq (fset:map ("result" t)))
+                  (fset:lookup (fset:lookup response-map "result") "@graph")))
+
+      (is (null (endb/sql/db:db-connection-db conn-1)))
+      (is (null (endb/sql/db:db-connection-original-md conn-1))))
+
+    (let* ((response (%do-websocket conn-2 (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                               ("id" 1)
+                                                                               ("method" "sql")
+                                                                               ("params" (fset:seq "COMMIT TRANSACTION"))))))
+           (response-map (endb/json:json-parse response)))
+
+      (is (equalp (fset:map ("jsonrpc" "2.0")
+                            ("id" 1)
+                            ("error" (fset:map ("message" "Conflict")
+                                               ("code" +json-rpc-internal-error+))))
+                  response-map))
+      (is (null (endb/sql/db:db-connection-db conn-2)))
+      (is (null (endb/sql/db:db-connection-original-md conn-2))))
+
+    (let* ((response (%do-websocket conn-2 (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                               ("id" 1)
+                                                                               ("method" "sql")
+                                                                               ("params" (fset:seq "SELECT * FROM foo"))))))
+           (response-map (endb/json:json-parse response)))
+
+      (is (equalp (fset:seq (fset:map ("a" 1) ("b" 2)))
+                  (fset:lookup (fset:lookup response-map "result") "@graph"))))))

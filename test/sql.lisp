@@ -103,11 +103,9 @@
          (db (make-db))
          (write-db (begin-write-tx db)))
 
-    (signals-with-msg endb/sql/expr:sql-runtime-error "Explicit transactions not supported"
-      (execute-sql db "BEGIN TRANSACTION"))
+    (signals endb/sql/db:sql-begin-error (execute-sql db "BEGIN TRANSACTION"))
 
-    (signals-with-msg endb/sql/expr:sql-runtime-error "Explicit transactions not supported"
-      (execute-sql db "COMMIT")))
+    (signals endb/sql/db:sql-commit-error (execute-sql db "COMMIT")))
 
   (let* ((endb/sql/expr:*sqlite-mode* t)
          (db (make-db))

@@ -14,14 +14,17 @@
   (:export #:ddl-create-table #:ddl-drop-table #:ddl-create-view #:ddl-drop-view #:ddl-create-index #:ddl-drop-index #:ddl-create-assertion #:ddl-drop-assertion
            #:dml-insert #:dml-insert-objects #:dml-delete #:dml-erase
 
-           #:sql-rollback-error #:syn-current_date #:syn-current_time #:syn-current_timestamp
+           #:syn-current_date #:syn-current_time #:syn-current_timestamp
 
            #:make-db #:copy-db #:db-buffer-pool #:db-store #:db-meta-data #:db-current-timestamp #:db-write-lock
            #:db-compaction-thread #:db-compaction-queue #:db-query-cache #:db-hash-index-cache #:db-indexer-queue #:db-indexer-thread
+           #:make-db-connection #:db-connection-db #:db-connection-original-md #:db-connection-remote-addr
+
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions #:query-cache-key
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
            #:view-definition #:calculate-stats #:run-compaction #:start-background-compaction #:start-background-indexer
-           #:tx-begin #:tx-commit #:tx-rollback))
+           #:tx-begin #:tx-commit #:tx-rollback
+           #:sql-begin-error #:sql-commit-error #:sql-rollback-error))
 (in-package :endb/sql/db)
 
 ;; DML/DDL
@@ -41,6 +44,12 @@
   indexer-thread
   indexer-queue
   (hash-index-cache (make-hash-table :synchronized t :test 'equal)))
+
+(defstruct db-connection db original-md remote-addr)
+
+(define-condition sql-begin-error (error) ())
+
+(define-condition sql-commit-error (error) ())
 
 (define-condition sql-rollback-error (error) ())
 
@@ -652,11 +661,11 @@
 
 (defun tx-begin (db)
   (declare (ignore db))
-  (error 'endb/sql/expr:sql-runtime-error :message "Explicit transactions not supported"))
+  (error 'sql-begin-error))
 
 (defun tx-commit (db)
   (declare (ignore db))
-  (error 'endb/sql/expr:sql-runtime-error :message "Explicit transactions not supported"))
+  (error 'sql-commit-error))
 
 (defun tx-rollback (db)
   (declare (ignore db))

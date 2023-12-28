@@ -1,6 +1,6 @@
 (defpackage :endb/sql
   (:use :cl)
-  (:export #:*query-timing*
+  (:export #:*query-timing* #:*allow-multiple-statements-p*
            #:make-db #:make-directory-db #:db-close #:begin-write-tx #:commit-write-tx #:execute-sql #:interpret-sql-literal)
   (:import-from :endb/arrow)
   (:import-from :endb/json)
@@ -108,6 +108,8 @@
                  (t x))))
       (values (walk ast) parameters))))
 
+(defvar *allow-multiple-statements-p* t)
+
 (defun %compile-sql-fn (db sql)
   (let ((k (endb/sql/db:query-cache-key db sql)))
     (or (gethash k (endb/sql/db:db-query-cache db))
@@ -121,17 +123,19 @@
                     (let ((asts (second ast)))
                       (if (= 1 (length asts))
                           (endb/sql/compiler:compile-sql ctx (first asts) expected-parameters)
-                          (values
-                           (lambda (db parameters)
-                             (loop with end-idx = (length asts)
-                                   for ast in asts
-                                   for idx from 1
-                                   for sql-fn = (endb/sql/compiler:compile-sql ctx ast expected-parameters)
-                                   if (= end-idx idx)
-                                     do (return (funcall sql-fn db parameters))
-                                   else
-                                     do (funcall sql-fn db parameters)))
-                           nil)))
+                          (if *allow-multiple-statements-p*
+                              (values
+                               (lambda (db parameters)
+                                 (loop with end-idx = (length asts)
+                                       for ast in asts
+                                       for idx from 1
+                                       for sql-fn = (endb/sql/compiler:compile-sql ctx ast expected-parameters)
+                                       if (= end-idx idx)
+                                         do (return (funcall sql-fn db parameters))
+                                       else
+                                         do (funcall sql-fn db parameters)))
+                               nil)
+                              (error 'endb/sql/expr:sql-runtime-error :message "Multiple statements not allowed"))))
                     (endb/sql/compiler:compile-sql ctx ast expected-parameters)))
             (when cachep
               (setf (gethash k (endb/sql/db:db-query-cache db)) sql-fn))
