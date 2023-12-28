@@ -1,5 +1,17 @@
 #!/usr/bin/env node
 
+// MIT License
+
+// Copyright (c) 2023 Håkan Råberg and Steven Deobald
+
+// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+// The above copyright notice and this permission notice (including the next paragraph) shall be included in all copies or substantial portions of the Software.
+
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+/* global BigInt */
+
 function fromJSONLD(x) {
     if (Object.hasOwn(x, '@type') && Object.hasOwn(x, '@value')) {
         const t = x['@type'];
@@ -22,14 +34,14 @@ function toJSONLD(x) {
         case Date:
             return {'@type': 'xsd:dateTime', '@value': x.toISOString()};
         case Uint8Array:
-            const b = Array.from(x, (y) => String.fromCodePoint(y)).join('');
+            var b = Array.from(x, (y) => String.fromCodePoint(y)).join('');
             return {'@type': 'xsd:base64Binary', '@value': btoa(b)};
         case BigInt:
             return {'@type': 'xsd:integer', '@value': x.toString()};
         case Array:
             return x.map(toJSONLD);
         case Object:
-            return Object.fromEntries(Object.entries(x).map(([k, v], i) => [k, toJSONLD(v)]));
+            return Object.fromEntries(Object.entries(x).map(([k, v]) => [k, toJSONLD(v)]));
         default:
             return x;
     }
@@ -99,13 +111,13 @@ class EndbWebSocket {
                 console.log(event);
             };
 
-            this.conn.onopen = (event) => {
+            this.conn.onopen = () => {
                 while (this.pendingMessages.length > 0) {
                     this.conn.send(this.pendingMessages.shift());
                 }
             };
 
-            this.conn.onclose = (event) => {
+            this.conn.onclose = () => {
                 for (const promise of Object.values(this.sentMessages)) {
                     promise.reject(new Error('Closed'));
                 }
