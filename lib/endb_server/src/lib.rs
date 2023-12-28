@@ -851,6 +851,87 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn websocket_upgrade() {
+        assert_debug_snapshot!(
+            service(None, unreachable())
+                .call(add_header(add_header(add_header(add_header(get("ws://localhost:3803/sql", "*/*"),
+                                            hyper::header::UPGRADE, "websocket"),
+                                                       hyper::header::CONNECTION, "Upgrade"),
+                                            hyper::header::SEC_WEBSOCKET_VERSION, "13"),
+                                 hyper::header::SEC_WEBSOCKET_KEY, "x3JJHMbDL1EzLkh9GBhXDw=="))
+            .await.map(read_body).unwrap().await
+        , @r###"
+        Response {
+            status: 101,
+            version: HTTP/1.1,
+            headers: {
+                "connection": "upgrade",
+                "upgrade": "websocket",
+                "sec-websocket-accept": "HSmrc0sMlYUkAGmm5OPpG2HaGWk=",
+            },
+            body: Full {
+                data: Some(
+                    b"switching to websocket protocol",
+                ),
+            },
+        }
+        "###);
+    }
+
+    #[tokio::test]
+    async fn websocket_auth_via_subprotocol() {
+        let basic_auth =
+            crate::make_basic_auth_header(Some("foo".to_string()), Some("foo".to_string()));
+
+        assert_debug_snapshot!(
+            service(basic_auth.clone(), unreachable())
+                .call(add_header(add_header(add_header(add_header(get("ws://localhost:3803/sql", "*/*"),
+                                            hyper::header::UPGRADE, "websocket"),
+                                                       hyper::header::CONNECTION, "Upgrade"),
+                                            hyper::header::SEC_WEBSOCKET_VERSION, "13"),
+                                 hyper::header::SEC_WEBSOCKET_KEY, "x3JJHMbDL1EzLkh9GBhXDw=="))
+            .await.map(read_body).unwrap().await
+        , @r###"
+        Response {
+            status: 401,
+            version: HTTP/1.1,
+            headers: {
+                "www-authenticate": "Basic realm=\"restricted area\"",
+            },
+            body: Full {
+                data: None,
+            },
+        }
+        "###);
+
+        assert_debug_snapshot!(
+            service(basic_auth, unreachable())
+                .call(add_header(add_header(add_header(add_header(add_header(get("ws://localhost:3803/sql", "*/*"),
+                                            hyper::header::UPGRADE, "websocket"),
+                                                       hyper::header::CONNECTION, "Upgrade"),
+                                            hyper::header::SEC_WEBSOCKET_VERSION, "13"),
+                                            hyper::header::SEC_WEBSOCKET_KEY, "x3JJHMbDL1EzLkh9GBhXDw=="),
+                                 hyper::header::SEC_WEBSOCKET_PROTOCOL, "Basic%20Zm9vOmZvbw%3D%3D" ))
+            .await.map(read_body).unwrap().await
+        , @r###"
+        Response {
+            status: 101,
+            version: HTTP/1.1,
+            headers: {
+                "connection": "upgrade",
+                "upgrade": "websocket",
+                "sec-websocket-accept": "HSmrc0sMlYUkAGmm5OPpG2HaGWk=",
+            },
+            body: Full {
+                data: Some(
+                    b"switching to websocket protocol",
+                ),
+            },
+        }
+        "###);
+    }
+
+    #[tokio::test]
     async fn basic_auth() {
         let basic_auth =
             crate::make_basic_auth_header(Some("foo".to_string()), Some("foo".to_string()));
