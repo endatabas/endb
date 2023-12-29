@@ -98,7 +98,7 @@ try:
                 await self.ws.close()
 
         async def sql(self, q, p=[], m=False, accept=None):
-            if self.ws == None:
+            if self.ws is None:
                 if self.username is not None and self.password is not None:
                     auth_base64 = base64.b64encode(bytes('%s:%s' % (self.username, self.password), 'ascii'))
                     subprotocol = urllib.parse.quote('Basic %s' % auth_base64.decode('utf-8'))
