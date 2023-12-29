@@ -16,14 +16,7 @@ import json
 import urllib.parse
 import urllib.request
 
-class Endb:
-    def __init__(self, url='http://localhost:3803/sql', accept='application/ld+json', username=None, password=None):
-        super().__init__()
-        self.url = url
-        self.accept = accept
-        self.username = username
-        self.password = password
-
+class AbstractEndb:
     def _from_json_ld(self, obj):
         match obj.get('@type', None):
             case 'xsd:dateTime':
@@ -52,6 +45,14 @@ class Endb:
             case _:
                  raise TypeError
 
+class Endb(AbstractEndb):
+    def __init__(self, url='http://localhost:3803/sql', accept='application/ld+json', username=None, password=None):
+        super().__init__()
+        self.url = url
+        self.accept = accept
+        self.username = username
+        self.password = password
+
     def sql(self, q, p=[], m=False, accept=None):
         if accept is None:
             accept = self.accept
@@ -72,6 +73,56 @@ class Endb:
                 return response.read()
             else:
                 return json.loads(response.read(), object_hook=self._from_json_ld)
+
+# https://github.com/python-websockets/websockets
+try:
+    import websockets
+
+    class EndbWebSocket(AbstractEndb):
+        def __init__(self, url='ws://localhost:3803/sql', username=None, password=None):
+            super().__init__()
+            self.url = url
+            self.username = username
+            self.password = password
+            self.id = 1
+            self.ws = None
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc_info):
+            await self.close()
+
+        async def close(self):
+            if self.ws is not None:
+                await self.ws.close()
+
+        async def sql(self, q, p=[], m=False, accept=None):
+            if self.ws == None:
+                if self.username is not None and self.password is not None:
+                    auth_base64 = base64.b64encode(bytes('%s:%s' % (self.username, self.password), 'ascii'))
+                    subprotocol = urllib.parse.quote('Basic %s' % auth_base64.decode('utf-8'))
+                    self.ws = await websockets.connect(self.url, subprotocols=[subprotocol])
+                else:
+                    self.ws = await websockets.connect(self.url)
+
+            request = {'jsonrpc': '2.0', 'id': self.id, 'method': 'sql', 'params': {'q': q, 'p': p, 'm': m}}
+            self.id = self.id + 1
+
+            await self.ws.send(json.dumps(request, default=self._to_json_ld))
+
+            response = json.loads(await self.ws.recv(), object_hook=self._from_json_ld)
+
+            if 'id' in request and 'id' in response:
+                assert request['id'] == response['id']
+
+            if 'error' in response:
+                raise RuntimeError(response['error']['message'])
+            else:
+                return response['result']
+
+except ModuleNotFoundError:
+    pass
 
 if __name__ == '__main__':
     import sys
