@@ -100,6 +100,12 @@ class EndbWebSocket {
         this.pendingMessages = [];
     }
 
+    close() {
+        if (this.conn !== null) {
+            this.conn.close();
+        }
+    }
+
     async sql(q, p = [], m = false) {
         if (this.conn === null) {
             if (this.username && this.password) {
