@@ -45,6 +45,12 @@ class AbstractEndb:
             case _:
                  raise TypeError
 
+# https://pypi.org/project/pyarrow/
+try:
+    import pyarrow
+except ModuleNotFoundError:
+    pyarrow = None
+
 class Endb(AbstractEndb):
     def __init__(self, url='http://localhost:3803/sql', accept='application/ld+json', username=None, password=None):
         super().__init__()
@@ -70,11 +76,15 @@ class Endb(AbstractEndb):
             if accept == 'text/csv':
                 return response.read().decode()
             elif accept == 'application/vnd.apache.arrow.file':
-                return response.read()
+                if pyarrow is None:
+                    return response.read()
+                else:
+                     with pyarrow.ipc.open_file(response.read()) as reader:
+                         return [reader.get_batch(n) for n in range(reader.num_record_batches)]
             else:
                 return json.loads(response.read(), object_hook=self._from_json_ld)
 
-# https://github.com/python-websockets/websockets
+# https://pypi.org/project/websockets/
 try:
     import websockets
 
