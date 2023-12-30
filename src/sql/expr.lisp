@@ -34,7 +34,7 @@
            #:make-agg #:agg-accumulate #:agg-finish
 
            #:sql-runtime-error #:*sqlite-mode* #:+unix-epoch-time+ #:+end-of-time+
-           #:+hash-table-test+ #:equalp-case-sensitive #:equalp-case-sensitive-hash-fn
+           #:+hash-table-test+ #:+hash-table-test-no-nulls+ #:equalp-case-sensitive #:equalp-case-sensitive-no-nulls #:equalp-case-sensitive-hash-fn
            #:+impure-functions+))
 (in-package :endb/sql/expr)
 
@@ -51,6 +51,14 @@
                                          thereis (not (equalp-case-sensitive x y))))))
     (t (eq t (sql-= x y)))))
 
+(defun equalp-case-sensitive-no-nulls (x y)
+  (if (typep x 'row-type)
+      (and (typep y 'row-type)
+           (not (loop for x across x
+                      for y across y
+                      thereis (not (equalp-case-sensitive-no-nulls x y)))))
+      (eq t (sql-= x y))))
+
 (defun equalp-case-sensitive-hash-fn (x)
   (#+sbcl sb-int:psxhash #-sbcl sxhash
    (typecase x
@@ -66,6 +74,9 @@
 
 #+sbcl (sb-impl::define-hash-table-test equalp-case-sensitive equalp-case-sensitive-hash-fn)
 (defparameter +hash-table-test+ #+sbcl 'endb/sql/expr:equalp-case-sensitive #-sbcl 'equalp)
+
+#+sbcl (sb-impl::define-hash-table-test equalp-case-sensitive-no-nulls equalp-case-sensitive-hash-fn)
+(defparameter +hash-table-test-no-nulls+ #+sbcl 'endb/sql/expr:equalp-case-sensitive-no-nulls #-sbcl 'equalp)
 
 (defparameter +unix-epoch-time+ (endb/arrow:parse-arrow-timestamp-micros "1970-01-01"))
 (defparameter +end-of-time+ (endb/arrow:parse-arrow-timestamp-micros "9999-01-01"))
@@ -2044,7 +2055,7 @@
                 hash-index
                 k
                 (lambda ()
-                  (let ((index (make-hash-table :test +hash-table-test+)))
+                  (let ((index (make-hash-table :test +hash-table-test-no-nulls+)))
                     (dotimes (idx (endb/arrow:arrow-length batch))
                       (let* ((v (endb/arrow:arrow-struct-column-value batch idx column-kw))
                              (idxs (or (gethash v index)

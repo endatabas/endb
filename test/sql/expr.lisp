@@ -203,4 +203,11 @@
 
   (let ((ht (make-hash-table :test +hash-table-test+)))
     (setf (gethash :null ht) t)
-    (is (gethash :null ht))))
+    (is (gethash :null ht)))
+
+  (is (not (equalp-case-sensitive-no-nulls :null :null)))
+  (is (equalp-case-sensitive-no-nulls (fset:seq :null) (fset:seq :null)))
+
+  (let ((ht (make-hash-table :test +hash-table-test-no-nulls+)))
+    (setf (gethash :null ht) t)
+    (is (not (gethash :null ht)))))

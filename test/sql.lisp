@@ -2508,6 +2508,21 @@ SELECT s FROM x WHERE ind=0")
       (is (null result))
       (is (equal '("column1") columns)))
 
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM (VALUES (NULL, 2)) AS foo(a, b) JOIN (VALUES (NULL, 2)) AS bar(a, b) ON foo.a = bar.a")
+      (is (null result))
+      (is (equal '("a" "b" "a" "b") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT a, SUM(b) AS b FROM (VALUES (NULL, 1), (NULL, 2)) AS foo(a, b) GROUP BY a")
+      (is (equalp '(#(:null 3)) result))
+      (is (equal '("a" "b") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "VALUES (NULL, 2) UNION VALUES (NULL, 2)")
+      (is (equalp '(#(:null 2)) result))
+      (is (equal '("column1" "column2") columns)))
+
     (signals-with-msg endb/sql/expr:sql-runtime-error
         "Unknown column"
       (execute-sql db "SELECT * FROM (SELECT 1 AS a) x JOIN (SELECT 1 AS b) y USING (a)"))

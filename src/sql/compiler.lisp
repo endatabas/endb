@@ -673,7 +673,7 @@
                                                  `(aref ,row-sym ,(position (first sip-in-vars) source-vars))
                                                  `(vector ,@(loop for v in sip-in-vars
                                                                   collect `(aref ,row-sym ,(position v source-vars)))))))
-                        (push `(,sip-table-sym (let ((,sip-table-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
+                        (push `(,sip-table-sym (let ((,sip-table-sym (make-hash-table :test endb/sql/expr:+hash-table-test-no-nulls+)))
                                                  (alexandria:maphash-values
                                                   (lambda (,lambda-sym)
                                                     (dolist (,row-sym ,lambda-sym)
@@ -699,7 +699,7 @@
                           ,index-sym
                           ,index-key-form
                           (lambda ()
-                            (let* ((,index-table-sym (make-hash-table :test endb/sql/expr:+hash-table-test+))
+                            (let* ((,index-table-sym (make-hash-table :test endb/sql/expr:+hash-table-test-no-nulls+))
                                    ,@sip-init-src)
                               ,(%table-scan->cl ctx
                                                 vars
