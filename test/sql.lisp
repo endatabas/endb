@@ -2015,6 +2015,11 @@ SELECT s FROM x WHERE ind=0")
                                         ("end" endb/sql/expr:+end-of-time+))))
                 (execute-sql db "SELECT s.name, s.system_time, p.system_time FROM sales s JOIN products p ON s.name = p.name WHERE p.name = 'Mangoes'")))))
 
+(test join-bug-multiple-variables-with-type-widening
+  (let* ((db (make-db)))
+    (is (equalp `(#(2 ,(endb/arrow:parse-arrow-date-millis "2001-01-01") 2.0 ,(endb/arrow:parse-arrow-timestamp-micros "2001-01-01")))
+                (execute-sql db "SELECT * FROM (VALUES (2, 2001-01-01)) AS foo(a, b) JOIN (VALUES (2.0, 2001-01-01T00:00:00)) AS bar(a, b) ON foo.a = bar.a AND foo.b = bar.b")))))
+
 (test dml
   (let ((endb/sql/expr:*sqlite-mode* t)
         (db (begin-write-tx (make-db))))

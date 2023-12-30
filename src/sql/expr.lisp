@@ -40,15 +40,29 @@
 
 (defvar *sqlite-mode* nil)
 
+(deftype row-type () '(and vector (not endb/arrow:arrow-binary)))
+
 (defun equalp-case-sensitive (x y)
-  (or (and (eq :null x) (eq :null y))
-      (eq t (sql-= x y))))
+  (cond
+    ((eq :null x) (eq :null y))
+    ((typep x 'row-type) (and (typep y 'row-type)
+                              (not (loop for x across x
+                                         for y across y
+                                         thereis (not (equalp-case-sensitive x y))))))
+    (t (eq t (sql-= x y)))))
 
 (defun equalp-case-sensitive-hash-fn (x)
   (#+sbcl sb-int:psxhash #-sbcl sxhash
-   (if (typep x 'endb/arrow:arrow-date-millis)
-       (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros x)
-       x)))
+   (typecase x
+     (endb/arrow:arrow-date-millis
+      (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros x))
+     (row-type
+      (map 'vector (lambda (x)
+                     (if (typep x 'endb/arrow:arrow-date-millis)
+                         (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros x)
+                         x))
+           x))
+     (t x))))
 
 #+sbcl (sb-impl::define-hash-table-test equalp-case-sensitive equalp-case-sensitive-hash-fn)
 (defparameter +hash-table-test+ #+sbcl 'endb/sql/expr:equalp-case-sensitive #-sbcl 'equalp)

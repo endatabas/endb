@@ -104,6 +104,13 @@
 (test equality-and-hashing
   (is (equalp-case-sensitive (endb/arrow:parse-arrow-date-millis "2001-01-01")
                              (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00")))
+
+  (is (equalp-case-sensitive (vector (endb/arrow:parse-arrow-date-millis "2001-01-01"))
+                             (vector (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00"))))
+  (is (equalp-case-sensitive (vector (endb/arrow:parse-arrow-date-millis "2001-01-01") 2)
+                             (vector (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00") 2.0d0)))
+  (is (not (equalp-case-sensitive #(1) #(2))))
+
   (is (not (equalp-case-sensitive (fset:seq (endb/arrow:parse-arrow-date-millis "2001-01-01"))
                                   (fset:seq (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00")))))
   (is (equal (ra-bloom-hashes (endb/arrow:parse-arrow-date-millis "2001-01-01"))
@@ -116,6 +123,9 @@
   (is (= (equalp-case-sensitive-hash-fn (endb/arrow:parse-arrow-date-millis "2001-01-01"))
          (equalp-case-sensitive-hash-fn (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00"))))
 
+  (is (= (equalp-case-sensitive-hash-fn (vector (endb/arrow:parse-arrow-date-millis "2001-01-01")))
+         (equalp-case-sensitive-hash-fn (vector (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00")))))
+
   (is (not (= (equalp-case-sensitive-hash-fn (fset:seq (endb/arrow:parse-arrow-date-millis "2001-01-01")))
               (equalp-case-sensitive-hash-fn (fset:seq (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00"))))))
 
@@ -123,6 +133,20 @@
     (setf (gethash (endb/arrow:parse-arrow-date-millis "2001-01-01") ht) t)
     (is (gethash (endb/arrow:parse-arrow-date-millis "2001-01-01") ht))
     (is (gethash (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00") ht)))
+
+  (let ((ht (make-hash-table :test +hash-table-test+)))
+    (setf (gethash (vector (endb/arrow:parse-arrow-date-millis "2001-01-01")) ht) t)
+    (is (gethash (vector (endb/arrow:parse-arrow-date-millis "2001-01-01")) ht))
+    (is (not (gethash (vector (endb/arrow:parse-arrow-date-millis "2001-01-02")) ht)))
+    (is (gethash (vector (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00")) ht)))
+
+  (let ((ht (make-hash-table :test +hash-table-test+)))
+    (setf (gethash (vector (endb/arrow:parse-arrow-date-millis "2001-01-01") 2) ht) t)
+    (is (gethash (vector (endb/arrow:parse-arrow-date-millis "2001-01-01") 2) ht))
+    (is (not (gethash (vector (endb/arrow:parse-arrow-date-millis "2001-01-01") 3) ht)))
+    (is (gethash (vector (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00") 2) ht))
+    (is (gethash (vector (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00") 2.0d0) ht))
+    (is (gethash (vector (endb/arrow:parse-arrow-date-millis "2001-01-01") 2.0d0) ht)))
 
   (let ((ht (make-hash-table :test +hash-table-test+)))
     (setf (gethash (fset:seq (endb/arrow:parse-arrow-date-millis "2001-01-01")) ht) t)
