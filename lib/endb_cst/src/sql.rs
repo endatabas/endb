@@ -148,11 +148,11 @@ peg! {
 
     table_alias <- ident column_name_list?;
 
-    join_constraint <- ON expr;
+    join_constraint <- ON expr / USING column_name_list;
     join_operator <- "," / ( LEFT OUTER? / INNER / CROSS )? JOIN;
     join_clause <- table_or_subquery ( join_operator table_or_subquery join_constraint? )*;
     system_time_clause <- FOR ^( SYSTEM_TIME ( ALL / AS OF atom / FROM atom TO atom / BETWEEN atom AND atom ) );
-    invalid_table_alias <- LEFT / INNER / CROSS / JOIN / WHERE / GROUP / HAVING / ORDER / LIMIT / ON / UNION / INTERSECT / EXCEPT;
+    invalid_table_alias <- LEFT / INNER / CROSS / JOIN / WHERE / GROUP / HAVING / ORDER / LIMIT / ON / USING / UNION / INTERSECT / EXCEPT;
     with_ordinality <- WITH ORDINALITY;
     unnest_table_function <- UNNEST paren_expr_list with_ordinality?;
     not_indexed <- NOT INDEXED;

@@ -200,17 +200,41 @@
             do (push nil seen)
           finally (return seen))))
 
+(defun %table-alias (table-ast)
+  (if (= 1 (length table-ast))
+      (first table-ast)
+      (second table-ast)))
+
+(defun %using-to-on (table-1 table-2 using)
+  (labels ((make-column-reference (table-name column-name)
+             (let ((col-ref (make-symbol (concatenate 'string (symbol-name table-name) "." (symbol-name column-name)))))
+               (setf (get col-ref :start) (get column-name :start) (get col-ref :end) (get column-name :end))
+               col-ref)))
+    (let* ((table-1-alias (%table-alias table-1))
+           (table-2-alias (%table-alias table-2)))
+      (reduce
+       (lambda (acc column)
+         (let ((expr (list := (make-column-reference table-1-alias column) (make-column-reference table-2-alias column))))
+           (if acc
+               (list :and acc expr)
+               expr)))
+       using
+       :initial-value nil))))
+
 (defun %flatten-from (from)
   (let ((from-element (first from)))
     (when from-element
       (append (if (eq :join (first from-element))
-                  (destructuring-bind (table-1 table-2 &key on type)
+                  (destructuring-bind (table-1 table-2 &key on using type)
                       (rest from-element)
                     (if (eq :left type)
-                        (let ((table-alias (if (= 1 (length table-2))
-                                               (first table-2)
-                                               (second table-2))))
-                          (append (%flatten-from (list table-1)) (list (list (list :left-join table-2 on) table-alias))))
+                        (let ((table-alias (%table-alias table-2)))
+                          (append (%flatten-from (list table-1)) (list (list (list :left-join
+                                                                                   table-2
+                                                                                   (if using
+                                                                                       (%using-to-on table-1 table-2 using)
+                                                                                       on))
+                                                                             table-alias))))
                         (%flatten-from (list table-1 table-2))))
                   (list from-element))
               (%flatten-from (rest from))))))
@@ -220,11 +244,13 @@
     (when from-element
       (append
        (when (eq :join (first from-element))
-         (destructuring-bind (table-1 table-2 &key on type)
+         (destructuring-bind (table-1 table-2 &key on using type)
              (rest from-element)
            (if (eq :left type)
                (%from-where-clauses (list table-1))
-               (append (%and-clauses on)
+               (append (if using
+                           (%and-clauses (%using-to-on table-1 table-2 using))
+                           (%and-clauses on))
                        (%from-where-clauses (list table-1 table-2))))))
        (%from-where-clauses (rest from))))))
 

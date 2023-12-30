@@ -2187,6 +2187,21 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("a" "b") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM (SELECT 1 AS a) x JOIN (SELECT 1 AS a) y USING (a)")
+      (is (equalp '(#(1 1)) result))
+      (is (equal '("a" "a") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM (SELECT 1 AS a, 2 AS b) x JOIN (SELECT 1 AS a, 2 AS b) y USING (a, b)")
+      (is (equalp '(#(1 2 1 2)) result))
+      (is (equal '("a" "b" "a" "b") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM (SELECT 1 AS a, 2 AS b) x JOIN (SELECT 1 AS a, 1 AS b) y USING (a, b)")
+      (is (null result))
+      (is (equal '("a" "b" "a" "b") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT * FROM (SELECT 1 AS a) x JOIN (SELECT 1 AS b) y ON x.a = y.b AND x.a > y.b")
       (is (null result))
       (is (equal '("a" "b") columns)))
@@ -2205,6 +2220,21 @@ SELECT s FROM x WHERE ind=0")
         (execute-sql db "SELECT * FROM (SELECT 1 AS a) x LEFT JOIN (SELECT 1 AS b) y ON x.a = y.b")
       (is (equalp '(#(1 1)) result))
       (is (equal '("a" "b") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM (SELECT 1 AS a) x LEFT JOIN (SELECT 1 AS a) y USING (a)")
+      (is (equalp '(#(1 1)) result))
+      (is (equal '("a" "a") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM (SELECT 1 AS a, 2 AS b) x LEFT JOIN (SELECT 1 AS a, 2 AS b) y USING (a, b)")
+      (is (equalp '(#(1 2 1 2)) result))
+      (is (equal '("a" "b" "a" "b") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM (SELECT 1 AS a, 2 AS b) x LEFT JOIN (SELECT 1 AS a, 1 AS b) y USING (a, b)")
+      (is (equalp '(#(1 2 :null :null)) result))
+      (is (equal '("a" "b" "a" "b") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT * FROM (SELECT 1 AS a) x LEFT JOIN (SELECT 1 AS b) y ON x.a = y.b AND x.a > y.b")
@@ -2477,6 +2507,10 @@ SELECT s FROM x WHERE ind=0")
         (execute-sql db "SELECT COUNT(x) FROM (VALUES (1), (2)) AS foo(x) WHERE FALSE GROUP BY x")
       (is (null result))
       (is (equal '("column1") columns)))
+
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Unknown column"
+      (execute-sql db "SELECT * FROM (SELECT 1 AS a) x JOIN (SELECT 1 AS b) y USING (a)"))
 
     (signals-with-msg endb/sql/expr:sql-runtime-error
         "Unknown column"

@@ -224,10 +224,10 @@
                (() acc)))
            (flatten-join (acc xs)
              (trivia:ematch xs
-               ((list* (list* :|join_operator| (cons op _) _) x (list :|join_constraint| _ expr) xs)
+               ((list* (list* :|join_operator| (cons op _) _) x (list :|join_constraint| (cons join-constraint _) expr) xs)
                 (flatten-join (list (append (butlast acc)
                                             (list :join (first (last acc)) (walk x)
-                                                  :on (walk expr)
+                                                  join-constraint (walk expr)
                                                   :type (if (eq :LEFT op)
                                                             :left
                                                             :inner))))

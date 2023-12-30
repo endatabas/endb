@@ -201,6 +201,8 @@ UNION
   (is-valid "SELECT * FROM t1 LEFT OUTER JOIN t2 ON t1.a = t2.a")
   (is-valid "SELECT * FROM t1 LEFT JOIN t2 ON t1.a = t2.a")
   (is-valid "SELECT * FROM t1 JOIN t2 ON t1.a = t2.a")
+  (is-valid "SELECT * FROM t1 LEFT JOIN t2 USING (a)")
+  (is-valid "SELECT * FROM t1 JOIN t2 USING (a)")
   (is-valid "SELECT DISTINCT * FROM t1")
   (is-valid "SELECT ALL * FROM t1")
   (is-valid "SELECT 1; SELECT 1;")
