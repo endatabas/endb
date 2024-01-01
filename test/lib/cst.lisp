@@ -207,4 +207,6 @@ UNION
   (is-valid "SELECT ALL * FROM t1")
   (is-valid "SELECT 1; SELECT 1;")
   (is-valid "SELECT 1;")
-  (is-valid "WITH foo(c) AS (SELECT 1), bar(a, b) AS (SELECT 1, 2) SELECT * FROM foo, bar"))
+  (is-valid "WITH foo(c) AS (SELECT 1), bar(a, b) AS (SELECT 1, 2) SELECT * FROM foo, bar")
+  (is-valid "SELECT 'eé'")
+  (is-valid "SELECT \"eé\""))

@@ -167,6 +167,12 @@ fn string_expr() {
     assert_snapshot!(
         parse("SELECT \"f\\\"oo\""),
         @r###"(:|sql_stmt_list| (:|select_stmt| (:|select_core| ("SELECT" 0 6) (:|result_expr_list| (:|result_column| (:|string_literal| ("\"f\\"oo\"" 7 14)))))))"###);
+    assert_snapshot!(
+        parse("SELECT \"eé\""),
+        @r###"(:|sql_stmt_list| (:|select_stmt| (:|select_core| ("SELECT" 0 6) (:|result_expr_list| (:|result_column| (:|string_literal| ("\"eé\"" 7 12)))))))"###);
+    assert_snapshot!(
+        parse("SELECT 'eé'"),
+        @r###"(:|sql_stmt_list| (:|select_stmt| (:|select_core| ("SELECT" 0 6) (:|result_expr_list| (:|result_column| (:|string_literal| ("'eé'" 7 12)))))))"###);
 }
 
 #[test]

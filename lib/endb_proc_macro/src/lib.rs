@@ -142,7 +142,7 @@ impl ToTokens for PegParser {
                 quote! {
                     |input: &str, pos: u32, state: &mut ParseState| {
                         let range = (pos as usize)..((pos as usize) + #literal_len).min(input.len());
-                        if input[range.clone()].eq_ignore_ascii_case(#literal) && #valid_next_char {
+                        if input.is_char_boundary(range.end) && input[range.clone()].eq_ignore_ascii_case(#literal) && #valid_next_char {
                             if !range.is_empty() {
                                 state.events.push(Event::Literal {
                                     literal: #literal,
@@ -160,7 +160,7 @@ impl ToTokens for PegParser {
                             if state.track_errors {
                                 state.errors.push(Event::Error {
                                     descriptor: ParseErrorDescriptor::ExpectedLiteral(#literal),
-                                    range: (range.start.try_into().unwrap())..(range.end.try_into().unwrap()),
+                                    range: pos..pos,
                                 });
                             }
                             Err(ParseErr::Fail)
