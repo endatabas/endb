@@ -120,6 +120,6 @@ See https://lispcookbook.github.io/cl-cookbook/getting-started.html for details 
 
 ## Copyright and License
 
-Copyright 2023 Håkan Råberg and Steven Deobald.
+Copyright 2023-2024 Håkan Råberg and Steven Deobald.
 
 Licensed under the GNU Affero General Public License v3.0.
