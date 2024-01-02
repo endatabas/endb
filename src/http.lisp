@@ -71,6 +71,10 @@
                         (loop for row in rows
                               collect (fset:convert 'fset:map (pairlis column-names (coerce row 'list))))))))))))
 
+(defun %rows-response-p (result result-code)
+  (or result (and (listp result-code)
+                  (not (null result-code)))))
+
 (defun endb-query (dbms request-method content-type sql parameters manyp on-response-init on-response-send)
   (handler-bind ((endb/lib/server:sql-abort-query-error
                    (lambda (e)
@@ -99,26 +103,28 @@
              (funcall on-response-send (format nil "Invalid many: ~A~%" original-manyp)))
             (t (multiple-value-bind (result result-code)
                    (endb/sql:execute-sql write-db sql parameters manyp)
-                 (cond
-                   ((or result (and (listp result-code)
-                                    (not (null result-code))))
-                    (progn
-                      (funcall on-response-init +http-ok+ content-type)
-                      (%stream-response on-response-send content-type result-code result)))
-                   (result-code (if (equal "POST" request-method)
-                                    (bt:with-lock-held ((endb/sql/db:dbms-write-lock dbms))
-                                      (if (eq original-md (endb/sql/db:db-meta-data (endb/sql/db:dbms-db dbms)))
-                                          (let* ((new-db (endb/sql:commit-write-tx (endb/sql/db:dbms-db dbms) write-db))
-                                                 (unchangedp (eq new-db (endb/sql/db:dbms-db dbms))))
-                                            (setf (endb/sql/db:dbms-db dbms) new-db)
-                                            (funcall on-response-init (if unchangedp
-                                                                          +http-ok+
-                                                                          +http-created+)
-                                                     content-type)
-                                            (%stream-response on-response-send content-type '("result") (list (vector result-code))))
-                                          (funcall on-response-init +http-conflict+ "")))
-                                    (funcall on-response-init +http-bad-request+ "")))
-                   (t (funcall on-response-init +http-conflict+ "")))))))
+                 (let* ((unchangedp (or (eq original-md (endb/sql/db:db-meta-data write-db))
+                                        (loop for savepoint-db being the hash-value in endb/sql/db:*savepoints*
+                                              thereis (eq (endb/sql/db:db-meta-data savepoint-db)
+                                                          (endb/sql/db:db-meta-data write-db))))))
+                   (cond
+                     (unchangedp
+                      (progn
+                        (funcall on-response-init +http-ok+ content-type)
+                        (if (%rows-response-p result result-code)
+                            (%stream-response on-response-send content-type result-code result)
+                            (%stream-response on-response-send content-type '("result") (list (vector result-code))))))
+                     ((equal "POST" request-method)
+                      (bt:with-lock-held ((endb/sql/db:dbms-write-lock dbms))
+                        (if (eq original-md (endb/sql/db:db-meta-data (endb/sql/db:dbms-db dbms)))
+                            (let* ((new-db (endb/sql:commit-write-tx (endb/sql/db:dbms-db dbms) write-db)))
+                              (setf (endb/sql/db:dbms-db dbms) new-db)
+                              (funcall on-response-init +http-created+ content-type)
+                              (if (%rows-response-p result result-code)
+                                  (%stream-response on-response-send content-type result-code result)
+                                  (%stream-response on-response-send content-type '("result") (list (vector result-code)))))
+                            (funcall on-response-init +http-conflict+ ""))))
+                     (t (funcall on-response-init +http-bad-request+ ""))))))))
       (endb/lib/cst:sql-parse-error (e)
         (funcall on-response-init +http-bad-request+ "text/plain")
         (funcall on-response-send (format nil "~A~%" e)))
@@ -222,8 +228,7 @@
                                    (multiple-value-bind (result result-code)
                                        (endb/sql:execute-sql write-db sql parameters manyp)
                                      (cond
-                                       ((or result (and (listp result-code)
-                                                        (not (null result-code))))
+                                       ((%rows-response-p result result-code)
                                         (progn
                                           (%stream-response #'on-response-send content-type result-code result)
                                           (funcall on-ws-send (%json-rpc-result acc json-rpc-id))))

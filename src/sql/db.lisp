@@ -680,7 +680,7 @@
                 (error 'endb/sql/expr:sql-runtime-error :message (format nil "Duplicate savepoint: ~A" (%savepoint-string savepoint)))
                 (progn
                   (setf (gethash savepoint *savepoints*) db)
-                  (values (list (vector savepoint)) '("result")))))
+                  (values nil savepoint))))
           (error 'endb/sql/expr:sql-runtime-error :message "Savepoints disabled"))
       (error 'sql-begin-error)))
 
@@ -692,7 +692,7 @@
             (if savepoint-db
                 (progn
                   (remhash savepoint *savepoints*)
-                  (values (list (vector t)) '("result")))
+                  (values nil savepoint))
                 (error 'endb/sql/expr:sql-runtime-error :message (format nil "No active savepoint: ~A" (%savepoint-string savepoint)))))
           (error 'endb/sql/expr:sql-runtime-error :message "Savepoints disabled"))
       (error 'sql-commit-error)))
@@ -706,7 +706,7 @@
                   (setf (db-meta-data db) (db-meta-data savepoint-db)
                         (db-current-timestamp db) (db-current-timestamp savepoint-db)
                         (db-buffer-pool db) (db-buffer-pool savepoint-db))
-                  (values (list (vector t)) '("result")))
+                  (values nil t))
                 (error 'endb/sql/expr:sql-runtime-error :message (format nil "No active savepoint: ~A" (%savepoint-string savepoint)))))
           (error 'endb/sql/expr:sql-runtime-error :message "Savepoints disabled"))
       (error 'sql-rollback-error)))

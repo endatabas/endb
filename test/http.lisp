@@ -61,6 +61,19 @@
                      (format nil "{\"a\":1,\"b\":2}~%{\"a\":3,\"b\":4}~%"))
                (%do-query dbms "GET" "application/x-ndjson" "SELECT * FROM foo ORDER BY a" "[]" "false")))))
 
+(test multiple-statements
+  (let* ((dbms (endb/sql/db:make-dbms :db (endb/sql:make-db))))
+
+    (is (equal (list +http-created+
+                     '(:content-type "application/json")
+                     (format nil "[[1,2]]~%"))
+               (%do-query dbms "POST" "application/json" "INSERT INTO foo {a: 1, b: 2}; SELECT * FROM foo" "[]" "false")))
+
+    (is (equal (list +http-ok+
+                     '(:content-type "application/x-ndjson")
+                     (format nil "{\"a\":1,\"b\":2}~%"))
+               (%do-query dbms "GET" "application/x-ndjson" "SELECT * FROM foo" "[]" "false")))))
+
 (test errors
   (let* ((dbms (endb/sql/db:make-dbms :db (endb/sql:make-db))))
 
@@ -188,7 +201,7 @@
 
     (is (equal (list +http-ok+
                      '(:content-type "application/json")
-                     (format nil "[[true]]~%"))
+                     (format nil "[[\"foo\"]]~%"))
                (%do-query dbms "POST" "application/json" "RELEASE 'foo'" "[]" "false")))
 
     (is (equal (list +http-bad-request+ '(:content-type "text/plain") (format nil "No active savepoint: \"foo\"~%"))
