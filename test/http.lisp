@@ -152,10 +152,10 @@
                      (format nil "[[1]]~%"))
                (%do-query dbms "POST" "application/json" "INSERT INTO foo {a: 1, b: 2}" "[]" "false")))
 
-    (is (equal (list +http-bad-request+ '(:content-type "text/plain") (format nil "No active savepoint: foo~%"))
+    (is (equal (list +http-bad-request+ '(:content-type "text/plain") (format nil "No active savepoint: \"foo\"~%"))
                (%do-query dbms "GET" "application/json" "ROLLBACK TO 'foo'" "[]" "false")))
 
-    (is (equal (list +http-bad-request+ '(:content-type "text/plain") (format nil "No active savepoint: foo~%"))
+    (is (equal (list +http-bad-request+ '(:content-type "text/plain") (format nil "No active savepoint: \"foo\"~%"))
                (%do-query dbms "GET" "application/json" "RELEASE 'foo'" "[]" "false")))
 
     (is (equal (list +http-ok+
