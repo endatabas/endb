@@ -1,7 +1,7 @@
 (defpackage :endb/sql
   (:use :cl)
   (:export #:*query-timing* #:*allow-multiple-statements-p*
-           #:make-db #:make-directory-db #:db-close #:begin-write-tx #:commit-write-tx #:execute-sql #:interpret-sql-literal)
+           #:make-db #:make-directory-db #:db-close #:make-dbms #:dbms-close #:begin-write-tx #:commit-write-tx #:execute-sql #:interpret-sql-literal)
   (:import-from :endb/arrow)
   (:import-from :endb/json)
   (:import-from :endb/sql/db)
@@ -31,14 +31,34 @@
     (make-db :store store)))
 
 (defun db-close (db)
-  (endb/queue:queue-close (endb/sql/db:db-compaction-queue db))
-  (when (endb/sql/db:db-compaction-thread db)
-    (bt:join-thread (endb/sql/db:db-compaction-thread db)))
   (endb/queue:queue-close (endb/sql/db:db-indexer-queue db))
   (when (endb/sql/db:db-indexer-thread db)
     (bt:join-thread (endb/sql/db:db-indexer-thread db)))
   (endb/storage:store-close (endb/sql/db:db-store db))
   (endb/storage/buffer-pool:buffer-pool-close (endb/sql/db:db-buffer-pool db)))
+
+(defun make-dbms (&key directory)
+  (let ((dbms (endb/sql/db:make-dbms :db (if directory
+                                             (make-directory-db :directory directory)
+                                             (make-db)))))
+    (when directory
+      (endb/sql/db:start-background-compaction
+       dbms
+       (lambda (tx-fn)
+         (bt:with-lock-held ((endb/sql/db:dbms-write-lock dbms))
+           (let ((write-db (begin-write-tx (endb/sql/db:dbms-db dbms))))
+             (funcall tx-fn write-db)
+             (setf (endb/sql/db:dbms-db dbms) (commit-write-tx (endb/sql/db:dbms-db dbms) write-db)))))
+       (lambda (path buffer)
+         (endb/storage:store-put-object (endb/sql/db:db-store (endb/sql/db:dbms-db dbms)) path buffer))))
+    (endb/sql/db:start-background-indexer (endb/sql/db:dbms-db dbms))
+    dbms))
+
+(defun dbms-close (dbms)
+  (endb/queue:queue-close (endb/sql/db:dbms-compaction-queue dbms))
+  (when (endb/sql/db:dbms-compaction-thread dbms)
+    (bt:join-thread (endb/sql/db:dbms-compaction-thread dbms)))
+  (db-close (endb/sql/db:dbms-db dbms)))
 
 (defun begin-write-tx (db)
   (let* ((bp (endb/storage/buffer-pool:make-writeable-buffer-pool :parent-pool (endb/sql/db:db-buffer-pool db)))

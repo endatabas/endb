@@ -17,9 +17,9 @@
            #:syn-current_date #:syn-current_time #:syn-current_timestamp
 
            #:make-db #:copy-db #:db-buffer-pool #:db-store #:db-meta-data #:db-current-timestamp
-           #:db-compaction-thread #:db-compaction-queue #:db-query-cache #:db-hash-index-cache #:db-indexer-queue #:db-indexer-thread
+           #:db-query-cache #:db-hash-index-cache #:db-indexer-queue #:db-indexer-thread
            #:make-db-connection #:db-connection-db #:db-connection-original-md #:db-connection-remote-addr
-           #:make-dbms #:dbms-db #:dbms-connections #:dbms-write-lock
+           #:make-dbms #:dbms-db #:dbms-connections #:dbms-write-lock #:dbms-compaction-thread #:dbms-compaction-queue
 
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions #:query-cache-key
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
@@ -38,8 +38,6 @@
   (meta-data (fset:map ("_last_tx" 0)))
   current-timestamp
   (information-schema-cache (make-hash-table :weakness :key :test 'eq))
-  compaction-thread
-  compaction-queue
   (query-cache (make-hash-table :synchronized t :weakness :value :test 'equal))
   indexer-thread
   indexer-queue
@@ -47,7 +45,12 @@
 
 (defstruct db-connection db original-md remote-addr)
 
-(defstruct dbms db (connections (make-hash-table :test 'equal)) (write-lock (bt:make-lock)))
+(defstruct dbms
+  db
+  (connections (make-hash-table :test 'equal))
+  (write-lock (bt:make-lock))
+  compaction-thread
+  compaction-queue)
 
 (define-condition sql-begin-error (error) ())
 
@@ -400,11 +403,11 @@
                   (endb/storage/buffer-pool:buffer-pool-evict buffer-pool (%batch-key table-name arrow-file))))
               (endb/lib:log-info "compacted ~A" batch-key))))))))
 
-(defun start-background-compaction (db db-access-fn db-commit-fn object-put-fn &key (target-size (* 4 1024 1024)) (timeout 0.5))
+(defun start-background-compaction (dbms db-commit-fn object-put-fn &key (target-size (* 4 1024 1024)) (timeout 0.5))
   (let ((compaction-queue (endb/queue:make-queue)))
-    (setf (db-compaction-queue db)
+    (setf (dbms-compaction-queue dbms)
           compaction-queue
-          (db-compaction-thread db)
+          (dbms-compaction-thread dbms)
           (bt:make-thread
            (lambda ()
              (loop
@@ -413,7 +416,7 @@
                  (declare (ignore job))
                  (unless timeoutp
                    (return-from nil)))
-               (run-compaction (funcall db-access-fn) db-commit-fn object-put-fn :target-size target-size)))
+               (run-compaction (dbms-db dbms) db-commit-fn object-put-fn :target-size target-size)))
            :name "endb compaction thread"))))
 
 (defun start-background-indexer (db)

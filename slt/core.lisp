@@ -91,24 +91,9 @@
      (ppConn (:pointer :pointer))
      (zOpt :string))
   (declare (ignorable NotUsed ppConn zOpt))
-  (let* ((dbms (endb/sql/db:make-dbms :db (if zCon
-                                              (endb/sql:make-directory-db :directory zCon)
-                                              (endb/sql:make-db)))))
+  (let* ((dbms (endb/sql:make-dbms :directory zCon)))
     (setf (cffi:mem-ref ppConn :pointer) (cffi:null-pointer))
     (setf *endb-dbms* dbms)
-    (when zCon
-      (endb/sql/db:start-background-compaction
-       (endb/sql/db:dbms-db dbms)
-       (lambda ()
-         (endb/sql/db:dbms-db dbms))
-       (lambda (tx-fn)
-         (bt:with-lock-held ((endb/sql/db:dbms-write-lock dbms))
-           (let ((write-db (endb/sql:begin-write-tx (endb/sql/db:dbms-db dbms))))
-             (funcall tx-fn write-db)
-             (setf (endb/sql/db:dbms-db dbms) (endb/sql:commit-write-tx (endb/sql/db:dbms-db dbms) write-db)))))
-       (lambda (path buffer)
-         (endb/storage:store-put-object (endb/sql/db:db-store (endb/sql/db:dbms-db dbms)) path buffer))))
-    (endb/sql/db:start-background-indexer (endb/sql/db:dbms-db dbms))
     0))
 
 (cffi:defcallback endbGetEngineName :int
@@ -185,7 +170,7 @@
   (declare (ignore pConn))
   (if (boundp '*endb-dbms*)
       (progn
-        (endb/sql:db-close (endb/sql/db:dbms-db *endb-dbms*))
+        (endb/sql:dbms-close *endb-dbms*)
         (makunbound '*endb-dbms*)
         0)
       1))
