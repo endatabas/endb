@@ -667,29 +667,33 @@
 
 (defvar *savepoints* nil)
 
+(defun %savepoint-string (savepoint)
+  (if (stringp savepoint)
+      (prin1-to-string savepoint)
+      (endb/sql/expr:syn-cast savepoint :varchar)))
+
 (defun tx-begin (db &key savepoint)
   (if savepoint
       (if *savepoints*
-          (progn
-            (setf (gethash savepoint *savepoints*) db)
-            (values (list (vector savepoint)) '("result")))
+          (let ((savepoint-db (gethash savepoint *savepoints*)))
+            (if savepoint-db
+                (error 'endb/sql/expr:sql-runtime-error :message (format nil "Duplicate savepoint: ~A" (%savepoint-string savepoint)))
+                (progn
+                  (setf (gethash savepoint *savepoints*) db)
+                  (values (list (vector savepoint)) '("result")))))
           (error 'endb/sql/expr:sql-runtime-error :message "Savepoints disabled"))
       (error 'sql-begin-error)))
 
-(defun %no-active-savepoint-error (savepoint)
-  (error 'endb/sql/expr:sql-runtime-error :message (format nil "No active savepoint: ~A" (if (stringp savepoint)
-                                                                                             (prin1-to-string savepoint)
-                                                                                             (endb/sql/expr:syn-cast savepoint :varchar)))))
-
 (defun tx-commit (db &key savepoint)
+  (declare (ignore db))
   (if savepoint
       (if *savepoints*
           (let ((savepoint-db (gethash savepoint *savepoints*)))
             (if savepoint-db
                 (progn
-                  (setf (gethash savepoint *savepoints*) db)
+                  (remhash savepoint *savepoints*)
                   (values (list (vector t)) '("result")))
-                (%no-active-savepoint-error savepoint)))
+                (error 'endb/sql/expr:sql-runtime-error :message (format nil "No active savepoint: ~A" (%savepoint-string savepoint)))))
           (error 'endb/sql/expr:sql-runtime-error :message "Savepoints disabled"))
       (error 'sql-commit-error)))
 
@@ -703,6 +707,6 @@
                         (db-current-timestamp db) (db-current-timestamp savepoint-db)
                         (db-buffer-pool db) (db-buffer-pool savepoint-db))
                   (values (list (vector t)) '("result")))
-                (%no-active-savepoint-error savepoint)))
+                (error 'endb/sql/expr:sql-runtime-error :message (format nil "No active savepoint: ~A" (%savepoint-string savepoint)))))
           (error 'endb/sql/expr:sql-runtime-error :message "Savepoints disabled"))
       (error 'sql-rollback-error)))

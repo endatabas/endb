@@ -163,6 +163,9 @@
                      (format nil "[[\"foo\"]]~%"))
                (%do-query dbms "POST" "application/json" "SAVEPOINT 'foo'" "[]" "false")))
 
+    (is (equal (list +http-bad-request+ '(:content-type "text/plain") (format nil "Duplicate savepoint: \"foo\"~%"))
+               (%do-query dbms "POST" "application/json" "SAVEPOINT 'foo'" "[]" "false")))
+
     (is (equal (list +http-created+
                      '(:content-type "application/json")
                      (format nil "[[1]]~%"))
@@ -181,7 +184,15 @@
     (is (equal (list +http-ok+
                      '(:content-type "application/x-ndjson")
                      (format nil "{\"a\":1,\"b\":2}~%{\"a\":3,\"b\":4}~%"))
-               (%do-query dbms "GET" "application/x-ndjson" "SELECT * FROM foo ORDER BY a" "[]" "false")))))
+               (%do-query dbms "GET" "application/x-ndjson" "SELECT * FROM foo ORDER BY a" "[]" "false")))
+
+    (is (equal (list +http-ok+
+                     '(:content-type "application/json")
+                     (format nil "[[true]]~%"))
+               (%do-query dbms "POST" "application/json" "RELEASE 'foo'" "[]" "false")))
+
+    (is (equal (list +http-bad-request+ '(:content-type "text/plain") (format nil "No active savepoint: \"foo\"~%"))
+               (%do-query dbms "GET" "application/x-ndjson" "ROLLBACK TO 'foo'; SELECT * FROM foo ORDER BY a;" "[]" "false")))))
 
 (test websocket
   (let* ((dbms (endb/sql/db:make-dbms :db (endb/sql:make-db)))
