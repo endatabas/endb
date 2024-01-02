@@ -16,10 +16,10 @@
 
            #:syn-current_date #:syn-current_time #:syn-current_timestamp
 
-           #:make-db #:copy-db #:db-buffer-pool #:db-store #:db-meta-data #:db-current-timestamp #:db-write-lock
+           #:make-db #:copy-db #:db-buffer-pool #:db-store #:db-meta-data #:db-current-timestamp
            #:db-compaction-thread #:db-compaction-queue #:db-query-cache #:db-hash-index-cache #:db-indexer-queue #:db-indexer-thread
            #:make-db-connection #:db-connection-db #:db-connection-original-md #:db-connection-remote-addr
-           #:make-dbms #:dbms-db #:dbms-connections
+           #:make-dbms #:dbms-db #:dbms-connections #:dbms-write-lock
 
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions #:query-cache-key
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
@@ -38,7 +38,6 @@
   (meta-data (fset:map ("_last_tx" 0)))
   current-timestamp
   (information-schema-cache (make-hash-table :weakness :key :test 'eq))
-  (write-lock (bt:make-lock))
   compaction-thread
   compaction-queue
   (query-cache (make-hash-table :synchronized t :weakness :value :test 'equal))
@@ -48,7 +47,7 @@
 
 (defstruct db-connection db original-md remote-addr)
 
-(defstruct dbms db (connections (make-hash-table :test 'equal)))
+(defstruct dbms db (connections (make-hash-table :test 'equal)) (write-lock (bt:make-lock)))
 
 (define-condition sql-begin-error (error) ())
 

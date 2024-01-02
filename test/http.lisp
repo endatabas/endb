@@ -126,7 +126,7 @@
 (test conflict
   (let* ((dbms (endb/sql/db:make-dbms :db (endb/sql:make-db)))
          (write-db (endb/sql:begin-write-tx (endb/sql/db:dbms-db dbms)))
-         (write-lock (endb/sql/db:db-write-lock (endb/sql/db:dbms-db dbms))))
+         (write-lock (endb/sql/db:dbms-write-lock dbms)))
 
     (is (bt:acquire-lock write-lock))
     (let ((thread (bt:make-thread

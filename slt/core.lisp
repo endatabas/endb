@@ -102,7 +102,7 @@
        (lambda ()
          (endb/sql/db:dbms-db dbms))
        (lambda (tx-fn)
-         (bt:with-lock-held ((endb/sql/db:db-write-lock (endb/sql/db:dbms-db dbms)))
+         (bt:with-lock-held ((endb/sql/db:dbms-write-lock dbms))
            (let ((write-db (endb/sql:begin-write-tx (endb/sql/db:dbms-db dbms))))
              (funcall tx-fn write-db)
              (setf (endb/sql/db:dbms-db dbms) (endb/sql:commit-write-tx (endb/sql/db:dbms-db dbms) write-db)))))
@@ -130,7 +130,7 @@
   (if (boundp '*endb-dbms*)
       (handler-case
           (let ((dbms *endb-dbms*))
-            (bt:with-lock-held ((endb/sql/db:db-write-lock (endb/sql/db:dbms-db dbms)))
+            (bt:with-lock-held ((endb/sql/db:dbms-write-lock dbms))
               (let ((write-db (endb/sql:begin-write-tx (endb/sql/db:dbms-db dbms))))
                 (multiple-value-bind (result result-code)
                     (endb/sql:execute-sql write-db zSql)

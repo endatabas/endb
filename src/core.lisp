@@ -20,7 +20,7 @@
      (lambda ()
        (endb/sql/db:dbms-db dbms))
      (lambda (tx-fn)
-       (bt:with-lock-held ((endb/sql/db:db-write-lock (endb/sql/db:dbms-db dbms)))
+       (bt:with-lock-held ((endb/sql/db:dbms-write-lock dbms))
          (let ((write-db (endb/sql:begin-write-tx (endb/sql/db:dbms-db dbms))))
            (funcall tx-fn write-db)
            (setf (endb/sql/db:dbms-db dbms) (endb/sql:commit-write-tx (endb/sql/db:dbms-db dbms) write-db)))))
@@ -31,10 +31,10 @@
 
 (defun %endb-close-dbms (dbms)
   (endb/lib:log-info "shutting down")
-  (if (bt:acquire-lock (endb/sql/db:db-write-lock (endb/sql/db:dbms-db dbms)) nil)
+  (if (bt:acquire-lock (endb/sql/db:dbms-write-lock dbms) nil)
       (unwind-protect
            (endb/sql:db-close (endb/sql/db:dbms-db dbms))
-        (bt:release-lock (endb/sql/db:db-write-lock (endb/sql/db:dbms-db dbms))))
+        (bt:release-lock (endb/sql/db:dbms-write-lock dbms)))
       (endb/lib:log-warn "could not close the database cleanly")))
 
 (defun %endb-main ()
