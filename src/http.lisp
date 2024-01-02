@@ -88,7 +88,8 @@
                (original-parameters parameters)
                (parameters (endb/json:resolve-json-ld-xsd-scalars (endb/sql:interpret-sql-literal parameters)))
                (original-manyp manyp)
-               (manyp (endb/sql:interpret-sql-literal manyp)))
+               (manyp (endb/sql:interpret-sql-literal manyp))
+               (endb/sql/db:*savepoints* (endb/sql/db:dbms-savepoints dbms)))
           (cond
             ((not (fset:collection? parameters))
              (funcall on-response-init +http-bad-request+ "text/plain")

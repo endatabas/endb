@@ -1981,16 +1981,19 @@
                        parameter))))
 
 (defmethod sql->cl (ctx (type (eql :begin)) &rest args)
-  (declare (ignore args))
-  `(endb/sql/db:tx-begin ,(fset:lookup ctx :db-sym)))
+  (append `(endb/sql/db:tx-begin ,(fset:lookup ctx :db-sym))
+          (when args
+            (list :savepoint (ast->cl ctx (first args))))))
 
 (defmethod sql->cl (ctx (type (eql :commit)) &rest args)
-  (declare (ignore args))
-  `(endb/sql/db:tx-commit ,(fset:lookup ctx :db-sym)))
+  (append `(endb/sql/db:tx-commit ,(fset:lookup ctx :db-sym))
+          (when args
+            (list :savepoint (ast->cl ctx (first args))))))
 
 (defmethod sql->cl (ctx (type (eql :rollback)) &rest args)
-  (declare (ignore args))
-  `(endb/sql/db:tx-rollback ,(fset:lookup ctx :db-sym)))
+  (append `(endb/sql/db:tx-rollback ,(fset:lookup ctx :db-sym))
+          (when args
+            (list :savepoint (ast->cl ctx (first args))))))
 
 (defmethod sql->cl (ctx fn &rest args)
   (sql->cl ctx :function fn args))

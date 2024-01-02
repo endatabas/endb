@@ -19,12 +19,12 @@
            #:make-db #:copy-db #:db-buffer-pool #:db-store #:db-meta-data #:db-current-timestamp
            #:db-query-cache #:db-hash-index-cache #:db-indexer-queue #:db-indexer-thread
            #:make-db-connection #:db-connection-db #:db-connection-original-md #:db-connection-remote-addr
-           #:make-dbms #:dbms-db #:dbms-connections #:dbms-write-lock #:dbms-compaction-thread #:dbms-compaction-queue
+           #:make-dbms #:dbms-db #:dbms-connections #:dbms-savepoints #:dbms-write-lock #:dbms-compaction-thread #:dbms-compaction-queue
 
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions #:query-cache-key
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
            #:view-definition #:calculate-stats #:run-compaction #:start-background-compaction #:start-background-indexer
-           #:tx-begin #:tx-commit #:tx-rollback
+           #:tx-begin #:tx-commit #:tx-rollback #:*savepoints*
            #:sql-begin-error #:sql-commit-error #:sql-rollback-error))
 (in-package :endb/sql/db)
 
@@ -47,7 +47,8 @@
 
 (defstruct dbms
   db
-  (connections (make-hash-table :test 'equal))
+  (connections (make-hash-table :synchronized t :test 'equal))
+  (savepoints (make-hash-table :synchronized t :weakness :value :test endb/sql/expr:+hash-table-test+))
   (write-lock (bt:make-lock))
   compaction-thread
   compaction-queue)
@@ -664,14 +665,39 @@
       (setf meta-data (fset:with meta-data table-name table-md))
       (values nil (length new-batch-file-idx-erased-row-ids)))))
 
-(defun tx-begin (db)
-  (declare (ignore db))
-  (error 'sql-begin-error))
+(defvar *savepoints* nil)
 
-(defun tx-commit (db)
-  (declare (ignore db))
-  (error 'sql-commit-error))
+(defun tx-begin (db &key savepoint)
+  (if savepoint
+      (if *savepoints*
+          (progn
+            (setf (gethash savepoint *savepoints*) db)
+            (values (list (vector savepoint)) '("result")))
+          (error 'endb/sql/expr:sql-runtime-error :message "Savepoints disabled"))
+      (error 'sql-begin-error)))
 
-(defun tx-rollback (db)
-  (declare (ignore db))
-  (error 'sql-rollback-error))
+(defun tx-commit (db &key savepoint)
+  (if savepoint
+      (if *savepoints*
+          (let ((savepoint-db (gethash savepoint *savepoints*)))
+            (if savepoint-db
+                (progn
+                  (setf (gethash savepoint *savepoints*) db)
+                  (values (list (vector t)) '("result")))
+                (error 'endb/sql/expr:sql-runtime-error :message (format nil "No active savepoint: ~A" (endb/sql/expr:syn-cast savepoint :text)))))
+          (error 'endb/sql/expr:sql-runtime-error :message "Savepoints disabled"))
+      (error 'sql-commit-error)))
+
+(defun tx-rollback (db &key savepoint)
+  (if savepoint
+      (if *savepoints*
+          (let ((savepoint-db (gethash savepoint *savepoints*)))
+            (if savepoint-db
+                (progn
+                  (setf (db-meta-data db) (db-meta-data savepoint-db)
+                        (db-current-timestamp db) (db-current-timestamp savepoint-db)
+                        (db-buffer-pool db) (db-buffer-pool savepoint-db))
+                  (values (list (vector t)) '("result")))
+                (error 'endb/sql/expr:sql-runtime-error :message (format nil "No active savepoint: ~A" (endb/sql/expr:syn-cast savepoint :text)))))
+          (error 'endb/sql/expr:sql-runtime-error :message "Savepoints disabled"))
+      (error 'sql-rollback-error)))

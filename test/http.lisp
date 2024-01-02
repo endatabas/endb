@@ -144,6 +144,44 @@
       (is (equal (list +http-conflict+ () "")
                  (bt:join-thread thread))))))
 
+(test savepoints
+  (let* ((dbms (endb/sql/db:make-dbms :db (endb/sql:make-db))))
+
+    (is (equal (list +http-created+
+                     '(:content-type "application/json")
+                     (format nil "[[1]]~%"))
+               (%do-query dbms "POST" "application/json" "INSERT INTO foo {a: 1, b: 2}" "[]" "false")))
+
+    (is (equal (list +http-bad-request+ '(:content-type "text/plain") (format nil "No active savepoint: foo~%"))
+               (%do-query dbms "GET" "application/json" "ROLLBACK TO 'foo'" "[]" "false")))
+
+    (is (equal (list +http-bad-request+ '(:content-type "text/plain") (format nil "No active savepoint: foo~%"))
+               (%do-query dbms "GET" "application/json" "RELEASE 'foo'" "[]" "false")))
+
+    (is (equal (list +http-ok+
+                     '(:content-type "application/json")
+                     (format nil "[[\"foo\"]]~%"))
+               (%do-query dbms "POST" "application/json" "SAVEPOINT 'foo'" "[]" "false")))
+
+    (is (equal (list +http-created+
+                     '(:content-type "application/json")
+                     (format nil "[[1]]~%"))
+               (%do-query dbms "POST" "application/json" "INSERT INTO foo {a: 3, b: 4}" "[]" "false")))
+
+    (is (equal (list +http-ok+
+                     '(:content-type "application/x-ndjson")
+                     (format nil "{\"a\":1,\"b\":2}~%{\"a\":3,\"b\":4}~%"))
+               (%do-query dbms "GET" "application/x-ndjson" "SELECT * FROM foo ORDER BY a" "[]" "false")))
+
+    (is (equal (list +http-ok+
+                     '(:content-type "application/x-ndjson")
+                     (format nil "{\"a\":1,\"b\":2}~%"))
+               (%do-query dbms "GET" "application/x-ndjson" "ROLLBACK TO 'foo'; SELECT * FROM foo ORDER BY a;" "[]" "false")))
+
+    (is (equal (list +http-ok+
+                     '(:content-type "application/x-ndjson")
+                     (format nil "{\"a\":1,\"b\":2}~%{\"a\":3,\"b\":4}~%"))
+               (%do-query dbms "GET" "application/x-ndjson" "SELECT * FROM foo ORDER BY a" "[]" "false")))))
 
 (test websocket
   (let* ((dbms (endb/sql/db:make-dbms :db (endb/sql:make-db)))
@@ -421,4 +459,40 @@
            (response-map (endb/json:json-parse response)))
 
       (is (equalp (fset:seq (fset:map ("a" 1) ("b" 2)))
-                  (fset:lookup (fset:lookup response-map "result") "@graph"))))))
+                  (fset:lookup (fset:lookup response-map "result") "@graph"))))
+
+    (let* ((response (%do-websocket dbms conn-2 (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                                    ("id" 1)
+                                                                                    ("method" "sql")
+                                                                                    ("params" (fset:seq "SAVEPOINT 'foo'"))))))
+           (response-map (endb/json:json-parse response)))
+
+      (is (equalp (fset:map ("jsonrpc" "2.0")
+                            ("id" 1)
+                            ("error" (fset:map ("message" "Savepoints disabled")
+                                               ("code" +json-rpc-internal-error+))))
+                  response-map)))
+
+    (let* ((response (%do-websocket dbms conn-2 (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                                    ("id" 1)
+                                                                                    ("method" "sql")
+                                                                                    ("params" (fset:seq "RELEASE 'foo'"))))))
+           (response-map (endb/json:json-parse response)))
+
+      (is (equalp (fset:map ("jsonrpc" "2.0")
+                            ("id" 1)
+                            ("error" (fset:map ("message" "Savepoints disabled")
+                                               ("code" +json-rpc-internal-error+))))
+                  response-map)))
+
+    (let* ((response (%do-websocket dbms conn-2 (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                                    ("id" 1)
+                                                                                    ("method" "sql")
+                                                                                    ("params" (fset:seq "ROLLBACK TO 'foo'"))))))
+           (response-map (endb/json:json-parse response)))
+
+      (is (equalp (fset:map ("jsonrpc" "2.0")
+                            ("id" 1)
+                            ("error" (fset:map ("message" "Savepoints disabled")
+                                               ("code" +json-rpc-internal-error+))))
+                  response-map)))))

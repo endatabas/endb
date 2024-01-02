@@ -233,7 +233,10 @@ peg! {
 
     begin_stmt <- BEGIN TRANSACTION?;
     commit_stmt <- ( COMMIT / END ) TRANSACTION?;
-    rollback_stmt <- ROLLBACK TRANSACTION?;
+    rollback_stmt <- ROLLBACK TRANSACTION? ( TO SAVEPOINT? savepoint_name)?;
+    savepoint_name <- expr;
+    savepoint_stmt <- SAVEPOINT savepoint_name;
+    release_stmt <- RELEASE SAVEPOINT? savepoint_name;
 
     <sql_stmt> <-
         select_stmt
@@ -251,7 +254,9 @@ peg! {
         / drop_view_stmt
         / begin_stmt
         / commit_stmt
-        / rollback_stmt;
+        / rollback_stmt
+        / savepoint_stmt
+        / release_stmt;
 
     pub sql_stmt_list <- r"\A" sql_stmt ( ";" sql_stmt )* ";"? !r"\A.";
 

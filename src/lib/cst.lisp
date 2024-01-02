@@ -289,8 +289,14 @@
                ((list* :|commit_stmt| _)
                 (list :commit))
 
-               ((list* :|rollback_stmt| _)
-                (list :rollback))
+               ((list* :|rollback_stmt| _ xs)
+                (cons :rollback (mapcar #'walk (strip-delimiters '(:TRANSACTION :TO :SAVEPOINT) xs))))
+
+               ((list :|savepoint_stmt| _ x)
+                (list :begin (walk x)))
+
+               ((list* :|release_stmt| _ xs)
+                (cons :commit (mapcar #'walk (strip-delimiters '(:SAVEPOINT) xs))))
 
                ((list* :|create_table_stmt| _ _ table-name xs)
                 (list :create-table (walk table-name) (remove nil (mapcar #'walk (strip-delimiters '(:|(| :|)| :|,|) xs)))))
