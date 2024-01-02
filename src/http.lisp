@@ -105,7 +105,7 @@
                    (endb/sql:execute-sql write-db sql parameters manyp)
                  (let* ((unchangedp (or (eq original-md (endb/sql/db:db-meta-data write-db))
                                         (loop for savepoint-db being the hash-value in endb/sql/db:*savepoints*
-                                              thereis (eq (endb/sql/db:db-meta-data savepoint-db)
+                                              thereis (eq (endb/sql/db:db-meta-data (endb/sql/db:savepoint-db savepoint-db))
                                                           (endb/sql/db:db-meta-data write-db))))))
                    (cond
                      (unchangedp
