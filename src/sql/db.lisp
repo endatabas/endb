@@ -19,6 +19,7 @@
            #:make-db #:copy-db #:db-buffer-pool #:db-store #:db-meta-data #:db-current-timestamp #:db-write-lock
            #:db-compaction-thread #:db-compaction-queue #:db-query-cache #:db-hash-index-cache #:db-indexer-queue #:db-indexer-thread
            #:make-db-connection #:db-connection-db #:db-connection-original-md #:db-connection-remote-addr
+           #:make-dbms #:dbms-db #:dbms-connections
 
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions #:query-cache-key
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
@@ -46,6 +47,8 @@
   (hash-index-cache (make-hash-table :synchronized t :test 'equal)))
 
 (defstruct db-connection db original-md remote-addr)
+
+(defstruct dbms db (connections (make-hash-table :test 'equal)))
 
 (define-condition sql-begin-error (error) ())
 

@@ -1,14 +1,13 @@
 (defpackage :endb/lib/server
   (:use :cl)
-  (:export #:start-server #:*db* #:sql-abort-query-error #:parse-command-line #:get-endb-version)
+  (:export #:start-server #:sql-abort-query-error #:parse-command-line #:get-endb-version)
+  (:import-from :alexandria)
   (:import-from :cffi)
   (:import-from :endb/json)
   (:import-from :endb/lib)
   (:import-from :endb/sql/db)
   (:import-from :trivial-utf-8))
 (in-package :endb/lib/server)
-
-(defvar *db*)
 
 (cffi:defcfun "endb_start_server" :void
   (on-query :pointer)
@@ -159,20 +158,20 @@
                (when abortp
                  (error 'sql-abort-query-error))))))
 
-(defun start-server (on-query &optional on-ws-message)
+(defun start-server (dbms on-query &optional on-ws-message)
   (endb/lib:init-lib)
   (let* ((errorp nil)
          (*start-server-on-error* (lambda (err)
                                     (setf errorp t)
                                     (endb/lib:log-error err)))
-         (active-ws-connections (make-hash-table :test 'equal)))
-    (setf *start-server-on-query* on-query
+         (active-ws-connections (endb/sql/db:dbms-connections dbms)))
+    (setf *start-server-on-query* (alexandria:curry on-query dbms)
           *start-server-on-websocket-init* (lambda (remote-addr)
                                              (setf (gethash remote-addr active-ws-connections) (endb/sql/db:make-db-connection :remote-addr remote-addr)))
           *start-server-on-websocket-close* (lambda (remote-addr)
                                               (remhash remote-addr active-ws-connections))
           *start-server-on-websocket-message* (lambda (remote-addr message on-ws-send)
-                                                (funcall on-ws-message (gethash remote-addr active-ws-connections) message on-ws-send)))
+                                                (funcall on-ws-message dbms (gethash remote-addr active-ws-connections) message on-ws-send)))
     (endb-start-server (cffi:callback start-server-on-query)
                        (cffi:callback start-server-on-error)
                        (cffi:callback start-server-on-websocket-init)

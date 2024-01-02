@@ -14,34 +14,30 @@
 
 (defun %endb-init (config)
   (endb/lib:log-info "version ~A" (endb/lib/server:get-endb-version))
-  (setf endb/lib/server:*db* (endb/sql:make-directory-db :directory (fset:lookup config "data_directory")))
-  (endb/sql/db:start-background-compaction
-   endb/lib/server:*db*
-   (lambda ()
-     endb/lib/server:*db*)
-   (lambda (tx-fn)
-     (bt:with-lock-held ((endb/sql/db:db-write-lock endb/lib/server:*db*))
-       (let ((write-db (endb/sql:begin-write-tx endb/lib/server:*db*)))
-         (funcall tx-fn write-db)
-         (setf endb/lib/server:*db* (endb/sql:commit-write-tx endb/lib/server:*db* write-db)))))
-   (lambda (path buffer)
-     (endb/storage:store-put-object (endb/sql/db:db-store endb/lib/server:*db*) path buffer)))
-  (endb/sql/db:start-background-indexer endb/lib/server:*db*))
+  (let ((dbms (endb/sql/db:make-dbms :db (endb/sql:make-directory-db :directory (fset:lookup config "data_directory")))))
+    (endb/sql/db:start-background-compaction
+     (endb/sql/db:dbms-db dbms)
+     (lambda ()
+       (endb/sql/db:dbms-db dbms))
+     (lambda (tx-fn)
+       (bt:with-lock-held ((endb/sql/db:db-write-lock (endb/sql/db:dbms-db dbms)))
+         (let ((write-db (endb/sql:begin-write-tx (endb/sql/db:dbms-db dbms))))
+           (funcall tx-fn write-db)
+           (setf (endb/sql/db:dbms-db dbms) (endb/sql:commit-write-tx (endb/sql/db:dbms-db dbms) write-db)))))
+     (lambda (path buffer)
+       (endb/storage:store-put-object (endb/sql/db:db-store (endb/sql/db:dbms-db dbms)) path buffer)))
+    (endb/sql/db:start-background-indexer (endb/sql/db:dbms-db dbms))
+    dbms))
 
-(defun %endb-close-db ()
-  (when (boundp 'endb/lib/server:*db*)
-    (endb/lib:log-info "shutting down")
-    (let ((db endb/lib/server:*db*))
-      (if (bt:acquire-lock (endb/sql/db:db-write-lock db) nil)
-          (unwind-protect
-               (progn
-                 (endb/sql:db-close db)
-                 (makunbound 'endb/lib/server:*db*))
-            (bt:release-lock (endb/sql/db:db-write-lock db)))
-          (endb/lib:log-warn "could not close the database cleanly")))))
+(defun %endb-close-dbms (dbms)
+  (endb/lib:log-info "shutting down")
+  (if (bt:acquire-lock (endb/sql/db:db-write-lock (endb/sql/db:dbms-db dbms)) nil)
+      (unwind-protect
+           (endb/sql:db-close (endb/sql/db:dbms-db dbms))
+        (bt:release-lock (endb/sql/db:db-write-lock (endb/sql/db:dbms-db dbms))))
+      (endb/lib:log-warn "could not close the database cleanly")))
 
 (defun %endb-main ()
-  (setf endb/lib:*panic-hook* #'%endb-close-db)
   (handler-bind ((#+sbcl sb-sys:interactive-interrupt (lambda (e)
                                                         (declare (ignore e))
                                                         (return-from %endb-main 130)))
@@ -51,10 +47,12 @@
                             (endb/lib:log-debug "~A~%~{~A~^~%~}" (string-trim " " (first backtrace)) (rest backtrace))
                             (return-from %endb-main 1)))))
     (unwind-protect
-         (progn
-           (%endb-init (endb/lib/server:parse-command-line))
-           (endb/lib/server:start-server #'endb/http:endb-query #'endb/http:endb-on-ws-message))
-      (%endb-close-db))))
+         (let ((dbms (%endb-init (endb/lib/server:parse-command-line))))
+           (setf endb/lib:*panic-hook* (lambda ()
+                                         (%endb-close-dbms dbms)))
+           (endb/lib/server:start-server dbms #'endb/http:endb-query #'endb/http:endb-on-ws-message))
+      (when endb/lib:*panic-hook*
+        (funcall endb/lib:*panic-hook*)))))
 
 (defun main ()
   (uiop:quit (%endb-main)))

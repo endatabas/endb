@@ -71,7 +71,7 @@
                         (loop for row in rows
                               collect (fset:convert 'fset:map (pairlis column-names (coerce row 'list))))))))))))
 
-(defun endb-query (request-method content-type sql parameters manyp on-response-init on-response-send)
+(defun endb-query (dbms request-method content-type sql parameters manyp on-response-init on-response-send)
   (handler-bind ((endb/lib/server:sql-abort-query-error
                    (lambda (e)
                      (declare (ignore e))
@@ -83,7 +83,7 @@
                             (return-from endb-query
                               (funcall on-response-send (format nil "~A~%" e)))))))
     (handler-case
-        (let* ((write-db (endb/sql:begin-write-tx endb/lib/server:*db*))
+        (let* ((write-db (endb/sql:begin-write-tx (endb/sql/db:dbms-db dbms)))
                (original-md (endb/sql/db:db-meta-data write-db))
                (original-parameters parameters)
                (parameters (endb/json:resolve-json-ld-xsd-scalars (endb/sql:interpret-sql-literal parameters)))
@@ -105,11 +105,11 @@
                       (funcall on-response-init +http-ok+ content-type)
                       (%stream-response on-response-send content-type result-code result)))
                    (result-code (if (equal "POST" request-method)
-                                    (bt:with-lock-held ((endb/sql/db:db-write-lock endb/lib/server:*db*))
-                                      (if (eq original-md (endb/sql/db:db-meta-data endb/lib/server:*db*))
-                                          (let* ((new-db (endb/sql:commit-write-tx endb/lib/server:*db* write-db))
-                                                 (unchangedp (eq new-db endb/lib/server:*db*)))
-                                            (setf endb/lib/server:*db* new-db)
+                                    (bt:with-lock-held ((endb/sql/db:db-write-lock (endb/sql/db:dbms-db dbms)))
+                                      (if (eq original-md (endb/sql/db:db-meta-data (endb/sql/db:dbms-db dbms)))
+                                          (let* ((new-db (endb/sql:commit-write-tx (endb/sql/db:dbms-db dbms) write-db))
+                                                 (unchangedp (eq new-db (endb/sql/db:dbms-db dbms))))
+                                            (setf (endb/sql/db:dbms-db dbms) new-db)
                                             (funcall on-response-init (if unchangedp
                                                                           +http-ok+
                                                                           +http-created+)
@@ -155,7 +155,7 @@
 (defun %json-rpc-result (result id)
   (format nil "{\"jsonrpc\":\"2.0\",\"id\":~A,\"result\":~A}" id (string-right-trim (list #\Newline) result)))
 
-(defun endb-on-ws-message (connection message on-ws-send)
+(defun endb-on-ws-message (dbms connection message on-ws-send)
   (handler-bind ((endb/lib/server:sql-abort-query-error
                    (lambda (e)
                      (declare (ignore e))
@@ -200,16 +200,16 @@
                               (manyp (fset:lookup json-rpc-params "m"))
                               (interactive-tx-p (not (null (endb/sql/db:db-connection-db connection))))
                               (write-db (or (endb/sql/db:db-connection-db connection)
-                                            (endb/sql:begin-write-tx endb/lib/server:*db*)))
+                                            (endb/sql:begin-write-tx (endb/sql/db:dbms-db dbms))))
                               (original-md (or (endb/sql/db:db-connection-original-md connection)
                                                (endb/sql/db:db-meta-data write-db)))
                               (content-type "application/ld+json")
                               (endb/sql:*allow-multiple-statements-p* nil))
                          (labels ((commit-tx (result-code)
-                                    (bt:with-lock-held ((endb/sql/db:db-write-lock endb/lib/server:*db*))
-                                      (if (eq original-md (endb/sql/db:db-meta-data endb/lib/server:*db*))
-                                          (let* ((new-db (endb/sql:commit-write-tx endb/lib/server:*db* write-db)))
-                                            (setf endb/lib/server:*db* new-db)
+                                    (bt:with-lock-held ((endb/sql/db:db-write-lock (endb/sql/db:dbms-db dbms)))
+                                      (if (eq original-md (endb/sql/db:db-meta-data (endb/sql/db:dbms-db dbms)))
+                                          (let* ((new-db (endb/sql:commit-write-tx (endb/sql/db:dbms-db dbms) write-db)))
+                                            (setf (endb/sql/db:dbms-db dbms) new-db)
                                             (%stream-response #'on-response-send content-type '("result") (list (vector result-code)))
                                             (funcall on-ws-send (%json-rpc-result acc json-rpc-id)))
                                           (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ "Conflict" json-rpc-id))))))

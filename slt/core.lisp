@@ -25,7 +25,7 @@
 
 (cffi:defctype DbEngine (:struct DbEngine))
 
-(defvar *endb*)
+(defvar *endb-dbms*)
 (defvar *endb-db-engine*)
 (defvar *endb-db-engine-reported-name* "postgresql")
 
@@ -91,24 +91,24 @@
      (ppConn (:pointer :pointer))
      (zOpt :string))
   (declare (ignorable NotUsed ppConn zOpt))
-  (let* ((endb (if zCon
-                   (endb/sql:make-directory-db :directory zCon)
-                   (endb/sql:make-db))))
+  (let* ((dbms (endb/sql/db:make-dbms :db (if zCon
+                                              (endb/sql:make-directory-db :directory zCon)
+                                              (endb/sql:make-db)))))
     (setf (cffi:mem-ref ppConn :pointer) (cffi:null-pointer))
-    (setf *endb* endb)
+    (setf *endb-dbms* dbms)
     (when zCon
       (endb/sql/db:start-background-compaction
-       *endb*
+       (endb/sql/db:dbms-db dbms)
        (lambda ()
-         *endb*)
+         (endb/sql/db:dbms-db dbms))
        (lambda (tx-fn)
-         (bt:with-lock-held ((endb/sql/db:db-write-lock *endb*))
-           (let ((write-db (endb/sql:begin-write-tx *endb*)))
+         (bt:with-lock-held ((endb/sql/db:db-write-lock (endb/sql/db:dbms-db dbms)))
+           (let ((write-db (endb/sql:begin-write-tx (endb/sql/db:dbms-db dbms))))
              (funcall tx-fn write-db)
-             (setf *endb* (endb/sql:commit-write-tx *endb* write-db)))))
+             (setf (endb/sql/db:dbms-db dbms) (endb/sql:commit-write-tx (endb/sql/db:dbms-db dbms) write-db)))))
        (lambda (path buffer)
-         (endb/storage:store-put-object (endb/sql/db:db-store *endb*) path buffer))))
-    (endb/sql/db:start-background-indexer *endb*)
+         (endb/storage:store-put-object (endb/sql/db:db-store (endb/sql/db:dbms-db dbms)) path buffer))))
+    (endb/sql/db:start-background-indexer (endb/sql/db:dbms-db dbms))
     0))
 
 (cffi:defcallback endbGetEngineName :int
@@ -127,18 +127,19 @@
      (zSql :string)
      (bQuiet :int))
   (declare (ignore pConn bQuiet))
-  (if (boundp '*endb*)
+  (if (boundp '*endb-dbms*)
       (handler-case
-          (bt:with-lock-held ((endb/sql/db:db-write-lock *endb*))
-            (let ((write-db (endb/sql:begin-write-tx *endb*)))
-              (multiple-value-bind (result result-code)
-                  (endb/sql:execute-sql write-db zSql)
-                (declare (ignore result))
-                (if result-code
-                    (progn
-                      (setf *endb* (endb/sql:commit-write-tx *endb* write-db))
-                      0)
-                    1))))
+          (let ((dbms *endb-dbms*))
+            (bt:with-lock-held ((endb/sql/db:db-write-lock (endb/sql/db:dbms-db dbms)))
+              (let ((write-db (endb/sql:begin-write-tx (endb/sql/db:dbms-db dbms))))
+                (multiple-value-bind (result result-code)
+                    (endb/sql:execute-sql write-db zSql)
+                  (declare (ignore result))
+                  (if result-code
+                      (progn
+                        (setf (endb/sql/db:dbms-db dbms) (endb/sql:commit-write-tx (endb/sql/db:dbms-db dbms) write-db))
+                        0)
+                      1)))))
         (endb/sql/db:sql-rollback-error (e)
           (endb/lib:log-debug "~A" e)
           1)
@@ -154,10 +155,10 @@
      (pazResult (:pointer (:pointer (:pointer :char))))
      (pnResult (:pointer :int)))
   (declare (ignorable pConn zTypes pazResult pnResult))
-  (if (boundp '*endb*)
+  (if (boundp '*endb-dbms*)
       (handler-case
           (multiple-value-bind (result result-code)
-              (endb/sql:execute-sql *endb* zSql)
+              (endb/sql:execute-sql (endb/sql/db:dbms-db *endb-dbms*) zSql)
             (if result-code
                 (progn
                   (%slt-result result zTypes pazResult pnResult)
@@ -182,10 +183,10 @@
 (cffi:defcallback endbDisconnect :int
     ((pConn :pointer))
   (declare (ignore pConn))
-  (if (boundp '*endb*)
+  (if (boundp '*endb-dbms*)
       (progn
-        (endb/sql:db-close *endb*)
-        (makunbound '*endb*)
+        (endb/sql:db-close (endb/sql/db:dbms-db *endb-dbms*))
+        (makunbound '*endb-dbms*)
         0)
       1))
 
