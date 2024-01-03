@@ -1,6 +1,8 @@
 (defpackage :endb/storage/buffer-pool
   (:use :cl)
-  (:export #:make-buffer-pool #:buffer-pool-get #:buffer-pool-put #:buffer-pool-evict #:buffer-pool-close #:make-writeable-buffer-pool #:writeable-buffer-pool-pool)
+  (:export #:make-buffer-pool #:buffer-pool-get #:buffer-pool-put #:buffer-pool-evict #:buffer-pool-close
+           #:make-writeable-buffer-pool #:writeable-buffer-pool-pool #:deep-copy-writeable-buffer-pool)
+  (:import-from :alexandria)
   (:import-from :bordeaux-threads)
   (:import-from :endb/lib)
   (:import-from :endb/lib/arrow))
@@ -95,3 +97,14 @@
 
 (defmethod buffer-pool-close ((bp writeable-buffer-pool))
   (clrhash (writeable-buffer-pool-pool bp)))
+
+(defun deep-copy-writeable-buffer-pool (bp)
+  (let* ((new-pool (alexandria:copy-hash-table (writeable-buffer-pool-pool bp)))
+         (bp (copy-writeable-buffer-pool bp)))
+    (setf (writeable-buffer-pool-pool bp) new-pool)
+    (maphash (lambda (k v)
+               (setf (gethash k new-pool)
+                     (loop for buffer in v
+                           collect (endb/arrow:to-arrow (coerce buffer 'list)))))
+             new-pool)
+    bp))

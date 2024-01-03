@@ -24,8 +24,8 @@
            #:base-table #:base-table-rows #:base-table-deleted-row-ids #:table-type #:table-columns #:constraint-definitions #:query-cache-key
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
            #:view-definition #:calculate-stats #:run-compaction #:start-background-compaction #:start-background-indexer
-           #:tx-begin #:tx-commit #:tx-rollback #:*savepoints* #:savepoint-db
-           #:sql-begin-error #:sql-commit-error #:sql-rollback-error))
+           #:tx-begin #:tx-commit #:tx-rollback #:*savepoints* #:*savepoint-timeout-seconds* #:savepoint-db
+           #:sql-tx-error #:sql-begin-error #:sql-commit-error #:sql-rollback-error))
 (in-package :endb/sql/db)
 
 ;; DML/DDL
@@ -53,11 +53,13 @@
   compaction-thread
   compaction-queue)
 
-(define-condition sql-begin-error (error) ())
+(define-condition sql-tx-error (error) ())
 
-(define-condition sql-commit-error (error) ())
+(define-condition sql-begin-error (sql-tx-error) ())
 
-(define-condition sql-rollback-error (error) ())
+(define-condition sql-commit-error (sql-tx-error) ())
+
+(define-condition sql-rollback-error (sql-tx-error) ())
 
 (defun syn-current_date (db)
   (endb/sql/expr:syn-cast (syn-current_timestamp db) :date))
@@ -666,7 +668,7 @@
       (values nil (length new-batch-file-idx-erased-row-ids)))))
 
 (defvar *savepoints* nil)
-(defparameter +savepoint-timeout-seconds+ 60)
+(defvar *savepoint-timeout-seconds* 60)
 
 (defstruct savepoint db timer)
 
@@ -687,9 +689,11 @@
           (let ((entry (gethash savepoint *savepoints*)))
             (if entry
                 (error 'endb/sql/expr:sql-runtime-error :message (format nil "Duplicate savepoint: ~A" (%savepoint-string savepoint)))
-                (let ((entry (make-savepoint :db db :timer (%savepoint-timer *savepoints* savepoint))))
+                (let* ((savepoint-db (copy-db db))
+                       (entry (make-savepoint :db savepoint-db :timer (%savepoint-timer *savepoints* savepoint))))
+                  (setf (db-buffer-pool savepoint-db) (endb/storage/buffer-pool:deep-copy-writeable-buffer-pool (db-buffer-pool savepoint-db)))
                   (setf (gethash savepoint *savepoints*) entry)
-                  #+sbcl (sb-ext:schedule-timer (savepoint-timer entry) +savepoint-timeout-seconds+)
+                  #+sbcl (sb-ext:schedule-timer (savepoint-timer entry) *savepoint-timeout-seconds*)
                   (values nil savepoint))))
           (error 'endb/sql/expr:sql-runtime-error :message "Savepoints disabled"))
       (error 'sql-begin-error)))
@@ -718,10 +722,10 @@
                   (progn
                     (sb-ext:unschedule-timer (savepoint-timer entry))
                     (setf (savepoint-timer entry) (%savepoint-timer *savepoints* savepoint))
-                    (sb-ext:schedule-timer (savepoint-timer entry) +savepoint-timeout-seconds+))
+                    (sb-ext:schedule-timer (savepoint-timer entry) *savepoint-timeout-seconds*))
                   (setf (db-meta-data db) (db-meta-data (savepoint-db entry))
                         (db-current-timestamp db) (db-current-timestamp (savepoint-db entry))
-                        (db-buffer-pool db) (db-buffer-pool (savepoint-db entry)))
+                        (db-buffer-pool db) (endb/storage/buffer-pool:deep-copy-writeable-buffer-pool (db-buffer-pool (savepoint-db entry))))
                   (values nil t))
                 (error 'endb/sql/expr:sql-runtime-error :message (format nil "No active savepoint: ~A" (%savepoint-string savepoint)))))
           (error 'endb/sql/expr:sql-runtime-error :message "Savepoints disabled"))

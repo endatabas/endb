@@ -205,7 +205,17 @@
                (%do-query dbms "POST" "application/json" "RELEASE 'foo'" "[]" "false")))
 
     (is (equal (list +http-bad-request+ '(:content-type "text/plain") (format nil "No active savepoint: \"foo\"~%"))
-               (%do-query dbms "GET" "application/x-ndjson" "ROLLBACK TO 'foo'; SELECT * FROM foo ORDER BY a;" "[]" "false")))))
+               (%do-query dbms "GET" "application/x-ndjson" "ROLLBACK TO 'foo'; SELECT * FROM foo ORDER BY a;" "[]" "false")))
+
+    (is (equal (list +http-created+
+                     '(:content-type "application/x-ndjson")
+                     (format nil "{\"a\":1,\"b\":2}~%{\"a\":3,\"b\":4}~%"))
+               (%do-query dbms "POST" "application/x-ndjson" "INSERT INTO bar {a: 1, b: 2}; SAVEPOINT 'bar'; INSERT INTO bar {a: 3, b: 4}; SELECT * FROM bar ORDER BY a " "[]" "false")))
+
+    (is (equal (list +http-ok+
+                     '(:content-type "application/x-ndjson")
+                     (format nil "{\"a\":1,\"b\":2}~%"))
+               (%do-query dbms "POST" "application/x-ndjson" "ROLLBACK TO 'bar'; SELECT * FROM bar ORDER BY a " "[]" "false")))))
 
 (test websocket
   (let* ((dbms (endb/sql/db:make-dbms :db (endb/sql:make-db)))
@@ -339,7 +349,16 @@
 
       (is (equalp "2.0" (fset:lookup response-map "jsonrpc")))
       (is (equalp 1 (fset:lookup response-map "id")))
-      (is (equalp +json-rpc-internal-error+ (fset:lookup (fset:lookup response-map "error") "code"))))))
+      (is (equalp +json-rpc-internal-error+ (fset:lookup (fset:lookup response-map "error") "code"))))
+
+    (let* ((response (%do-websocket dbms conn (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                                  ("id" 1)
+                                                                                  ("method" "sql")
+                                                                                  ("params" (fset:seq "select 1; select 2;"))))))
+           (response-map (endb/json:json-parse response)))
+
+      (is (equalp (fset:seq (fset:map ("column1" 2)))
+                  (fset:lookup (fset:lookup response-map "result") "@graph"))))))
 
 (test websocket-interactive-tx
   (let* ((dbms (endb/sql/db:make-dbms :db (endb/sql:make-db)))
@@ -349,11 +368,24 @@
     (let* ((response (%do-websocket dbms conn-1 (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
                                                                                     ("id" 1)
                                                                                     ("method" "sql")
-                                                                                    ("params" (fset:seq "select 1; select 2;"))))))
+                                                                                    ("params" (fset:seq "select 1; commit;"))))))
            (response-map (endb/json:json-parse response)))
+
       (is (equalp (fset:map ("jsonrpc" "2.0")
                             ("id" 1)
-                            ("error" (fset:map ("message" "Multiple statements not allowed")
+                            ("error" (fset:map ("message" "Explicit transactions not supported in multiple statements")
+                                               ("code" +json-rpc-internal-error+))))
+                  response-map)))
+
+    (let* ((response (%do-websocket dbms conn-1 (endb/json:json-stringify (fset:map ("jsonrpc" "2.0")
+                                                                                    ("id" 1)
+                                                                                    ("method" "sql")
+                                                                                    ("params" (fset:seq "begin; select 1;"))))))
+           (response-map (endb/json:json-parse response)))
+
+      (is (equalp (fset:map ("jsonrpc" "2.0")
+                            ("id" 1)
+                            ("error" (fset:map ("message" "Explicit transactions not supported in multiple statements")
                                                ("code" +json-rpc-internal-error+))))
                   response-map)))
 
