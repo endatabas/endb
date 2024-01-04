@@ -509,7 +509,7 @@
 (defmethod sql-% ((x number) (y number))
   (if (zerop y)
       :null
-      (mod x y)))
+      (nth-value 1 (truncate x y))))
 
 (defmethod sql-% (x (y number))
   (* 0 y))
@@ -1062,15 +1062,17 @@
                     (ppcre:regex-replace-all (format nil "(?<![~A])_" z) regex ".")
                     (substitute #\. #\_ regex)))
          (regex (if zp
-                    (ppcre:regex-replace-all (format nil "~A(_|\\\\%)" z) regex "\\1")
+                    (ppcre:regex-replace-all (format nil "~A(_|\\\\%|~A)" z z) regex "\\1")
                     regex)))
     (concatenate 'string "^" regex "$")))
 
 (defmethod sql-like ((x string) (y string) &optional (z nil zp))
-  (integerp (ppcre:scan (if zp
-                            (build-like-regex x z)
-                            (build-like-regex x))
-                        y)))
+  (if (and zp (eq :null z))
+      :null
+      (integerp (ppcre:scan (if zp
+                                (build-like-regex x z)
+                                (build-like-regex x))
+                            y))))
 
 (defmethod sql-glob ((x (eql :null)) y)
   :null)

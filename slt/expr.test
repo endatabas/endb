@@ -783,6 +783,14 @@ SELECT 'fo%' LIKE 'foX%' ESCAPE 'X'
 ----
 
 query I nosort
+SELECT 'HELLO' LIKE 'HELLO' ESCAPE NULL
+----
+
+query I nosort
+SELECT 'b' LIKE 'bb' ESCAPE 'b'
+----
+
+query I nosort
 SELECT 'foo' LIKE '.oo'
 ----
 
@@ -832,6 +840,14 @@ SELECT LOWER('FooBar')
 
 query T nosort
 SELECT UPPER('FooBar')
+----
+
+query R nosort
+SELECT MOD(-3, 2)
+----
+
+query R nosort
+SELECT -3 % 4
 ----
 
 query R nosort
