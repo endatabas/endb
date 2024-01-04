@@ -136,7 +136,7 @@
                                  (%on-response-init status-code content-type)))
                            #'%on-response-send))))))
 
-(test conflict
+(test retry-on-conflict
   (let* ((dbms (endb/sql/db:make-dbms :db (endb/sql:make-db)))
          (write-db (endb/sql:begin-write-tx (endb/sql/db:dbms-db dbms)))
          (write-lock (endb/sql/db:dbms-write-lock dbms)))
@@ -147,15 +147,22 @@
                      (%do-query dbms "POST" "application/json" "INSERT INTO foo {a: 1, b: 2}" "[]" "false")))))
 
       (multiple-value-bind (result result-code)
-          (endb/sql:execute-sql write-db "INSERT INTO foo {a: 1, b: 2}")
+          (endb/sql:execute-sql write-db "INSERT INTO foo {a: 3, b: 4}")
         (is (null result))
         (is (= 1 result-code))
         (setf (endb/sql/db:dbms-db dbms) (endb/sql:commit-write-tx (endb/sql/db:dbms-db dbms) write-db)))
 
       (bt:release-lock write-lock)
 
-      (is (equal (list +http-conflict+ () "")
-                 (bt:join-thread thread))))))
+      (is (equal (list +http-created+
+                       '(:content-type "application/json")
+                       (format nil "[[1]]~%"))
+                 (bt:join-thread thread)))
+
+      (is (equal (list +http-ok+
+                       '(:content-type "application/x-ndjson")
+                       (format nil "{\"a\":1,\"b\":2}~%{\"a\":3,\"b\":4}~%"))
+                 (%do-query dbms "GET" "application/x-ndjson" "SELECT * FROM foo ORDER BY a" "[]" "false"))))))
 
 (test savepoints
   (let* ((dbms (endb/sql/db:make-dbms :db (endb/sql:make-db))))
@@ -198,6 +205,24 @@
                      '(:content-type "application/x-ndjson")
                      (format nil "{\"a\":1,\"b\":2}~%{\"a\":3,\"b\":4}~%"))
                (%do-query dbms "GET" "application/x-ndjson" "SELECT * FROM foo ORDER BY a" "[]" "false")))
+
+    (is (equal (list +http-bad-request+ () "")
+               (%do-query dbms "GET" "application/x-ndjson" "ROLLBACK TO 'foo'; INSERT INTO foo {a: 5, b: 6};" "[]" "false")))
+
+    (is (equal (list +http-ok+
+                     '(:content-type "application/x-ndjson")
+                     (format nil "{\"a\":1,\"b\":2}~%{\"a\":5,\"b\":6}~%"))
+               (%do-query dbms "POST" "application/x-ndjson" "ROLLBACK TO 'foo'; INSERT INTO foo {a: 5, b: 6}; SELECT * FROM foo ORDER BY a;" "[]" "false")))
+
+    (is (equal (list +http-ok+
+                     '(:content-type "application/x-ndjson")
+                     (format nil "{\"a\":1,\"b\":2}~%{\"a\":3,\"b\":4}~%"))
+               (%do-query dbms "GET" "application/x-ndjson" "SELECT * FROM foo ORDER BY a" "[]" "false")))
+
+    (is (equal (list +http-ok+
+                     '(:content-type "application/x-ndjson")
+                     (format nil "{\"a\":1,\"b\":2}~%"))
+               (%do-query dbms "GET" "application/x-ndjson" "ROLLBACK TO 'foo'; SELECT * FROM foo ORDER BY a" "[]" "false")))
 
     (is (equal (list +http-ok+
                      '(:content-type "application/json")

@@ -75,6 +75,11 @@
   (or result (and (listp result-code)
                   (not (null result-code)))))
 
+(defun %maybe-rows-stream-response (on-response-send content-type result result-code)
+  (if (%rows-response-p result result-code)
+      (%stream-response on-response-send content-type result-code result)
+      (%stream-response on-response-send content-type '("result") (list (vector result-code)))))
+
 (defun endb-query (dbms request-method content-type sql parameters manyp on-response-init on-response-send)
   (handler-bind ((endb/lib/server:sql-abort-query-error
                    (lambda (e)
@@ -111,19 +116,29 @@
                      (unchangedp
                       (progn
                         (funcall on-response-init +http-ok+ content-type)
-                        (if (%rows-response-p result result-code)
-                            (%stream-response on-response-send content-type result-code result)
-                            (%stream-response on-response-send content-type '("result") (list (vector result-code))))))
+                        (%maybe-rows-stream-response on-response-send content-type result result-code)))
                      ((equal "POST" request-method)
-                      (bt:with-lock-held ((endb/sql/db:dbms-write-lock dbms))
-                        (if (eq original-md (endb/sql/db:db-meta-data (endb/sql/db:dbms-db dbms)))
-                            (let* ((new-db (endb/sql:commit-write-tx (endb/sql/db:dbms-db dbms) write-db)))
-                              (setf (endb/sql/db:dbms-db dbms) new-db)
-                              (funcall on-response-init +http-created+ content-type)
-                              (if (%rows-response-p result result-code)
-                                  (%stream-response on-response-send content-type result-code result)
-                                  (%stream-response on-response-send content-type '("result") (list (vector result-code)))))
-                            (funcall on-response-init +http-conflict+ ""))))
+                      (if (endb/sql/db:db-savepointp write-db)
+                          (progn
+                            (funcall on-response-init +http-ok+ content-type)
+                            (%maybe-rows-stream-response on-response-send content-type result result-code))
+                          (bt:with-lock-held ((endb/sql/db:dbms-write-lock dbms))
+                            (if (eq original-md (endb/sql/db:db-meta-data (endb/sql/db:dbms-db dbms)))
+                                (let* ((new-db (endb/sql:commit-write-tx (endb/sql/db:dbms-db dbms) write-db)))
+                                  (setf (endb/sql/db:dbms-db dbms) new-db)
+                                  (funcall on-response-init +http-created+ content-type)
+                                  (%maybe-rows-stream-response on-response-send content-type result result-code))
+                                (let* ((retry-original-md (endb/sql/db:db-meta-data (endb/sql/db:dbms-db dbms)))
+                                       (retry-write-db (endb/sql:begin-write-tx (endb/sql/db:dbms-db dbms))))
+                                  (multiple-value-bind (result result-code)
+                                      (endb/sql:execute-sql retry-write-db sql parameters manyp)
+                                    (let* ((new-db (endb/sql:commit-write-tx (endb/sql/db:dbms-db dbms) retry-write-db)))
+                                      (setf (endb/sql/db:dbms-db dbms) new-db)
+                                      (funcall on-response-init (if (eq retry-original-md (endb/sql/db:db-meta-data new-db))
+                                                                    +http-ok+
+                                                                    +http-created+)
+                                               content-type)
+                                      (%maybe-rows-stream-response on-response-send content-type result result-code))))))))
                      (t (funcall on-response-init +http-bad-request+ ""))))))))
       (endb/lib/cst:sql-parse-error (e)
         (funcall on-response-init +http-bad-request+ "text/plain")
@@ -211,14 +226,22 @@
                               (original-md (or (endb/sql/db:db-connection-original-md connection)
                                                (endb/sql/db:db-meta-data write-db)))
                               (content-type "application/ld+json"))
-                         (labels ((commit-tx (result-code)
+                         (labels ((commit-tx (result result-code)
                                     (bt:with-lock-held ((endb/sql/db:dbms-write-lock dbms))
-                                      (if (eq original-md (endb/sql/db:db-meta-data (endb/sql/db:dbms-db dbms)))
-                                          (let* ((new-db (endb/sql:commit-write-tx (endb/sql/db:dbms-db dbms) write-db)))
-                                            (setf (endb/sql/db:dbms-db dbms) new-db)
-                                            (%stream-response #'on-response-send content-type '("result") (list (vector result-code)))
-                                            (funcall on-ws-send (%json-rpc-result acc json-rpc-id)))
-                                          (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ "Conflict" json-rpc-id))))))
+                                      (cond
+                                        ((eq original-md (endb/sql/db:db-meta-data (endb/sql/db:dbms-db dbms)))
+                                         (let* ((new-db (endb/sql:commit-write-tx (endb/sql/db:dbms-db dbms) write-db)))
+                                           (setf (endb/sql/db:dbms-db dbms) new-db)
+                                           (%maybe-rows-stream-response #'on-response-send content-type result result-code)
+                                           (funcall on-ws-send (%json-rpc-result acc json-rpc-id))))
+                                        (interactive-tx-p (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ "Conflict" json-rpc-id)))
+                                        (t (let* ((retry-write-db (endb/sql:begin-write-tx (endb/sql/db:dbms-db dbms))))
+                                             (multiple-value-bind (result result-code)
+                                                 (endb/sql:execute-sql retry-write-db sql parameters manyp)
+                                               (let* ((new-db (endb/sql:commit-write-tx (endb/sql/db:dbms-db dbms) retry-write-db)))
+                                                 (setf (endb/sql/db:dbms-db dbms) new-db)
+                                                 (%maybe-rows-stream-response #'on-response-send content-type result result-code)
+                                                 (funcall on-ws-send (%json-rpc-result acc json-rpc-id))))))))))
                            (if (or (not (stringp sql))
                                    (not (fset:collection? parameters))
                                    (not (typep manyp 'boolean)))
@@ -226,18 +249,12 @@
                                (handler-case
                                    (multiple-value-bind (result result-code)
                                        (endb/sql:execute-sql write-db sql parameters manyp)
-                                     (cond
-                                       ((%rows-response-p result result-code)
-                                        (progn
-                                          (%stream-response #'on-response-send content-type result-code result)
-                                          (funcall on-ws-send (%json-rpc-result acc json-rpc-id))))
-                                       (result-code
-                                        (if interactive-tx-p
-                                            (progn
-                                              (%stream-response #'on-response-send content-type '("result") (list (vector result-code)))
-                                              (funcall on-ws-send (%json-rpc-result acc json-rpc-id)))
-                                            (commit-tx result-code)))
-                                       (t (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ "Conflict" json-rpc-id)))))
+                                     (let* ((unchangedp (eq original-md (endb/sql/db:db-meta-data write-db))))
+                                       (if (or unchangedp interactive-tx-p)
+                                           (progn
+                                             (%maybe-rows-stream-response #'on-response-send content-type result result-code)
+                                             (funcall on-ws-send (%json-rpc-result acc json-rpc-id)))
+                                           (commit-tx result result-code))))
                                  (endb/sql/db:sql-begin-error ()
                                    (if interactive-tx-p
                                        (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ "Cannot nest transactions" json-rpc-id))
@@ -251,7 +268,7 @@
                                        (progn
                                          (setf (endb/sql/db:db-connection-db connection) nil
                                                (endb/sql/db:db-connection-original-md connection) nil)
-                                         (commit-tx t))
+                                         (commit-tx nil t))
                                        (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ "No active transaction" json-rpc-id))))
                                  (endb/sql/db:sql-rollback-error ()
                                    (setf (endb/sql/db:db-connection-db connection) nil

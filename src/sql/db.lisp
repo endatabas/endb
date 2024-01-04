@@ -17,7 +17,7 @@
            #:syn-current_date #:syn-current_time #:syn-current_timestamp
 
            #:make-db #:copy-db #:db-buffer-pool #:db-store #:db-meta-data #:db-current-timestamp
-           #:db-query-cache #:db-hash-index-cache #:db-indexer-queue #:db-indexer-thread
+           #:db-query-cache #:db-hash-index-cache #:db-indexer-queue #:db-indexer-thread #:db-savepointp
            #:make-db-connection #:db-connection-db #:db-connection-original-md #:db-connection-remote-addr
            #:make-dbms #:dbms-db #:dbms-connections #:dbms-savepoints #:dbms-write-lock #:dbms-compaction-thread #:dbms-compaction-queue
 
@@ -41,7 +41,8 @@
   (query-cache (make-hash-table :synchronized t :weakness :value :test 'equal))
   indexer-thread
   indexer-queue
-  (hash-index-cache (make-hash-table :synchronized t :test 'equal)))
+  (hash-index-cache (make-hash-table :synchronized t :test 'equal))
+  savepointp)
 
 (defstruct db-connection db original-md remote-addr)
 
@@ -691,7 +692,8 @@
                 (error 'endb/sql/expr:sql-runtime-error :message (format nil "Duplicate savepoint: ~A" (%savepoint-string savepoint)))
                 (let* ((savepoint-db (copy-db db))
                        (entry (make-savepoint :db savepoint-db :timer (%savepoint-timer *savepoints* savepoint))))
-                  (setf (db-buffer-pool savepoint-db) (endb/storage/buffer-pool:deep-copy-writeable-buffer-pool (db-buffer-pool savepoint-db)))
+                  (setf (db-buffer-pool savepoint-db) (endb/storage/buffer-pool:deep-copy-writeable-buffer-pool (db-buffer-pool savepoint-db))
+                        (db-savepointp savepoint-db) t)
                   (setf (gethash savepoint *savepoints*) entry)
                   #+sbcl (sb-ext:schedule-timer (savepoint-timer entry) *savepoint-timeout-seconds*)
                   (values nil savepoint))))
@@ -725,7 +727,8 @@
                     (sb-ext:schedule-timer (savepoint-timer entry) *savepoint-timeout-seconds*))
                   (setf (db-meta-data db) (db-meta-data (savepoint-db entry))
                         (db-current-timestamp db) (db-current-timestamp (savepoint-db entry))
-                        (db-buffer-pool db) (endb/storage/buffer-pool:deep-copy-writeable-buffer-pool (db-buffer-pool (savepoint-db entry))))
+                        (db-buffer-pool db) (endb/storage/buffer-pool:deep-copy-writeable-buffer-pool (db-buffer-pool (savepoint-db entry)))
+                        (db-savepointp db) (db-savepointp (savepoint-db entry)))
                   (values nil t))
                 (error 'endb/sql/expr:sql-runtime-error :message (format nil "No active savepoint: ~A" (%savepoint-string savepoint)))))
           (error 'endb/sql/expr:sql-runtime-error :message "Savepoints disabled"))
