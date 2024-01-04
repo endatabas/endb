@@ -1981,19 +1981,35 @@
                        parameter))))
 
 (defmethod sql->cl (ctx (type (eql :begin)) &rest args)
+  (declare (ignore args))
+  (append `(endb/sql/db:tx-begin ,(fset:lookup ctx :db-sym))))
+
+(defun %savepoint-src (ctx savepoint)
+  (list :savepoint (cond
+                     ((and (symbolp savepoint)
+                           (not (null savepoint)))
+                      (symbol-name savepoint))
+                     (savepoint (ast->cl ctx savepoint))
+                     (t `(endb/sql/expr:sql-uuid)))))
+
+(defmethod sql->cl (ctx (type (eql :savepoint)) &rest args)
   (append `(endb/sql/db:tx-begin ,(fset:lookup ctx :db-sym))
-          (when args
-            (list :savepoint (ast->cl ctx (first args))))))
+          (%savepoint-src ctx (first args))))
+
+(defmethod sql->cl (ctx (type (eql :release)) &rest args)
+  (destructuring-bind (savepoint)
+      args
+    (append `(endb/sql/db:tx-commit ,(fset:lookup ctx :db-sym))
+            (%savepoint-src ctx savepoint))))
 
 (defmethod sql->cl (ctx (type (eql :commit)) &rest args)
-  (append `(endb/sql/db:tx-commit ,(fset:lookup ctx :db-sym))
-          (when args
-            (list :savepoint (ast->cl ctx (first args))))))
+  (declare (ignore args))
+  (append `(endb/sql/db:tx-commit ,(fset:lookup ctx :db-sym))))
 
 (defmethod sql->cl (ctx (type (eql :rollback)) &rest args)
   (append `(endb/sql/db:tx-rollback ,(fset:lookup ctx :db-sym))
           (when args
-            (list :savepoint (ast->cl ctx (first args))))))
+            (%savepoint-src ctx (first args)))))
 
 (defmethod sql->cl (ctx fn &rest args)
   (sql->cl ctx :function fn args))

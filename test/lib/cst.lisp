@@ -211,6 +211,7 @@ UNION
   (is-valid "SELECT 'eé'")
   (is-valid "SELECT \"eé\"")
   (is-valid "SAVEPOINT foo")
+  (is-valid "SAVEPOINT")
   (is-valid "RELEASE foo")
   (is-valid "RELEASE SAVEPOINT foo")
   (is-valid "ROLLBACK TO SAVEPOINT foo")

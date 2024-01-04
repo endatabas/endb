@@ -234,8 +234,8 @@ peg! {
     begin_stmt <- BEGIN TRANSACTION?;
     commit_stmt <- ( COMMIT / END ) TRANSACTION?;
     rollback_stmt <- ROLLBACK TRANSACTION? ( TO SAVEPOINT? savepoint_name)?;
-    savepoint_name <- expr;
-    savepoint_stmt <- SAVEPOINT savepoint_name;
+    savepoint_name <- ident / string_literal / bind_parameter;
+    savepoint_stmt <- SAVEPOINT savepoint_name?;
     release_stmt <- RELEASE SAVEPOINT? savepoint_name;
 
     <sql_stmt> <-

@@ -164,6 +164,13 @@
                        (format nil "{\"a\":1,\"b\":2}~%{\"a\":3,\"b\":4}~%"))
                  (%do-query dbms "GET" "application/x-ndjson" "SELECT * FROM foo ORDER BY a" "[]" "false"))))))
 
+(defparameter +random-uuid-scanner+
+  (ppcre:create-scanner "^[\\da-f]{8}-[\\da-f]{4}-4[\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"))
+
+(defun %random-uuid-p (x)
+  (and (stringp x)
+       (not (null (ppcre:scan +random-uuid-scanner+ x)))))
+
 (test savepoints
   (let* ((dbms (endb/sql/db:make-dbms :db (endb/sql:make-db))))
 
@@ -235,12 +242,23 @@
     (is (equal (list +http-created+
                      '(:content-type "application/x-ndjson")
                      (format nil "{\"a\":1,\"b\":2}~%{\"a\":3,\"b\":4}~%"))
-               (%do-query dbms "POST" "application/x-ndjson" "INSERT INTO bar {a: 1, b: 2}; SAVEPOINT 'bar'; INSERT INTO bar {a: 3, b: 4}; SELECT * FROM bar ORDER BY a " "[]" "false")))
+               (%do-query dbms "POST" "application/x-ndjson" "INSERT INTO bar {a: 1, b: 2}; SAVEPOINT baz; INSERT INTO bar {a: 3, b: 4}; SELECT * FROM bar ORDER BY a " "[]" "false")))
 
     (is (equal (list +http-ok+
                      '(:content-type "application/x-ndjson")
                      (format nil "{\"a\":1,\"b\":2}~%"))
-               (%do-query dbms "POST" "application/x-ndjson" "ROLLBACK TO 'bar'; SELECT * FROM bar ORDER BY a " "[]" "false")))))
+               (%do-query dbms "POST" "application/x-ndjson" "ROLLBACK TO baz; SELECT * FROM bar ORDER BY a " "[]" "false")))
+
+    (destructuring-bind (status-code headers body)
+        (%do-query dbms "POST" "application/json" "SAVEPOINT" "[]" "false")
+      (is (eq +http-ok+ status-code))
+      (is (equal '(:content-type "application/json") headers))
+      (let ((savepoint-row (fset:lookup (endb/json:json-parse body) 0)))
+        (is (%random-uuid-p (fset:lookup savepoint-row 0)))
+        (is (equal (list +http-ok+
+                         '(:content-type "application/json")
+                         body)
+                   (%do-query dbms "POST" "application/json" "RELEASE ?" (endb/json:json-stringify savepoint-row) "false")))))))
 
 (test websocket
   (let* ((dbms (endb/sql/db:make-dbms :db (endb/sql:make-db)))
