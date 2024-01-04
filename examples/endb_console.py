@@ -29,6 +29,7 @@ class EndbConsole(cmd.Cmd):
         self.nested_prompt = nested_prompt
         self.timer = False
         self.lines = []
+        self.was_error = False
 
     def emptyline(self):
         pass
@@ -103,11 +104,13 @@ class EndbConsole(cmd.Cmd):
             else:
                 pprint.pprint(result)
         except urllib.error.HTTPError as e:
+            self.was_error = True
             print('%s %s' % (e.code, e.reason))
             body = e.read().decode()
             if body:
                 print(body)
         except urllib.error.URLError as e:
+            self.was_error = True
             print(self.url)
             print(e.reason)
         if start_time and self.timer:
@@ -138,9 +141,12 @@ if __name__ == '__main__':
                 console.default(path.read_text())
             else:
                 console.default(args.sql)
-        console.cmdloop()
 
-        if sys.stdin.isatty():
-            print()
+            if console.was_error:
+                sys.exit(1)
+        else:
+            console.cmdloop()
+            if sys.stdin.isatty():
+                print()
     except KeyboardInterrupt:
         print()
