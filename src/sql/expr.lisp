@@ -1578,6 +1578,13 @@
 (defmethod syn-cast ((x (eql :null)) type)
   :null)
 
+(defmethod syn-cast (x (type list))
+  (let ((x (syn-cast x (first type))))
+    (if (and (eq :char (first type))
+             (numberp (second type)))
+        (format nil "~vA" (second type) x)
+        x)))
+
 (defmethod syn-cast (x (type (eql :varchar)))
   (princ-to-string x))
 
@@ -1630,6 +1637,9 @@
 (defmethod syn-cast ((x vector) (type (eql :varchar)))
   (trivial-utf-8:utf-8-bytes-to-string x))
 
+(defmethod syn-cast (x (type (eql :char)))
+  (syn-cast x :varchar))
+
 (defmethod syn-cast (x (type (eql :text)))
   (syn-cast x :varchar))
 
@@ -1651,6 +1661,23 @@
 (defmethod syn-cast ((x (eql nil)) (type (eql :integer)))
   0)
 
+(defmethod syn-cast ((x number) (type (eql :boolean)))
+  (not (zerop x)))
+
+(defmethod syn-cast ((x (eql t)) (type (eql :boolean)))
+  x)
+
+(defmethod syn-cast ((x (eql nil)) (type (eql :boolean)))
+  x)
+
+(defmethod syn-cast ((x string) (type (eql :boolean)))
+  (cond
+    ((member x '("t" "true") :test 'equalp)
+     t)
+    ((member x '("f" "false") :test 'equalp)
+     nil)
+    (t :null)))
+
 (defparameter +integer-scanner+ (ppcre:create-scanner "^-?\\d+"))
 
 (defmethod syn-cast ((x string) (type (eql :integer)))
@@ -1666,6 +1693,9 @@
 
 (defmethod syn-cast ((x integer) (type (eql :integer)))
   x)
+
+(defmethod syn-cast (x (type (eql :smallint)))
+  (syn-cast x :integer))
 
 (defmethod syn-cast (x (type (eql :bigint)))
   (syn-cast x :integer))

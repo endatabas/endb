@@ -1514,7 +1514,13 @@
 (defmethod sql->cl (ctx (type (eql :cast)) &rest args)
   (destructuring-bind (x sql-type)
       args
-    `(endb/sql/expr:syn-cast ,(ast->cl ctx x) ,(intern (string-upcase (symbol-name sql-type)) :keyword))))
+    (let ((type-parts (loop for sql-type in sql-type
+                            collect (if (symbolp sql-type)
+                                        (intern (string-upcase (symbol-name sql-type)) :keyword)
+                                        sql-type))))
+      `(endb/sql/expr:syn-cast ,(ast->cl ctx x) ,(if (= 1 (length type-parts))
+                                                     (first type-parts)
+                                                     `(list ,@type-parts))))))
 
 (defmethod sql->cl (ctx (type (eql :extract)) &rest args)
   (destructuring-bind (field x)

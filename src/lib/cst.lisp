@@ -304,6 +304,15 @@
                ((list* :|create_table_stmt| _ _ table-name xs)
                 (list :create-table (walk table-name) (remove nil (mapcar #'walk (strip-delimiters '(:|(| :|)| :|,|) xs)))))
 
+               ((list :|signed_number| (cons :+ _) x)
+                (walk x))
+
+               ((list :|signed_number| (cons :- _) x)
+                (- (walk x)))
+
+               ((list* :|type_name| xs)
+                (mapcar #'walk (strip-delimiters '(:|(| :|)| :|,|) xs)))
+
                ((list* :|column_def| column-name _)
                 (walk column-name))
 

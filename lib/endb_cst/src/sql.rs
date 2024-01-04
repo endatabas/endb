@@ -48,7 +48,8 @@ peg! {
     bind_parameter <- r"\A(:?\?|:\p{XID_START}\p{XID_CONTINUE}*\b)";
 
     simple_func <- ident;
-    type_name <- ident;
+    signed_number <- ( "+" / "-" )? numeric_literal;
+    type_name <- ( !column_constraint ident )+ ( "(" signed_number ( "," signed_number )? ")" )?;
     column_name <- ident;
 
     expr_list <- expr ( "," expr )*;
@@ -215,9 +216,8 @@ peg! {
     view_name <- ident;
     create_view_stmt <- CREATE ( TEMPORARY / TEMP )? VIEW view_name column_name_list? AS select_stmt;
 
-    signed_number <- ( "+" / "-" )? numeric_literal;
     column_constraint <- PRIMARY KEY / UNIQUE;
-    column_def <- column_name !KEY type_name ( "(" signed_number ")" )? column_constraint?;
+    column_def <- column_name !KEY type_name column_constraint?;
     foreign_key_clause <- REFERENCES table_name column_name_list;
     table_constraint <- PRIMARY KEY column_name_list / FOREIGN KEY column_name_list foreign_key_clause;
     create_table_stmt <- CREATE TABLE table_name "(" column_def ( "," column_def )*  ( "," table_constraint )* ")";
