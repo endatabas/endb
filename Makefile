@@ -26,7 +26,7 @@ else
   DOCKER_PULL_ALWAYS = =always
 endif
 DOCKER_ID = $(shell docker images -q $(DOCKER_IMAGE))
-PODMAN_USER = $(shell grep -sq "^unqualified-search-registries = \[\"docker.io\"\]" /etc/containers/registries.conf || grep -sq "^unqualified-search-registries = \[\"docker.io\"\]" ~/.config/containers/registries.conf)
+PODMAN_USR = $(shell grep -sq "^unqualified-search-registries = \[\"docker.io\"\]" /etc/containers/registries.conf || grep -sq "^unqualified-search-registries = \[\"docker.io\"\]" ~/.config/containers/registries.conf)
 
 LIB_PROFILE = release
 LIB_PROFILE_DIR = $(LIB_PROFILE)
@@ -178,6 +178,16 @@ slt-test-ci:
 	$(SLT_ENV) make slt-test-index
 	$(SLT_ENV) make slt-test-tpch
 
+SQL_ACID_TEST_DIR= sqlacidtest/
+SQL_ACID_TESTS = $(shell find $(SQL_ACID_TEST_DIR) -iwholename "*/tests/*/*.sql" | xargs -i basename {} | sort)
+
+sql-acid-test: target/endb
+	ENDB_PID=$$(./$< -d :memory: > target/endb_sql_acid_test.log 2>&1 & echo $$!); \
+		for test in $(SQL_ACID_TESTS); \
+			do find $(SQL_ACID_TEST_DIR) -iname $$test | xargs -i examples/endb_console.py {} ';'; \
+		done; \
+		kill $$ENDB_PID
+
 docker:
 	$(DOCKER) build --pull$(DOCKER_PULL_ALWAYS) \
 		--build-arg ENDB_GIT_DESCRIBE=$(shell git describe --always --dirty) \
@@ -195,7 +205,7 @@ run-docker: docker endb_data
 
 # explicit builds mean `push-docker` does not depend on build directly
 push-docker:
-ifeq ($(PODMAN_USER),)
+ifeq ($(PODMAN_USR),)
 	@echo "\nWARNING: 'unqualified-search-registries' is missing. Looked in:"
 	@echo "    /etc/containers/registries.conf"
 	@echo "    ~/.config/containers/registries.conf\n"
@@ -215,4 +225,4 @@ clean:
 
 .PHONY: repl run run-binary test check lib-check lib-lint lib-update lib-test lib-microbench update-submodules \
 	slt-test slt-test-select slt-test-random slt-test-index slt-test-evidence slt-test-all slt-test-tpch slt-test-expr slt-test-ci \
-	docker docker-alpine run-docker push-docker clean
+	sql-acid-test docker docker-alpine run-docker push-docker clean

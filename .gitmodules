@@ -101,3 +101,6 @@
 [submodule "_build/asdf-flv"]
 	path = _build/asdf-flv
 	url = https://github.com/didierverna/asdf-flv
+[submodule "sqlacidtest"]
+	path = sqlacidtest
+	url = https://github.com/sqlstandardsproject/sqlacidtest
