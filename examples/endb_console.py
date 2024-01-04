@@ -18,14 +18,17 @@ import re
 import time
 
 class EndbConsole(cmd.Cmd):
-    def __init__(self, url, accept='application/ld+json', username=None, password=None, prompt='-> '):
+    def __init__(self, url, accept='application/ld+json', username=None, password=None, prompt='-> ', nested_prompt='.. '):
         super().__init__()
         self.url = url
         self.accept = accept
         self.username = username
         self.password = password
         self.prompt = prompt
+        self.default_prompt = prompt
+        self.nested_prompt = nested_prompt
         self.timer = False
+        self.lines = []
 
     def emptyline(self):
         pass
@@ -80,9 +83,19 @@ class EndbConsole(cmd.Cmd):
         start_time = None
         if line == 'EOF':
             return 'stop'
+
+        self.lines.append(line)
+
+        if not line.strip().endswith(';'):
+            self.prompt = self.nested_prompt
+            return
+
         try:
+            sql = '\n'.join(self.lines)
+            self.lines = []
+            self.prompt = self.default_prompt
             start_time = time.time()
-            result = endb.Endb(self.url, self.accept, self.username, self.password).sql(line)
+            result = endb.Endb(self.url, self.accept, self.username, self.password).sql(sql)
             if self.accept == 'text/csv':
                 print(result.strip())
             elif self.accept == 'application/vnd.apache.arrow.file':
@@ -101,15 +114,32 @@ class EndbConsole(cmd.Cmd):
             print('Elapsed: %f ms' % (time.time() - start_time))
 
 if __name__ == '__main__':
+    import argparse
     import sys
-    url = 'http://localhost:3803/sql'
-    if len(sys.argv) > 1:
-        url = sys.argv[1]
+    import pathlib
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('sql', nargs='?', help='SQL statement or file')
+    parser.add_argument('--url', default='http://localhost:3803/sql')
+    parser.add_argument('-u', '--username')
+    parser.add_argument('-p', '--password')
+    args = parser.parse_args()
+
     prompt = '-> '
+    nested_prompt = '.. '
     if not sys.stdin.isatty():
         prompt = ''
+        nested_prompt = ''
     try:
-        EndbConsole(url, prompt=prompt).cmdloop()
+        console = EndbConsole(args.url, prompt=prompt, nested_prompt=nested_prompt, username=args.username, password=args.password)
+        if args.sql:
+            path = pathlib.Path(args.sql)
+            if path.is_file():
+                console.default(path.read_text())
+            else:
+                console.default(args.sql)
+        console.cmdloop()
+
         if sys.stdin.isatty():
             print()
     except KeyboardInterrupt:
