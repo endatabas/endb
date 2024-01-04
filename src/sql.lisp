@@ -38,7 +38,7 @@
   (endb/storage/buffer-pool:buffer-pool-close (endb/sql/db:db-buffer-pool db)))
 
 (defun make-dbms (&key directory)
-  (let ((dbms (endb/sql/db:make-dbms :db (if directory
+  (let ((dbms (endb/sql/db:make-dbms :db (if (and directory (not (equal ":memory:" directory)))
                                              (make-directory-db :directory directory)
                                              (make-db)))))
     (when directory
