@@ -15,5 +15,19 @@ fn main() -> arrow::error::Result<()> {
     println!("{:?}", schema);
     println!("{:?}", chunks);
 
+    let column_idx = 0;
+    let row_idx = 0;
+    let sf = arrow::row::SortField::new(schema.fields.get(column_idx).unwrap().data_type().clone());
+    let rc = arrow::row::RowConverter::new(vec![sf])?;
+
+    let rows = rc.convert_columns(&[chunks
+        .first()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .column(column_idx)
+        .clone()])?;
+    println!("{:?}", rows.row(row_idx));
+
     Ok(())
 }
