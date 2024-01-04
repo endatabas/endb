@@ -61,8 +61,14 @@ fn number_expr() {
         parse("SELECT 2.2e2"),
         @r###"(:|sql_stmt_list| (:|select_stmt| (:|select_core| ("SELECT" 0 6) (:|result_expr_list| (:|result_column| (:|numeric_literal| ("2.2e2" 7 12)))))))"###);
     assert_snapshot!(
+        parse("SELECT .2e2"),
+        @r###"(:|sql_stmt_list| (:|select_stmt| (:|select_core| ("SELECT" 0 6) (:|result_expr_list| (:|result_column| (:|numeric_literal| (".2e2" 7 11)))))))"###);
+    assert_snapshot!(
         parse("SELECT 2e-2"),
         @r###"(:|sql_stmt_list| (:|select_stmt| (:|select_core| ("SELECT" 0 6) (:|result_expr_list| (:|result_column| (:|numeric_literal| ("2e-2" 7 11)))))))"###);
+    assert_snapshot!(
+        parse("SELECT 1."),
+        @r###"(:|sql_stmt_list| (:|select_stmt| (:|select_core| ("SELECT" 0 6) (:|result_expr_list| (:|result_column| (:|numeric_literal| ("1." 7 9)))))))"###);
     assert_snapshot!(
         parse("SELECT 9223372036854775808"),
         @r###"(:|sql_stmt_list| (:|select_stmt| (:|select_core| ("SELECT" 0 6) (:|result_expr_list| (:|result_column| (:|numeric_literal| ("9223372036854775808" 7 26)))))))"###);

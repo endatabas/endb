@@ -219,4 +219,5 @@ UNION
   (is-valid "ROLLBACK TO foo")
   (is-valid "SELECT CAST(1 AS VARCHAR(40))")
   (is-valid "SELECT CAST(1 AS DECIMAL(3,2))")
-  (is-valid "SELECT CAST(1 AS DOUBLE PRECISION)"))
+  (is-valid "SELECT CAST(1 AS DOUBLE PRECISION)")
+  (is-valid "SELECT 1."))

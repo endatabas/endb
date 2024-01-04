@@ -1661,6 +1661,9 @@
 (defmethod syn-cast ((x (eql nil)) (type (eql :integer)))
   0)
 
+(defmethod syn-cast (x (type (eql :boolean)))
+  (syn-cast (syn-cast x :varchar) :boolean))
+
 (defmethod syn-cast ((x number) (type (eql :boolean)))
   (not (zerop x)))
 
@@ -1678,7 +1681,7 @@
      nil)
     (t :null)))
 
-(defparameter +integer-scanner+ (ppcre:create-scanner "^-?\\d+"))
+(defparameter +integer-scanner+ (ppcre:create-scanner "^\\s*[-+]?\\d+"))
 
 (defmethod syn-cast ((x string) (type (eql :integer)))
   (multiple-value-bind (start end)
@@ -1706,13 +1709,16 @@
 (defmethod syn-cast (x (type (eql :decimal)))
   (syn-cast x :real))
 
+(defmethod syn-cast (x (type (eql :numeric)))
+  (syn-cast x :real))
+
 (defmethod syn-cast ((x (eql t)) (type (eql :decimal)))
   1)
 
 (defmethod syn-cast ((x (eql nil)) (type (eql :decimal)))
   0)
 
-(defparameter +decimal-scanner+ (ppcre:create-scanner "^-?\\d+(\\.\\d+)?([eE][-+]?\\d+)?"))
+(defparameter +decimal-scanner+ (ppcre:create-scanner "^\\s*[+-]?(\\d+(\\.\\d*)?([eE][-+]?\\d+)?|\\.\\d+([eE][-+]?\\d+)?)"))
 
 (defmethod syn-cast ((x string) (type (eql :decimal)))
   (multiple-value-bind (start end)

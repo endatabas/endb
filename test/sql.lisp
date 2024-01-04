@@ -103,15 +103,15 @@
          (db (make-db))
          (write-db (begin-write-tx db)))
 
-    (signals endb/sql/db:sql-begin-error (execute-sql db "BEGIN TRANSACTION"))
+    (signals endb/sql/db:sql-begin-error (execute-sql write-db "BEGIN TRANSACTION"))
 
-    (signals endb/sql/db:sql-commit-error (execute-sql db "COMMIT")))
+    (signals endb/sql/db:sql-commit-error (execute-sql write-db "COMMIT")))
 
   (let* ((endb/sql/expr:*sqlite-mode* t)
          (db (make-db))
          (write-db (begin-write-tx db)))
 
-    (signals endb/sql/db:sql-rollback-error (execute-sql db "ROLLBACK TRANSACTION"))))
+    (signals endb/sql/db:sql-rollback-error (execute-sql write-db "ROLLBACK TRANSACTION"))))
 
 (test empty-db
   (let* ((db (make-db))
@@ -1640,7 +1640,7 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT 5.foo")
+        (execute-sql db "SELECT 3.14.foo")
       (is (equalp '(#(:null)) result))
       (is (equal '("foo") columns)))
 
@@ -1772,7 +1772,7 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT 1..a")
+        (execute-sql db "SELECT ''..a")
       (is (equalp `(#(,(fset:seq))) result))
       (is (equal '("a") columns)))
 
