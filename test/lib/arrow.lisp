@@ -48,7 +48,11 @@
                                  :null
                                  (fset:map ("name" "mark") ("id" 4))))
                      (170141183460469231731687303715884105727 -170141183460469231731687303715884105728)
-                     (,(fset:empty-map))))
+                     (,(fset:empty-map))
+                     ;; arrow-interval-month-day-nanos 'tin' isn't supported by Arrow Rust FFI.
+                     (,(endb/arrow:parse-arrow-date-millis "2001-01-01")
+                      ,(endb/arrow:parse-arrow-time-micros "12:01:20")
+                      ,(endb/arrow:parse-arrow-timestamp-micros "2023-05-16T14:43:39.970062Z"))))
       (is (equalp (list array)
                   (loop for x in (read-arrow-arrays-from-ipc-buffer
                                   (write-arrow-arrays-to-ipc-buffer
