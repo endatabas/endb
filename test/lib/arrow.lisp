@@ -27,10 +27,14 @@
                           '(vector (unsigned-byte 8))))
         (array (list (fset:map ("a" 1)))))
 
-    (is (equalp expected (write-arrow-arrays-to-ipc-buffer
-                          (list (endb/arrow:to-arrow array)))))
     (is (equalp (list array)
                 (loop for x in (read-arrow-arrays-from-ipc-buffer expected)
+                      collect (coerce x 'list))))
+
+    (is (equalp (list array)
+                (loop for x in (read-arrow-arrays-from-ipc-buffer
+                                (write-arrow-arrays-to-ipc-buffer
+                                 (list (endb/arrow:to-arrow array))))
                       collect (coerce x 'list))))
 
     (dolist (array `((1 :null 2 4 8)
@@ -48,7 +52,8 @@
       (is (equalp (list array)
                   (loop for x in (read-arrow-arrays-from-ipc-buffer
                                   (write-arrow-arrays-to-ipc-buffer
-                                   (list (endb/arrow:to-arrow array))))
+                                   (list (endb/arrow:to-arrow (loop for x in array
+                                                                    collect (fset:map ("" x)))))))
                         collect (loop for y in (coerce x 'list)
                                       collect (fset:lookup y ""))))))
 
@@ -57,7 +62,9 @@
       (is (equalp arrays
                   (loop for x in (read-arrow-arrays-from-ipc-buffer
                                   (write-arrow-arrays-to-ipc-buffer
-                                   (mapcar #'endb/arrow:to-arrow arrays)))
+                                   (loop for array in arrays
+                                         collect (endb/arrow:to-arrow (loop for x in array
+                                                                            collect (fset:map ("" x)))))))
                         collect (loop for y in (coerce x 'list)
                                       collect (fset:lookup y ""))))))))
 

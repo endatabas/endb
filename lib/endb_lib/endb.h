@@ -12,50 +12,21 @@ typedef struct endb_server_http_websocket_stream endb_server_http_websocket_stre
 typedef struct endb_server_one_shot_sender endb_server_one_shot_sender;
 
 /**
- * ABI-compatible struct for [`ArrowSchema`](https://arrow.apache.org/docs/format/CDataInterface.html#structure-definitions)
+ * ABI-compatible struct for `ArrayStream` from C Stream Interface
+ * See <https://arrow.apache.org/docs/format/CStreamInterface.html#structure-definitions>
+ * This was created by bindgen
  */
-typedef struct ArrowSchema {
-  const char *format;
-  const char *name;
-  const char *metadata;
-  int64_t flags;
-  int64_t n_children;
-  struct ArrowSchema **children;
-  struct ArrowSchema *dictionary;
-  void (*release)(struct ArrowSchema *arg1);
+typedef struct FFI_ArrowArrayStream {
+  int (*get_schema)(struct FFI_ArrowArrayStream *arg1, FFI_ArrowSchema *out);
+  int (*get_next)(struct FFI_ArrowArrayStream *arg1, FFI_ArrowArray *out);
+  const char *(*get_last_error)(struct FFI_ArrowArrayStream *arg1);
+  void (*release)(struct FFI_ArrowArrayStream *arg1);
   void *private_data;
-} ArrowSchema;
-
-/**
- * ABI-compatible struct for [`ArrowArray`](https://arrow.apache.org/docs/format/CDataInterface.html#structure-definitions)
- */
-typedef struct ArrowArray {
-  int64_t length;
-  int64_t null_count;
-  int64_t offset;
-  int64_t n_buffers;
-  int64_t n_children;
-  const void **buffers;
-  struct ArrowArray **children;
-  struct ArrowArray *dictionary;
-  void (*release)(struct ArrowArray *arg1);
-  void *private_data;
-} ArrowArray;
-
-/**
- * ABI-compatible struct for [`ArrowArrayStream`](https://arrow.apache.org/docs/format/CStreamInterface.html).
- */
-typedef struct ArrowArrayStream {
-  int (*get_schema)(struct ArrowArrayStream *arg1, struct ArrowSchema *out);
-  int (*get_next)(struct ArrowArrayStream *arg1, struct ArrowArray *out);
-  const char *(*get_last_error)(struct ArrowArrayStream *arg1);
-  void (*release)(struct ArrowArrayStream *arg1);
-  void *private_data;
-} ArrowArrayStream;
+} FFI_ArrowArrayStream;
 
 typedef void (*endb_on_error_callback)(const char*);
 
-typedef void (*endb_arrow_array_stream_consumer_on_init_stream_callback)(struct ArrowArrayStream*);
+typedef void (*endb_arrow_array_stream_consumer_on_init_stream_callback)(struct FFI_ArrowArrayStream*);
 
 typedef void (*endb_arrow_array_stream_consumer_on_success_callback)(const uint8_t*, uintptr_t);
 
@@ -124,7 +95,7 @@ typedef void (*endb_uuid_v4_on_success_callback)(const char*);
 
 typedef void (*endb_uuid_str_on_success_callback)(const char*);
 
-void endb_arrow_array_stream_producer(struct ArrowArrayStream *stream,
+void endb_arrow_array_stream_producer(struct FFI_ArrowArrayStream *stream,
                                       const uint8_t *buffer_ptr,
                                       uintptr_t buffer_size,
                                       endb_on_error_callback on_error);

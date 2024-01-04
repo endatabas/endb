@@ -428,9 +428,9 @@
 (defclass null-array (arrow-array)
   ((null-count :type integer)))
 
-(defmethod initialize-instance :after ((array null-array) &key (length 0) (null-count 0))
-  (assert (= length null-count))
-  (setf (slot-value array 'null-count) null-count))
+(defmethod initialize-instance :after ((array null-array) &key (length 0) null-count)
+  (declare (ignore null-count))
+  (setf (slot-value array 'null-count) length))
 
 (defmethod arrow-push ((array null-array) x)
   (let ((new-array (make-arrow-array-for x)))
