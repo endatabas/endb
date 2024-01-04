@@ -122,7 +122,7 @@ if __name__ == '__main__':
     import pathlib
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('sql', nargs='?', help='SQL statement or file')
+    parser.add_argument('sql', nargs='*', help='SQL statement or file')
     parser.add_argument('--url', default='http://localhost:3803/sql')
     parser.add_argument('-u', '--username')
     parser.add_argument('-p', '--password')
@@ -136,14 +136,15 @@ if __name__ == '__main__':
     try:
         console = EndbConsole(args.url, prompt=prompt, nested_prompt=nested_prompt, username=args.username, password=args.password)
         if args.sql:
-            path = pathlib.Path(args.sql)
-            if path.is_file():
-                console.default(path.read_text())
-            else:
-                console.default(args.sql)
+            for sql in args.sql:
+                path = pathlib.Path(sql)
+                if path.is_file():
+                    console.default(path.read_text())
+                else:
+                    console.default(sql)
 
-            if console.was_error:
-                sys.exit(1)
+                if console.was_error:
+                    sys.exit(1)
         else:
             console.cmdloop()
             if sys.stdin.isatty():
