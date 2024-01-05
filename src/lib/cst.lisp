@@ -691,6 +691,15 @@
                ((list :|cast_expr| _ _ expr _ type _)
                 (list :cast (walk expr) (walk type)))
 
+               ((list :|position_expr| _ _ x _ y _)
+                (list :position (walk x) (walk y)))
+
+               ((list :|substring_expr| _ _ x (cons op _) y _)
+                (list :substring (walk x) op (walk y)))
+
+               ((list :|substring_expr| _ _ x _ y _ z _)
+                (list :substring (walk x) :from (walk y) :for (walk z)))
+
                ((list :|scalar_subquery| (list :|subquery| _ query _))
                 (list :scalar-subquery (walk query)))
 

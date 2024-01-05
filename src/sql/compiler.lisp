@@ -1522,6 +1522,21 @@
                                                      (first type-parts)
                                                      `(list ,@type-parts))))))
 
+(defmethod sql->cl (ctx (type (eql :position)) &rest args)
+  (destructuring-bind (x y)
+      args
+    `(endb/sql/expr:sql-instr ,(ast->cl ctx y)  ,(ast->cl ctx x))))
+
+(defmethod sql->cl (ctx (type (eql :substring)) &rest args)
+  (destructuring-bind (x &key from for)
+      args
+    (append `(endb/sql/expr:sql-substring ,(ast->cl ctx x)
+                                          ,(if from
+                                               (ast->cl ctx from)
+                                               1))
+            (when for
+              (list (ast->cl ctx for))))))
+
 (defmethod sql->cl (ctx (type (eql :extract)) &rest args)
   (destructuring-bind (field x)
       args

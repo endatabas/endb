@@ -62,6 +62,8 @@ peg! {
     paren_expr <- "(" expr ")";
     extract_expr <- EXTRACT ^( "(" datetime_field FROM expr ")" );
     cast_expr <- CAST ^( "(" expr AS type_name ")" );
+    position_expr <- POSITION ^( "(" concat_expr IN expr ")" );
+    substring_expr <- SUBSTRING ^( "(" expr ( FROM expr )? ( FOR expr )? ")" );
     filter_clause <- FILTER ^( "(" WHERE expr ")" );
     aggregate_func <- ARRAY_AGG / AVG / COUNT / GROUP_CONCAT / MIN / MAX / OBJECT_AGG / SUM / TOTAL;
     aggregate_function_invocation <- aggregate_func "(" all_distinct? ( star / expr_list order_by_clause? ) ")" filter_clause?;
@@ -97,6 +99,8 @@ peg! {
         / paren_expr
         / extract_expr
         / cast_expr
+        / position_expr
+        / substring_expr
         / array_expr
         / object_expr
         / path_expr
