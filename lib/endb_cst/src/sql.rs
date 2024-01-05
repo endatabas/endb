@@ -100,7 +100,6 @@ peg! {
         / extract_expr
         / cast_expr
         / position_expr
-        / substring_expr
         / array_expr
         / object_expr
         / path_expr
@@ -108,6 +107,7 @@ peg! {
         / exists_expr
         / aggregate_function_invocation
         / simple_function_invocation
+        / substring_expr
         / column_reference;
 
     paren_expr_list <- "(" expr_list ")";
