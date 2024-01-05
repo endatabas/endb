@@ -1121,3 +1121,28 @@ SELECT MIN(1, NULL)
 query T nosort
 SELECT MAX(-1, 1, NULL)
 ----
+
+query I nosort
+SELECT 2 IS DISTINCT FROM 2
+----
+
+query I nosort
+SELECT 2 IS NOT DISTINCT FROM 2
+----
+
+
+query I nosort
+SELECT 2 IS DISTINCT FROM NULL
+----
+
+query I nosort
+SELECT 2 IS NOT DISTINCT FROM NULL
+----
+
+query I nosort
+SELECT NULL IS DISTINCT FROM NULL
+----
+
+query I nosort
+SELECT NULL IS NOT DISTINCT FROM NULL
+----

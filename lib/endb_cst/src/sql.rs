@@ -113,6 +113,8 @@ peg! {
     paren_expr_list <- "(" expr_list ")";
     empty_list <- "(" ")";
 
+    distinct_from <- DISTINCT FROM;
+
     property_field_access <- "." ident;
     property_recursive_field_access <- ".." ident;
     property_bracket_access <- "[" expr "]";
@@ -131,7 +133,7 @@ peg! {
         rel_expr (
             ( ( "==" / "=" / "!=" / "<>" / OVERLAPS / EQUALS / CONTAINS / IMMEDIATELY? PRECEDES / IMMEDIATELY? SUCCEEDS ) rel_expr )
                 / NOT? ( LIKE ^( rel_expr ( ESCAPE rel_expr )? ) / ( GLOB / REGEXP / MATCH / "@>" ) ^rel_expr )
-                / IS ^( NOT? ( UNKNOWN / rel_expr ) )
+                / IS ^( NOT? distinct_from? ( UNKNOWN / rel_expr ) )
                 / NOT NULL
                 / NOT? BETWEEN ^( rel_expr AND rel_expr )
                 / NOT? IN ^( subquery / paren_expr_list / empty_list / table_name )
