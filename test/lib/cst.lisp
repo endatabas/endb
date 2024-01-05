@@ -225,4 +225,5 @@ UNION
   (is-valid "SELECT SUBSTRING(s, 1)")
   (is-valid "SELECT foo IS UNKNOWN")
   (is-valid "SELECT foo IS DISTINCT FROM bar")
-  (is-valid "SELECT foo IS NOT DISTINCT FROM bar"))
+  (is-valid "SELECT foo IS NOT DISTINCT FROM bar")
+  (is-valid "SELECT foo < SOME (VALUES (1), (2))"))

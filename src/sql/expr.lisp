@@ -30,7 +30,7 @@
 
            #:ra-distinct #:ra-union-all #:ra-union #:ra-except #:ra-intersect #:ra-table-function
            #:ra-scalar-subquery #:ra-in  #:ra-in-query #:ra-in-query-index #:ra-exists #:ra-limit #:ra-order-by #:ra-compute-index-if-absent #:ra-visible-row-p
-           #:ra-bloom-hashes #:ra-hash-index
+           #:ra-bloom-hashes #:ra-hash-index #:ra-all-quantified-subquery #:ra-any-quantified-subquery
 
            #:make-agg #:agg-accumulate #:agg-finish
 
@@ -2017,6 +2017,23 @@
                      for row in rows
                      collect (concatenate 'vector row (vector idx)))
                rows)))
+
+(defun ra-all-quantified-subquery (op item rows)
+  (block all
+    (reduce (lambda (x y)
+              (sql-and x (funcall op item (aref y 0))))
+            rows
+            :initial-value t)))
+
+(defun ra-any-quantified-subquery (op item rows)
+  (block any
+    (reduce (lambda (x y)
+              (let ((result (funcall op item (aref y 0))))
+                (if (eq t result)
+                    (return-from any result)
+                    (sql-or x result))))
+            rows
+            :initial-value nil)))
 
 (defun ra-limit (rows limit offset)
   (subseq rows (or offset 0) (min (length rows)

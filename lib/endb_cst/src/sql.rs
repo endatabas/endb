@@ -114,6 +114,7 @@ peg! {
     empty_list <- "(" ")";
 
     distinct_from <- DISTINCT FROM;
+    quantified_operator <- ALL / ANY / SOME;
 
     property_field_access <- "." ident;
     property_recursive_field_access <- ".." ident;
@@ -128,16 +129,17 @@ peg! {
     <mul_expr> <- concat_expr ( ( "*" / "/" / "%" ) concat_expr )*;
     <add_expr> <- mul_expr ( ( "+" / "-" ) mul_expr )*;
     <bit_expr> <- add_expr ( ( "<<" / ">>" / "&" / "|" ) add_expr )*;
-    <rel_expr> <- bit_expr ( ( "<=" / "<" / ">=" / ">" ) bit_expr )*;
+    <rel_expr> <- bit_expr ( ( "<=" / "<" / ">=" / ">" ) ( ( quantified_operator subquery ) / bit_expr ) )*;
     <equal_expr> <-
         rel_expr (
-            ( ( "==" / "=" / "!=" / "<>" / OVERLAPS / EQUALS / CONTAINS / IMMEDIATELY? PRECEDES / IMMEDIATELY? SUCCEEDS ) rel_expr )
-                / NOT? ( LIKE ^( rel_expr ( ESCAPE rel_expr )? ) / ( GLOB / REGEXP / MATCH / "@>" ) ^rel_expr )
-                / IS ^( NOT? distinct_from? ( UNKNOWN / rel_expr ) )
-                / NOT NULL
-                / NOT? BETWEEN ^( rel_expr AND rel_expr )
-                / NOT? IN ^( subquery / paren_expr_list / empty_list / table_name )
-        )*;
+        ( ( "==" / "=" / "!=" / "<>" ) ( ( quantified_operator subquery ) / rel_expr ) )
+            /  ( ( OVERLAPS / EQUALS / CONTAINS / IMMEDIATELY? PRECEDES / IMMEDIATELY? SUCCEEDS ) rel_expr )
+            / NOT? ( LIKE ^( rel_expr ( ESCAPE rel_expr )? ) / ( GLOB / REGEXP / MATCH / "@>" ) ^rel_expr )
+            / IS ^( NOT? distinct_from? ( UNKNOWN / rel_expr ) )
+            / NOT NULL
+            / NOT? BETWEEN ^( rel_expr AND rel_expr )
+            / NOT? IN ^( subquery / paren_expr_list / empty_list / table_name )
+    )*;
 
     <not_expr> <- NOT* equal_expr;
     <and_expr> <- not_expr ( AND not_expr )*;

@@ -2537,6 +2537,41 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 1 < SOME (VALUES (1), (2))")
+      (is (equalp '(#(t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 1 = SOME (VALUES (1), (2))")
+      (is (equalp '(#(t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 1 < ALL (VALUES (1), (2))")
+      (is (equalp '(#(nil)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 1 < SOME (VALUES (1), (NULL))")
+      (is (equalp '(#(:null)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 1 < SOME (VALUES (NULL), (2))")
+      (is (equalp '(#(t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 1 < SOME (VALUES (NULL))")
+      (is (equalp '(#(:null)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 1 < ALL (VALUES (NULL), (2))")
+      (is (equalp '(#(:null)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT * FROM generate_series(1, 10) AS foo")
       (is (equalp '(#(1) #(2) #(3) #(4) #(5) #(6) #(7) #(8) #(9) #(10)) result))
       (is (equal '("column1") columns)))

@@ -1150,6 +1150,15 @@
           `(endb/sql/expr:ra-scalar-subquery
             (endb/sql/expr:ra-compute-index-if-absent ,index-sym ,index-key-form (lambda () ,src))))))))
 
+(defmethod sql->cl (ctx (type (eql :quantified-subquery)) &rest args)
+  (destructuring-bind (op expr subquery &key type)
+      args
+    (ecase type
+      (:all
+       `(endb/sql/expr:ra-all-quantified-subquery ,(symbol-function (%find-expr-symbol op "sql-")) ,(ast->cl ctx expr) ,(ast->cl ctx subquery)))
+      ((:some :any)
+       `(endb/sql/expr:ra-any-quantified-subquery ,(symbol-function (%find-expr-symbol op "sql-")) ,(ast->cl ctx expr) ,(ast->cl ctx subquery))))))
+
 (defmethod sql->cl (ctx (type (eql :table-function)) &rest args)
   (destructuring-bind (table-function &key with-ordinality)
       args
