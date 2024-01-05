@@ -228,13 +228,13 @@
                   (destructuring-bind (table-1 table-2 &key on using type)
                       (rest from-element)
                     (if (eq :left type)
-                        (let ((table-alias (%table-alias table-2)))
-                          (append (%flatten-from (list table-1)) (list (list (list :left-join
-                                                                                   table-2
-                                                                                   (if using
-                                                                                       (%using-to-on table-1 table-2 using)
-                                                                                       on))
-                                                                             table-alias))))
+                        (append (%flatten-from (list table-1))
+                                (list (list (list :left-join
+                                                  table-2
+                                                  (if using
+                                                      (%using-to-on table-1 table-2 using)
+                                                      on))
+                                            (%table-alias table-2))))
                         (%flatten-from (list table-1 table-2))))
                   (list from-element))
               (%flatten-from (rest from))))))
@@ -1150,15 +1150,23 @@
           `(endb/sql/expr:ra-scalar-subquery
             (endb/sql/expr:ra-compute-index-if-absent ,index-sym ,index-key-form (lambda () ,src))))))))
 
-(defmethod sql->cl (ctx (type (eql :unnest)) &rest args)
-  (destructuring-bind (exprs &key with-ordinality)
+(defmethod sql->cl (ctx (type (eql :table-function)) &rest args)
+  (destructuring-bind (table-function &key with-ordinality)
       args
-    (values `(endb/sql/expr:ra-unnest ,(%maybe-constant-list (loop for ast in exprs
-                                                                   collect (ast->cl ctx ast)))
-                                      :with-ordinality ,with-ordinality)
-            (%values-projection (if with-ordinality
-                                    (1+ (length exprs))
-                                    (length exprs))))))
+    (destructuring-bind (fn args &key start end)
+        (rest table-function)
+      (declare (ignore end))
+      (let* ((fn-sym (%find-expr-symbol fn "sql-")))
+        (unless (member fn-sym endb/sql/expr:+table-functions+)
+          (%annotated-error-with-span (fset:lookup ctx :sql) (format nil "Unknown table function: ~A" fn)
+                                      "Unknown table function" start (+ start (length (symbol-name fn)))))
+        (let ((number-of-columns (ecase fn-sym
+                                   (endb/sql/expr:sql-unnest (length args))
+                                   (endb/sql/expr:sql-generate_series 1))))
+          (values `(endb/sql/expr:ra-table-function ,(ast->cl ctx table-function) :with-ordinality ,with-ordinality :number-of-columns ,number-of-columns)
+                  (%values-projection (if with-ordinality
+                                          (1+ number-of-columns)
+                                          number-of-columns))))))))
 
 (defun %compound-select->cl (ctx fn-name fn args)
   (destructuring-bind (lhs rhs &key order-by limit offset start end)
@@ -1924,6 +1932,7 @@
       (let ((args (loop for ast in args
                         collect (ast->cl ctx ast))))
         (if (and (not (member fn-sym endb/sql/expr:+impure-functions+))
+                 (not (member fn-sym endb/sql/expr:+table-functions+))
                  (not (macro-function fn-sym))
                  (every #'constantp args))
             (apply fn-sym args)

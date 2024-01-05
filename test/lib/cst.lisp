@@ -222,4 +222,5 @@ UNION
   (is-valid "SELECT CAST(1 AS DOUBLE PRECISION)")
   (is-valid "SELECT 1.")
   (is-valid "SELECT SUBSTRING(s FROM 1 FOR 2)")
-  (is-valid "SELECT SUBSTRING(s, 1)"))
+  (is-valid "SELECT SUBSTRING(s, 1)")
+  (is-valid "SELECT foo IS UNKNOWN"))

@@ -1336,6 +1336,14 @@ SELECT s FROM x WHERE ind=0")
       (is (equalp '(#(1) #(2) #(3)) result))
       (is (equal '("bar") columns)))
 
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Unknown table function"
+      (execute-sql db "SELECT * FROM FOO([1, 2, 3]) AS foo(bar)"))
+
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Number of column names does not match projection"
+      (execute-sql db "SELECT * FROM UNNEST([1, 2, 3]) AS foo(bar, baz)"))
+
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT * FROM UNNEST({a: 1, b: 2, c: 3}) AS foo(bar)")
       (is (equalp `(#(,(fset:seq "a" 1)) #(,(fset:seq "b" 2)) #(,(fset:seq "c" 3))) result))
@@ -2207,7 +2215,7 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("a" "b") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT * FROM (SELECT 1 AS a) x JOIN (SELECT 2 AS b) y ON x.a < y.b")
+        (execute-sql db "SELECT * FROM LATERAL (SELECT 1 AS a) x JOIN (SELECT 2 AS b) y ON x.a < y.b")
       (is (equalp '(#(1 2)) result))
       (is (equal '("a" "b") columns)))
 
@@ -2222,7 +2230,7 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("a" "b") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT * FROM (SELECT 1 AS a) x LEFT JOIN (SELECT 1 AS a) y USING (a)")
+        (execute-sql db "SELECT * FROM (SELECT 1 AS a) x LEFT JOIN LATERAL (SELECT 1 AS a) y USING (a)")
       (is (equalp '(#(1 1)) result))
       (is (equal '("a" "a") columns)))
 
@@ -2522,6 +2530,25 @@ SELECT s FROM x WHERE ind=0")
         (execute-sql db "VALUES (NULL, 2) UNION VALUES (NULL, 2)")
       (is (equalp '(#(:null 2)) result))
       (is (equal '("column1" "column2") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT NULL IS UNKNOWN")
+      (is (equalp '(#(t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM generate_series(1, 10) AS foo")
+      (is (equalp '(#(1) #(2) #(3) #(4) #(5) #(6) #(7) #(8) #(9) #(10)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM LATERAL generate_series(1, 10, 2) AS foo")
+      (is (equalp '(#(1) #(3) #(5) #(7) #(9)) result))
+      (is (equal '("column1") columns)))
+
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Invalid number of arguments: 1 to: GENERATE_SERIES min: 2 max: 3"
+      (execute-sql db "SELECT * FROM generate_series(1) AS foo"))
 
     (signals-with-msg endb/sql/expr:sql-runtime-error
         "Unknown column"

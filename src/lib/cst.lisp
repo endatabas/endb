@@ -503,17 +503,11 @@
                ((list :|system_time_clause| _ _ _ _ as-of)
                 (list (list :as-of (walk as-of))))
 
-               ((list :|unnest_table_function| _ paren-expr-list)
-                (list :unnest (walk paren-expr-list)))
+               ((list :|table_function| fn)
+                (list :table-function (walk fn)))
 
-               ((list :|unnest_table_function| _ paren-expr-list (list* :|with_ordinality| _))
-                (list :unnest (walk paren-expr-list) :with-ordinality :with-ordinality))
-
-               ((list :|table_or_subquery| (and unnest (list* :|unnest_table_function| _)) alias)
-                (cons (walk unnest) (walk alias)))
-
-               ((list :|table_or_subquery| (and unnest (list* :|unnest_table_function| _)) _ alias)
-                (cons (walk unnest) (walk alias)))
+               ((list :|table_function| fn (list* :|with_ordinality| _))
+                (list :table-function (walk fn) :with-ordinality :with-ordinality))
 
                ((list :|table_or_subquery| (cons :|(| _) join-clause (cons :|)| _))
                 (append (cons :join (walk join-clause)) (list :on :true :type :inner)))
@@ -533,11 +527,17 @@
                ((list :|table_or_subquery| table-name)
                 (list (walk table-name)))
 
-               ((list :|table_or_subquery| table-name alias)
-                (cons (walk table-name) (walk alias)))
+               ((list :|table_or_subquery| (cons :LATERAL _) table-or-subquery alias)
+                (cons (walk table-or-subquery) (walk alias)))
 
-               ((list :|table_or_subquery| table-name _ alias)
-                (cons (walk table-name) (walk alias)))
+               ((list :|table_or_subquery| (cons :LATERAL _) table-or-subquery _ alias)
+                (cons (walk table-or-subquery) (walk alias)))
+
+               ((list :|table_or_subquery| table-or-subquery alias)
+                (cons (walk table-or-subquery) (walk alias)))
+
+               ((list :|table_or_subquery| table-or-subquery _ alias)
+                (cons (walk table-or-subquery) (walk alias)))
 
                ((list :|table_alias| alias)
                 (list (walk alias)))
@@ -815,7 +815,7 @@
                ((list* :|path_expr| _ xs)
                 (list :path (mapcar #'walk xs)))
 
-               ((cons :NULL _)
+               ((cons (or :NULL :UNKNOWN) _)
                 :null)
 
                ((cons :TRUE _)

@@ -23,11 +23,12 @@
            #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-timestamp #:sql-duration #:sql-like #:sql-substr #:sql-substring #:sql-strftime
            #:sql-typeof #:sql-unixepoch #:sql-julianday #:sql-path_remove #:sql-path_insert #:sql-path_replace #:sql-path_set #:sql-path_extract
            #:sql-contains #:sql-overlaps #:sql-precedes #:sql-succedes #:sql-immediately_precedes #:sql-immediately_succedes
+           #:sql-unnest #:sql-generate_series
 
            #:build-like-regex #:build-glob-regex
            #:syn-access #:syn-access-finish #:syn-interval #:syn-cast #:syn-extract
 
-           #:ra-distinct #:ra-unnest #:ra-union-all #:ra-union #:ra-except #:ra-intersect
+           #:ra-distinct #:ra-union-all #:ra-union #:ra-except #:ra-intersect #:ra-table-function
            #:ra-scalar-subquery #:ra-in  #:ra-in-query #:ra-in-query-index #:ra-exists #:ra-limit #:ra-order-by #:ra-compute-index-if-absent #:ra-visible-row-p
            #:ra-bloom-hashes #:ra-hash-index
 
@@ -35,7 +36,7 @@
 
            #:sql-runtime-error #:*sqlite-mode* #:+unix-epoch-time+ #:+end-of-time+
            #:+hash-table-test+ #:+hash-table-test-no-nulls+ #:equalp-case-sensitive #:equalp-case-sensitive-no-nulls #:equalp-case-sensitive-hash-fn
-           #:+impure-functions+))
+           #:+impure-functions+ #:+table-functions+))
 (in-package :endb/sql/expr)
 
 (defvar *sqlite-mode* nil)
@@ -82,6 +83,7 @@
 (defparameter +end-of-time+ (endb/arrow:parse-arrow-timestamp-micros "9999-01-01"))
 
 (defparameter +impure-functions+ '(sql-random sql-randomblob sql-uuid))
+(defparameter +table-functions+ '(sql-unnest sql-generate_series))
 
 (define-condition sql-runtime-error (error)
   ((message :initarg :message :reader sql-runtime-error-message))
@@ -1460,6 +1462,24 @@
                     x)))
           (cons x (cons y args))))
 
+(defun sql-unnest (array &rest arrays)
+  (let ((arrays (loop for a in (cons array arrays)
+                      collect (if (fset:map? a)
+                                  (sql-object_entries a)
+                                  a))))
+    (when (every #'fset:seq? arrays)
+      (let ((len (apply #'max (mapcar #'fset:size arrays))))
+        (loop for idx below len
+              collect (coerce (loop for a in arrays
+                                    collect (if (< idx (fset:size a))
+                                                (fset:lookup a idx)
+                                                :null))
+                              'vector))))))
+
+(defun sql-generate_series (start end &optional (step 1))
+  (loop for idx from start to end by step
+        collect (vector idx)))
+
 ;; Period predicates
 
 (defmethod %period-field ((x fset:map) field)
@@ -1988,27 +2008,15 @@
         (setf (gethash k index)
               (funcall f)))))
 
-(defun ra-unnest (arrays &key with-ordinality)
-  (let ((arrays (loop for a in arrays
-                      collect (if (fset:map? a)
-                                  (sql-object_entries a)
-                                  a))))
-    (when (every #'fset:seq? arrays)
-      (let ((len (apply #'max (mapcar #'fset:size arrays))))
-        (reverse (if (eq :with-ordinality with-ordinality)
-                     (loop for idx below len
-                           collect (coerce (append (loop for a in arrays
-                                                         collect (if (< idx (fset:size a))
-                                                                     (fset:lookup a idx)
-                                                                     :null))
-                                                   (list idx))
-                                           'vector))
-                     (loop for idx below len
-                           collect (coerce (loop for a in arrays
-                                                 collect (if (< idx (fset:size a))
-                                                             (fset:lookup a idx)
-                                                             :null))
-                                           'vector))))))))
+(defun ra-table-function (rows &key table-function with-ordinality number-of-columns)
+  (when (and rows (not (= number-of-columns (length (first rows)))))
+    (format nil "Table function: ~A arity: ~A doesn't match given: ~A" table-function number-of-columns (length (first rows)))
+    (error 'sql-runtime-error :message ""))
+  (reverse (if (eq :with-ordinality with-ordinality)
+               (loop for idx from 0
+                     for row in rows
+                     collect (concatenate 'vector row (vector idx)))
+               rows)))
 
 (defun ra-limit (rows limit offset)
   (subseq rows (or offset 0) (min (length rows)
