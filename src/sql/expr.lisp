@@ -1052,7 +1052,8 @@
 (defparameter +like-default-percent-scanner+ (ppcre:create-scanner "\\\\%"))
 
 (defun build-like-regex (x &optional (z nil zp))
-  (when (and zp (not (= 1 (length z))))
+  (when (and zp (or (not (stringp z))
+                    (not (= 1 (length z)))))
     (error 'sql-runtime-error :message (format nil "Invalid escape character: ~A" z)))
   (let* ((regex (ppcre:quote-meta-chars x))
          (regex (ppcre:regex-replace-all (if zp
@@ -1134,19 +1135,22 @@
   (declare (ignore z))
   :null)
 
-(defmethod sql-substring ((x string) (y number) &optional z)
-  (if (eq :null z)
-      :null
-      (let ((y (if (plusp y)
-                   (1- y)
-                   (+ (length x) y)))
-            (z (if z
-                   (min (+ y (1- z)) (length x))
-                   (length x))))
-        (if (and (< y (length x))
-                 (<= z (length x)))
-            (subseq x y z)
-            :null))))
+(defmethod sql-substring ((x string) (y number) &optional (z nil zp))
+  (cond
+    ((eq :null z)
+     :null)
+    ((and zp (not (integerp z)))
+     (error 'endb/sql/expr:sql-runtime-error :message (format nil "Invalid end index: ~A" z)))
+    (t (let ((y (max 0 (if (plusp y)
+                           (1- y)
+                           (+ (length x) y))))
+             (z (max 0 (if zp
+                           (min (+ y (1- z)) (length x))
+                           (length x)))))
+         (if (and (< y (length x))
+                  (<= z (length x)))
+             (subseq x y z)
+             "")))))
 
 (defmethod sql-instr ((x (eql :null)) y)
   :null)

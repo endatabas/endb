@@ -2642,6 +2642,14 @@ SELECT s FROM x WHERE ind=0")
       (execute-sql db "SELECT '' LIKE '' ESCAPE 'foo'"))
 
     (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Invalid escape character: 2"
+      (execute-sql db "SELECT '' LIKE '' ESCAPE 2"))
+
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Invalid end index: b"
+      (execute-sql db "SELECT substring('foo', 1, 'b')"))
+
+    (signals-with-msg endb/sql/expr:sql-runtime-error
         "Invalid number of arguments: 2 to: AVG min: 1 max: 1"
       (execute-sql db "SELECT AVG(2, 1)"))
 

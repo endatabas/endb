@@ -727,6 +727,14 @@ SELECT substring('foo', 1, 5)
 ----
 
 query T nosort
+SELECT substring('foo', 4, 1)
+----
+
+query T nosort
+SELECT substring('foo', -4, 1)
+----
+
+query T nosort
 SELECT substring('foo', 1)
 ----
 
