@@ -212,8 +212,8 @@
                 (binary-equal-op-tree (list :not (list op acc (walk x))) xs))
                ((list* (cons :NOT _) (cons (and op (type keyword)) _) x xs)
                 (binary-equal-op-tree (list :not (list op acc (walk x))) xs))
-               ((list* (cons (and op (type keyword)) _) (list :|quantified_operator| (cons quantified-op _)) x xs)
-                (binary-equal-op-tree (list :quantified-subquery op acc (walk x) :type quantified-op) xs))
+               ((list* (cons (and op (type keyword)) _) (list :|quantified_operator| (cons quantified-op start)) x xs)
+                (binary-equal-op-tree (list :quantified-subquery op acc (walk x) :type quantified-op :start start :end (find-end-delimiter :|)| x)) xs))
                ((list* (cons :== _) x xs)
                 (binary-equal-op-tree (list := acc (walk x)) xs))
                ((list* (cons :!= _) x xs)
@@ -225,8 +225,8 @@
                (() acc)))
            (binary-op-tree (acc xs)
              (trivia:ematch xs
-               ((list* (cons op _) (list :|quantified_operator| (cons quantified-op _)) x xs)
-                (binary-op-tree (list :quantified-subquery op acc (walk x) :type quantified-op) xs))
+               ((list* (cons op _) (list :|quantified_operator| (cons quantified-op start)) x xs)
+                (binary-op-tree (list :quantified-subquery op acc (walk x) :type quantified-op :start start :end (find-end-delimiter :|)| x)) xs))
                ((list* (cons op _) x xs)
                 (binary-op-tree (list op acc (walk x)) xs))
                (() acc)))
@@ -708,8 +708,8 @@
                ((list :|substring_expr| _ _ x _ y _ z _)
                 (list :substring (walk x) :from (walk y) :for (walk z)))
 
-               ((list :|scalar_subquery| (list :|subquery| _ query _))
-                (list :scalar-subquery (walk query)))
+               ((list :|scalar_subquery| (list :|subquery| (cons _ start) query (cons _ end)))
+                (list :scalar-subquery (walk query) :start start :end end))
 
                ((list :|subquery| _ query _)
                 (walk query))

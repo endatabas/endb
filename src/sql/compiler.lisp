@@ -1139,11 +1139,15 @@
               free-vars))))
 
 (defmethod sql->cl (ctx (type (eql :scalar-subquery)) &rest args)
-  (destructuring-bind (query)
+  (destructuring-bind (query &key start end)
       args
     (multiple-value-bind (src projection free-vars)
         (%ast->cl-with-free-vars ctx query)
-      (declare (ignore projection))
+      (unless (= 1 (length projection))
+        (%annotated-error-with-span (fset:lookup ctx :sql)
+                                    (format nil "Scalar subquery must return single column, got: ~A" (length projection))
+                                    "Scalar subquery must return single column"
+                                    start end))
       (alexandria:with-gensyms (index-key-form-sym)
         (let* ((index-sym (fset:lookup ctx :index-sym))
                (index-key-form `(vector ',index-key-form-sym ,@free-vars)))
@@ -1151,13 +1155,20 @@
             (endb/sql/expr:ra-compute-index-if-absent ,index-sym ,index-key-form (lambda () ,src))))))))
 
 (defmethod sql->cl (ctx (type (eql :quantified-subquery)) &rest args)
-  (destructuring-bind (op expr subquery &key type)
+  (destructuring-bind (op expr subquery &key type start end)
       args
-    (ecase type
-      (:all
-       `(endb/sql/expr:ra-all-quantified-subquery ,(symbol-function (%find-expr-symbol op "sql-")) ,(ast->cl ctx expr) ,(ast->cl ctx subquery)))
-      ((:some :any)
-       `(endb/sql/expr:ra-any-quantified-subquery ,(symbol-function (%find-expr-symbol op "sql-")) ,(ast->cl ctx expr) ,(ast->cl ctx subquery))))))
+    (multiple-value-bind (src projection)
+        (ast->cl ctx subquery)
+      (unless (= 1 (length projection))
+        (%annotated-error-with-span (fset:lookup ctx :sql)
+                                    (format nil "~A query must return single column, got: ~A" (string-upcase (symbol-name type)) (length projection))
+                                    (format nil "~A query must return single column" (string-upcase (symbol-name type)))
+                                    start end))
+      (ecase type
+        (:all
+         `(endb/sql/expr:ra-all-quantified-subquery ,(symbol-function (%find-expr-symbol op "sql-")) ,(ast->cl ctx expr) ,src))
+        ((:some :any)
+         `(endb/sql/expr:ra-any-quantified-subquery ,(symbol-function (%find-expr-symbol op "sql-")) ,(ast->cl ctx expr) ,src))))))
 
 (defmethod sql->cl (ctx (type (eql :table-function)) &rest args)
   (destructuring-bind (table-function &key with-ordinality)

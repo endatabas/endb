@@ -2586,6 +2586,14 @@ SELECT s FROM x WHERE ind=0")
       (execute-sql db "SELECT * FROM generate_series(1) AS foo"))
 
     (signals-with-msg endb/sql/expr:sql-runtime-error
+        "ALL query must return single column"
+      (execute-sql db "SELECT 1 < ALL (VALUES (1, 2))"))
+
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Scalar subquery must return single column"
+      (execute-sql db "SELECT 1 = (VALUES (1, 2))"))
+
+    (signals-with-msg endb/sql/expr:sql-runtime-error
         "Unknown column"
       (execute-sql db "SELECT * FROM (SELECT 1 AS a) x JOIN (SELECT 1 AS b) y USING (a)"))
 
