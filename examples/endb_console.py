@@ -139,9 +139,12 @@ if __name__ == '__main__':
             for sql in args.sql:
                 path = pathlib.Path(sql)
                 if path.is_file():
-                    console.default(path.read_text())
-                else:
-                    console.default(sql)
+                    sql = path.read_text()
+
+                if not sql.strip().endswith(';'):
+                    sql += ';'
+
+                console.default(sql)
 
                 if console.was_error:
                     sys.exit(1)

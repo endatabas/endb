@@ -184,7 +184,7 @@ SQL_ACID_TESTS = $(shell find $(SQL_ACID_TEST_DIR) -iwholename "*/tests/*/*.sql"
 sql-acid-test: target/endb
 	ENDB_PID=$$(./$< -d :memory: > target/endb_sql_acid_test.log 2>&1 & echo $$!); \
 		for test in $(SQL_ACID_TESTS); \
-			do find $(SQL_ACID_TEST_DIR) -iname $$test | xargs -i examples/endb_console.py {} ';'; \
+			do find $(SQL_ACID_TEST_DIR) -iname $$test | xargs -i examples/endb_console.py {}; \
 		done; \
 		kill $$ENDB_PID
 
