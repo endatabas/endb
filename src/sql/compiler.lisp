@@ -1550,11 +1550,6 @@
                                                      (first type-parts)
                                                      `(list ,@type-parts))))))
 
-(defmethod sql->cl (ctx (type (eql :position)) &rest args)
-  (destructuring-bind (x y)
-      args
-    `(endb/sql/expr:sql-instr ,(ast->cl ctx y)  ,(ast->cl ctx x))))
-
 (defmethod sql->cl (ctx (type (eql :substring)) &rest args)
   (destructuring-bind (x &key from for)
       args

@@ -9,14 +9,15 @@
   (:import-from :endb/lib)
   (:import-from :endb/queue)
   (:import-from :fset)
-  (:export #:sql-= #:sql-<> #:sql-is #:sql-not #:sql-and #:sql-or
+  (:export #:sql-= #:sql-== #:sql-<> #:sql-!= #:sql-is #:sql-not #:sql-and #:sql-or
            #:sql-< #:sql-<= #:sql-> #:sql->=
            #:sql-+ #:sql-- #:sql-* #:sql-/ #:sql-% #:sql-<<  #:sql->> #:sql-~ #:sql-& #:sql-\|
            #:sql-between #:sql-coalesce #:sql-ifnull #:sql-uuid #:sql-uuid_blob #:sql_uuid_str #:sql-base64 #:sql-sha1
            #:sql-object_keys #:sql-object_values #:sql-object_entries #:sql-object_from_entries
            #:sql-\|\| #:sql-concat #:sql-cardinality #:sql-char_length #:sql-character_length #:sql-octet_length #:sql-length
            #:sql-trim #:sql-ltrim #:sql-rtrim #:sql-lower #:sql-upper
-           #:sql-replace #:sql-unhex #:sql-hex #:sql-instr #:sql-min #:sql-max #:sql-char #:sql-unicode #:sql-random #:sql-glob #:sql-regexp #:sql-randomblob #:sql-zeroblob #:sql-iif
+           #:sql-replace #:sql-unhex #:sql-hex #:sql-instr #:sql-position
+           #:sql-min #:sql-max #:sql-char #:sql-unicode #:sql-random #:sql-glob #:sql-regexp #:sql-randomblob #:sql-zeroblob #:sql-iif
            #:sql-round #:sql-sin #:sql-cos #:sql-tan #:sql-sinh #:sql-cosh #:sql-tanh #:sql-asin #:sqn-acos #:sql-atan #:sql-asinh #:sqn-acosh #:sql-atanh #:sql-atan2
            #:sql-floor #:sql-ceiling #:sql-ceil #:sql-patch #:sql-match
            #:sql-sign #:sql-sqrt #:sql-exp #:sql-power #:sql-pow #:sql-log #:sql-log2 #:sql-log10 #:sql-ln #:sql-degrees #:sql-radians #:sql-pi
@@ -108,8 +109,14 @@
 (defmethod sql-= (x y)
   (fset:equal? x y))
 
+(defun sql-== (x y)
+  (sql-= x y))
+
 (defun sql-<> (x y)
   (sql-not (sql-= x y)))
+
+(defun sql-!= (x y)
+  (sql-<> x y))
 
 (defun sql-is (x y)
   (fset:equal? x y))
@@ -1169,6 +1176,9 @@
     (if idx
         (1+ idx)
         0)))
+
+(defun sql-position (x y)
+  (sql-instr y x))
 
 (defun sql-char (&rest args)
   (if (every #'integerp args)

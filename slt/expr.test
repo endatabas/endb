@@ -67,6 +67,38 @@ SELECT 1 % 2.0
 ----
 
 query I nosort
+SELECT 1 == 2.0
+----
+
+query I nosort
+SELECT 1 != 2.0
+----
+
+query I nosort
+SELECT 1 = 2.0
+----
+
+query I nosort
+SELECT 1 = 1
+----
+
+query I nosort
+SELECT 1 = NULL
+----
+
+query I nosort
+SELECT 1 <> 2.0
+----
+
+query I nosort
+SELECT 1 <> 1
+----
+
+query I nosort
+SELECT 1 <> NULL
+----
+
+query I nosort
 SELECT 1 < 2.0
 ----
 

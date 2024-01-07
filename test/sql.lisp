@@ -2547,6 +2547,26 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 1 == SOME (VALUES (1), (2))")
+      (is (equalp '(#(t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 1 != SOME (VALUES (1))")
+      (is (equalp '(#(nil)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 1 <> SOME (VALUES (1))")
+      (is (equalp '(#(nil)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 1 <> SOME (VALUES (NULL))")
+      (is (equalp '(#(:null)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT 1 < ALL (VALUES (1), (2))")
       (is (equalp '(#(nil)) result))
       (is (equal '("column1") columns)))
@@ -2579,6 +2599,11 @@ SELECT s FROM x WHERE ind=0")
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT * FROM LATERAL generate_series(1, 10, 2) AS foo")
       (is (equalp '(#(1) #(3) #(5) #(7) #(9)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT POSITION('o' IN 'foo')")
+      (is (equalp '(#(2)) result))
       (is (equal '("column1") columns)))
 
     (signals-with-msg endb/sql/expr:sql-runtime-error
