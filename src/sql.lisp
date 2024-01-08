@@ -28,7 +28,11 @@
 (defun make-directory-db (&key (directory "endb_data"))
   (endb/lib:init-lib)
   (let* ((store (make-instance 'endb/storage:disk-store :directory directory)))
-    (make-db :store store)))
+    (handler-case
+        (make-db :store store)
+      (error (e)
+        (endb/storage:store-close store)
+        (error e)))))
 
 (defun db-close (db)
   (endb/queue:queue-close (endb/sql/db:db-indexer-queue db))
