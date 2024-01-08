@@ -2089,7 +2089,17 @@ SELECT s FROM x WHERE ind=0")
       (is (= 1 result-code))
       (is (equalp '(#(2 2))
                   (endb/sql/db:base-table-visible-rows db "t1")))
-      (is (equalp '(#(2 2)) (execute-sql db "SELECT * FROM t1 ORDER BY 2"))))))
+      (is (equalp '(#(2 2)) (execute-sql db "SELECT * FROM t1 ORDER BY 2"))))
+
+    (multiple-value-bind (result result-code)
+        (execute-sql db "INSERT INTO josé(神) VALUES(2), (3)")
+      (is (null result))
+      (is (= 2 result-code)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM josé ORDER BY 1")
+      (is (equalp '(#(2) #(3)) result))
+      (is (equal '("神") columns)))))
 
 (defparameter +random-uuid-scanner+
   (ppcre:create-scanner "^[\\da-f]{8}-[\\da-f]{4}-4[\\da-f]{3}-[89ab][\\da-f]{3}-[\\da-f]{12}$"))

@@ -535,7 +535,12 @@
       (setf meta-data (fset:with meta-data table-name new-table-md))
       new-table-md)))
 
-(defparameter +ident-scanner+ (ppcre:create-scanner "^[a-zA-Z_][a-zA-Z0-9_]*$"))
+(defparameter +ident-scanner+ (ppcre:create-scanner (format nil
+                                                            "^[a-zA-Z_~C-~C][a-zA-Z_~C-~C0-9$]*$"
+                                                            #\U00A1
+                                                            #\UFFFF
+                                                            #\U00A1
+                                                            #\UFFFF)))
 
 (defun dml-insert (db table-name values &key column-names)
   (with-slots (buffer-pool meta-data current-timestamp) db
