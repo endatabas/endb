@@ -701,7 +701,38 @@ SELECT substr('..........',1,level*3) || name FROM under_alice ORDER BY under_al
   )
 SELECT s FROM x WHERE ind=0")
       (is (equalp '(#("534678912672195348198342567859761423426853791713924856961537284287419635345286179")) result))
-      (is (equal '("s") columns)))))
+      (is (equal '("s") columns)))
+
+    (let ((write-db (begin-write-tx db)))
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "WITH foo(a) AS (VALUES (1), (2)) INSERT INTO bar (a) SELECT * FROM foo")
+        (is (null result))
+        (is (= 2 result-code)))
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "SELECT * FROM bar")
+        (is (equalp '(#(1) #(2)) result))
+        (is (equal '("a") columns)))
+
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "WITH foo(a) AS (VALUES (1)) UPDATE bar SET a = 3 WHERE bar.a IN (SELECT * FROM foo)")
+        (is (null result))
+        (is (= 1 result-code)))
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "SELECT * FROM bar")
+        (is (equalp '(#(3) #(2)) result))
+        (is (equal '("a") columns)))
+
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "WITH foo(a) AS (VALUES (2)) DELETE FROM bar WHERE bar.a IN (SELECT * FROM foo)")
+        (is (null result))
+        (is (= 1 result-code)))
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "SELECT * FROM bar")
+        (is (equalp '(#(3)) result))
+        (is (equal '("a") columns))))))
 
 (test parameters
   (let* ((db (make-db)))

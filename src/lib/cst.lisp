@@ -278,11 +278,11 @@
                ((list* :|sql_stmt_list| xs)
                 (list :multiple-statments (mapcar #'walk (strip-delimiters '(:|;|) xs))))
 
-               ((list* :|select_stmt| (and with (list* :|with_clause| _ (cons :RECURSIVE _) _)) xs)
-                (append (walk with) (list (walk (cons :|select_stmt| xs))) (list :recursive :recursive)))
+               ((list* (and stmt-kw (type keyword)) (and with (list* :|with_clause| _ (cons :RECURSIVE _) _)) xs)
+                (append (walk with) (list (walk (cons stmt-kw xs))) (list :recursive :recursive)))
 
-               ((list* :|select_stmt| (and with (list* :|with_clause| _)) xs)
-                (append (walk with) (list (walk (cons :|select_stmt| xs)))))
+               ((list* (and stmt-kw (type keyword)) (and with (list* :|with_clause| _)) xs)
+                (append (walk with) (list (walk (cons stmt-kw xs)))))
 
                ((list* :|select_stmt| x xs)
                 (build-compound-select-stmt (walk x) xs))

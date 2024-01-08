@@ -211,11 +211,11 @@ peg! {
     upsert_clause <- ON CONFLICT column_name_list DO ( NOTHING / UPDATE update_clause );
 
     or_replace <- OR REPLACE;
-    insert_stmt <- INSERT or_replace? INTO table_name column_name_list? select_stmt upsert_clause?;
+    insert_stmt <- with_clause? INSERT or_replace? INTO table_name column_name_list? select_stmt upsert_clause?;
 
-    delete_stmt <- DELETE FROM table_name ( WHERE expr )?;
-    erase_stmt <- ERASE FROM table_name ( WHERE expr )?;
-    update_stmt <- UPDATE table_name update_clause;
+    delete_stmt <- with_clause? DELETE FROM table_name ( WHERE expr )?;
+    erase_stmt <- with_clause? ERASE FROM table_name ( WHERE expr )?;
+    update_stmt <- with_clause? UPDATE table_name update_clause;
 
     index_name <- ident;
     indexed_column <- column_name ( ASC / DESC )?;

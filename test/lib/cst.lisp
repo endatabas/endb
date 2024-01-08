@@ -226,4 +226,5 @@ UNION
   (is-valid "SELECT foo IS UNKNOWN")
   (is-valid "SELECT foo IS DISTINCT FROM bar")
   (is-valid "SELECT foo IS NOT DISTINCT FROM bar")
-  (is-valid "SELECT foo < SOME (VALUES (1), (2))"))
+  (is-valid "SELECT foo < SOME (VALUES (1), (2))")
+  (is-valid "WITH foo(a) AS (VALUES (1), (2)) INSERT INTO bar (a) SELECT * FROM foo"))

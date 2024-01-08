@@ -2118,7 +2118,10 @@
 (defun %interpretp (ast)
   (when (listp ast)
     (case (first ast)
-      ((:create-table :create-index :drop-table :drop-view :create-assertion :drop-assertion :begin :commit :rollback) t)
+      ((:create-table :create-index :create-view :drop-table :drop-index :drop-view :create-assertion :drop-assertion
+        :begin :commit :rollback :savepoint)
+       t)
+      (:with (%interpretp (third ast)))
       (:insert (member (first (third ast)) '(:values :objects)))
       (:select (let ((from (getf ast :from)))
                  (or (> (length from)
@@ -2148,7 +2151,7 @@
                        (let ((,index-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
                          (declare (ignorable ,index-sym))
                          ,src)))
-               (cachep (not (%interpretp ast))))
+               (cachep ))
           (values
            #+sbcl (let ((sb-ext:*evaluator-mode* (if (%interpretp ast)
                                                      :interpret
