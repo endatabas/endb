@@ -13,11 +13,18 @@
 (defvar *default-filename* "<unknown>")
 
 (defparameter +double-single-quote-scanner+ (ppcre:create-scanner "''"))
+(defparameter +double-backtick-scanner+ (ppcre:create-scanner "``"))
 (defparameter +backslash-escape-scanner+ (ppcre:create-scanner "(?s)(\\\\u[0-9a-fA-F]{4}|\\\\.)"))
 
-(defun sql-string-to-cl (single-quote-p s)
-  (let* ((s (if (and single-quote-p (find #\' s))
-                (ppcre:regex-replace-all +double-single-quote-scanner+ s "'")
+(defun sql-string-to-cl (s quote-char)
+  (let* ((s (if (and quote-char (find quote-char s))
+                (ppcre:regex-replace-all (cond
+                                           ((eql #\' quote-char)
+                                            +double-single-quote-scanner+)
+                                           ((eql #\` quote-char)
+                                            +double-backtick-scanner+)
+                                           (t (assert nil nil "Unknown quote char: ~A" quote-char)))
+                                         s (string quote-char))
                 s)))
     (if (find #\\ s)
         (ppcre:regex-replace-all +backslash-escape-scanner+
@@ -259,7 +266,9 @@
              (trivia:ematch cst
                ((list :|ident| (cons id start))
                 (let* ((end (+ start (trivial-utf-8:utf-8-byte-length id)))
-                       (s (make-symbol id)))
+                       (s (make-symbol (if (eql #\` (char id 0))
+                                           (sql-string-to-cl (subseq id 1 (1- (length id))) #\`)
+                                           id))))
                   (setf (get s :start) start (get s :end) end)
                   s))
 
@@ -727,7 +736,9 @@
                 (read-from-string x))
 
                ((list :|string_literal| (cons x _))
-                (sql-string-to-cl (eql #\' (char x 0)) (subseq x 1 (1- (length x)))))
+                (sql-string-to-cl (subseq x 1 (1- (length x)))
+                                  (when (eql #\' (char x 0))
+                                    #\')))
 
                ((list :|blob_literal| (cons x _))
                 (list :blob (subseq x 2 (1- (length x)))))

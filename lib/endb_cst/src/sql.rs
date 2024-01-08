@@ -7,7 +7,7 @@ lazy_static::lazy_static! {
 
 peg! {
 
-    ident <- r"\A\b\p{XID_START}\p{XID_CONTINUE}*\b";
+    ident <- r"\A(\b\p{XID_START}\p{XID_CONTINUE}*\b|`([^`]|``)*`)";
 
     numeric_literal <- r"\A(0[xX][0-9A-Fa-f]+|[0-9]+(\.[0-9]*)?([eE][-+]?[0-9]+)?|\.[0-9]+([eE][-+]?[0-9]+)?)";
     string_literal <- r#"\A(?s)("(?:[^\\"]|\\.)*"|'(?:[^\\']|''|\\.)*')"#;

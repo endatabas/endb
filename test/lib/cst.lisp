@@ -45,13 +45,13 @@
 
 (test parse-escapes
   (let* ((sql-string "\\/f\\bo\\fo\\nb\\\\a\\\"\\tr\\r\\u03BB")
-         (result (sql-string-to-cl nil sql-string)))
+         (result (sql-string-to-cl sql-string nil)))
     (is (equalp (format nil "/f~Ao~Ao~Ab\\a\"~Ar~Aλ" #\Backspace #\Page #\NewLine #\Tab #\Return) result)))
 
   (let* ((sql-string "\\/f\\0o\\fo\\nb\\\\a\\'\\v\\
-r\\r\\u03BB")
-         (result (sql-string-to-cl t sql-string)))
-    (is (equalp (format nil "/f~Ao~Ao~Ab\\a'~Ar~Aλ" #\Nul #\Page #\NewLine #\Vt #\Return) result))))
+r\\r\\u03BB''")
+         (result (sql-string-to-cl sql-string #\')))
+    (is (equalp (format nil "/f~Ao~Ao~Ab\\a'~Ar~Aλ'" #\Nul #\Page #\NewLine #\Vt #\Return) result))))
 
 (defun is-valid (sql)
   (is (cst->ast (parse-sql-cst sql))))
@@ -227,4 +227,5 @@ UNION
   (is-valid "SELECT foo IS DISTINCT FROM bar")
   (is-valid "SELECT foo IS NOT DISTINCT FROM bar")
   (is-valid "SELECT foo < SOME (VALUES (1), (2))")
-  (is-valid "WITH foo(a) AS (VALUES (1), (2)) INSERT INTO bar (a) SELECT * FROM foo"))
+  (is-valid "WITH foo(a) AS (VALUES (1), (2)) INSERT INTO bar (a) SELECT * FROM foo")
+  (is-valid "SELECT 2 AS `foo bar`"))

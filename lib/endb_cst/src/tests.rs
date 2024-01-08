@@ -248,6 +248,9 @@ fn select_as() {
     assert_snapshot!(
         parse("SELECT 1 AS from"),
         @r###"(:|sql_stmt_list| (:|select_stmt| (:|select_core| ("SELECT" 0 6) (:|result_expr_list| (:|result_column| (:|numeric_literal| ("1" 7 8)) ("AS" 9 11) (:|column_alias| (:|ident| ("from" 12 16))))))))"###);
+    assert_snapshot!(
+        parse("SELECT 1 AS `foo bar`"),
+        @r###"(:|sql_stmt_list| (:|select_stmt| (:|select_core| ("SELECT" 0 6) (:|result_expr_list| (:|result_column| (:|numeric_literal| ("1" 7 8)) ("AS" 9 11) (:|column_alias| (:|ident| ("`foo bar`" 12 21))))))))"###);
 }
 
 #[test]

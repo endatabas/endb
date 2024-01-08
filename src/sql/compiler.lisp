@@ -2079,22 +2079,25 @@
     ((and (symbolp ast)
           (not (keywordp ast)))
      (let* ((k (symbol-name ast))
-            (v (fset:lookup ctx k)))
-       (if v
-           (progn
-             (dolist (cb (fset:lookup ctx :on-var-access))
-               (funcall cb ctx k v))
-             (if (get v :functionp)
-                 `(funcall ,v)
-                 v))
-           (let* ((idx (position #\. k)))
-             (if idx
-                 (let ((column (subseq k 0 idx))
-                       (path (subseq k (1+ idx))))
-                   (if (fset:lookup ctx column)
-                       (ast->cl ctx (list :access (make-symbol column) path))
-                       (%annotated-error (fset:lookup ctx :sql) ast (format nil "Unknown column: ~A" ast) "Unknown column")))
-                 (%annotated-error (fset:lookup ctx :sql) ast (format nil "Unknown column: ~A" ast) "Unknown column"))))))
+            (dot-idx (position #\. k))
+            (v (or (fset:lookup ctx k)
+                   (unless dot-idx
+                     (fset:lookup ctx (%qualified-column-name k "!doc"))))))
+       (cond
+         (v
+          (progn
+            (dolist (cb (fset:lookup ctx :on-var-access))
+              (funcall cb ctx k v))
+            (if (get v :functionp)
+                `(funcall ,v)
+                v)))
+         (dot-idx
+          (let ((column (subseq k 0 dot-idx))
+                (path (subseq k (1+ dot-idx))))
+            (if (fset:lookup ctx column)
+                (ast->cl ctx (list :access (make-symbol column) path))
+                (%annotated-error (fset:lookup ctx :sql) ast (format nil "Unknown column: ~A" ast) "Unknown column"))))
+         (t (%annotated-error (fset:lookup ctx :sql) ast (format nil "Unknown column: ~A" ast) "Unknown column")))))
     (t (progn
          (assert (not (listp ast)))
          ast))))

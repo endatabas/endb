@@ -1718,6 +1718,31 @@ SELECT s FROM x WHERE ind=0")
       (is (equalp `(#(,(fset:seq 4 5)) #(,(fset:seq 2 3))) result))
       (is (equal '("column1") columns)))
 
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT x.`foo bar` FROM (OBJECTS {'foo bar': 2}) AS x")
+      (is (equalp `(#(2)) result))
+      (is (equal '("foo bar") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT x['foo bar'] FROM (OBJECTS {'foo bar': 2}) AS x")
+      (is (equalp `(#(2)) result))
+      (is (equal '("foo bar") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT x FROM (OBJECTS {'foo bar': 2}) AS x")
+      (is (equalp `(#(,(fset:map ("foo bar" 2)))) result))
+      (is (equal '("x") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT x FROM (OBJECTS {x: 2}) AS y")
+      (is (equalp `(#(2)) result))
+      (is (equal '("x") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT x.x FROM (OBJECTS {x: 2}) AS x")
+      (is (equalp `(#(2)) result))
+      (is (equal '("x") columns)))
+
     (let ((write-db (begin-write-tx (make-db))))
       (multiple-value-bind (result result-code)
           (execute-sql write-db "INSERT INTO users(user) VALUES ({address: {street: 'Street', number: 42}, friends: [1, 2]}), ({address: {street: 'Street', number: 43}, friends: [3, 1]})")
@@ -2646,6 +2671,11 @@ SELECT s FROM x WHERE ind=0")
         (execute-sql db "SELECT POSITION('o' IN 'foo')")
       (is (equalp '(#(2)) result))
       (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT 2 AS `foo bar`")
+      (is (equalp '(#(2)) result))
+      (is (equal '("foo bar") columns)))
 
     (signals-with-msg endb/sql/expr:sql-runtime-error
         "Invalid number of arguments: 1 to: GENERATE_SERIES min: 2 max: 3"
