@@ -180,27 +180,39 @@
       (%compile-sql-fn db sql)
     (let* ((all-parameters (if manyp
                                (fset:convert 'list parameters)
-                               (list parameters)))
-           (all-parameters (loop for parameters in all-parameters
-                                 collect (etypecase parameters
-                                           (fset:map parameters)
-                                           (fset:seq (fset:convert 'fset:map (loop for x in (fset:convert 'list parameters)
-                                                                                   for idx from 0
-                                                                                   collect (cons idx x))))
-                                           (t (error 'endb/sql/expr:sql-runtime-error :message "Parameters must be an array or an object"))))))
+                               (list parameters))))
       (trivia:match ast
         ((trivia:guard (list :insert table-name (list* :values (list (list* ps)) _) :column-names column-names)
                        (and manyp
                             (every (lambda (x)
                                      (equal '(:parameter) x))
                                    ps)
-                            (= (length ps) (fset:size (first all-parameters)))))
+                            (every (lambda (x)
+                                     (and (fset:seq? x) (= (length ps) (fset:size x))))
+                                   all-parameters)))
          (endb/sql/db:dml-insert db
                                  (symbol-name table-name)
                                  (loop for ps in all-parameters
-                                       collect (%fset-values ps))
+                                       collect (fset:convert 'vector ps))
                                  :column-names (mapcar #'symbol-name column-names)))
-        (_ (loop with final-result = nil
+
+        ((trivia:guard (list :insert table-name (list* :objects (list (list :parameter)) _))
+                       (and manyp
+                            (every (lambda (x)
+                                     (and (fset:seq? x) (= 1 (fset:size x))))
+                                   all-parameters)))
+         (endb/sql/db:dml-insert-objects db
+                                         (symbol-name table-name)
+                                         (loop for ps in all-parameters
+                                               collect (fset:first ps))))
+        (_ (loop with all-parameters = (loop for parameters in all-parameters
+                                             collect (etypecase parameters
+                                                       (fset:map parameters)
+                                                       (fset:seq (fset:convert 'fset:map (loop for x in (fset:convert 'list parameters)
+                                                                                               for idx from 0
+                                                                                               collect (cons idx x))))
+                                                       (t (error 'endb/sql/expr:sql-runtime-error :message "Parameters must be an array or an object"))))
+                 with final-result = nil
                  with final-result-code = nil
                  for parameters in all-parameters
                  do (multiple-value-bind (result result-code)

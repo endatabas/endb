@@ -631,13 +631,23 @@
             (dml-insert db table-name values :column-names column-names))))))
 
 (defun dml-insert-objects (db table-name objects)
-  (loop for object in objects
-        if (fset:empty? object)
-          do (error 'endb/sql/expr:sql-runtime-error :message "Cannot insert empty object")
-        else
-          do (dml-insert db table-name
-                         (list (%fset-values object))
-                         :column-names (fset:convert 'list (fset:domain object))))
+  (unless (every #'fset:map? objects)
+    (error 'endb/sql/expr:sql-runtime-error :message "Cannot insert non-object"))
+  (let ((column-sets (fset:convert 'fset:set (mapcar #'fset:domain objects))))
+    (if (= 1 (fset:size column-sets))
+        (let ((object (first objects)))
+          (when (fset:empty? object)
+            (error 'endb/sql/expr:sql-runtime-error :message "Cannot insert empty object"))
+          (dml-insert db table-name
+                      (mapcar #'%fset-values objects)
+                      :column-names (fset:convert 'list (fset:domain object))))
+        (loop for object in objects
+              if (fset:empty? object)
+                do (error 'endb/sql/expr:sql-runtime-error :message "Cannot insert empty object")
+              else
+                do (dml-insert db table-name
+                               (list (%fset-values object))
+                               :column-names (fset:convert 'list (fset:domain object))))))
   (values nil (length objects)))
 
 (defun dml-delete (db table-name new-batch-file-idx-deleted-row-ids)

@@ -177,7 +177,8 @@ peg! {
     having_clause <- HAVING expr;
 
     values_stmt <- VALUES paren_expr_list ( "," paren_expr_list )*;
-    objects_stmt <- OBJECTS? object_expr ( "," object_expr)*;
+    <object_or_parameter> <- object_expr / bind_parameter;
+    objects_stmt <- object_expr ( "," object_expr)* / OBJECTS object_or_parameter ( "," object_or_parameter )*;
 
     result_expr_list <- result_column ( "," result_column )*;
 
