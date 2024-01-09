@@ -195,7 +195,6 @@
                                  (loop for ps in all-parameters
                                        collect (fset:convert 'vector ps))
                                  :column-names (mapcar #'symbol-name column-names)))
-
         ((trivia:guard (list :insert table-name (list* :objects (list (list :parameter)) _))
                        (and manyp
                             (every (lambda (x)
