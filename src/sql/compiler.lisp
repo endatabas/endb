@@ -381,6 +381,24 @@
                     ,z))))
 
       ((trivia:guard
+        (list 'endb/sql/expr:sql-like y x)
+        (and (member x vars) (stringp y)))
+       (let ((idx (position-if (lambda (z)
+                                 (member z '(#\% #\_)))
+                               y)))
+         (when (and idx (plusp idx))
+           `(and (eq t (endb/sql/expr:sql->=
+                        (fset:lookup
+                         (fset:lookup ,stats-md-sym ,(get x :column))
+                         "max")
+                        ,(subseq y 0 idx)))
+                 (eq t (endb/sql/expr:sql-<=
+                        (fset:lookup
+                         (fset:lookup ,stats-md-sym ,(get x :column))
+                         "min")
+                        ,(concatenate 'string (subseq y 0 idx) (string #\UFFFF))))))))
+
+      ((trivia:guard
         (list 'endb/sql/expr:sql-< x y)
         (and (member x vars) (free-var-or-constant-p y)))
        `(eq t (endb/sql/expr:sql-<
