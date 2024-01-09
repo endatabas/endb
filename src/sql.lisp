@@ -13,6 +13,7 @@
   (:import-from :endb/storage)
   (:import-from :endb/storage/buffer-pool)
   (:import-from :fset)
+  (:import-from :trivia)
   (:import-from :uiop))
 (in-package :endb/sql)
 
