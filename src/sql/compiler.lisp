@@ -2172,7 +2172,7 @@
                        (let ((,index-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
                          (declare (ignorable ,index-sym))
                          ,src)))
-               (cachep ))
+               (cachep (not (%interpretp ast))))
           (values
            #+sbcl (let ((sb-ext:*evaluator-mode* (if (%interpretp ast)
                                                      :interpret
