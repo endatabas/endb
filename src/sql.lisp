@@ -162,32 +162,53 @@
                     (endb/sql/compiler:compile-sql ctx ast expected-parameters)))
             (when cachep
               (setf (gethash k (endb/sql/db:db-query-cache db)) sql-fn))
-            sql-fn)))))
+            (values sql-fn ast))))))
+
+(defun %fset-values (m)
+  (fset:reduce (lambda (acc k v)
+                 (declare (ignore k))
+                 (vector-push-extend v acc)
+                 acc)
+               m
+               :initial-value (make-array 0 :fill-pointer 0)))
 
 (defun %execute-sql (db sql parameters manyp)
   (when (and manyp (not (fset:seq? parameters)))
     (error 'endb/sql/expr:sql-runtime-error :message "Many parameters must be an array"))
-  (let* ((sql-fn (%compile-sql-fn db sql))
-         (all-parameters (if manyp
-                             (fset:convert 'list parameters)
-                             (list parameters)))
-         (all-parameters (loop for parameters in all-parameters
-                               collect (etypecase parameters
-                                         (fset:map parameters)
-                                         (fset:seq (fset:convert 'fset:map (loop for x in (fset:convert 'list parameters)
-                                                                                 for idx from 0
-                                                                                 collect (cons idx x))))
-                                         (t (error 'endb/sql/expr:sql-runtime-error :message "Parameters must be an array or an object"))))))
-    (loop with final-result = nil
-          with final-result-code = nil
-          for parameters in all-parameters
-          do (multiple-value-bind (result result-code)
-                 (funcall sql-fn db parameters)
-               (setf final-result result)
-               (if (numberp result-code)
-                   (setf final-result-code (+ result-code (or final-result-code 0)))
-                   (setf final-result-code result-code)))
-          finally (return (values final-result final-result-code)))))
+  (multiple-value-bind (sql-fn ast)
+      (%compile-sql-fn db sql)
+    (let* ((all-parameters (if manyp
+                               (fset:convert 'list parameters)
+                               (list parameters)))
+           (all-parameters (loop for parameters in all-parameters
+                                 collect (etypecase parameters
+                                           (fset:map parameters)
+                                           (fset:seq (fset:convert 'fset:map (loop for x in (fset:convert 'list parameters)
+                                                                                   for idx from 0
+                                                                                   collect (cons idx x))))
+                                           (t (error 'endb/sql/expr:sql-runtime-error :message "Parameters must be an array or an object"))))))
+      (trivia:match ast
+        ((trivia:guard (list :insert table-name (list* :values (list (list* ps)) _) :column-names column-names)
+                       (and manyp
+                            (every (lambda (x)
+                                     (equal '(:parameter) x))
+                                   ps)
+                            (= (length ps) (fset:size (first all-parameters)))))
+         (endb/sql/db:dml-insert db
+                                 (symbol-name table-name)
+                                 (loop for ps in all-parameters
+                                       collect (%fset-values ps))
+                                 :column-names (mapcar #'symbol-name column-names)))
+        (_ (loop with final-result = nil
+                 with final-result-code = nil
+                 for parameters in all-parameters
+                 do (multiple-value-bind (result result-code)
+                        (funcall sql-fn db parameters)
+                      (setf final-result result)
+                      (if (numberp result-code)
+                          (setf final-result-code (+ result-code (or final-result-code 0)))
+                          (setf final-result-code result-code)))
+                 finally (return (values final-result final-result-code))))))))
 
 (defun execute-sql (db sql &optional (parameters (fset:empty-seq)) manyp)
   (handler-case
