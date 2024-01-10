@@ -85,3 +85,13 @@
                                     collect (coerce x 'list)))))
       (when (probe-file test-file)
         (delete-file test-file)))))
+
+(test arrow-ffi-ipc-streams
+  (let ((arrays `((,(fset:map ("a" 1)))
+                  (,(fset:map ("a" 2))))))
+    (is (equalp arrays (loop for x in (read-arrow-arrays-from-ipc-buffer
+                                       (write-arrow-arrays-to-ipc-buffer
+                                        (mapcar #'endb/arrow:to-arrow arrays)
+                                        :ipc-stream-p t)
+                                       :ipc-stream-p t)
+                             collect (coerce x 'list))))))

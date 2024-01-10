@@ -233,6 +233,7 @@ where
                 "application/ld+json" => "application/ld+json",
                 "application/x-ndjson" => "application/x-ndjson",
                 "application/vnd.apache.arrow.file" => "application/vnd.apache.arrow.file",
+                "application/vnd.apache.arrow.stream" => "application/vnd.apache.arrow.stream",
                 "text/*" | "text/csv" => "text/csv",
                 _ => {
                     return Ok(Response::builder()

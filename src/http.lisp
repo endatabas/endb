@@ -69,7 +69,14 @@
                 (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer
                  (list (endb/arrow:to-arrow
                         (loop for row in rows
-                              collect (fset:convert 'fset:map (pairlis column-names (coerce row 'list))))))))))))
+                              collect (fset:convert 'fset:map (pairlis column-names (coerce row 'list)))))))))
+      ((equal "application/vnd.apache.arrow.stream" content-type)
+       (funcall on-response-send
+                (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer
+                 (list (endb/arrow:to-arrow
+                        (loop for row in rows
+                              collect (fset:convert 'fset:map (pairlis column-names (coerce row 'list))))))
+                 :ipc-stream-p t))))))
 
 (defun %rows-response-p (result result-code)
   (or result (and (listp result-code)

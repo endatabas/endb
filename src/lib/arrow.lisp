@@ -119,7 +119,8 @@
   (stream (:pointer (:struct ArrowArrayStream)))
   (buffer-ptr :pointer)
   (buffer-size :size)
-  (on-error :pointer))
+  (on-error :pointer)
+  (ipc-stream :char))
 
 (defvar *arrow-array-stream-consumer-on-init-stream*
   (lambda (c-stream)
@@ -149,7 +150,8 @@
 (cffi:defcfun "endb_arrow_array_stream_consumer" :void
   (on-init-stream :pointer)
   (on-success :pointer)
-  (on-error :pointer))
+  (on-error :pointer)
+  (ipc-stream :char))
 
 (defstruct arrow-schema format name children)
 
@@ -246,7 +248,7 @@
           (loop for (nil . array) in (endb/arrow:arrow-children array)
                 append (%all-buffers array))))
 
-(defun write-arrow-arrays-to-ipc-buffer (arrays &optional (on-success #'endb/lib:buffer-to-vector))
+(defun write-arrow-arrays-to-ipc-buffer (arrays &key (on-success #'endb/lib:buffer-to-vector) ipc-stream-p)
   (endb/lib:init-lib)
   (let* ((last-error (cffi:null-pointer))
          (schemas (remove-duplicates (loop for a in arrays
@@ -297,16 +299,19 @@
                                                            (setf err e))))
             (endb-arrow-array-stream-consumer (cffi:callback arrow-array-stream-consumer-on-init-stream)
                                               (cffi:callback arrow-array-stream-consumer-on-success)
-                                              (cffi:callback arrow-array-stream-consumer-on-error))
+                                              (cffi:callback arrow-array-stream-consumer-on-error)
+                                              (if ipc-stream-p
+                                                  1
+                                                  0))
             (when err
               (error err))
             result))
       (unless (cffi:null-pointer-p last-error)
         (cffi:foreign-free last-error)))))
 
-(defun write-arrow-arrays-to-ipc-file (file arrays)
+(defun write-arrow-arrays-to-ipc-file (file arrays &key ipc-stream-p)
   (alexandria:write-byte-vector-into-file
-   (write-arrow-arrays-to-ipc-buffer arrays) file :if-exists :supersede :if-does-not-exist :create)
+   (write-arrow-arrays-to-ipc-buffer arrays :ipc-stream-p ipc-stream-p) file :if-exists :supersede :if-does-not-exist :create)
   file)
 
 (defun import-arrow-array (schema c-array)
@@ -342,7 +347,7 @@
   (unless (cffi:null-pointer-p release)
     (cffi:foreign-funcall-pointer release () :pointer c-obj :void)))
 
-(defun read-arrow-arrays-from-ipc-pointer (buffer-ptr buffer-size)
+(defun read-arrow-arrays-from-ipc-pointer (buffer-ptr buffer-size &key ipc-stream-p)
   (endb/lib:init-lib)
   (cffi:with-foreign-objects ((c-stream '(:struct ArrowArrayStream))
                               (c-schema '(:struct ArrowSchema))
@@ -354,7 +359,10 @@
        c-stream
        buffer-ptr
        buffer-size
-       (cffi:callback arrow-array-stream-producer-on-error))
+       (cffi:callback arrow-array-stream-producer-on-error)
+       (if ipc-stream-p
+           1
+           0))
       (when err
         (error err)))
     (cffi:with-foreign-slots ((get_schema get_next get_last_error release) c-stream (:struct ArrowArrayStream))
@@ -378,11 +386,11 @@
                  (error (cffi:foreign-funcall-pointer get_last_error () :pointer c-stream :string))))
         (%call-release release c-stream)))))
 
-(defun read-arrow-arrays-from-ipc-buffer (buffer)
+(defun read-arrow-arrays-from-ipc-buffer (buffer &key ipc-stream-p)
   (check-type buffer (vector (unsigned-byte 8)))
   (cffi:with-pointer-to-vector-data (buffer-ptr #+sbcl (sb-ext:array-storage-vector buffer)
                                                 #-sbcl buffer)
-    (read-arrow-arrays-from-ipc-pointer buffer-ptr (length buffer))))
+    (read-arrow-arrays-from-ipc-pointer buffer-ptr (length buffer) :ipc-stream-p ipc-stream-p)))
 
 (defun read-arrow-arrays-from-ipc-file (file)
   (read-arrow-arrays-from-ipc-buffer (alexandria:read-file-into-byte-vector file)))

@@ -21,9 +21,10 @@ pub extern "C" fn endb_arrow_array_stream_producer(
     buffer_ptr: *const u8,
     buffer_size: usize,
     on_error: endb_on_error_callback,
+    ipc_stream: c_char,
 ) {
     let buffer = unsafe { std::slice::from_raw_parts(buffer_ptr, buffer_size) };
-    match endb_arrow::read_arrow_array_stream_from_ipc_buffer(buffer) {
+    match endb_arrow::read_arrow_array_stream_from_ipc_buffer(buffer, ipc_stream != 0) {
         Ok(exported_stream) => unsafe {
             std::ptr::write(stream, exported_stream);
         },
@@ -43,10 +44,11 @@ pub extern "C" fn endb_arrow_array_stream_consumer(
     on_init_stream: endb_arrow_array_stream_consumer_on_init_stream_callback,
     on_success: endb_arrow_array_stream_consumer_on_success_callback,
     on_error: endb_on_error_callback,
+    ipc_stream: c_char,
 ) {
     let mut stream = arrow::ffi_stream::FFI_ArrowArrayStream::empty();
     on_init_stream(&mut stream);
-    match endb_arrow::write_arrow_array_stream_to_ipc_buffer(stream) {
+    match endb_arrow::write_arrow_array_stream_to_ipc_buffer(stream, ipc_stream != 0) {
         Ok(buffer) => on_success(buffer.as_ptr(), buffer.len()),
         Err(err) => {
             string_callback(err.to_string(), on_error);
