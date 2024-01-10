@@ -2164,8 +2164,8 @@
                (src `(lambda (,db-sym &optional ,param-sym)
                        (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
                        (declare (ignorable ,db-sym ,param-sym))
-                       (unless (fset:equal? (fset:convert 'fset:set ',parameters)
-                                            (fset:domain ,param-sym))
+                       (unless (fset:subset? (fset:convert 'fset:set ',parameters)
+                                             (fset:domain ,param-sym))
                          (error 'endb/sql/expr:sql-runtime-error :message (format nil "Required parameters: ~A does not match given: ~A"
                                                                                   (fset:convert 'list (fset:convert 'fset:set ',parameters))
                                                                                   (or (fset:convert 'list (fset:domain ,param-sym)) "()"))))

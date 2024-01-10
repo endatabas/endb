@@ -21,10 +21,9 @@ pub extern "C" fn endb_arrow_array_stream_producer(
     buffer_ptr: *const u8,
     buffer_size: usize,
     on_error: endb_on_error_callback,
-    ipc_stream: c_char,
 ) {
     let buffer = unsafe { std::slice::from_raw_parts(buffer_ptr, buffer_size) };
-    match endb_arrow::read_arrow_array_stream_from_ipc_buffer(buffer, ipc_stream != 0) {
+    match endb_arrow::read_arrow_array_stream_from_ipc_buffer(buffer) {
         Ok(exported_stream) => unsafe {
             std::ptr::write(stream, exported_stream);
         },

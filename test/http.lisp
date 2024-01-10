@@ -2,8 +2,10 @@
   (:use :cl :fiveam :endb/http)
   (:import-from :bordeaux-threads)
   (:import-from :fset)
+  (:import-from :endb/arrow)
   (:import-from :endb/json)
   (:import-from :endb/lib)
+  (:import-from :endb/lib/arrow)
   (:import-from :endb/lib/server)
   (:import-from :endb/sql)
   (:import-from :endb/sql/db))
@@ -50,6 +52,13 @@
                      '(:content-type "application/json")
                      (format nil "[[3]]~%"))
                (%do-query dbms "POST" "application/json" "SELECT :a + :b" "{\"a\":1,\"b\":2}" "false")))
+
+    (let ((arrow-parameters (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer
+                             (list (endb/arrow:to-arrow (list (fset:map ("a" 1) ("b" 2))))))))
+      (is (equal (list +http-ok+
+                       '(:content-type "application/json")
+                       (format nil "[[3]]~%"))
+                 (%do-query dbms "POST" "application/json" "SELECT :a + :b" (endb/json:json-stringify arrow-parameters) "true"))))
 
     (is (equal (list +http-created+
                      '(:content-type "application/json")
@@ -107,6 +116,10 @@
     (is (equal (list +http-bad-request+ '(:content-type "text/plain") (format nil "Invalid many: 1~%"))
                (%do-query dbms "GET" "application/json" "SELECT 1" "[]" "1")))
 
+    (let ((arrow-parameters (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer
+                             (list (endb/arrow:to-arrow (list (fset:map ("a" 1) ("b" 2))))))))
+      (is (equal (list +http-bad-request+ '(:content-type "text/plain") (format nil "Arrow parameters requires many to be true: false~%"))
+                 (%do-query dbms "POST" "application/json" "SELECT :a + :b" (endb/json:json-stringify arrow-parameters) "false"))))
 
     (destructuring-bind (status-code headers body)
         (%do-query dbms "GET" "application/json" "SELECT" "[]" "false")

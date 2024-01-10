@@ -92,6 +92,5 @@
     (is (equalp arrays (loop for x in (read-arrow-arrays-from-ipc-buffer
                                        (write-arrow-arrays-to-ipc-buffer
                                         (mapcar #'endb/arrow:to-arrow arrays)
-                                        :ipc-stream-p t)
-                                       :ipc-stream-p t)
+                                        :ipc-stream-p t))
                              collect (coerce x 'list))))))

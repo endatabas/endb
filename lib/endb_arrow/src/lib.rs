@@ -1,16 +1,20 @@
 pub fn read_arrow_array_stream_from_ipc_buffer(
     buffer: &[u8],
-    ipc_stream: bool,
 ) -> arrow::error::Result<arrow::ffi_stream::FFI_ArrowArrayStream> {
     let cursor = std::io::Cursor::new(buffer);
-    let (schema, iter) = if ipc_stream {
-        let reader = arrow::ipc::reader::StreamReader::try_new(cursor, None)?;
-        let schema = reader.schema();
-        (schema, reader.collect::<Vec<_>>().into_iter())
-    } else {
-        let reader = arrow::ipc::reader::FileReader::try_new(cursor, None)?;
-        let schema = reader.schema();
-        (schema, reader.collect::<Vec<_>>().into_iter())
+
+    let (schema, iter) = match arrow::ipc::reader::FileReader::try_new(cursor, None) {
+        Err(arrow::error::ArrowError::ParseError(_)) => {
+            let cursor = std::io::Cursor::new(buffer);
+            let reader = arrow::ipc::reader::StreamReader::try_new(cursor, None)?;
+            let schema = reader.schema();
+            (schema, reader.collect::<Vec<_>>().into_iter())
+        }
+        Err(err) => return Err(err),
+        Ok(reader) => {
+            let schema = reader.schema();
+            (schema, reader.collect::<Vec<_>>().into_iter())
+        }
     };
     let mut stream = arrow::ffi_stream::FFI_ArrowArrayStream::empty();
     unsafe {

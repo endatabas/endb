@@ -313,8 +313,49 @@ where
                         while let Ok(Some(field)) = mult.next_field().await {
                             if let Some(k) = field.name() {
                                 let k = k.to_string();
-                                if let Ok(v) = field.text().await {
-                                    params.insert(k, v.to_string());
+                                match (
+                                    k.as_str(),
+                                    field
+                                        .content_type()
+                                        .unwrap_or(&mime::TEXT_PLAIN)
+                                        .essence_str(),
+                                ) {
+                                    ("q", "text/plain" | "application/sql") => {
+                                        let v = field.text().await?;
+                                        params.insert(k, v.to_string());
+                                    }
+                                    (
+                                        "p" | "m",
+                                        "text/plain" | "application/json" | "application/ld+json",
+                                    ) => {
+                                        let v = field.text().await?;
+                                        params.insert(k, v.to_string());
+                                    }
+                                    (
+                                        "p",
+                                        "application/vnd.apache.arrow.file"
+                                        | "application/vnd.apache.arrow.stream",
+                                    ) => {
+                                        let v = field.bytes().await?;
+                                        let base64_arrow =
+                                            base64::engine::general_purpose::STANDARD.encode(v);
+                                        params.insert(
+                                            k,
+                                            "{\"@value\":\"".to_owned()
+                                                + &base64_arrow
+                                                + "\",\"@type\":\"xsd:base64Binary\"}",
+                                        );
+                                    }
+                                    ("q" | "p" | "m", _) => {
+                                        return Ok(Response::builder()
+                                            .status(StatusCode::UNSUPPORTED_MEDIA_TYPE)
+                                            .body(Empty::new().boxed())?)
+                                    }
+                                    _ => {
+                                        return Ok(Response::builder()
+                                            .status(StatusCode::BAD_REQUEST)
+                                            .body(Empty::new().boxed())?)
+                                    }
                                 }
                             }
                         }
@@ -689,6 +730,28 @@ mod tests {
 
         assert_debug_snapshot!(
             service(None, ok("[[1]]\n"))
+            .call(post("http://localhost:3803/sql", "multipart/form-data; boundary=12345", "--12345\r\nContent-Disposition: form-data; name=\"q\"\r\nContent-Type: application/sql\r\n\r\nSELECT 1\r\n--12345--"))
+            .await.map(read_body).unwrap().await
+        , @r###"
+        Response {
+            status: 200,
+            version: HTTP/1.1,
+            headers: {
+                "x-q": "SELECT 1",
+                "x-p": "[]",
+                "x-m": "false",
+                "content-type": "application/json",
+            },
+            body: Full {
+                data: Some(
+                    b"[[1]]\n",
+                ),
+            },
+        }
+        "###);
+
+        assert_debug_snapshot!(
+            service(None, ok("[[1]]\n"))
             .call(post("http://localhost:3803/sql", "application/json", "{\"q\":\"SELECT 1\"}"))
             .await.map(read_body).unwrap().await
         , @r###"
@@ -734,6 +797,21 @@ mod tests {
         assert_debug_snapshot!(
             service(None, unreachable())
             .call(post("http://localhost:3803/sql", "text/plain", "SELECT 1"))
+            .await.map(read_body).unwrap().await
+        , @r###"
+        Response {
+            status: 415,
+            version: HTTP/1.1,
+            headers: {},
+            body: Full {
+                data: None,
+            },
+        }
+        "###);
+
+        assert_debug_snapshot!(
+            service(None, ok("[[1]]\n"))
+            .call(post("http://localhost:3803/sql", "multipart/form-data; boundary=12345", "--12345\r\nContent-Disposition: form-data; name=\"q\"\r\nContent-Type: text/xml\r\n\r\nSELECT 1\r\n--12345--"))
             .await.map(read_body).unwrap().await
         , @r###"
         Response {

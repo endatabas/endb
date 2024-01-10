@@ -174,13 +174,17 @@
                :initial-value (make-array 0 :fill-pointer 0)))
 
 (defun %execute-sql (db sql parameters manyp)
-  (when (and manyp (not (fset:seq? parameters)))
+  (when (and manyp (not (or (fset:seq? parameters)
+                            (typep parameters 'endb/arrow:arrow-binary))))
     (error 'endb/sql/expr:sql-runtime-error :message "Many parameters must be an array"))
   (multiple-value-bind (sql-fn ast)
       (%compile-sql-fn db sql)
-    (let* ((all-parameters (if manyp
-                               (fset:convert 'list parameters)
-                               (list parameters))))
+    (let* ((all-parameters (cond
+                             ((typep parameters 'endb/arrow:arrow-binary)
+                              (loop for batch in (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer parameters)
+                                    append (coerce batch 'list)))
+                             (manyp (fset:convert 'list parameters) )
+                             (t (list parameters)))))
       (trivia:match ast
         ((trivia:guard (list :insert table-name (list* :values (list (list* ps)) _) :column-names column-names)
                        (and manyp

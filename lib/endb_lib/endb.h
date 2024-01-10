@@ -98,8 +98,7 @@ typedef void (*endb_uuid_str_on_success_callback)(const char*);
 void endb_arrow_array_stream_producer(struct FFI_ArrowArrayStream *stream,
                                       const uint8_t *buffer_ptr,
                                       uintptr_t buffer_size,
-                                      endb_on_error_callback on_error,
-                                      char ipc_stream);
+                                      endb_on_error_callback on_error);
 
 void endb_arrow_array_stream_consumer(endb_arrow_array_stream_consumer_on_init_stream_callback on_init_stream,
                                       endb_arrow_array_stream_consumer_on_success_callback on_success,
