@@ -24,7 +24,10 @@
 
 (defun %on-response-send (body)
   (setf *current-response* (append (butlast *current-response*)
-                                   (list (concatenate 'string (car (last *current-response*)) body))))
+                                   (list (concatenate (if (stringp body)
+                                                          'string
+                                                          'vector)
+                                                      (car (last *current-response*)) body))))
   nil)
 
 (defun %do-query (dbms request-method content-type sql parameters manyp &optional (on-response-init #'%on-response-init) (on-response-send #'%on-response-send))
@@ -82,6 +85,62 @@
                      '(:content-type "application/x-ndjson")
                      (format nil "{\"a\":1,\"b\":2}~%"))
                (%do-query dbms "GET" "application/x-ndjson" "SELECT * FROM foo" "[]" "false")))))
+
+(test arrow-reponse
+  (let* ((dbms (endb/sql/db:make-dbms :db (endb/sql:make-db))))
+    (destructuring-bind (status-code headers body)
+        (%do-query dbms "POST" "application/vnd.apache.arrow.stream" "SELECT 1 AS b, 2 AS a" "[]" "false")
+      (is (eq +http-ok+ status-code))
+      (is (equal '(:content-type "application/vnd.apache.arrow.stream") headers))
+      (multiple-value-bind (arrays schema)
+          (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer (make-array (length body) :element-type '(unsigned-byte 8) :initial-contents body))
+        (is (equalp `((,(fset:map ("a" 2) ("b" 1)))) (loop for x in arrays
+                                                           collect (coerce x 'list))))
+        (is (equalp (endb/lib/arrow:make-arrow-schema
+                     :format "+s"
+                     :children (list (endb/lib/arrow:make-arrow-schema
+                                      :format "l"
+                                      :name "b")
+                                     (endb/lib/arrow:make-arrow-schema
+                                      :format "l"
+                                      :name "a")))
+                    schema))))
+
+    (destructuring-bind (status-code headers body)
+        (%do-query dbms "POST" "application/vnd.apache.arrow.stream" "SELECT 2 AS a, 1 AS b" "[]" "false")
+      (is (eq +http-ok+ status-code))
+      (is (equal '(:content-type "application/vnd.apache.arrow.stream") headers))
+      (multiple-value-bind (arrays schema)
+          (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer (make-array (length body) :element-type '(unsigned-byte 8) :initial-contents body))
+        (is (equalp `((,(fset:map ("a" 2) ("b" 1)))) (loop for x in arrays
+                                                           collect (coerce x 'list))))
+        (is (equalp (endb/lib/arrow:make-arrow-schema
+                     :format "+s"
+                     :children (list (endb/lib/arrow:make-arrow-schema
+                                      :format "l"
+                                      :name "a")
+                                     (endb/lib/arrow:make-arrow-schema
+                                      :format "l"
+                                      :name "b")))
+                    schema))))
+
+    (destructuring-bind (status-code headers body)
+        (%do-query dbms "POST" "application/vnd.apache.arrow.stream" "SELECT 2 AS a, 1 AS a" "[]" "false")
+      (is (eq +http-ok+ status-code))
+      (is (equal '(:content-type "application/vnd.apache.arrow.stream") headers))
+      (multiple-value-bind (arrays schema)
+          (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer (make-array (length body) :element-type '(unsigned-byte 8) :initial-contents body))
+        (is (equalp `((,(fset:map ("a" 1)))) (loop for x in arrays
+                                                   collect (coerce x 'list))))
+        (is (equalp (endb/lib/arrow:make-arrow-schema
+                     :format "+s"
+                     :children (list (endb/lib/arrow:make-arrow-schema
+                                      :format "l"
+                                      :name "a")
+                                     (endb/lib/arrow:make-arrow-schema
+                                      :format "l"
+                                      :name "a")))
+                    schema))))))
 
 (test errors
   (let* ((dbms (endb/sql/db:make-dbms :db (endb/sql:make-db))))

@@ -38,6 +38,13 @@
               do (com.inuoe.jzon:write-key writer column-name)
                  (com.inuoe.jzon:write-value writer column))))))
 
+(defun %rows-to-arrow (column-names rows)
+  (endb/arrow:to-arrow
+   (loop for row in rows
+         collect (fset:convert 'fset:map (pairlis (loop for idx below (length column-names)
+                                                        collect (format nil "~(~16,'0x~)" idx))
+                                                  (coerce row 'list))))))
+
 (defun %stream-response (on-response-send content-type column-names rows)
   (let ((endb/json:*json-ld-scalars* (equal "application/ld+json" content-type)))
     (cond
@@ -67,16 +74,14 @@
       ((equal "application/vnd.apache.arrow.file" content-type)
        (funcall on-response-send
                 (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer
-                 (list (endb/arrow:to-arrow
-                        (loop for row in rows
-                              collect (fset:convert 'fset:map (pairlis column-names (coerce row 'list)))))))))
+                 (list (%rows-to-arrow column-names rows))
+                 :projection column-names)))
       ((equal "application/vnd.apache.arrow.stream" content-type)
        (funcall on-response-send
                 (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer
-                 (list (endb/arrow:to-arrow
-                        (loop for row in rows
-                              collect (fset:convert 'fset:map (pairlis column-names (coerce row 'list))))))
-                 :ipc-stream-p t))))))
+                 (list (%rows-to-arrow column-names rows))
+                 :ipc-stream-p t
+                 :projection column-names))))))
 
 (defun %rows-response-p (result result-code)
   (or result (and (listp result-code)

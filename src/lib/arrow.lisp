@@ -1,6 +1,6 @@
 (defpackage :endb/lib/arrow
   (:use :cl)
-  (:export #:write-arrow-arrays-to-ipc-buffer #:write-arrow-arrays-to-ipc-file
+  (:export #:write-arrow-arrays-to-ipc-buffer #:write-arrow-arrays-to-ipc-file #:make-arrow-schema
            #:read-arrow-arrays-from-ipc-pointer #:read-arrow-arrays-from-ipc-buffer #:read-arrow-arrays-from-ipc-file)
   (:import-from :alexandria)
   (:import-from :endb/arrow)
@@ -154,11 +154,15 @@
 
 (defstruct arrow-schema format name children)
 
-(defun arrow-array-to-schema (field-name array)
+(defun arrow-array-to-schema (field-name array &optional projection)
   (make-arrow-schema :format (endb/arrow:arrow-data-type array)
                      :name field-name
-                     :children (loop for (k . v) in (endb/arrow:arrow-children array)
-                                     collect (arrow-array-to-schema k v))))
+                     :children (if projection
+                                   (loop for k in projection
+                                         for (nil . v) in (endb/arrow:arrow-children array)
+                                         collect (arrow-array-to-schema k v))
+                                   (loop for (k . v) in (endb/arrow:arrow-children array)
+                                         collect (arrow-array-to-schema k v)))))
 
 (defun import-arrow-schema (c-schema)
   (cffi:with-foreign-slots ((format name flags n_children children) c-schema (:struct ArrowSchema))
@@ -247,11 +251,11 @@
           (loop for (nil . array) in (endb/arrow:arrow-children array)
                 append (%all-buffers array))))
 
-(defun write-arrow-arrays-to-ipc-buffer (arrays &key (on-success #'endb/lib:buffer-to-vector) ipc-stream-p)
+(defun write-arrow-arrays-to-ipc-buffer (arrays &key (on-success #'endb/lib:buffer-to-vector) ipc-stream-p projection)
   (endb/lib:init-lib)
   (let* ((last-error (cffi:null-pointer))
          (schemas (remove-duplicates (loop for a in arrays
-                                           collect (arrow-array-to-schema "" a))
+                                           collect (arrow-array-to-schema "" a projection))
                                      :test 'equalp))
          (schema (first schemas))
          (result)
@@ -374,7 +378,7 @@
                                    (unwind-protect
                                         (if (zerop result)
                                             (if (cffi:null-pointer-p release)
-                                                (return acc)
+                                                (return (values acc schema))
                                                 (setf acc (append acc (list (import-arrow-array schema c-array)))))
                                             (error (cffi:foreign-funcall-pointer get_last_error () :pointer c-stream :string)))
                                      (%call-release release c-array))))
