@@ -199,6 +199,19 @@
                                  (loop for ps in all-parameters
                                        collect (fset:convert 'vector ps))
                                  :column-names (mapcar #'symbol-name column-names)))
+        ((trivia:guard (list :insert table-name (list :objects (list (list* :object (list* ps) _))))
+                       (and manyp
+                            (= 1 (fset:size (fset:convert 'fset:set (mapcar #'fset:domain all-parameters))))
+                            (fset:equal? (fset:domain (first all-parameters))
+                                         (fset:convert 'fset:set
+                                                       (mapcar (lambda (x)
+                                                                 (trivia:match x
+                                                                   ((list :shorthand-property (list :parameter p))
+                                                                    (symbol-name p))))
+                                                               ps)))))
+         (endb/sql/db:dml-insert-objects db
+                                         (symbol-name table-name)
+                                         all-parameters))
         ((trivia:guard (list :insert table-name (list* :objects (list (list :parameter)) _))
                        (and manyp
                             (every (lambda (x)
