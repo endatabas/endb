@@ -425,7 +425,11 @@ pub fn start_server(
                     let mut builder = hyper_util::server::conn::auto::Builder::new(
                         hyper_util::rt::TokioExecutor::new(),
                     );
-                    builder.http1().title_case_headers(true).keep_alive(true);
+                    builder
+                        .http1()
+                        .title_case_headers(true)
+                        .keep_alive(true)
+                        .timer(hyper_util::rt::tokio::TokioTimer::new());
                     builder.serve_connection_with_upgrades(io, svc).await
                 });
             }
