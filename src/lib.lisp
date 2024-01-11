@@ -1,7 +1,7 @@
 (defpackage :endb/lib
   (:use :cl)
   (:export #:init-lib #:*panic-hook*
-           #:log-error #:log-warn #:log-info #:log-debug #:resolve-log-level #:*log-level*
+           #:log-error #:log-warn #:log-info #:log-debug #:log-trace #:resolve-log-level #:log-level-active-p #:*log-level*
            #:sha1 #:uuid-v4 #:uuid-str #:base64-decode #:base64-encode #:xxh64
            #:vector-byte-size #:buffer-to-vector)
   (:import-from :cffi)
@@ -20,6 +20,9 @@
       (position :info +log-levels+)))
 
 (defvar *log-level* (resolve-log-level :info))
+
+(defun log-level-active-p (level)
+  (<= (position level +log-levels+) *log-level*))
 
 (defmacro log-error (control-string &rest format-arguments)
   `(when (<= ,(position :error +log-levels+) *log-level*)

@@ -1,6 +1,6 @@
 (defpackage :endb/sql
   (:use :cl)
-  (:export #:*query-timing* #:*interrupt-query-memory-usage-threshold* #:install-interrupt-query-handler
+  (:export #:*interrupt-query-memory-usage-threshold* #:install-interrupt-query-handler
            #:make-db #:make-directory-db #:db-close #:make-dbms #:dbms-close #:begin-write-tx #:commit-write-tx #:execute-sql #:interpret-sql-literal)
   (:import-from :bordeaux-threads)
   (:import-from :endb/arrow)
@@ -17,8 +17,6 @@
   (:import-from :trivia)
   (:import-from :uiop))
 (in-package :endb/sql)
-
-(defvar *query-timing* nil)
 
 (defun make-db (&key (store (make-instance 'endb/storage:in-memory-store)))
   (endb/lib:init-lib)
@@ -78,7 +76,7 @@
     (when (equalp '(#(nil)) (handler-case
                                 (execute-sql db v)
                               (endb/sql/expr:sql-runtime-error (e)
-                                (endb/lib:log-warn "Constraint ~A raised an error, ignoring: ~A" k e))))
+                                (endb/lib:log-warn "constraint ~A raised an error, ignoring: ~A" k e))))
       (error 'endb/sql/expr:sql-runtime-error :message (format nil "Constraint failed: ~A" k)))))
 
 (defun commit-write-tx (current-db write-db &key (fsyncp t))
@@ -138,8 +136,7 @@
   (let ((k (endb/sql/db:query-cache-key db sql)))
     (or (gethash k (endb/sql/db:db-query-cache db))
         (let* ((ast (endb/lib/cst:parse-sql-ast sql))
-               (ctx (fset:map (:db db) (:sql sql)))
-               (*print-length* 16))
+               (ctx (fset:map (:db db) (:sql sql))))
           (multiple-value-bind (sql-fn cachep)
               (multiple-value-bind (ast expected-parameters)
                   (%resolve-parameters ast)
@@ -242,29 +239,48 @@
 
 (defparameter +active-queries+ (make-hash-table :synchronized t))
 
+(defstruct active-query id sql start-time thread)
+
 (defun execute-sql (db sql &optional (parameters (fset:empty-seq)) manyp)
   (unwind-protect
-       (progn
-         (setf (gethash (bt:current-thread) +active-queries+) (get-internal-real-time))
+       (let ((active-query (make-active-query :id (endb/lib:uuid-v4)
+                                              :sql sql
+                                              :start-time (get-internal-real-time)
+                                              :thread (bt:current-thread))))
+         (setf (gethash (bt:current-thread) +active-queries+) active-query)
+         (endb/lib:log-debug "query start ~A on ~A:~%~A"
+                             (active-query-id active-query)
+                             (bt:thread-name (active-query-thread active-query))
+                             sql)
          (handler-case
-             (if *query-timing*
-                 (time (%execute-sql db sql parameters manyp))
-                 (%execute-sql db sql parameters manyp))
-           #+sbcl (sb-pcl::effective-method-condition (e)
-                    (let ((fn (sb-pcl::generic-function-name
-                               (sb-pcl::effective-method-condition-generic-function e))))
-                      (if (equal (find-package 'endb/sql/expr)
-                                 (symbol-package fn))
-                          (error 'endb/sql/expr:sql-runtime-error
-                                 :message (format nil "Invalid argument types: ~A(~{~A~^, ~})"
-                                                  (ppcre:regex-replace "^SQL-(UNARY)?"
-                                                                       (symbol-name fn)
-                                                                       "")
-                                                  (loop for arg in (sb-pcl::effective-method-condition-args e)
-                                                        collect (if (stringp arg)
-                                                                    (prin1-to-string arg)
-                                                                    (endb/sql/expr:syn-cast arg :varchar)))))
-                          (error e))))))
+             #+sbcl (if (endb/lib:log-level-active-p :debug)
+                        (sb-ext:call-with-timing
+                         (lambda (&rest args)
+                           (endb/lib:log-debug "query end ~A on ~A:~%~A"
+                                               (active-query-id active-query)
+                                               (bt:thread-name (active-query-thread active-query))
+                                               (with-output-to-string (out)
+                                                 (let ((*trace-output* out))
+                                                   (apply #'sb-impl::print-time args)))))
+                         (lambda ()
+                           (%execute-sql db sql parameters manyp)))
+                        (%execute-sql db sql parameters manyp))
+             #-sbcl (%execute-sql db sql parameters manyp)
+             #+sbcl (sb-pcl::effective-method-condition (e)
+                      (let ((fn (sb-pcl::generic-function-name
+                                 (sb-pcl::effective-method-condition-generic-function e))))
+                        (if (equal (find-package 'endb/sql/expr)
+                                   (symbol-package fn))
+                            (error 'endb/sql/expr:sql-runtime-error
+                                   :message (format nil "Invalid argument types: ~A(~{~A~^, ~})"
+                                                    (ppcre:regex-replace "^SQL-(UNARY)?"
+                                                                         (symbol-name fn)
+                                                                         "")
+                                                    (loop for arg in (sb-pcl::effective-method-condition-args e)
+                                                          collect (if (stringp arg)
+                                                                      (prin1-to-string arg)
+                                                                      (endb/sql/expr:syn-cast arg :varchar)))))
+                            (error e))))))
     (remhash (bt:current-thread) +active-queries+)))
 
 (defvar *interrupt-query-memory-usage-threshold* 0.6)
@@ -274,12 +290,22 @@
                  (let* ((usage (sb-kernel:dynamic-usage))
                         (usage-ratio (coerce (/ usage (sb-ext:dynamic-space-size)) 'double-float)))
                    (endb/lib:log-debug "dynamic space usage: ~,2f%" (* 100 usage-ratio))
+                   (endb/lib:log-debug "active queries: ~A" (hash-table-count +active-queries+))
                    (when (> usage-ratio *interrupt-query-memory-usage-threshold*)
-                     (let ((oldest-query-thread (car (first (sort (alexandria:hash-table-alist +active-queries+) #'< :key #'cdr)))))
-                       (when oldest-query-thread
-                         (endb/lib:log-warn "interrupting query on ~A to save memory, usage: ~A (~,2f%)"
-                                            (bt:thread-name oldest-query-thread) usage usage-ratio)
-                         (bt:interrupt-thread oldest-query-thread
+                     (let ((oldest-active-query (cdr (first (sort (alexandria:hash-table-alist +active-queries+)
+                                                                  #'<
+                                                                  :key (lambda (x)
+                                                                         (active-query-start-time (cdr x))))))))
+                       (when oldest-active-query
+                         (endb/lib:log-warn "interrupting query ~A on ~A to save memory, usage: ~A (~,2f%):~%~A"
+                                            (active-query-id oldest-active-query)
+                                            (bt:thread-name (active-query-thread oldest-active-query))
+                                            usage usage-ratio
+                                            (active-query-sql oldest-active-query))
+                         (endb/lib:log-warn "room:~%~A" (with-output-to-string (out)
+                                                          (let ((*standard-output* out))
+                                                            (room t))))
+                         (bt:interrupt-thread (active-query-thread oldest-active-query)
                                               (lambda ()
                                                 (signal 'endb/sql/db:sql-abort-query-error))))))))
                sb-ext:*after-gc-hooks*))

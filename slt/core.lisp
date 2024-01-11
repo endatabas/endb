@@ -249,7 +249,6 @@
 (defun main ()
   (unwind-protect
        (let ((endb/sql/expr:*sqlite-mode* t)
-             (endb/sql:*query-timing* (equal "1" (uiop:getenv "ENDB_QUERY_TIMING")))
              (*endb-db-engine-reported-name* (or (uiop:getenv "ENDB_ENGINE_REPORTED_NAME")
                                                  *endb-db-engine-reported-name*)))
          (uiop:quit

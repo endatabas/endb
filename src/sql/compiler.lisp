@@ -684,7 +684,7 @@
 
                   (if sip-can-reuse-index-p
                       (push `(,sip-table-sym (let ((,sip-table-sym (gethash ,sip-index-key-form ,index-sym)))
-                                               (endb/lib:log-debug "reuse sip: ~A ~A~%" ,(from-table-alias source-from-table) (hash-table-count ,sip-table-sym))
+                                               (endb/lib:log-trace "reuse sip: ~A ~A~%" ,(from-table-alias source-from-table) (hash-table-count ,sip-table-sym))
                                                ,sip-table-sym))
                             sip-init-src)
                       (let ((sip-in-key-form (if (= 1 (length sip-in-vars))
@@ -697,7 +697,7 @@
                                                     (dolist (,row-sym ,lambda-sym)
                                                       (setf (gethash ,sip-in-key-form ,sip-table-sym) t)))
                                                   (gethash ,sip-index-key-form ,index-sym))
-                                                 (endb/lib:log-debug "sip: ~A ~A~%" ,(from-table-alias source-from-table) (hash-table-count ,sip-table-sym))
+                                                 (endb/lib:log-trace "sip: ~A ~A~%" ,(from-table-alias source-from-table) (hash-table-count ,sip-table-sym))
                                                  ,sip-table-sym))
                               sip-init-src)))
                   (let ((sip-out-key-form (if (= 1 (length sip-out-vars))
@@ -731,7 +731,7 @@
                                                                        `(vector ,@out-vars))
                                                                   ,index-table-sym)))
                                                 sip-stats-src)
-                              (endb/lib:log-debug "join table: ~A ~A~%"
+                              (endb/lib:log-trace "join table: ~A ~A~%"
                                                   ,(from-table-alias from-table)
                                                   (reduce #'+ (mapcar #'length
                                                                       (alexandria:hash-table-values ,index-table-sym))))
@@ -836,7 +836,7 @@
                                pushdown-clauses
                                nested-src)
               (progn
-                (endb/lib:log-debug "table scan: ~A~%" (from-table-alias from-table))
+                (endb/lib:log-trace "table scan: ~A~%" (from-table-alias from-table))
                 (%table-scan->cl ctx
                                  new-vars
                                  projection
@@ -2150,14 +2150,14 @@
                      (null from)))))))
 
 (defun compile-sql (ctx ast &optional parameters)
-  (endb/lib:log-debug "~A" ast)
+  (endb/lib:log-trace "~A" ast)
   (alexandria:with-gensyms (db-sym index-sym param-sym)
     (let* ((ctx (fset:map-union ctx (fset:map (:db-sym db-sym)
                                               (:index-sym index-sym)
                                               (:param-sym param-sym)))))
       (multiple-value-bind (src projection)
           (ast->cl ctx ast)
-        (endb/lib:log-debug "~A" src)
+        (endb/lib:log-trace "~A" src)
         (let* ((src (if projection
                         `(values ,src ',projection)
                         src))
