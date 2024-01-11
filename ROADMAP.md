@@ -37,18 +37,19 @@
 ## 2023 Q4
 
 * compiler and performance
-* compaction, erasure
+* compaction, log rotation, erasure
 * object store, local separation-of-storage-from-compute
-* Beta Open Source Release
+* websockets
+* transaction SAVEPOINT
+* TPC-H 1.0
+* SQL Acid Test
 
 ## 2024 Q1
 
-* multi-node kubernetes
-    * serverless
-    * consensus
-* API authentication
+* Beta Open Source Release
+* TPC-C
+* official clients
 * monitoring
-* cloud separation-of-storage-from-compute
 * refine SQL dialect
     * better control of schema-on-read
     * consolidate path languages
@@ -56,6 +57,11 @@
 
 ## 2024 Q2
 
+* cloud separation-of-storage-from-compute
+* multi-node kubernetes
+    * serverless
+    * consensus
+* API authentication
 * window functions
 * adaptive indexing
 * Alpha DBaaS
