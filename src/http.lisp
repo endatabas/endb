@@ -1,6 +1,7 @@
 (defpackage :endb/http
   (:use :cl)
-  (:export #:endb-query #:endb-on-ws-message #:+http-ok+ #:+http-created+ #:+http-no-content+ #:+http-bad-request+ #:+http-conflict+ #:+http-internal-server-error+
+  (:export #:endb-query #:endb-on-ws-message
+           #:+http-ok+ #:+http-created+ #:+http-no-content+ #:+http-bad-request+ #:+http-conflict+ #:+http-internal-server-error+ #:+http-service-unavailable+
            #:+json-rpc-parse-error+ #:+json-rpc-invalid-request+ #:+json-rpc-method-not-found+ #:+json-rpc-invalid-params+ #:+json-rpc-internal-error+)
   (:import-from :bordeaux-threads)
   (:import-from :cl-ppcre)
@@ -23,6 +24,7 @@
 (defconstant +http-bad-request+ 400)
 (defconstant +http-conflict+ 409)
 (defconstant +http-internal-server-error+ 500)
+(defconstant +http-service-unavailable+ 503)
 
 (defparameter +crlf+ (coerce '(#\return #\linefeed) 'string))
 
@@ -163,6 +165,9 @@
       (endb/sql/expr:sql-runtime-error (e)
         (funcall on-response-init +http-bad-request+ "text/plain")
         (funcall on-response-send (format nil "~A~%" e)))
+      (endb/sql/db:sql-abort-query-error ()
+        #+sbcl (sb-ext:gc :full t)
+        (funcall on-response-init +http-service-unavailable+ ""))
       (endb/sql/db:sql-begin-error ()
         (funcall on-response-init +http-bad-request+ "text/plain")
         (funcall on-response-send (format nil "Explicit transactions not supported~%")))
@@ -296,5 +301,8 @@
                   (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ (format nil "~A" e) json-rpc-id)))
                 (endb/sql/expr:sql-runtime-error (e)
                   (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ (format nil "~A" e) json-rpc-id)))
+                (endb/sql/db:sql-abort-query-error ()
+                  #+sbcl (sb-ext:gc :full t)
+                  (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ "Service unavailable" json-rpc-id)))
                 (cl-ppcre:ppcre-syntax-error (e)
                   (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ (format nil "~A" e) json-rpc-id))))))))))

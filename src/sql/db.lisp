@@ -25,7 +25,7 @@
            #:base-table-meta #:base-table-arrow-batches #:base-table-visible-rows #:base-table-size #:batch-row-system-time-end
            #:view-definition #:calculate-stats #:run-compaction #:start-background-compaction #:start-background-indexer
            #:tx-begin #:tx-commit #:tx-rollback #:*savepoints* #:*savepoint-timeout-seconds* #:savepoint-db
-           #:sql-tx-error #:sql-begin-error #:sql-commit-error #:sql-rollback-error))
+           #:sql-abort-query-error #:sql-tx-error #:sql-begin-error #:sql-commit-error #:sql-rollback-error))
 (in-package :endb/sql/db)
 
 ;; DML/DDL
@@ -53,6 +53,8 @@
   (write-lock (bt:make-lock))
   compaction-thread
   compaction-queue)
+
+(define-condition sql-abort-query-error () ())
 
 (define-condition sql-tx-error (error) ())
 

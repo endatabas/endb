@@ -1,7 +1,8 @@
 (defpackage :endb/sql
   (:use :cl)
-  (:export #:*query-timing*
+  (:export #:*query-timing* #:*interrupt-query-memory-usage-threshold* #:install-interrupt-query-handler
            #:make-db #:make-directory-db #:db-close #:make-dbms #:dbms-close #:begin-write-tx #:commit-write-tx #:execute-sql #:interpret-sql-literal)
+  (:import-from :bordeaux-threads)
   (:import-from :endb/arrow)
   (:import-from :endb/json)
   (:import-from :endb/sql/db)
@@ -239,26 +240,49 @@
                           (setf final-result-code result-code)))
                  finally (return (values final-result final-result-code))))))))
 
+(defparameter +active-queries+ (make-hash-table :synchronized t))
+
 (defun execute-sql (db sql &optional (parameters (fset:empty-seq)) manyp)
-  (handler-case
-      (if *query-timing*
-          (time (%execute-sql db sql parameters manyp))
-          (%execute-sql db sql parameters manyp))
-    #+sbcl (sb-pcl::effective-method-condition (e)
-             (let ((fn (sb-pcl::generic-function-name
-                        (sb-pcl::effective-method-condition-generic-function e))))
-               (if (equal (find-package 'endb/sql/expr)
-                          (symbol-package fn))
-                   (error 'endb/sql/expr:sql-runtime-error
-                          :message (format nil "Invalid argument types: ~A(~{~A~^, ~})"
-                                           (ppcre:regex-replace "^SQL-(UNARY)?"
-                                                                (symbol-name fn)
-                                                                "")
-                                           (loop for arg in (sb-pcl::effective-method-condition-args e)
-                                                 collect (if (stringp arg)
-                                                             (prin1-to-string arg)
-                                                             (endb/sql/expr:syn-cast arg :varchar)))))
-                   (error e))))))
+  (unwind-protect
+       (progn
+         (setf (gethash (bt:current-thread) +active-queries+) (get-internal-real-time))
+         (handler-case
+             (if *query-timing*
+                 (time (%execute-sql db sql parameters manyp))
+                 (%execute-sql db sql parameters manyp))
+           #+sbcl (sb-pcl::effective-method-condition (e)
+                    (let ((fn (sb-pcl::generic-function-name
+                               (sb-pcl::effective-method-condition-generic-function e))))
+                      (if (equal (find-package 'endb/sql/expr)
+                                 (symbol-package fn))
+                          (error 'endb/sql/expr:sql-runtime-error
+                                 :message (format nil "Invalid argument types: ~A(~{~A~^, ~})"
+                                                  (ppcre:regex-replace "^SQL-(UNARY)?"
+                                                                       (symbol-name fn)
+                                                                       "")
+                                                  (loop for arg in (sb-pcl::effective-method-condition-args e)
+                                                        collect (if (stringp arg)
+                                                                    (prin1-to-string arg)
+                                                                    (endb/sql/expr:syn-cast arg :varchar)))))
+                          (error e))))))
+    (remhash (bt:current-thread) +active-queries+)))
+
+(defvar *interrupt-query-memory-usage-threshold* 0.6)
+
+(defun install-interrupt-query-handler ()
+  #+sbcl (push (lambda ()
+                 (let* ((usage (sb-kernel:dynamic-usage))
+                        (usage-ratio (coerce (/ usage (sb-ext:dynamic-space-size)) 'double-float)))
+                   (endb/lib:log-debug "dynamic space usage: ~,2f%" (* 100 usage-ratio))
+                   (when (> usage-ratio *interrupt-query-memory-usage-threshold*)
+                     (let ((oldest-query-thread (car (first (sort (alexandria:hash-table-alist +active-queries+) #'< :key #'cdr)))))
+                       (when oldest-query-thread
+                         (endb/lib:log-warn "interrupting query on ~A to save memory, usage: ~A (~,2f%)"
+                                            (bt:thread-name oldest-query-thread) usage usage-ratio)
+                         (bt:interrupt-thread oldest-query-thread
+                                              (lambda ()
+                                                (signal 'endb/sql/db:sql-abort-query-error))))))))
+               sb-ext:*after-gc-hooks*))
 
 (defun %interpret-sql-literal (ast)
   (cond

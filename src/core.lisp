@@ -14,6 +14,7 @@
 
 (defun %endb-init (config)
   (endb/lib:log-info "version ~A" (endb/lib/server:get-endb-version))
+  (endb/sql:install-interrupt-query-handler)
   (endb/sql:make-dbms :directory (fset:lookup config "data_directory")))
 
 (defun %endb-close-dbms (dbms)
