@@ -80,12 +80,19 @@
   (message :string))
 
 (cffi:defcfun "endb_init_logger" :void
+  (on-success :pointer)
   (on-error :pointer))
 
 (cffi:defcfun "endb_set_panic_hook" :void
   (on-panic :pointer))
 
 (defvar *initialized* nil)
+
+(defvar *init-logger-on-success*)
+
+(cffi:defcallback init-logger-on-success :void
+    ((level :string))
+  (funcall *init-logger-on-success* level))
 
 (defvar *init-logger-on-error*)
 
@@ -102,12 +109,17 @@
     (funcall *panic-hook*)))
 
 (defun init-logger ()
-  (let* ((err)
+  (let* ((result)
+         (*init-logger-on-success* (lambda (level)
+                                     (setf result level)))
+         (err)
          (*init-logger-on-error* (lambda (e)
                                    (setf err e))))
-    (endb-init-logger (cffi:callback init-logger-on-error))
+    (endb-init-logger (cffi:callback init-logger-on-success)
+                      (cffi:callback init-logger-on-error))
     (when err
-      (error err))))
+      (error err))
+    result))
 
 (cffi:defcfun "endb_base64_encode" :void
   (buffer-ptr :pointer)
@@ -267,9 +279,8 @@
                  (asdf:system-relative-pathname :endb "target/"))
              cffi:*foreign-library-directories*)
     (cffi:use-foreign-library libendb)
-    (init-logger)
+
     (endb-set-panic-hook (cffi:callback on-panic-hook))
-    (let ((log-level (uiop:getenv "ENDB_LOG_LEVEL")))
-      (when log-level
-        (setf *log-level* (resolve-log-level (intern (string-upcase log-level) :keyword)))))
+    (let ((log-level (init-logger)))
+      (setf *log-level* (resolve-log-level (intern (string-upcase log-level) :keyword))))
     (setf *initialized* t)))

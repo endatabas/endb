@@ -441,11 +441,12 @@ pub fn parse_command_line_to_json(on_success: impl Fn(&str)) {
     on_success(&serde_json::to_string(&args).unwrap());
 }
 
-pub fn init_logger() -> Result<(), Error> {
-    Ok(env_logger::Builder::new()
+pub fn init_logger() -> Result<log::LevelFilter, Error> {
+    env_logger::Builder::new()
         .filter_level(log::LevelFilter::Info)
         .parse_env("ENDB_LOG_LEVEL")
-        .try_init()?)
+        .try_init()?;
+    Ok(log::max_level())
 }
 
 #[cfg(test)]

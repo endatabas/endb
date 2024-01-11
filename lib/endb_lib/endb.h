@@ -40,6 +40,8 @@ typedef void (*endb_parse_sql_cst_on_pattern_callback)(uint32_t, uint32_t);
 
 typedef void (*endb_render_json_error_report_on_success_callback)(const char*);
 
+typedef void (*endb_init_logger_on_success_callback)(const char*);
+
 typedef void (*endb_start_server_on_query_on_abort_callback)(void);
 
 typedef void (*endb_start_server_on_query_on_response_init_callback)(struct endb_server_http_response*,
@@ -117,7 +119,8 @@ void endb_render_json_error_report(const char *report_json,
                                    endb_render_json_error_report_on_success_callback on_success,
                                    endb_on_error_callback on_error);
 
-void endb_init_logger(endb_on_error_callback on_error);
+void endb_init_logger(endb_init_logger_on_success_callback on_success,
+                      endb_on_error_callback on_error);
 
 void endb_log_error(const char *target, const char *message);
 

@@ -140,10 +140,16 @@ pub extern "C" fn endb_render_json_error_report(
     }
 }
 
+type endb_init_logger_on_success_callback = extern "C" fn(*const c_char);
+
 #[no_mangle]
-pub extern "C" fn endb_init_logger(on_error: endb_on_error_callback) {
-    if let Err(err) = endb_server::init_logger() {
-        string_callback(err.to_string(), on_error);
+pub extern "C" fn endb_init_logger(
+    on_success: endb_init_logger_on_success_callback,
+    on_error: endb_on_error_callback,
+) {
+    match endb_server::init_logger() {
+        Ok(level) => string_callback(level.to_string(), on_success),
+        Err(err) => string_callback(err.to_string(), on_error),
     }
 }
 
