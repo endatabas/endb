@@ -3,7 +3,6 @@ use clap::Parser;
 use futures::sink::SinkExt;
 use http_body_util::{BodyExt, Empty, StreamBody};
 use hyper::body::Frame;
-use hyper::service::Service;
 use hyper::{Method, Request, Response, StatusCode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -80,6 +79,7 @@ pub fn on_websocket_send(stream: &mut HttpWebsocketStream, message: &[u8]) -> Re
     })
 }
 
+#[derive(Clone)]
 struct EndbService {
     basic_auth: Option<String>,
     on_query: OnQueryFn,
@@ -109,7 +109,11 @@ async fn sql_response(
         let (tx, rx) = futures::channel::oneshot::channel();
         let mut response = empty_response(StatusCode::INTERNAL_SERVER_ERROR)?;
 
+        let child_span = tracing::debug_span!("sql_http").or_current();
+
         tokio::task::spawn_blocking(move || {
+            let _entered = child_span.entered();
+
             let (mut sender, body_rx) = futures::channel::mpsc::channel(0);
             *response.body_mut() = StreamBody::new(body_rx).boxed();
 
@@ -161,7 +165,7 @@ async fn serve_websocket(
     Ok(())
 }
 
-impl<B> Service<Request<B>> for EndbService
+impl<B> tower::Service<Request<B>> for EndbService
 where
     B: hyper::body::Body + Send + Sync + 'static,
     B::Error: std::error::Error + Sync + Send,
@@ -171,7 +175,7 @@ where
     type Error = Error;
     type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
 
-    fn call(&self, mut req: Request<B>) -> Self::Future {
+    fn call(&mut self, mut req: Request<B>) -> Self::Future {
         let on_query = self.on_query.clone();
         let on_ws_init = self.on_ws_init.clone();
         let on_ws_close = self.on_ws_close.clone();
@@ -193,6 +197,8 @@ where
                     .as_deref();
 
         Box::pin(async move {
+            use tracing::Instrument;
+
             if unauthorized {
                 return Ok(Response::builder()
                     .status(StatusCode::UNAUTHORIZED)
@@ -206,13 +212,17 @@ where
             if hyper_tungstenite::is_upgrade_request(&req) {
                 return if req.uri().path() == "/sql" {
                     let (response, websocket) = hyper_tungstenite::upgrade(&mut req, None)?;
-                    tokio::spawn(serve_websocket(
-                        websocket,
-                        remote_addr,
-                        on_ws_init,
-                        on_ws_close,
-                        on_ws_message,
-                    ));
+                    let child_span = tracing::debug_span!("sql_ws").or_current();
+                    tokio::spawn(
+                        serve_websocket(
+                            websocket,
+                            remote_addr,
+                            on_ws_init,
+                            on_ws_close,
+                            on_ws_message,
+                        )
+                        .instrument(child_span.or_current()),
+                    );
                     let (parts, body) = response.into_parts();
                     Ok(Response::from_parts(parts, body.boxed()))
                 } else {
@@ -373,6 +383,13 @@ where
             }
         })
     }
+
+    fn poll_ready(
+        &mut self,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), Self::Error>> {
+        std::task::Poll::Ready(Ok(()))
+    }
 }
 
 fn make_basic_auth_header(username: Option<String>, password: Option<String>) -> Option<String> {
@@ -409,7 +426,7 @@ pub fn start_server(
         .build()?
         .block_on(async {
             let listener = tokio::net::TcpListener::bind(addr).await?;
-            log::info!(target: "endb/lib/server", "listening on port {}", args.http_port);
+            tracing::info!(target: "endb/lib/server", "listening on port {}", args.http_port);
             loop {
                 let (stream, remote_addr) = listener.accept().await?;
                 let io = hyper_util::rt::tokio::TokioIo::new(stream);
@@ -421,6 +438,28 @@ pub fn start_server(
                     on_ws_message: on_ws_message.clone(),
                     remote_addr,
                 };
+                let svc = tower::ServiceBuilder::new()
+                    .layer(
+                        tower_http::sensitive_headers::SetSensitiveHeadersLayer::new(
+                            std::iter::once(hyper::header::AUTHORIZATION),
+                        ),
+                    )
+                    .layer(tower_http::request_id::SetRequestIdLayer::x_request_id(
+                        tower_http::request_id::MakeRequestUuid,
+                    ))
+                    .layer(
+                        tower_http::trace::TraceLayer::new_for_http()
+                            .make_span_with(
+                                tower_http::trace::DefaultMakeSpan::new().include_headers(true),
+                            )
+                            .on_response(
+                                tower_http::trace::DefaultOnResponse::new().include_headers(true),
+                            ),
+                    )
+                    .layer(tower_http::request_id::PropagateRequestIdLayer::x_request_id())
+                    .layer(tower_http::compression::CompressionLayer::new())
+                    .service(svc);
+                let svc = hyper_util::service::TowerToHyperService::new(svc);
                 tokio::task::spawn(async move {
                     let mut builder = hyper_util::server::conn::auto::Builder::new(
                         hyper_util::rt::TokioExecutor::new(),
@@ -441,12 +480,17 @@ pub fn parse_command_line_to_json(on_success: impl Fn(&str)) {
     on_success(&serde_json::to_string(&args).unwrap());
 }
 
-pub fn init_logger() -> Result<log::LevelFilter, Error> {
-    env_logger::Builder::new()
-        .filter_level(log::LevelFilter::Info)
-        .parse_env("ENDB_LOG_LEVEL")
+pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
+    let default_level = tracing_subscriber::filter::LevelFilter::INFO;
+    let filter = tracing_subscriber::filter::EnvFilter::builder()
+        .with_default_directive(default_level.into())
+        .with_env_var("ENDB_LOG_LEVEL")
+        .from_env_lossy();
+    let level = filter.max_level_hint().unwrap_or(default_level);
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
         .try_init()?;
-    Ok(log::max_level())
+    Ok(level)
 }
 
 #[cfg(test)]
@@ -501,15 +545,18 @@ mod tests {
         )
     }
 
-    fn service(basic_auth: Option<String>, on_query: crate::OnQueryFn) -> crate::EndbService {
-        crate::EndbService {
+    fn service(
+        basic_auth: Option<String>,
+        on_query: crate::OnQueryFn,
+    ) -> hyper_util::service::TowerToHyperService<crate::EndbService> {
+        hyper_util::service::TowerToHyperService::new(crate::EndbService {
             basic_auth,
             on_query,
             remote_addr: ([0, 0, 0, 0], 3803).into(),
             on_ws_init: Arc::new(|_| {}),
             on_ws_close: Arc::new(|_| {}),
             on_ws_message: Arc::new(|_, _, _| {}),
-        }
+        })
     }
 
     fn get(uri: &str, accept: &str) -> Request<crate::BoxBody> {
