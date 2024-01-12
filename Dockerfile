@@ -26,9 +26,9 @@ ARG SBCL_OS
 ARG ENDB_GIT_DESCRIBE
 
 RUN if [ "$SBCL_OS" = "alpine" ]; then \
-      apk add --no-cache gcc musl-dev sqlite-libs; \
+      apk add --no-cache gcc musl-dev; \
     else \
-      apt-get update && apt-get install -y --no-install-recommends build-essential libsqlite3-0; \
+      apt-get update && apt-get install -y --no-install-recommends build-essential; \
     fi;
 
 WORKDIR /root/endb
