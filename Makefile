@@ -1,4 +1,5 @@
-LISP ?= sbcl --noinform --dynamic-space-size 4096 --no-userinit --no-sysinit --load _build/setup.lisp
+SBCL_DYNAMIC_SPACE_SIZE ?= 8192
+LISP ?= sbcl --noinform --dynamic-space-size $(SBCL_DYNAMIC_SPACE_SIZE) --no-userinit --no-sysinit --load _build/setup.lisp
 
 SOURCES = $(shell find src -iname \*.lisp)
 FASL_FILES = $(shell find . -iname \*.fasl)
