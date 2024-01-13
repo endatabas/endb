@@ -7,7 +7,7 @@
            #:local-time-to-arrow-timestamp-micros #:local-time-to-arrow-date-millis #:local-time-to-arrow-time-micros #:periods-duration-to-arrow-interval-month-day-nanos
            #:arrow-timestamp-micros-to-arrow-date-millis #:arrow-date-millis-to-arrow-timestamp-micros
            #:to-arrow #:to-arrow-row-format #:make-arrow-array-for #:arrow-class-for-format
-           #:arrow-push #:arrow-valid-p #:arrow-get #:arrow-value #:arrow-row-format
+           #:arrow-push #:arrow-valid-p #:arrow-get #:arrow-value #:arrow-row-format #:arrow-all-buffers
            #:arrow-length #:arrow-null-count #:arrow-data-type #:arrow-lisp-type
            #:arrow-children #:arrow-buffers
            #:arrow-struct-column-value #:arrow-struct-column-array #:arrow-struct-projection #:arrow-struct-children
@@ -402,6 +402,11 @@
   (let ((array (make-arrow-array-for x)))
     (arrow-push array x)
     (arrow-row-format array 0)))
+
+(defun arrow-all-buffers (array)
+  (append (remove nil (endb/arrow:arrow-buffers array))
+          (loop for (nil . array) in (endb/arrow:arrow-children array)
+                append (arrow-all-buffers array))))
 
 (defmethod arrow-push ((array arrow-array) x)
   (let ((len (arrow-length array))

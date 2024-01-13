@@ -246,11 +246,6 @@
             (cffi:foreign-free ptr))
           (error e))))))
 
-(defun %all-buffers (array)
-  (append (endb/arrow:arrow-buffers array)
-          (loop for (nil . array) in (endb/arrow:arrow-children array)
-                append (%all-buffers array))))
-
 (defun write-arrow-arrays-to-ipc-buffer (arrays &key (on-success #'endb/lib:buffer-to-vector) ipc-stream-p projection)
   (endb/lib:init-lib)
   (let* ((last-error (cffi:null-pointer))
@@ -263,8 +258,7 @@
     (assert (= 1 (length schemas)))
     (unwind-protect
          (#+sbcl sb-sys:with-pinned-objects
-          #+sbcl ((loop for array in arrays
-                        append (%all-buffers array)))
+          #+sbcl ((mapcan #'endb/arrow:arrow-all-buffers arrays))
           #-sbcl progn
           (let* ((*arrow-array-stream-get-schema* (lambda (c-stream c-schema)
                                                     (declare (ignore c-stream))

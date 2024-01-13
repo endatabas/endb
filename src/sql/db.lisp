@@ -444,7 +444,7 @@
         (size 0)
         (acc))
     (fset:do-map (arrow-file arrow-file-md table-md)
-      (let ((byte-size (fset:lookup arrow-file-md "byte_size")))
+      (let ((byte-size (fset:lookup arrow-file-md "buffers_byte_size")))
         (unless (>= byte-size target-size)
           (push arrow-file acc)
           (incf size byte-size))
@@ -481,7 +481,8 @@
                                ("stats" (calculate-stats (list table-array)))
                                ("derived_from" (fset:convert 'fset:seq arrow-files))))
            (buffer (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer (list batch))))
-      (values buffer (fset:with batch-md "byte_size" (length buffer))))))
+      (values buffer (fset:with batch-md "buffers_byte_size" (loop for b in (endb/arrow:arrow-all-buffers batch)
+                                                                   sum (endb/lib:vector-byte-size b)))))))
 
 (defun %compact-files (db table-name batch-md)
   (with-slots (meta-data) db
