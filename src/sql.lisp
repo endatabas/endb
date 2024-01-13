@@ -3,6 +3,7 @@
   (:export #:*interrupt-query-memory-usage-threshold* #:install-interrupt-query-handler
            #:make-db #:make-directory-db #:db-close #:make-dbms #:dbms-close #:begin-write-tx #:commit-write-tx #:execute-sql #:interpret-sql-literal)
   (:import-from :bordeaux-threads)
+  (:import-from :cl-ppcre)
   (:import-from :endb/arrow)
   (:import-from :endb/json)
   (:import-from :endb/sql/db)

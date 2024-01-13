@@ -443,14 +443,13 @@
   (let ((table-md (base-table-meta db table-name))
         (size 0)
         (acc))
-    (sort (or (fset:do-map (arrow-file arrow-file-md table-md)
-                (unless (> (+ size (fset:lookup arrow-file-md "byte_size")) target-size)
-                  (push arrow-file acc)
-                  (incf size (fset:lookup arrow-file-md "byte_size")))
-                (when (>= size target-size)
-                  (return-from nil acc)))
-              acc)
-          #'string<)))
+    (fset:do-map (arrow-file arrow-file-md table-md)
+      (let ((byte-size (fset:lookup arrow-file-md "byte_size")))
+        (unless (>= byte-size target-size)
+          (push arrow-file acc)
+          (incf size byte-size))
+        (when (>= size target-size)
+          (return-from nil (sort acc #'string<)))))))
 
 (defparameter +arrow-file-padding-length+ 16)
 
@@ -544,6 +543,8 @@
                                                             #\U00A1
                                                             #\UFFFF)))
 
+(defvar *max-inserted-rows-per-table* (* 32 1024))
+
 (defun dml-insert (db table-name values &key column-names)
   (with-slots (buffer-pool meta-data current-timestamp) db
     (let* ((created-p (base-table-created-p db table-name))
@@ -620,6 +621,12 @@
 
             (setf (gethash kw-table-name batch-children) table-array)
             (endb/storage/buffer-pool:buffer-pool-put buffer-pool batch-key (list batch))
+
+            (when (> (endb/arrow:arrow-length table-array) *max-inserted-rows-per-table*)
+              (error 'endb/sql/expr:sql-runtime-error
+                     :message (format nil
+                                      "Cannot insert into table: ~A too many rows in a single transaction: ~A"
+                                      table-name *max-inserted-rows-per-table*)))
 
             (let ((batch-md (fset:map-union (or batch-md (fset:empty-map))
                                             (fset:map
