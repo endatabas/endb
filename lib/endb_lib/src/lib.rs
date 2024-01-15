@@ -198,6 +198,47 @@ pub extern "C" fn endb_start_tokio(
     }
 }
 
+type endb_trace_span_in_scope = extern "C" fn();
+
+#[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+#[allow(clippy::redundant_closure)]
+pub extern "C" fn endb_trace_span(
+    span: *const c_char,
+    kvs_json: *const c_char,
+    in_scope: endb_trace_span_in_scope,
+) {
+    let span = unsafe { CStr::from_ptr(span).to_str().unwrap() };
+    let span = match span {
+        "commit" => tracing::error_span!("commit", tx_id = tracing::field::Empty,),
+        "compaction" => tracing::error_span!("compaction", compaction_id = tracing::field::Empty,),
+        "index" => tracing::error_span!("index", index_id = tracing::field::Empty,),
+        "log_replay" => tracing::error_span!("log_replay"),
+        "log_rotation" => tracing::error_span!("log_rotation"),
+        "query" => tracing::error_span!("query", query_id = tracing::field::Empty,),
+        "shutdown" => tracing::error_span!("shutdown"),
+        "snapshot" => tracing::error_span!("snapshot", snapshot_tx_id = tracing::field::Empty,),
+        "startup" => tracing::error_span!("startup"),
+        _ => todo!("unknown span: {}", span),
+    };
+
+    if !kvs_json.is_null() {
+        let kvs_json = unsafe { CStr::from_ptr(kvs_json).to_str().unwrap() };
+        if let Ok(serde_json::Value::Object(json)) =
+            serde_json::from_slice::<serde_json::Value>(kvs_json.as_ref())
+        {
+            for (k, v) in json {
+                if let serde_json::Value::String(v) = v {
+                    span.record(k.as_str(), v);
+                } else {
+                    span.record(k.as_str(), v.to_string());
+                }
+            }
+        }
+    }
+    span.in_scope(|| in_scope());
+}
+
 pub struct endb_server_http_response(endb_server::HttpResponse);
 
 pub struct endb_server_http_sender(endb_server::HttpSender);

@@ -1,11 +1,12 @@
 (defpackage :endb/lib
   (:use :cl)
   (:export #:init-lib #:*panic-hook* #:format-backtrace
-           #:log-error #:log-warn #:log-info #:log-debug #:log-trace #:resolve-log-level #:log-level-active-p #:*log-level*
+           #:log-error #:log-warn #:log-info #:log-debug #:log-trace #:resolve-log-level #:log-level-active-p #:*log-level* #:trace-span #:with-trace-span
            #:sha1 #:uuid-v4 #:uuid-str #:base64-decode #:base64-encode #:xxh64
            #:vector-byte-size #:buffer-to-vector)
   (:import-from :cffi)
   (:import-from :asdf)
+  (:import-from :com.inuoe.jzon)
   (:import-from :uiop))
 (in-package :endb/lib)
 
@@ -83,6 +84,11 @@
   (target :string)
   (message :string))
 
+(cffi:defcfun "endb_trace_span" :void
+  (span :string)
+  (kvs-json :string)
+  (in-scope :pointer))
+
 (cffi:defcfun "endb_init_logger" :void
   (on-success :pointer)
   (on-error :pointer))
@@ -103,6 +109,33 @@
 (cffi:defcallback init-logger-on-error :void
     ((err :string))
   (funcall *init-logger-on-error* err))
+
+(defvar *trace-span-in-scope*)
+
+(cffi:defcallback trace-span-in-scope :void
+    ()
+  (funcall *trace-span-in-scope*))
+
+(defun trace-span (span in-scope &optional kvs)
+  (let* ((result)
+         (err)
+         (*trace-span-in-scope* (lambda ()
+                                  (block error-block
+                                    (handler-bind ((error (lambda (e)
+                                                            (setf err e)
+                                                            (return-from error-block))))
+                                      (setf result (multiple-value-list (funcall in-scope))))))))
+    (endb-trace-span span
+                     (if kvs
+                         (com.inuoe.jzon:stringify kvs)
+                         (cffi:null-pointer))
+                     (cffi:callback trace-span-in-scope))
+    (when err
+      (error err))
+    (values-list result)))
+
+(defmacro with-trace-span (span &body body)
+  `(trace-span ,span (lambda () ,@body)))
 
 (defvar *panic-hook* nil)
 

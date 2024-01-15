@@ -44,6 +44,8 @@ typedef void (*endb_init_logger_on_success_callback)(const char*);
 
 typedef void (*endb_start_tokio_on_init)(void);
 
+typedef void (*endb_trace_span_in_scope)(void);
+
 typedef void (*endb_start_server_on_query_on_abort_callback)(void);
 
 typedef void (*endb_start_server_on_query_on_response_init_callback)(struct endb_server_http_response*,
@@ -135,6 +137,8 @@ void endb_log_debug(const char *target, const char *message);
 void endb_log_trace(const char *target, const char *message);
 
 void endb_start_tokio(endb_start_tokio_on_init on_init, endb_on_error_callback on_error);
+
+void endb_trace_span(const char *span, const char *kvs_json, endb_trace_span_in_scope in_scope);
 
 void endb_start_server(endb_start_server_on_query_callback on_query,
                        endb_on_error_callback on_error,

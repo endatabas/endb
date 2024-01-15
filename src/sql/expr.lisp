@@ -2126,19 +2126,23 @@
             (endb/queue:queue-push
              indexer-queue
              (lambda ()
-               (when (<= +hash-index-limit+ (hash-table-count hash-index))
-                 (clrhash hash-index))
-               (ra-compute-index-if-absent
-                hash-index
-                k
+               (endb/lib:trace-span
+                "index"
                 (lambda ()
-                  (let ((index (make-hash-table :test +hash-table-test-no-nulls+)))
-                    (dotimes (idx (endb/arrow:arrow-length batch))
-                      (let* ((v (endb/arrow:arrow-struct-column-value batch idx column-kw))
-                             (idxs (or (gethash v index)
-                                       (setf (gethash v index) (make-array 0 :fill-pointer 0 :element-type 'fixnum)))))
-                        (vector-push-extend idx idxs)))
-                    index)))))
+                  (when (<= +hash-index-limit+ (hash-table-count hash-index))
+                    (clrhash hash-index))
+                  (ra-compute-index-if-absent
+                   hash-index
+                   k
+                   (lambda ()
+                     (let ((index (make-hash-table :test +hash-table-test-no-nulls+)))
+                       (dotimes (idx (endb/arrow:arrow-length batch))
+                         (let* ((v (endb/arrow:arrow-struct-column-value batch idx column-kw))
+                                (idxs (or (gethash v index)
+                                          (setf (gethash v index) (make-array 0 :fill-pointer 0 :element-type 'fixnum)))))
+                           (vector-push-extend idx idxs)))
+                       index))))
+                (fset:map ("index_id" k)))))
             nil)))))
 
 ;; Aggregates

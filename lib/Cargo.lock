@@ -691,7 +691,10 @@ dependencies = [
  "endb_server",
  "libc",
  "log",
+ "serde",
+ "serde_json",
  "sha1_smol",
+ "tracing",
  "uuid",
  "xxhash-rust",
 ]

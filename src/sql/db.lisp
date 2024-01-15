@@ -417,7 +417,11 @@
           (bt:make-thread (endb/queue:make-queue-timer-worker
                            compaction-queue
                            (lambda ()
-                             (run-compaction (dbms-db dbms) db-commit-fn object-put-fn :target-size target-size))
+                             (endb/lib:trace-span
+                              "compaction"
+                              (lambda ()
+                                (run-compaction (dbms-db dbms) db-commit-fn object-put-fn :target-size target-size))
+                              (fset:map ("compaction_id" (endb/lib:uuid-v4)))))
                            timeout)
                           :name "endb compaction"))))
 

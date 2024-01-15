@@ -13,17 +13,23 @@
 (in-package :endb/core)
 
 (defun %endb-init (config)
-  (endb/lib:log-info "version ~A" (endb/lib/server:get-endb-version))
-  (endb/sql:install-interrupt-query-handler)
-  (endb/sql:make-dbms :directory (fset:lookup config "data_directory")))
+  (endb/lib:trace-span
+   "startup"
+   (lambda ()
+     (endb/lib:log-info "version ~A" (endb/lib/server:get-endb-version))
+     (endb/sql:install-interrupt-query-handler)
+     (endb/sql:make-dbms :directory (fset:lookup config "data_directory")))))
 
 (defun %endb-close-dbms (dbms)
-  (endb/lib:log-info "shutting down")
-  (if (bt:acquire-lock (endb/sql/db:dbms-write-lock dbms) nil)
-      (unwind-protect
-           (endb/sql:dbms-close dbms)
-        (bt:release-lock (endb/sql/db:dbms-write-lock dbms)))
-      (endb/lib:log-warn "could not close the database cleanly")))
+  (endb/lib:trace-span
+   "shutdown"
+   (lambda ()
+     (endb/lib:log-info "shutting down")
+     (if (bt:acquire-lock (endb/sql/db:dbms-write-lock dbms) nil)
+         (unwind-protect
+              (endb/sql:dbms-close dbms)
+           (bt:release-lock (endb/sql/db:dbms-write-lock dbms)))
+         (endb/lib:log-warn "could not close the database cleanly")))))
 
 (defun %endb-main ()
   (handler-bind ((#+sbcl sb-sys:interactive-interrupt (lambda (e)

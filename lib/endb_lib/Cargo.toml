@@ -20,6 +20,9 @@ endb_server = { path = "../endb_server/" }
 base64.workspace = true
 arrow.workspace = true
 log.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 sha1_smol = "1.0.0"
 uuid =  { version = "1.6.1", features = [ "v4", "fast-rng" ] }
 xxhash-rust = { version = "0.8.7", features = ["xxh64"] }

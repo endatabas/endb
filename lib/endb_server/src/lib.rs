@@ -420,6 +420,8 @@ pub fn start_server(
     on_ws_close: impl Fn(&str) + Sync + Send + 'static,
     on_ws_message: impl Fn(&str, &mut HttpWebsocketStream, &[u8]) + Sync + Send + 'static,
 ) -> Result<(), Error> {
+    use tracing::Instrument;
+
     let args = CommandLineArguments::parse();
 
     let basic_auth = make_basic_auth_header(args.username, args.password);
@@ -429,58 +431,63 @@ pub fn start_server(
     let on_ws_message = Arc::new(on_ws_message);
     let addr: std::net::SocketAddr = ([0, 0, 0, 0], args.http_port).into();
 
+    let child_span = tracing::error_span!("server").or_current();
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?
-        .block_on(async {
-            let listener = tokio::net::TcpListener::bind(addr).await?;
-            tracing::info!(target: "endb/lib/server", "listening on port {}", args.http_port);
-            loop {
-                let (stream, remote_addr) = listener.accept().await?;
-                let io = hyper_util::rt::tokio::TokioIo::new(stream);
-                let svc = EndbService {
-                    basic_auth: basic_auth.clone(),
-                    on_query: on_query.clone(),
-                    on_ws_init: on_ws_init.clone(),
-                    on_ws_close: on_ws_close.clone(),
-                    on_ws_message: on_ws_message.clone(),
-                    remote_addr,
-                };
-                let svc = tower::ServiceBuilder::new()
-                    .layer(
-                        tower_http::sensitive_headers::SetSensitiveHeadersLayer::new(
-                            std::iter::once(hyper::header::AUTHORIZATION),
-                        ),
-                    )
-                    .layer(tower_http::request_id::SetRequestIdLayer::x_request_id(
-                        tower_http::request_id::MakeRequestUuid,
-                    ))
-                    .layer(
-                        tower_http::trace::TraceLayer::new_for_http()
-                            .make_span_with(
-                                tower_http::trace::DefaultMakeSpan::new().include_headers(true),
-                            )
-                            .on_response(
-                                tower_http::trace::DefaultOnResponse::new().include_headers(true),
+        .block_on(
+            async {
+                let listener = tokio::net::TcpListener::bind(addr).await?;
+                tracing::info!(target: "endb/lib/server", "listening on port {}", args.http_port);
+                loop {
+                    let (stream, remote_addr) = listener.accept().await?;
+                    let io = hyper_util::rt::tokio::TokioIo::new(stream);
+                    let svc = EndbService {
+                        basic_auth: basic_auth.clone(),
+                        on_query: on_query.clone(),
+                        on_ws_init: on_ws_init.clone(),
+                        on_ws_close: on_ws_close.clone(),
+                        on_ws_message: on_ws_message.clone(),
+                        remote_addr,
+                    };
+                    let svc = tower::ServiceBuilder::new()
+                        .layer(
+                            tower_http::sensitive_headers::SetSensitiveHeadersLayer::new(
+                                std::iter::once(hyper::header::AUTHORIZATION),
                             ),
-                    )
-                    .layer(tower_http::request_id::PropagateRequestIdLayer::x_request_id())
-                    .layer(tower_http::compression::CompressionLayer::new())
-                    .service(svc);
-                let svc = hyper_util::service::TowerToHyperService::new(svc);
-                tokio::task::spawn(async move {
-                    let mut builder = hyper_util::server::conn::auto::Builder::new(
-                        hyper_util::rt::TokioExecutor::new(),
-                    );
-                    builder
-                        .http1()
-                        .title_case_headers(true)
-                        .keep_alive(true)
-                        .timer(hyper_util::rt::tokio::TokioTimer::new());
-                    builder.serve_connection_with_upgrades(io, svc).await
-                });
+                        )
+                        .layer(tower_http::request_id::SetRequestIdLayer::x_request_id(
+                            tower_http::request_id::MakeRequestUuid,
+                        ))
+                        .layer(
+                            tower_http::trace::TraceLayer::new_for_http()
+                                .make_span_with(
+                                    tower_http::trace::DefaultMakeSpan::new().include_headers(true),
+                                )
+                                .on_response(
+                                    tower_http::trace::DefaultOnResponse::new()
+                                        .include_headers(true),
+                                ),
+                        )
+                        .layer(tower_http::request_id::PropagateRequestIdLayer::x_request_id())
+                        .layer(tower_http::compression::CompressionLayer::new())
+                        .service(svc);
+                    let svc = hyper_util::service::TowerToHyperService::new(svc);
+                    tokio::task::spawn(async move {
+                        let mut builder = hyper_util::server::conn::auto::Builder::new(
+                            hyper_util::rt::TokioExecutor::new(),
+                        );
+                        builder
+                            .http1()
+                            .title_case_headers(true)
+                            .keep_alive(true)
+                            .timer(hyper_util::rt::tokio::TokioTimer::new());
+                        builder.serve_connection_with_upgrades(io, svc).await
+                    });
+                }
             }
-        })
+            .instrument(child_span.or_current()),
+        )
 }
 
 pub fn parse_command_line_to_json(on_success: impl Fn(&str)) {
@@ -495,9 +502,15 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
         .with_env_var("ENDB_LOG_LEVEL")
         .from_env_lossy();
     let level = filter.max_level_hint().unwrap_or(default_level);
-    let ansi = std::env::var("ENDB_LOG_ANSI").unwrap_or("1".to_string()) == "1";
+    let ansi = std::env::var("ENDB_LOG_ANSI")
+        .map(|x| x == "1")
+        .unwrap_or(true);
+    let thread_ids = std::env::var("ENDB_LOG_THREAD_IDS")
+        .map(|x| x == "1")
+        .unwrap_or(true);
     tracing_subscriber::fmt()
         .with_env_filter(filter)
+        .with_thread_ids(thread_ids)
         .with_ansi(ansi)
         .try_init()?;
     Ok(level)
