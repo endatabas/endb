@@ -1,0 +1,2 @@
+-e git+https://github.com/mongodb-labs/py-tpcc.git@2b9615942cbf8672b42b4c4935e75e72ae24ff04#egg=py_tpcc
+websockets==12.0

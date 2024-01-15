@@ -56,7 +56,6 @@ SLT_EVIDENCE_TESTS = sqllogictest/test/evidence/in1.test \
 SLT_TESTS = $(SLT_SELECT_TESTS)
 
 TPCH_SF ?= 001
-TPCH_REFERENCE_ENGINE = sqlite
 
 default: test target/endb
 
@@ -157,7 +156,8 @@ target/tpch_$(TPCH_SF).test: $(TPCH_SCHEMA_FILE) $(TPCH_TABLE_FILES) $(TPCH_QUER
 	cat $(TPCH_QUERIES_FILE) >> $@
 
 target/tpch_$(TPCH_SF)_sqlite.test: target/slt target/tpch_$(TPCH_SF).test
-	SLT_TIMING=0 SB_SPROF=0 ./target/slt -e $(TPCH_REFERENCE_ENGINE) target/tpch_$(TPCH_SF).test > $@
+	rm target/tpch_$(TPCH_SF).db
+	SLT_TIMING=0 SB_SPROF=0 ./target/slt -e sqlite --connection target/tpch_$(TPCH_SF).db target/tpch_$(TPCH_SF).test > $@
 
 slt-test-tpch: SLT_TESTS = target/tpch_$(TPCH_SF).test
 slt-test-tpch: SLT_ENV += ENDB_ENGINE_REPORTED_NAME=endb
@@ -165,7 +165,7 @@ slt-test-tpch: target/slt target/tpch_$(TPCH_SF)_sqlite.test
 	$(SLT_ENV) ./target/slt -e $(SLT_ENGINE) $(SLT_ARGS) target/tpch_$(TPCH_SF)_sqlite.test
 
 target/%_sqlite.test: slt/%.test target/slt
-	SLT_TIMING=0 SB_SPROF=0 ./target/slt -e sqlite $< > $@
+	SLT_TIMING=0 SB_SPROF=0 ./target/slt -e sqlite --connection :memory: $< > $@
 
 slt-test-expr: target/expr_sqlite.test
 	$(SLT_ENV) ./target/slt -e $(SLT_ENGINE) $(SLT_ARGS) $<
@@ -206,9 +206,25 @@ sql-acid-test: target/endb
 		done; \
 		kill $$ENDB_PID
 
-sql-acid-test-verify:
-	make sql-acid-test | grep ": 'T'" | wc -l
-	@echo "$(SQL_ACID_TESTS)" | wc -w
+TPCC_SF ?= 1
+TPCC_ARGS += --config=$(shell realpath target/tpcc_$(TPCC_SF).config) endb --stop-on-error --scalefactor $(TPCC_SF)
+
+target/tpcc_$(TPCC_SF).config:
+	./tpcc/tpcc.sh --print-config endb > $@
+
+target/tpcc_$(TPCC_SF)_data_load: TPCC_ARGS += -no-execute
+target/tpcc_$(TPCC_SF)_data_load: target/endb target/tpcc_$(TPCC_SF).config
+	ENDB_PID=$$(./$< -d $@ > target/tpcc_$(TPCC_SF)_load.log 2>&1 & echo $$!); \
+		./tpcc/tpcc.sh $(TPCC_ARGS); \
+		kill $$ENDB_PID
+
+tpcc: TPCC_ARGS += --no-load
+tpcc:  target/endb target/tpcc_$(TPCC_SF)_data_load target/tpcc_$(TPCC_SF).config
+	rm -rf target/tpcc_$(TPCC_SF)_data
+	cp -a target/tpcc_$(TPCC_SF)_data_load target/tpcc_$(TPCC_SF)_data
+	ENDB_PID=$$(./$< -d target/tpcc_$(TPCC_SF)_data > target/tpcc_$(TPCC_SF)_execute.log 2>&1 & echo $$!); sleep 3; \
+		./tpcc/tpcc.sh $(TPCC_ARGS); \
+		kill $$ENDB_PID
 
 docker:
 	$(DOCKER) build --pull$(DOCKER_PULL_ALWAYS) \
@@ -247,4 +263,4 @@ clean:
 
 .PHONY: repl run run-binary test check lib-check lib-lint lib-update lib-test lib-microbench update-submodules \
 	slt-test slt-test-select slt-test-random slt-test-index slt-test-evidence slt-test-all slt-test-tpch slt-test-expr slt-test-ci \
-	slt-test-sql-acid sql-acid-test sql-acid-test-verify docker docker-alpine run-docker push-docker clean
+	slt-test-sql-acid sql-acid-test tpcc docker docker-alpine run-docker push-docker clean
