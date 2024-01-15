@@ -487,8 +487,10 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
         .with_env_var("ENDB_LOG_LEVEL")
         .from_env_lossy();
     let level = filter.max_level_hint().unwrap_or(default_level);
+    let ansi = std::env::var("ENDB_LOG_ANSI").unwrap_or("1".to_string()) == "1";
     tracing_subscriber::fmt()
         .with_env_filter(filter)
+        .with_ansi(ansi)
         .try_init()?;
     Ok(level)
 }
