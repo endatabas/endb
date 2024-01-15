@@ -87,14 +87,8 @@
         (setf wal (endb/storage/wal:open-tar-wal :stream write-io)
               mem-table-object-store (endb/storage/object-store:make-memory-object-store)
               backing-object-store (endb/storage/object-store:make-directory-object-store :path object-store-path)
-              snapshot-thread (bt:make-thread
-                               (lambda ()
-                                 (loop for job = (endb/queue:queue-pop snapshot-queue)
-                                       if (null job)
-                                         do (return-from nil)
-                                       else
-                                         do (funcall job)))
-                               :name "endb snapshot thread"))
+              snapshot-thread (bt:make-thread (endb/queue:make-queue-consumer-worker snapshot-queue)
+                                              :name "endb snapshot"))
         (endb/storage/wal:tar-wal-position-stream-at-end write-io)))))
 
 (defun %validate-tx-log-version (tx-md)

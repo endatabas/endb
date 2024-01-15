@@ -30,10 +30,9 @@
                                                         (declare (ignore e))
                                                         (return-from %endb-main 130)))
                  (error (lambda (e)
-                          (endb/lib:log-error (format nil "~A" e))
-                          (let ((backtrace (rest (ppcre:split "[\\n\\r]+" (trivial-backtrace:print-backtrace e :output nil)))))
-                            (endb/lib:log-debug "~A~%~{~A~^~%~}" (string-trim " " (first backtrace)) (rest backtrace))
-                            (return-from %endb-main 1)))))
+                          (endb/lib:log-error "~A" e)
+                          (endb/lib:log-debug (endb/lib:format-backtrace (trivial-backtrace:print-backtrace e :output nil)))
+                          (return-from %endb-main 1))))
     (unwind-protect
          (let ((dbms (%endb-init (endb/lib/server:parse-command-line))))
            (setf endb/lib:*panic-hook* (lambda ()

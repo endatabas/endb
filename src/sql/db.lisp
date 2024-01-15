@@ -414,30 +414,20 @@
     (setf (dbms-compaction-queue dbms)
           compaction-queue
           (dbms-compaction-thread dbms)
-          (bt:make-thread
-           (lambda ()
-             (loop
-               (multiple-value-bind (job timeoutp)
-                   (endb/queue:queue-pop compaction-queue :timeout timeout)
-                 (declare (ignore job))
-                 (unless timeoutp
-                   (return-from nil)))
-               (run-compaction (dbms-db dbms) db-commit-fn object-put-fn :target-size target-size)))
-           :name "endb compaction thread"))))
+          (bt:make-thread (endb/queue:make-queue-timer-worker
+                           compaction-queue
+                           (lambda ()
+                             (run-compaction (dbms-db dbms) db-commit-fn object-put-fn :target-size target-size))
+                           timeout)
+                          :name "endb compaction"))))
 
 (defun start-background-indexer (db)
   (let ((indexer-queue (endb/queue:make-queue)))
     (setf (db-indexer-queue db)
           indexer-queue
           (db-indexer-thread db)
-          (bt:make-thread
-           (lambda ()
-             (loop for job = (endb/queue:queue-pop indexer-queue)
-                   if (null job)
-                     do (return-from nil)
-                   else
-                     do (funcall job)) )
-           :name "endb indexer thread"))))
+          (bt:make-thread (endb/queue:make-queue-consumer-worker indexer-queue)
+                          :name "endb indexer"))))
 
 (defun %find-files-to-compact (db table-name target-size)
   (let ((table-md (base-table-meta db table-name))

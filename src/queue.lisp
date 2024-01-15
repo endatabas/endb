@@ -1,7 +1,9 @@
 (defpackage :endb/queue
   (:use :cl)
-  (:export #:make-queue #:queue-pop #:queue-push #:queue-close)
-  (:import-from :bordeaux-threads))
+  (:export #:make-queue #:queue-pop #:queue-push #:queue-close #:make-queue-consumer-worker #:make-queue-timer-worker)
+  (:import-from :endb/lib)
+  (:import-from :bordeaux-threads)
+  (:import-from :trivial-backtrace))
 (in-package :endb/queue)
 
 (defstruct queue (lock (bt:make-lock)) (cv (bt:make-condition-variable)) data)
@@ -27,3 +29,31 @@
 (defun queue-close (queue)
   (when queue
     (queue-push queue 'close)))
+
+(defun make-queue-consumer-worker (job-queue)
+  (lambda ()
+    (loop for job = (endb/queue:queue-pop job-queue)
+          if (null job)
+            do (return-from nil)
+          else
+            do (block job-block
+                 (handler-bind ((error (lambda (e)
+                                         (endb/lib:log-error "~A: ~A" (bt:thread-name (bt:current-thread)) e)
+                                         (endb/lib:log-debug (endb/lib:format-backtrace (trivial-backtrace:print-backtrace e :output nil)))
+                                         (return-from job-block))))
+                   (funcall job))))))
+
+(defun make-queue-timer-worker (close-queue job interval)
+  (lambda ()
+    (loop
+      (multiple-value-bind (event timeoutp)
+          (endb/queue:queue-pop close-queue :timeout interval)
+        (declare (ignore event))
+        (unless timeoutp
+          (return-from nil)))
+      (block job-block
+        (handler-bind ((error (lambda (e)
+                                (endb/lib:log-error "~A: ~A" (bt:thread-name (bt:current-thread)) e)
+                                (endb/lib:log-debug (endb/lib:format-backtrace (trivial-backtrace:print-backtrace e :output nil)))
+                                (return-from job-block))))
+          (funcall job))))))
