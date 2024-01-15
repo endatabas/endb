@@ -83,7 +83,7 @@ test: lib-test target/libendb$(SHARED_LIB_EXT)
 		--eval '(asdf:load-system :endb-test)' \
 		--eval '(uiop:quit (if (fiveam:run-all-tests) 0 1))'
 
-check: test slt-test-expr slt-test-tpch
+check: test slt-test-expr slt-test-sql-acid slt-test-tpch
 
 update-submodules:
 	git submodule update --init --recursive --force --jobs 4
@@ -173,14 +173,31 @@ slt-test-expr: target/expr_sqlite.test
 slt-test-ci: SLT_ENV += SLT_TIMING=1
 slt-test-ci:
 	$(SLT_ENV) make slt-test-expr
+	$(SLT_ENV) make slt-test-sql-acid
 	$(SLT_ENV) make slt-test-select
 	$(SLT_ENV) make slt-test-evidence
 	$(SLT_ENV) make slt-test-random
 	$(SLT_ENV) make slt-test-index
 	$(SLT_ENV) make slt-test-tpch
 
-SQL_ACID_TEST_DIR= sqlacidtest/
+SQL_ACID_TEST_DIR = sqlacidtest/
 SQL_ACID_TESTS = $(shell find $(SQL_ACID_TEST_DIR) -iwholename "*/tests/*/*.sql" | xargs -i basename {} | sort)
+
+SLT_SQL_ACID_TESTS_SKIP = test005.sql test006.sql test007.sql test017.sql test020.sql
+
+target/sql_acid.test: SHELL = /bin/bash
+target/sql_acid.test:
+		for test in $(SQL_ACID_TESTS); \
+			do \
+				echo "$(SLT_SQL_ACID_TESTS_SKIP)" | grep -q "$$test" && echo "skipif endb" >> $@; \
+				echo "query T nosort $$test" >> $@; \
+				find $(SQL_ACID_TEST_DIR) -iname $$test | xargs -i sh -c 'cat {} | grep -vE "^(--.*)$$" | grep -vE "^\s*$$"' >> $@; \
+				echo -e "----\nT\n" >> $@; \
+		done;
+
+slt-test-sql-acid: SLT_ENV += ENDB_ENGINE_REPORTED_NAME=endb
+slt-test-sql-acid: target/sql_acid.test target/slt
+	$(SLT_ENV) ./target/slt -e $(SLT_ENGINE) $(SLT_ARGS) $<
 
 sql-acid-test: target/endb
 	ENDB_PID=$$(./$< -d :memory: > target/endb_sql_acid_test.log 2>&1 & echo $$!); \
@@ -230,4 +247,4 @@ clean:
 
 .PHONY: repl run run-binary test check lib-check lib-lint lib-update lib-test lib-microbench update-submodules \
 	slt-test slt-test-select slt-test-random slt-test-index slt-test-evidence slt-test-all slt-test-tpch slt-test-expr slt-test-ci \
-	sql-acid-test sql-acid-test-verify docker docker-alpine run-docker push-docker clean
+	slt-test-sql-acid sql-acid-test sql-acid-test-verify docker docker-alpine run-docker push-docker clean
