@@ -403,6 +403,14 @@ fn make_basic_auth_header(username: Option<String>, password: Option<String>) ->
     }
 }
 
+pub fn start_tokio(on_init: impl Fn() + Sync + Send + 'static) -> Result<(), Error> {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?
+        .block_on(async { on_init() });
+    Ok(())
+}
+
 pub fn start_server(
     on_query: impl Fn(HttpResponse, &mut HttpSender, OneShotSender, &str, &str, &str, &str, &str)
         + Sync

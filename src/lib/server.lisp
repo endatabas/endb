@@ -1,6 +1,6 @@
 (defpackage :endb/lib/server
   (:use :cl)
-  (:export #:start-server #:sql-abort-query-error #:parse-command-line #:get-endb-version)
+  (:export #:start-server #:sql-abort-query-error #:parse-command-line #:get-endb-version #:start-tokio)
   (:import-from :alexandria)
   (:import-from :cffi)
   (:import-from :endb/json)
@@ -180,3 +180,31 @@
     (if errorp
         1
         0)))
+
+(defvar *start-tokio-on-init*)
+
+(cffi:defcallback start-tokio-on-init :void
+    ()
+  (funcall *start-tokio-on-init*))
+
+(defvar *start-tokio-on-error*)
+
+(cffi:defcallback start-tokio-on-error :void
+    ((err :string))
+  (funcall *start-tokio-on-error* err))
+
+(cffi:defcfun "endb_start_tokio" :void
+  (f :pointer)
+  (on-error :pointer))
+
+(defun start-tokio (on-init)
+  (endb/lib:init-lib)
+  (let* ((e nil)
+         (*start-tokio-on-error* (lambda (err)
+                                   (setf e err)
+                                   (endb/lib:log-error err)))
+         (*start-tokio-on-init* on-init))
+    (endb-start-tokio (cffi:callback start-tokio-on-init)
+                      (cffi:callback start-tokio-on-error))
+    (when e
+      (error e))))

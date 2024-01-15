@@ -7,6 +7,7 @@
   (:import-from :uiop)
   (:import-from :endb/arrow)
   (:import-from :endb/lib)
+  (:import-from :endb/lib/server)
   (:import-from :endb/sql)
   (:import-from :endb/sql/db)
   (:import-from :endb/sql/expr)
@@ -257,15 +258,18 @@
          (uiop:quit
           (let ((exit-code 0)
                 (args (cons (uiop:argv0) (uiop:command-line-arguments))))
-            #+sbcl (if (equal "1" (uiop:getenv "SB_SPROF"))
-                       (progn (sb-sprof:with-profiling (:max-samples 10000
-                                                        :report :graph
-                                                        :sample-interval 0.001
-                                                        :loop nil)
-                                (setq exit-code (%slt-main args)))
-                              exit-code)
-                       (%slt-main args))
-            #-sbcl (%slt-main args))))
+            (endb/lib/server:start-tokio
+             (lambda ()
+               #+sbcl (if (equal "1" (uiop:getenv "SB_SPROF"))
+                          (progn (sb-sprof:with-profiling (:max-samples 10000
+                                                           :report :graph
+                                                           :sample-interval 0.001
+                                                           :loop nil)
+                                   (setq exit-code (%slt-main args)))
+                                 exit-code)
+                          (setq exit-code (%slt-main args)))
+               #-sbcl (setq exit-code (%slt-main args))))
+            exit-code)))
     (%free-db-engine *endb-db-engine*)))
 
 (defun slt-sanity (&key (engine "endb"))

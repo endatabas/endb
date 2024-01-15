@@ -185,6 +185,19 @@ pub extern "C" fn endb_log_trace(target: *const c_char, message: *const c_char) 
     do_log(log::Level::Trace, target, message);
 }
 
+type endb_start_tokio_on_init = extern "C" fn();
+
+#[no_mangle]
+#[allow(clippy::redundant_closure)]
+pub extern "C" fn endb_start_tokio(
+    on_init: endb_start_tokio_on_init,
+    on_error: endb_on_error_callback,
+) {
+    if let Err(err) = endb_server::start_tokio(move || on_init()) {
+        string_callback(err.to_string(), on_error);
+    }
+}
+
 pub struct endb_server_http_response(endb_server::HttpResponse);
 
 pub struct endb_server_http_sender(endb_server::HttpSender);
