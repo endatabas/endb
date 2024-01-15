@@ -156,7 +156,7 @@ target/tpch_$(TPCH_SF).test: $(TPCH_SCHEMA_FILE) $(TPCH_TABLE_FILES) $(TPCH_QUER
 	cat $(TPCH_QUERIES_FILE) >> $@
 
 target/tpch_$(TPCH_SF)_sqlite.test: target/slt target/tpch_$(TPCH_SF).test
-	rm target/tpch_$(TPCH_SF).db
+	rm -f target/tpch_$(TPCH_SF).db
 	SLT_TIMING=0 SB_SPROF=0 ./target/slt -e sqlite --connection target/tpch_$(TPCH_SF).db target/tpch_$(TPCH_SF).test > $@
 
 slt-test-tpch: SLT_TESTS = target/tpch_$(TPCH_SF).test
