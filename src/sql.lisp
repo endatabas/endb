@@ -83,7 +83,7 @@
 (defun commit-write-tx (current-db write-db &key (fsyncp t))
   (let* ((current-md (endb/sql/db:db-meta-data current-db))
          (tx-md (endb/sql/db:db-meta-data write-db))
-         (tx-id (1+ (or (fset:lookup tx-md "_last_tx") 0))))
+         (tx-id (1+ (endb/sql/db:db-base-tx-id write-db))))
     (if (eq current-md tx-md)
         current-db
         (endb/lib:trace-span
@@ -286,7 +286,11 @@
                                                                            (endb/sql/expr:syn-cast arg :varchar)))))
                                  (error e))))))
          (remhash (bt:current-thread) +active-queries+)))
-     (fset:map ("query_id" query-id)))))
+     (let ((kvs (fset:map ("query_id" query-id)
+                          ("query_base_tx_id" (endb/sql/db:db-base-tx-id db)))))
+       (if (endb/sql/db:db-interactive-tx-id db)
+           (fset:with kvs "query_interactive_tx_id" (endb/sql/db:db-interactive-tx-id db))
+           kvs)))))
 
 (defvar *interrupt-query-memory-usage-threshold* 0.6)
 

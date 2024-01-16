@@ -9,6 +9,7 @@
   (:import-from :fset)
   (:import-from :endb/arrow)
   (:import-from :endb/json)
+  (:import-from :endb/lib)
   (:import-from :endb/lib/arrow)
   (:import-from :endb/lib/cst)
   (:import-from :endb/lib/server)
@@ -285,7 +286,8 @@
                                    (if interactive-tx-p
                                        (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ "Cannot nest transactions" json-rpc-id))
                                        (progn
-                                         (setf (endb/sql/db:db-connection-db connection) write-db
+                                         (setf (endb/sql/db:db-interactive-tx-id write-db) (endb/lib:uuid-v4)
+                                               (endb/sql/db:db-connection-db connection) write-db
                                                (endb/sql/db:db-connection-original-md connection) original-md)
                                          (%stream-response #'on-response-send content-type '("result") (list (vector t)))
                                          (funcall on-ws-send (%json-rpc-result acc json-rpc-id)))))

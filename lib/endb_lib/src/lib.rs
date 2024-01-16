@@ -215,7 +215,12 @@ pub extern "C" fn endb_trace_span(
         "index" => tracing::error_span!("index", index_id = tracing::field::Empty,),
         "log_replay" => tracing::error_span!("log_replay"),
         "log_rotation" => tracing::error_span!("log_rotation"),
-        "query" => tracing::error_span!("query", query_id = tracing::field::Empty,),
+        "query" => tracing::error_span!(
+            "query",
+            query_id = tracing::field::Empty,
+            query_base_tx_id = tracing::field::Empty,
+            query_interactive_tx_id = tracing::field::Empty,
+        ),
         "shutdown" => tracing::error_span!("shutdown"),
         "snapshot" => tracing::error_span!("snapshot", snapshot_tx_id = tracing::field::Empty,),
         "startup" => tracing::error_span!("startup"),

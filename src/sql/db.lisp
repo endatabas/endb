@@ -17,7 +17,7 @@
            #:syn-current_date #:syn-current_time #:syn-current_timestamp
 
            #:make-db #:copy-db #:db-buffer-pool #:db-store #:db-meta-data #:db-current-timestamp
-           #:db-query-cache #:db-hash-index-cache #:db-indexer-queue #:db-indexer-thread #:db-savepoint
+           #:db-query-cache #:db-hash-index-cache #:db-indexer-queue #:db-indexer-thread #:db-savepoint #:db-interactive-tx-id #:db-base-tx-id
            #:make-db-connection #:db-connection-db #:db-connection-original-md #:db-connection-remote-addr
            #:make-dbms #:dbms-db #:dbms-connections #:dbms-savepoints #:dbms-write-lock #:dbms-compaction-thread #:dbms-compaction-queue
 
@@ -42,7 +42,11 @@
   indexer-thread
   indexer-queue
   (hash-index-cache (make-hash-table :synchronized t :test 'equal))
-  savepoint)
+  savepoint
+  interactive-tx-id)
+
+(defun db-base-tx-id (db)
+  (or (fset:lookup (db-meta-data db) "_last_tx") 0))
 
 (defstruct db-connection db original-md remote-addr)
 
@@ -570,7 +574,7 @@
                                         collect (position column column-names :test 'equal))
                                   (loop for idx below number-of-columns
                                         collect idx)))
-                 (tx-id (1+ (or (fset:lookup meta-data "_last_tx") 0)))
+                 (tx-id (1+ (db-base-tx-id db)))
                  (batch-file (format nil "~(~16,'0x~).arrow" tx-id))
                  (batch-key (%batch-key table-name batch-file))
                  (table-md (or (fset:lookup meta-data table-name)
