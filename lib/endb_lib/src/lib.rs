@@ -212,6 +212,7 @@ pub extern "C" fn endb_trace_span(
     let span = match span {
         "commit" => tracing::error_span!("commit", tx_id = tracing::field::Empty,),
         "compaction" => tracing::error_span!("compaction", compaction_id = tracing::field::Empty,),
+        "gc" => tracing::error_span!("gc"),
         "index" => tracing::error_span!("index", index_id = tracing::field::Empty,),
         "log_replay" => tracing::error_span!("log_replay"),
         "log_rotation" => tracing::error_span!("log_rotation"),
