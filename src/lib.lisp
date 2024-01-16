@@ -142,7 +142,8 @@
 
 (cffi:defcallback on-panic-hook :void
     ((err :string))
-  (log-error err)
+  (when *initialized*
+    (log-error err))
   (when *panic-hook*
     (funcall *panic-hook*)))
 
