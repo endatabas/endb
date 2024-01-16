@@ -125,6 +125,7 @@
                                                             (setf err e)
                                                             (return-from error-block))))
                                       (setf result (multiple-value-list (funcall in-scope))))))))
+    (init-lib)
     (endb-trace-span span
                      (if kvs
                          (com.inuoe.jzon:stringify kvs)

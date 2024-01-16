@@ -400,20 +400,25 @@
                 (alexandria:starts-with-subseq "_" table-name))
       (let ((arrow-files (%find-files-to-compact db table-name target-size)))
         (when (> (length arrow-files) 1)
-          (endb/lib:log-info "merging ~A files in table ~A" (length arrow-files) table-name)
-          (multiple-value-bind (buffer batch-md)
-              (%merge-arrow-files db table-name arrow-files)
-            (let* ((batch-file (%arrow-files-compacted-filename (fset:convert 'list (fset:lookup batch-md "derived_from"))))
-                   (batch-key (%batch-key table-name batch-file)))
-              (funcall object-put-fn batch-key buffer)
-              (funcall db-commit-fn (lambda (write-db)
-                                      (%compact-files write-db table-name batch-md)))
-              (with-slots (buffer-pool) db
-                (dolist (arrow-file arrow-files)
-                  (endb/storage/buffer-pool:buffer-pool-evict buffer-pool (%batch-key table-name arrow-file))))
-              (endb/lib:log-info "compacted ~A" batch-key))))))))
+          (lambda ()
+            (endb/lib:trace-span
+             "compaction"
+             (lambda ()
+               (endb/lib:log-info "merging ~A files in table ~A" (length arrow-files) table-name)
+               (multiple-value-bind (buffer batch-md)
+                   (%merge-arrow-files db table-name arrow-files)
+                 (let* ((batch-file (%arrow-files-compacted-filename (fset:convert 'list (fset:lookup batch-md "derived_from"))))
+                        (batch-key (%batch-key table-name batch-file)))
+                   (funcall object-put-fn batch-key buffer)
+                   (funcall db-commit-fn (lambda (write-db)
+                                           (%compact-files write-db table-name batch-md)))
+                   (with-slots (buffer-pool) db
+                     (dolist (arrow-file arrow-files)
+                       (endb/storage/buffer-pool:buffer-pool-evict buffer-pool (%batch-key table-name arrow-file))))
+                   (endb/lib:log-info "compacted ~A" batch-key))))
+             (fset:map ("compaction_table" table-name)))))))))
 
-(defun start-background-compaction (dbms db-commit-fn object-put-fn &key (target-size (* 4 1024 1024)) (timeout 0.5))
+(defun start-background-compaction (dbms db-commit-fn object-put-fn &key (target-size (* 4 1024 1024)) (timeout 10))
   (let ((compaction-queue (endb/queue:make-queue)))
     (setf (dbms-compaction-queue dbms)
           compaction-queue
@@ -421,11 +426,7 @@
           (bt:make-thread (endb/queue:make-queue-timer-worker
                            compaction-queue
                            (lambda ()
-                             (endb/lib:trace-span
-                              "compaction"
-                              (lambda ()
-                                (run-compaction (dbms-db dbms) db-commit-fn object-put-fn :target-size target-size))
-                              (fset:map ("compaction_id" (endb/lib:uuid-v4)))))
+                             (run-compaction (dbms-db dbms) db-commit-fn object-put-fn :target-size target-size))
                            timeout)
                           :name "endb compaction"))))
 

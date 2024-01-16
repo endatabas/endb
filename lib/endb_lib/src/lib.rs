@@ -211,7 +211,9 @@ pub extern "C" fn endb_trace_span(
     let span = unsafe { CStr::from_ptr(span).to_str().unwrap() };
     let span = match span {
         "commit" => tracing::error_span!("commit", tx_id = tracing::field::Empty,),
-        "compaction" => tracing::error_span!("compaction", compaction_id = tracing::field::Empty,),
+        "compaction" => {
+            tracing::error_span!("compaction", compaction_table = tracing::field::Empty,)
+        }
         "gc" => tracing::error_span!("gc"),
         "index" => tracing::error_span!("index", index_id = tracing::field::Empty,),
         "log_replay" => tracing::error_span!("log_replay"),
