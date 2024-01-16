@@ -15,6 +15,10 @@ crate-type = ["rlib"]
 tracing.workspace = true
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-log = "0.2"
+tracing-opentelemetry = { version = "0.22", features = ["metrics"] }
+opentelemetry = "0.21"
+opentelemetry_sdk = { version = "0.21", features = ["rt-async-std"] }
+opentelemetry-otlp = { version = "0.14", features = ["http-proto", "reqwest-blocking-client"] }
 clap = { version = "4", features = ["derive", "env"] }
 bytes = "1"
 hyper = { version = "1", features = ["full"] }
