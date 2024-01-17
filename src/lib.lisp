@@ -1,7 +1,8 @@
 (defpackage :endb/lib
   (:use :cl)
-  (:export #:init-lib #:*panic-hook* #:format-backtrace
-           #:log-error #:log-warn #:log-info #:log-debug #:log-trace #:resolve-log-level #:log-level-active-p #:*log-level* #:trace-span #:with-trace-span
+  (:export #:init-lib #:*panic-hook* #:format-backtrace #:shutdown-logger
+           #:log-error #:log-warn #:log-info #:log-debug #:log-trace #:resolve-log-level #:log-level-active-p #:*log-level*
+           #:trace-span #:with-trace-span #:with-trace-kvs-span
            #:sha1 #:uuid-v4 #:uuid-str #:base64-decode #:base64-encode #:xxh64
            #:vector-byte-size #:buffer-to-vector)
   (:import-from :cffi)
@@ -93,6 +94,8 @@
   (on-success :pointer)
   (on-error :pointer))
 
+(cffi:defcfun "endb_shutdown_logger" :void)
+
 (cffi:defcfun "endb_set_panic_hook" :void
   (on-panic :pointer))
 
@@ -138,6 +141,9 @@
 (defmacro with-trace-span (span &body body)
   `(trace-span ,span (lambda () ,@body)))
 
+(defmacro with-trace-kvs-span (span kvs &body body)
+  `(trace-span ,span (lambda () ,@body) ,kvs))
+
 (defvar *panic-hook* nil)
 
 (cffi:defcallback on-panic-hook :void
@@ -146,6 +152,9 @@
     (log-error err))
   (when *panic-hook*
     (funcall *panic-hook*)))
+
+(defun shutdown-logger ()
+  (endb-shutdown-logger))
 
 (defun init-logger ()
   (let* ((result)

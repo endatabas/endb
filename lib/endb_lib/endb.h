@@ -148,6 +148,8 @@ void endb_start_server(endb_start_server_on_query_callback on_query,
 
 void endb_set_panic_hook(endb_on_error_callback on_panic);
 
+void endb_shutdown_logger(void);
+
 void endb_parse_command_line_to_json(endb_parse_command_line_to_json_on_success_callback on_success);
 
 void endb_version(endb_version_on_success_callback on_success);

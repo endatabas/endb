@@ -13,23 +13,19 @@
 (in-package :endb/core)
 
 (defun %endb-init (config)
-  (endb/lib:trace-span
-   "startup"
-   (lambda ()
-     (endb/lib:log-info "version ~A" (endb/lib/server:get-endb-version))
-     (endb/sql:install-interrupt-query-handler)
-     (endb/sql:make-dbms :directory (fset:lookup config "data_directory")))))
+  (endb/lib:with-trace-span "startup"
+   (endb/lib:log-info "version ~A" (endb/lib/server:get-endb-version))
+    (endb/sql:install-interrupt-query-handler)
+    (endb/sql:make-dbms :directory (fset:lookup config "data_directory"))))
 
 (defun %endb-close-dbms (dbms)
-  (endb/lib:trace-span
-   "shutdown"
-   (lambda ()
-     (endb/lib:log-info "shutting down")
-     (if (bt:acquire-lock (endb/sql/db:dbms-write-lock dbms) nil)
-         (unwind-protect
-              (endb/sql:dbms-close dbms)
-           (bt:release-lock (endb/sql/db:dbms-write-lock dbms)))
-         (endb/lib:log-warn "could not close the database cleanly")))))
+  (endb/lib:with-trace-span "shutdown"
+   (endb/lib:log-info "shutting down")
+    (if (bt:acquire-lock (endb/sql/db:dbms-write-lock dbms) nil)
+        (unwind-protect
+             (endb/sql:dbms-close dbms)
+          (bt:release-lock (endb/sql/db:dbms-write-lock dbms)))
+        (endb/lib:log-warn "could not close the database cleanly"))))
 
 (defun %endb-main ()
   (handler-bind ((#+sbcl sb-sys:interactive-interrupt (lambda (e)
@@ -42,7 +38,8 @@
     (unwind-protect
          (let ((dbms (%endb-init (endb/lib/server:parse-command-line))))
            (setf endb/lib:*panic-hook* (lambda ()
-                                         (%endb-close-dbms dbms)))
+                                         (%endb-close-dbms dbms)
+                                         (endb/lib:shutdown-logger)))
            (endb/lib/server:start-server dbms #'endb/http:endb-query #'endb/http:endb-on-ws-message))
       (when endb/lib:*panic-hook*
         (funcall endb/lib:*panic-hook*)))))

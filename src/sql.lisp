@@ -86,36 +86,33 @@
          (tx-id (1+ (endb/sql/db:db-base-tx-id write-db))))
     (if (eq current-md tx-md)
         current-db
-        (endb/lib:trace-span
-         "commit"
-         (lambda ()
-           (%execute-constraints write-db)
-           (let* ((tx-md (fset:with tx-md "_last_tx" tx-id))
-                  (md-diff (endb/json:json-diff current-md tx-md))
-                  (md-diff (fset:with md-diff "_tx_log_version" endb/storage:*tx-log-version*))
-                  (store (endb/sql/db:db-store write-db))
-                  (bp (endb/sql/db:db-buffer-pool write-db))
-                  (arrow-buffers-map (make-hash-table :test 'equal)))
-             (maphash
-              (lambda (k v)
-                (let ((buffer (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer v)))
-                  (destructuring-bind (table batch-file)
-                      (uiop:split-string k :max 2 :separator "/")
-                    (let* ((table-md (fset:lookup md-diff table))
-                           (batch-md (fset:map-union (fset:lookup table-md batch-file)
-                                                     (fset:map ("sha1" (string-downcase (endb/lib:sha1 buffer)))
-                                                               ("buffers_byte_size" (loop for b in (endb/arrow:arrow-all-buffers (first v))
-                                                                                          sum (endb/lib:vector-byte-size b)))))))
-                      (setf md-diff (fset:with md-diff table (fset:with table-md batch-file batch-md)))))
-                  (setf (gethash k arrow-buffers-map) buffer)))
-              (endb/storage/buffer-pool:writeable-buffer-pool-pool bp))
-             (let ((new-md (endb/json:json-merge-patch current-md md-diff))
-                   (current-local-time (endb/arrow:arrow-timestamp-micros-to-local-time (endb/sql/db:db-current-timestamp write-db))))
-               (endb/storage:store-write-tx store tx-id new-md md-diff arrow-buffers-map :fsyncp fsyncp :mtime current-local-time)
-               (let ((new-db (endb/sql/db:copy-db current-db)))
-                 (setf (endb/sql/db:db-meta-data new-db) new-md)
-                 new-db))))
-         (fset:map ("tx_id" (format nil "~(~,'0x~)" tx-id)))))))
+        (endb/lib:with-trace-kvs-span "commit" (fset:map ("tx_id" (format nil "~(~,'0x~)" tx-id)))
+          (%execute-constraints write-db)
+          (let* ((tx-md (fset:with tx-md "_last_tx" tx-id))
+                 (md-diff (endb/json:json-diff current-md tx-md))
+                 (md-diff (fset:with md-diff "_tx_log_version" endb/storage:*tx-log-version*))
+                 (store (endb/sql/db:db-store write-db))
+                 (bp (endb/sql/db:db-buffer-pool write-db))
+                 (arrow-buffers-map (make-hash-table :test 'equal)))
+            (maphash
+             (lambda (k v)
+               (let ((buffer (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer v)))
+                 (destructuring-bind (table batch-file)
+                     (uiop:split-string k :max 2 :separator "/")
+                   (let* ((table-md (fset:lookup md-diff table))
+                          (batch-md (fset:map-union (fset:lookup table-md batch-file)
+                                                    (fset:map ("sha1" (string-downcase (endb/lib:sha1 buffer)))
+                                                              ("buffers_byte_size" (loop for b in (endb/arrow:arrow-all-buffers (first v))
+                                                                                         sum (endb/lib:vector-byte-size b)))))))
+                     (setf md-diff (fset:with md-diff table (fset:with table-md batch-file batch-md)))))
+                 (setf (gethash k arrow-buffers-map) buffer)))
+             (endb/storage/buffer-pool:writeable-buffer-pool-pool bp))
+            (let ((new-md (endb/json:json-merge-patch current-md md-diff))
+                  (current-local-time (endb/arrow:arrow-timestamp-micros-to-local-time (endb/sql/db:db-current-timestamp write-db))))
+              (endb/storage:store-write-tx store tx-id new-md md-diff arrow-buffers-map :fsyncp fsyncp :mtime current-local-time)
+              (let ((new-db (endb/sql/db:copy-db current-db)))
+                (setf (endb/sql/db:db-meta-data new-db) new-md)
+                new-db)))))))
 
 (defun %resolve-parameters (ast)
   (let ((idx 0)
@@ -247,79 +244,75 @@
 (defstruct active-query id sql start-time thread)
 
 (defun execute-sql (db sql &optional (parameters (fset:empty-seq)) manyp)
-  (let ((query-id (endb/lib:uuid-v4)))
-    (endb/lib:trace-span
-     "query"
-     (lambda ()
-       (unwind-protect
-            (let ((active-query (make-active-query :id query-id
-                                                   :sql sql
-                                                   :start-time (get-internal-real-time)
-                                                   :thread (bt:current-thread))))
-              (setf (gethash (bt:current-thread) +active-queries+) active-query)
-              (endb/lib:log-debug "query start:~%~A" sql)
-              (handler-case
-                  #+sbcl (if (endb/lib:log-level-active-p :debug)
-                             (sb-ext:call-with-timing
-                              (lambda (&rest args)
-                                (endb/lib:log-debug "query end:~%~A"
-                                                    (with-output-to-string (out)
-                                                      (let ((*trace-output* out))
-                                                        (apply #'sb-impl::print-time args)))))
-                              (lambda ()
-                                (%execute-sql db sql parameters manyp)))
-                             (%execute-sql db sql parameters manyp))
-                  #-sbcl (%execute-sql db sql parameters manyp)
-                  #+sbcl (sb-pcl::effective-method-condition (e)
-                           (let ((fn (sb-pcl::generic-function-name
-                                      (sb-pcl::effective-method-condition-generic-function e))))
-                             (if (equal (find-package 'endb/sql/expr)
-                                        (symbol-package fn))
-                                 (error 'endb/sql/expr:sql-runtime-error
-                                        :message (format nil "Invalid argument types: ~A(~{~A~^, ~})"
-                                                         (ppcre:regex-replace "^SQL-(UNARY)?"
-                                                                              (symbol-name fn)
-                                                                              "")
-                                                         (loop for arg in (sb-pcl::effective-method-condition-args e)
-                                                               collect (if (stringp arg)
-                                                                           (prin1-to-string arg)
-                                                                           (endb/sql/expr:syn-cast arg :varchar)))))
-                                 (error e))))))
-         (remhash (bt:current-thread) +active-queries+)))
-     (let ((kvs (fset:map ("query_id" query-id)
-                          ("query_base_tx_id" (endb/sql/db:db-base-tx-id db)))))
-       (if (endb/sql/db:db-interactive-tx-id db)
-           (fset:with kvs "query_interactive_tx_id" (endb/sql/db:db-interactive-tx-id db))
-           kvs)))))
+  (let* ((query-id (endb/lib:uuid-v4))
+         (kvs (fset:map ("query_id" query-id)
+                        ("query_base_tx_id" (endb/sql/db:db-base-tx-id db))))
+         (kvs (if (endb/sql/db:db-interactive-tx-id db)
+                  (fset:with kvs "query_interactive_tx_id" (endb/sql/db:db-interactive-tx-id db))
+                  kvs)))
+    (endb/lib:with-trace-kvs-span "query" kvs
+      (unwind-protect
+           (let ((active-query (make-active-query :id query-id
+                                                  :sql sql
+                                                  :start-time (get-internal-real-time)
+                                                  :thread (bt:current-thread))))
+             (setf (gethash (bt:current-thread) +active-queries+) active-query)
+             (endb/lib:log-debug "query start:~%~A" sql)
+             (handler-case
+                 #+sbcl (if (endb/lib:log-level-active-p :debug)
+                            (sb-ext:call-with-timing
+                             (lambda (&rest args)
+                               (endb/lib:log-debug "query end:~%~A"
+                                                   (with-output-to-string (out)
+                                                     (let ((*trace-output* out))
+                                                       (apply #'sb-impl::print-time args)))))
+                             (lambda ()
+                               (%execute-sql db sql parameters manyp)))
+                            (%execute-sql db sql parameters manyp))
+                 #-sbcl (%execute-sql db sql parameters manyp)
+                 #+sbcl (sb-pcl::effective-method-condition (e)
+                          (let ((fn (sb-pcl::generic-function-name
+                                     (sb-pcl::effective-method-condition-generic-function e))))
+                            (if (equal (find-package 'endb/sql/expr)
+                                       (symbol-package fn))
+                                (error 'endb/sql/expr:sql-runtime-error
+                                       :message (format nil "Invalid argument types: ~A(~{~A~^, ~})"
+                                                        (ppcre:regex-replace "^SQL-(UNARY)?"
+                                                                             (symbol-name fn)
+                                                                             "")
+                                                        (loop for arg in (sb-pcl::effective-method-condition-args e)
+                                                              collect (if (stringp arg)
+                                                                          (prin1-to-string arg)
+                                                                          (endb/sql/expr:syn-cast arg :varchar)))))
+                                (error e))))))
+        (remhash (bt:current-thread) +active-queries+)))))
 
 (defvar *interrupt-query-memory-usage-threshold* 0.6)
 
 (defun install-interrupt-query-handler ()
   #+sbcl (push (lambda ()
-                 (endb/lib:trace-span
-                  "gc"
-                  (lambda ()
-                    (let* ((usage (sb-kernel:dynamic-usage))
-                           (usage-ratio (coerce (/ usage (sb-ext:dynamic-space-size)) 'double-float)))
-                      (endb/lib:log-debug "dynamic space usage: ~,2f%" (* 100 usage-ratio))
-                      (endb/lib:log-debug "active queries: ~A" (hash-table-count +active-queries+))
-                      (when (> usage-ratio *interrupt-query-memory-usage-threshold*)
-                        (let ((oldest-active-query (cdr (first (sort (alexandria:hash-table-alist +active-queries+)
-                                                                     #'<
-                                                                     :key (lambda (x)
-                                                                            (active-query-start-time (cdr x))))))))
-                          (when oldest-active-query
-                            (endb/lib:log-warn "interrupting query ~A on ~A to save memory, usage: ~A (~,2f%):~%~A"
-                                               (active-query-id oldest-active-query)
-                                               (bt:thread-name (active-query-thread oldest-active-query))
-                                               usage usage-ratio
-                                               (active-query-sql oldest-active-query))
-                            (endb/lib:log-warn "room:~%~A" (with-output-to-string (out)
-                                                             (let ((*standard-output* out))
-                                                               (room t))))
-                            (bt:interrupt-thread (active-query-thread oldest-active-query)
-                                                 (lambda ()
-                                                   (signal 'endb/sql/db:sql-abort-query-error))))))))))
+                 (endb/lib:with-trace-span "gc"
+                  (let* ((usage (sb-kernel:dynamic-usage))
+                         (usage-ratio (coerce (/ usage (sb-ext:dynamic-space-size)) 'double-float)))
+                    (endb/lib:log-debug "dynamic space usage: ~,2f%" (* 100 usage-ratio))
+                    (endb/lib:log-debug "active queries: ~A" (hash-table-count +active-queries+))
+                    (when (> usage-ratio *interrupt-query-memory-usage-threshold*)
+                      (let ((oldest-active-query (cdr (first (sort (alexandria:hash-table-alist +active-queries+)
+                                                                   #'<
+                                                                   :key (lambda (x)
+                                                                          (active-query-start-time (cdr x))))))))
+                        (when oldest-active-query
+                          (endb/lib:log-warn "interrupting query ~A on ~A to save memory, usage: ~A (~,2f%):~%~A"
+                                             (active-query-id oldest-active-query)
+                                             (bt:thread-name (active-query-thread oldest-active-query))
+                                             usage usage-ratio
+                                             (active-query-sql oldest-active-query))
+                          (endb/lib:log-warn "room:~%~A" (with-output-to-string (out)
+                                                           (let ((*standard-output* out))
+                                                             (room t))))
+                          (bt:interrupt-thread (active-query-thread oldest-active-query)
+                                               (lambda ()
+                                                 (signal 'endb/sql/db:sql-abort-query-error)))))))))
                sb-ext:*after-gc-hooks*))
 
 (defun %interpret-sql-literal (ast)

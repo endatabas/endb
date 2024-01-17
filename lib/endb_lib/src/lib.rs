@@ -210,6 +210,9 @@ pub extern "C" fn endb_trace_span(
 ) {
     let span = unsafe { CStr::from_ptr(span).to_str().unwrap() };
     let span = match span {
+        "buffer_pool_eviction" => {
+            tracing::error_span!("buffer_pool_eviction")
+        }
         "commit" => tracing::error_span!("commit", tx_id = tracing::field::Empty,),
         "compaction" => {
             tracing::error_span!("compaction", compaction_table = tracing::field::Empty,)
@@ -218,6 +221,18 @@ pub extern "C" fn endb_trace_span(
         "index" => tracing::error_span!("index", index_id = tracing::field::Empty,),
         "log_replay" => tracing::error_span!("log_replay"),
         "log_rotation" => tracing::error_span!("log_rotation"),
+        "object_store_delete" => {
+            tracing::error_span!("object_store_delete", path = tracing::field::Empty,)
+        }
+        "object_store_get" => {
+            tracing::error_span!("object_store_get", path = tracing::field::Empty,)
+        }
+        "object_store_list" => {
+            tracing::error_span!("object_store_list", prefix = tracing::field::Empty,)
+        }
+        "object_store_put" => {
+            tracing::error_span!("object_store_put", path = tracing::field::Empty,)
+        }
         "query" => tracing::error_span!(
             "query",
             query_id = tracing::field::Empty,
@@ -227,6 +242,15 @@ pub extern "C" fn endb_trace_span(
         "shutdown" => tracing::error_span!("shutdown"),
         "snapshot" => tracing::error_span!("snapshot", snapshot_tx_id = tracing::field::Empty,),
         "startup" => tracing::error_span!("startup"),
+        "wal_append_entry" => {
+            tracing::error_span!("wal_append_entry", path = tracing::field::Empty,)
+        }
+        "wal_read_next_entry" => {
+            tracing::error_span!("wal_read_next_entry")
+        }
+        "wal_fsync" => {
+            tracing::error_span!("wal_fsync")
+        }
         _ => todo!("unknown span: {}", span),
     };
 
@@ -411,6 +435,11 @@ pub extern "C" fn endb_set_panic_hook(on_panic: endb_on_error_callback) {
         string_callback(info.to_string(), on_panic);
         prev(info);
     }));
+}
+
+#[no_mangle]
+pub extern "C" fn endb_shutdown_logger() {
+    endb_server::shutdown_logger();
 }
 
 type endb_parse_command_line_to_json_on_success_callback = extern "C" fn(*const c_char);

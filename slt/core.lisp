@@ -270,6 +270,7 @@
                           (setq exit-code (%slt-main args)))
                #-sbcl (setq exit-code (%slt-main args))))
             exit-code)))
+    (endb/lib:shutdown-logger)
     (%free-db-engine *endb-db-engine*)))
 
 (defun slt-sanity (&key (engine "endb"))

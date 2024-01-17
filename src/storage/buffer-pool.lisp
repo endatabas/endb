@@ -27,6 +27,7 @@
   (with-slots (pool max-size evict-lock evict-ratio current-size) bp
     (bt:with-lock-held (evict-lock)
       (let ((target-size (* evict-ratio max-size)))
+        (endb/lib:log-trace "evicting buffer pool, target size: ~A current size: ~A" target-size current-size)
         (loop until (<= current-size target-size)
               do (maphash (lambda (k v)
                             (when (<= current-size target-size)
@@ -50,7 +51,8 @@
                              (return-from buffer-pool-get (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer buffer))
                              (progn
                                (when (> current-size max-size)
-                                 (%evict-buffer-pool bp))
+                                 (endb/lib:with-trace-span "buffer_pool_eviction"
+                                   (%evict-buffer-pool bp)))
                                (let ((entry (make-buffer-pool-entry :arrays (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer buffer)
                                                                     :size (length buffer))))
                                  (bt:with-lock-held (evict-lock)

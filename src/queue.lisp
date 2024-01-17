@@ -50,10 +50,10 @@
           (endb/queue:queue-pop close-queue :timeout interval)
         (declare (ignore event))
         (unless timeoutp
-          (return-from nil)))
-      (block job-block
-        (handler-bind ((error (lambda (e)
-                                (endb/lib:log-error "~A: ~A" (bt:thread-name (bt:current-thread)) e)
-                                (endb/lib:log-debug (endb/lib:format-backtrace (trivial-backtrace:print-backtrace e :output nil)))
-                                (return-from job-block))))
-          (funcall job))))))
+          (return-from nil))
+        (block job-block
+          (handler-bind ((error (lambda (e)
+                                  (endb/lib:log-error "~A: ~A" (bt:thread-name (bt:current-thread)) e)
+                                  (endb/lib:log-debug (endb/lib:format-backtrace (trivial-backtrace:print-backtrace e :output nil)))
+                                  (return-from job-block))))
+            (funcall job)))))))

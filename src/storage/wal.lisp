@@ -46,14 +46,15 @@
 (defconstant +wal-file-mode+ #o100664)
 
 (defmethod wal-append-entry ((archive archive:tar-archive) path buffer &key mtime)
-  (let* ((entry (make-instance 'archive::tar-entry
-                               :pathname (pathname path)
-                               :mode +wal-file-mode+
-                               :typeflag archive::+tar-regular-file+
-                               :size (length buffer)
-                               :mtime (local-time:timestamp-to-unix (or mtime (local-time:now))))))
-    (flex:with-input-from-sequence (in buffer)
-      (archive:write-entry-to-archive archive entry :stream in))))
+  (endb/lib:with-trace-kvs-span "wal_append_entry" (fset:map ("path" path))
+    (let* ((entry (make-instance 'archive::tar-entry
+                                 :pathname (pathname path)
+                                 :mode +wal-file-mode+
+                                 :typeflag archive::+tar-regular-file+
+                                 :size (length buffer)
+                                 :mtime (local-time:timestamp-to-unix (or mtime (local-time:now))))))
+      (flex:with-input-from-sequence (in buffer)
+        (archive:write-entry-to-archive archive entry :stream in)))))
 
 (defun %extract-entry (archive entry)
   (flex:with-output-to-sequence (out)
@@ -64,18 +65,20 @@
     (archive:read-entry-from-archive archive)))
 
 (defmethod wal-read-next-entry ((archive archive:tar-archive) &key skip-if)
-  (let* ((entry (%wal-read-entry-safe archive))
-         (stream (archive::archive-stream archive)))
-    (values (when entry
-              (if (and skip-if (funcall skip-if (archive:name entry)))
-                  (archive:discard-entry archive entry)
-                  (%extract-entry archive entry)))
-            (when entry
-              (archive:name entry))
-            (file-position stream))))
+  (endb/lib:with-trace-span "wal_read_next_entry"
+   (let* ((entry (%wal-read-entry-safe archive))
+          (stream (archive::archive-stream archive)))
+     (values (when entry
+               (if (and skip-if (funcall skip-if (archive:name entry)))
+                   (archive:discard-entry archive entry)
+                   (%extract-entry archive entry)))
+             (when entry
+               (archive:name entry))
+             (file-position stream)))))
 
 (defmethod wal-fsync ((archive archive:tar-archive))
-  (finish-output (archive::archive-stream archive)))
+  (endb/lib:with-trace-span "wal_fsync"
+   (finish-output (archive::archive-stream archive))))
 
 (defmethod wal-size ((archive archive:tar-archive))
   (%stream-length (archive::archive-stream archive)))

@@ -407,7 +407,9 @@ pub fn start_tokio(on_init: impl Fn() + Sync + Send + 'static) -> Result<(), Err
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?
-        .block_on(async { on_init() });
+        .block_on(async {
+            on_init();
+        });
     Ok(())
 }
 
@@ -546,6 +548,10 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
     }
 
     Ok(level)
+}
+
+pub fn shutdown_logger() {
+    opentelemetry::global::shutdown_tracer_provider();
 }
 
 #[cfg(test)]
