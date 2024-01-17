@@ -119,7 +119,7 @@ target/libsqllogictest$(SHARED_LIB_EXT): CFLAGS += -DSQLITE_NO_SYNC=1 -DSQLITE_T
 target/libsqllogictest$(SHARED_LIB_EXT): Makefile target/sqllogictest_src
 	cd target/sqllogictest_src && $(CC) $(CFLAGS) -o $(CURDIR)/$@ $(SLT_SOURCES)
 
-target/slt: Makefile *.asd $(SOURCES) slt/*.lisp target/libsqllogictest$(SHARED_LIB_EXT) lib/target/$(LIB_PROFILE_DIR)/libendb$(SHARED_LIB_EXT)
+target/slt: Makefile *.asd $(SOURCES) slt/*.lisp target/libsqllogictest$(SHARED_LIB_EXT) target/libendb$(SHARED_LIB_EXT)
 	$(LISP) --non-interactive \
 		--eval '(asdf:load-system :endb-slt)' \
 		--eval '(asdf:make :endb-slt)'
