@@ -1,6 +1,6 @@
 (defpackage :endb/lib
   (:use :cl)
-  (:export #:init-lib #:*panic-hook* #:format-backtrace #:shutdown-logger
+  (:export #:init-lib #:*panic-hook* #:format-backtrace #:shutdown-logger #:init-logger
            #:log-error #:log-warn #:log-info #:log-debug #:log-trace #:resolve-log-level #:log-level-active-p #:*log-level*
            #:trace-span #:with-trace-span #:with-trace-kvs-span
            #:sha1 #:uuid-v4 #:uuid-str #:base64-decode #:base64-encode #:xxh64
@@ -167,7 +167,7 @@
                       (cffi:callback init-logger-on-error))
     (when err
       (error err))
-    result))
+    (setf *log-level* (resolve-log-level (intern (string-upcase result) :keyword)))))
 
 (cffi:defcfun "endb_base64_encode" :void
   (buffer-ptr :pointer)
@@ -321,7 +321,7 @@
       (endb-memcpy out-ptr buffer-ptr buffer-size))
     out))
 
-(defun init-lib ()
+(defun init-lib (&key (init-logger-p t))
   (unless *initialized*
     (pushnew (or (uiop:pathname-directory-pathname (uiop:argv0))
                  (asdf:system-relative-pathname :endb "target/"))
@@ -329,6 +329,6 @@
     (cffi:use-foreign-library libendb)
 
     (endb-set-panic-hook (cffi:callback on-panic-hook))
-    (let ((log-level (init-logger)))
-      (setf *log-level* (resolve-log-level (intern (string-upcase log-level) :keyword))))
+    (when init-logger-p
+      (init-logger))
     (setf *initialized* t)))

@@ -434,10 +434,8 @@ pub fn start_server(
     let addr: std::net::SocketAddr = ([0, 0, 0, 0], args.http_port).into();
 
     let child_span = tracing::error_span!("server").or_current();
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()?
-        .block_on(
+    tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(
             async {
                 let listener = tokio::net::TcpListener::bind(addr).await?;
                 tracing::info!(target: "endb/lib/server", "listening on port {}", args.http_port);
@@ -490,6 +488,7 @@ pub fn start_server(
             }
             .instrument(child_span.or_current()),
         )
+    })
 }
 
 pub fn parse_command_line_to_json(on_success: impl Fn(&str)) {
@@ -541,7 +540,7 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
             .max_level_hint()
             .unwrap_or(default_tracing_level);
 
-        let exporter = opentelemetry_otlp::new_exporter().http();
+        let exporter = opentelemetry_otlp::new_exporter().tonic();
         let tracer = opentelemetry_otlp::new_pipeline()
             .tracing()
             .with_trace_config(opentelemetry_sdk::trace::config().with_resource(
@@ -551,7 +550,7 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
                 )]),
             ))
             .with_exporter(exporter)
-            .install_batch(opentelemetry_sdk::runtime::AsyncStd)?;
+            .install_batch(opentelemetry_sdk::runtime::Tokio)?;
 
         registry
             .with(

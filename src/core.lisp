@@ -36,11 +36,13 @@
                           (endb/lib:log-debug (endb/lib:format-backtrace (trivial-backtrace:print-backtrace e :output nil)))
                           (return-from %endb-main 1))))
     (unwind-protect
-         (let ((dbms (%endb-init (endb/lib/server:parse-command-line))))
-           (setf endb/lib:*panic-hook* (lambda ()
-                                         (%endb-close-dbms dbms)
-                                         (endb/lib:shutdown-logger)))
-           (endb/lib/server:start-server dbms #'endb/http:endb-query #'endb/http:endb-on-ws-message))
+        (endb/lib/server:start-tokio
+         (lambda ()
+           (let ((dbms (%endb-init (endb/lib/server:parse-command-line))))
+             (setf endb/lib:*panic-hook* (lambda ()
+                                           (%endb-close-dbms dbms)
+                                           (endb/lib:shutdown-logger)))
+             (endb/lib/server:start-server dbms #'endb/http:endb-query #'endb/http:endb-on-ws-message))))
       (when endb/lib:*panic-hook*
         (funcall endb/lib:*panic-hook*)))))
 
