@@ -140,6 +140,12 @@ void endb_start_tokio(endb_start_tokio_on_init on_init, endb_on_error_callback o
 
 void endb_trace_span(const char *span, const char *kvs_json, endb_trace_span_in_scope in_scope);
 
+void endb_metric_monotonic_counter(const char *name, uintptr_t value);
+
+void endb_metric_counter(const char *name, intptr_t value);
+
+void endb_metric_histogram(const char *name, double value);
+
 void endb_start_server(endb_start_server_on_query_callback on_query,
                        endb_on_error_callback on_error,
                        endb_start_server_on_websocket_init_callback on_ws_init,

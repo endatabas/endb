@@ -2,7 +2,7 @@
   (:use :cl)
   (:export #:init-lib #:*panic-hook* #:format-backtrace #:shutdown-logger #:init-logger
            #:log-error #:log-warn #:log-info #:log-debug #:log-trace #:resolve-log-level #:log-level-active-p #:*log-level*
-           #:trace-span #:with-trace-span #:with-trace-kvs-span
+           #:trace-span #:with-trace-span #:with-trace-kvs-span #:metric-monotonic-counter #:metric-counter #:metric-histogram
            #:sha1 #:uuid-v4 #:uuid-str #:base64-decode #:base64-encode #:xxh64
            #:vector-byte-size #:buffer-to-vector)
   (:import-from :cffi)
@@ -65,6 +65,18 @@
       ,(string-downcase (package-name *package*))
       (format nil ,control-string ,@format-arguments))))
 
+(defun metric-monotonic-counter (name value)
+  (init-lib)
+  (endb-metric-monotonic-counter name value))
+
+(defun metric-counter (name value)
+  (init-lib)
+  (endb-metric-counter name value))
+
+(defun metric-histogram (name value)
+  (init-lib)
+  (endb-metric-histogram name (coerce value 'double-float)))
+
 (cffi:defcfun "endb_log_error" :void
   (target :string)
   (message :string))
@@ -89,6 +101,18 @@
   (span :string)
   (kvs-json :string)
   (in-scope :pointer))
+
+(cffi:defcfun "endb_metric_monotonic_counter" :void
+  (name :string)
+  (value :size))
+
+(cffi:defcfun "endb_metric_counter" :void
+  (name :string)
+  (value :ssize))
+
+(cffi:defcfun "endb_metric_histogram" :void
+  (name :string)
+  (value :double))
 
 (cffi:defcfun "endb_init_logger" :void
   (on-success :pointer)

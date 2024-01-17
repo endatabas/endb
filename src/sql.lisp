@@ -251,6 +251,7 @@
                   (fset:with kvs "query_interactive_tx_id" (endb/sql/db:db-interactive-tx-id db))
                   kvs)))
     (endb/lib:with-trace-kvs-span "query" kvs
+      (endb/lib:metric-counter "active_queries" 1)
       (unwind-protect
            (let ((active-query (make-active-query :id query-id
                                                   :sql sql
@@ -261,6 +262,9 @@
              (handler-case
                  #+sbcl (sb-ext:call-with-timing
                           (lambda (&rest args)
+                            (endb/lib:metric-histogram "query_real_time_ms" (getf args :real-time-ms))
+                            (endb/lib:metric-histogram "query_gc_run_time_ms" (getf args :gc-run-time-ms))
+                            (endb/lib:metric-histogram "query_bytes_consed" (getf args :bytes-consed))
                             (endb/lib:log-debug "query end:~%~A"
                                                 (with-output-to-string (out)
                                                   (let ((*trace-output* out))
@@ -283,34 +287,38 @@
                                                                           (prin1-to-string arg)
                                                                           (endb/sql/expr:syn-cast arg :varchar)))))
                                 (error e))))))
-        (remhash (bt:current-thread) +active-queries+)))))
+        (remhash (bt:current-thread) +active-queries+)
+        (endb/lib:metric-counter "active_queries" -1)))))
 
 (defvar *interrupt-query-memory-usage-threshold* 0.6)
 
 (defun install-interrupt-query-handler ()
-  #+sbcl (push (lambda ()
-                 (endb/lib:with-trace-span "gc"
-                  (let* ((usage (sb-kernel:dynamic-usage))
-                         (usage-ratio (coerce (/ usage (sb-ext:dynamic-space-size)) 'double-float)))
-                    (endb/lib:log-debug "dynamic space usage: ~,2f%" (* 100 usage-ratio))
-                    (endb/lib:log-debug "active queries: ~A" (hash-table-count +active-queries+))
-                    (when (> usage-ratio *interrupt-query-memory-usage-threshold*)
-                      (let ((oldest-active-query (cdr (first (sort (alexandria:hash-table-alist +active-queries+)
-                                                                   #'<
-                                                                   :key (lambda (x)
-                                                                          (active-query-start-time (cdr x))))))))
-                        (when oldest-active-query
-                          (endb/lib:log-warn "interrupting query ~A on ~A to save memory, usage: ~A (~,2f%):~%~A"
-                                             (active-query-id oldest-active-query)
-                                             (bt:thread-name (active-query-thread oldest-active-query))
-                                             usage usage-ratio
-                                             (active-query-sql oldest-active-query))
-                          (endb/lib:log-warn "room:~%~A" (with-output-to-string (out)
-                                                           (let ((*standard-output* out))
-                                                             (room t))))
-                          (bt:interrupt-thread (active-query-thread oldest-active-query)
-                                               (lambda ()
-                                                 (signal 'endb/sql/db:sql-abort-query-error)))))))))
+  #+sbcl (push (let ((previous-usage 0))
+                 (lambda ()
+                   (endb/lib:with-trace-span "gc"
+                     (let* ((usage (sb-kernel:dynamic-usage))
+                            (usage-ratio (coerce (/ usage (sb-ext:dynamic-space-size)) 'double-float)))
+                       (endb/lib:metric-counter "dynamic_space_usage" (- usage previous-usage))
+                       (setf previous-usage usage)
+                       (endb/lib:log-debug "dynamic space usage: ~,2f%" (* 100 usage-ratio))
+                       (endb/lib:log-debug "active queries: ~A" (hash-table-count +active-queries+))
+                       (when (> usage-ratio *interrupt-query-memory-usage-threshold*)
+                         (let ((oldest-active-query (cdr (first (sort (alexandria:hash-table-alist +active-queries+)
+                                                                      #'<
+                                                                      :key (lambda (x)
+                                                                             (active-query-start-time (cdr x))))))))
+                           (when oldest-active-query
+                             (endb/lib:log-warn "interrupting query ~A on ~A to save memory, usage: ~A (~,2f%):~%~A"
+                                                (active-query-id oldest-active-query)
+                                                (bt:thread-name (active-query-thread oldest-active-query))
+                                                usage usage-ratio
+                                                (active-query-sql oldest-active-query))
+                             (endb/lib:log-warn "room:~%~A" (with-output-to-string (out)
+                                                              (let ((*standard-output* out))
+                                                                (room t))))
+                             (bt:interrupt-thread (active-query-thread oldest-active-query)
+                                                  (lambda ()
+                                                    (signal 'endb/sql/db:sql-abort-query-error))))))))))
                sb-ext:*after-gc-hooks*))
 
 (defun %interpret-sql-literal (ast)

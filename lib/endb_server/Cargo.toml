@@ -18,7 +18,8 @@ tracing-log = "0.2"
 tracing-opentelemetry = { version = "0.22", features = ["metrics"] }
 opentelemetry = "0.21"
 opentelemetry_sdk = { version = "0.21", features = ["rt-tokio"] }
-opentelemetry-otlp = "0.14"
+opentelemetry-stdout = { version = "0.2.0", features = ["trace", "metrics"] }
+opentelemetry-otlp = { version = "0.14", features = ["metrics"] }
 clap = { version = "4", features = ["derive", "env"] }
 bytes = "1"
 hyper = { version = "1", features = ["full"] }

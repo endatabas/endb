@@ -202,7 +202,6 @@ type endb_trace_span_in_scope = extern "C" fn();
 
 #[no_mangle]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[allow(clippy::redundant_closure)]
 pub extern "C" fn endb_trace_span(
     span: *const c_char,
     kvs_json: *const c_char,
@@ -268,7 +267,52 @@ pub extern "C" fn endb_trace_span(
             }
         }
     }
-    span.in_scope(|| in_scope());
+
+    let _enter = span.enter();
+    in_scope();
+}
+
+#[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn endb_metric_monotonic_counter(name: *const c_char, value: usize) {
+    let name = unsafe { CStr::from_ptr(name).to_str().unwrap() };
+    match name {
+        "wal_bytes_read" => tracing::trace!(monotonic_counter.wal_bytes_read = value),
+        "wal_bytes_written" => tracing::trace!(monotonic_counter.wal_bytes_written = value),
+        "object_store_bytes_read" => {
+            tracing::trace!(monotonic_counter.object_store_bytes_read = value)
+        }
+        "object_store_bytes_written" => {
+            tracing::trace!(monotonic_counter.object_store_bytes_written = value)
+        }
+        _ => todo!("unknown monotonic counter: {}", name),
+    };
+}
+
+#[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn endb_metric_counter(name: *const c_char, value: isize) {
+    let name = unsafe { CStr::from_ptr(name).to_str().unwrap() };
+    match name {
+        "active_queries" => tracing::trace!(counter.active_queries = value),
+        "buffer_pool_byte_size" => {
+            tracing::trace!(counter.buffer_pool_byte_size = value)
+        }
+        "dynamic_space_usage" => tracing::trace!(counter.dynamic_space_usage = value),
+        _ => todo!("unknown counter: {}", name),
+    };
+}
+
+#[no_mangle]
+#[allow(clippy::not_unsafe_ptr_arg_deref)]
+pub extern "C" fn endb_metric_histogram(name: *const c_char, value: f64) {
+    let name = unsafe { CStr::from_ptr(name).to_str().unwrap() };
+    match name {
+        "query_real_time_ms" => tracing::trace!(histogram.query_real_time_ms = value),
+        "query_gc_run_time_ms" => tracing::trace!(histogram.query_gc_run_time_ms = value),
+        "query_bytes_consed" => tracing::trace!(histogram.query_bytes_consed = value),
+        _ => todo!("unknown histogram: {}", name),
+    };
 }
 
 pub struct endb_server_http_response(endb_server::HttpResponse);

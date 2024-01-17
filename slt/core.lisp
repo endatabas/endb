@@ -260,17 +260,18 @@
                 (args (cons (uiop:argv0) (uiop:command-line-arguments))))
             (endb/lib/server:start-tokio
              (lambda ()
-               #+sbcl (if (equal "1" (uiop:getenv "SB_SPROF"))
-                          (progn (sb-sprof:with-profiling (:max-samples 10000
-                                                           :report :graph
-                                                           :sample-interval 0.001
-                                                           :loop nil)
-                                   (setq exit-code (%slt-main args)))
-                                 exit-code)
-                          (setq exit-code (%slt-main args)))
-               #-sbcl (setq exit-code (%slt-main args))))
+               (unwind-protect
+                    #+sbcl (if (equal "1" (uiop:getenv "SB_SPROF"))
+                               (progn (sb-sprof:with-profiling (:max-samples 10000
+                                                                :report :graph
+                                                                :sample-interval 0.001
+                                                                :loop nil)
+                                        (setq exit-code (%slt-main args)))
+                                      exit-code)
+                               (setq exit-code (%slt-main args)))
+                 #-sbcl (setq exit-code (%slt-main args))
+                 (endb/lib:shutdown-logger))))
             exit-code)))
-    (endb/lib:shutdown-logger)
     (%free-db-engine *endb-db-engine*)))
 
 (defun slt-sanity (&key (engine "endb"))

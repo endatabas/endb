@@ -34,6 +34,7 @@
                               (return-from %evict-buffer-pool))
                             (when (<= evict-ratio (random 1.0d0))
                               (decf current-size (buffer-pool-entry-size v))
+                              (endb/lib:metric-counter "buffer_pool_byte_size" (- (buffer-pool-entry-size v)))
                               (remhash k pool)))
                           pool))))))
 
@@ -57,6 +58,7 @@
                                                                     :size (length buffer))))
                                  (bt:with-lock-held (evict-lock)
                                    (incf current-size (buffer-pool-entry-size entry))
+                                   (endb/lib:metric-counter "buffer_pool_byte_size" (buffer-pool-entry-size entry))
                                    (setf (gethash path pool) entry))))))))))
       (when entry
         (buffer-pool-entry-arrays entry)))))
@@ -70,6 +72,7 @@
       (let ((entry (gethash path pool)))
         (when entry
           (decf current-size (buffer-pool-entry-size entry))
+          (endb/lib:metric-counter "buffer_pool_byte_size" (- (buffer-pool-entry-size entry)))
           (remhash path pool))
         bp))))
 

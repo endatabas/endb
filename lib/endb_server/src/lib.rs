@@ -501,10 +501,8 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
     use tracing_subscriber::util::SubscriberInitExt;
     use tracing_subscriber::Layer;
 
-    let default_fmt_level = tracing_subscriber::filter::LevelFilter::INFO;
-
     let fmt_filter = tracing_subscriber::filter::EnvFilter::builder()
-        .with_default_directive(default_fmt_level.into())
+        .with_default_directive("endb=INFO".parse()?)
         .with_env_var("ENDB_LOG_LEVEL")
         .from_env_lossy();
 
@@ -515,7 +513,9 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
         .map(|x| x == "1")
         .unwrap_or(true);
 
-    let fmt_level = fmt_filter.max_level_hint().unwrap_or(default_fmt_level);
+    let fmt_level = fmt_filter
+        .max_level_hint()
+        .unwrap_or(tracing_subscriber::filter::LevelFilter::INFO);
 
     let fmt_layer = tracing_subscriber::fmt::layer()
         .with_thread_ids(thread_ids)
@@ -524,31 +524,57 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
 
     let registry = tracing_subscriber::registry().with(fmt_layer);
 
-    let otel = std::env::var("ENDB_LOG_OTEL")
+    let otel = std::env::var("ENDB_TRACING_OTEL")
         .map(|x| x == "1")
         .unwrap_or(false);
 
     if otel {
-        let default_tracing_level = tracing_subscriber::filter::LevelFilter::DEBUG;
+        let resource = opentelemetry_sdk::Resource::new(vec![opentelemetry::KeyValue::new(
+            "service.name",
+            "endb",
+        )]);
+
+        let meter_exporter = opentelemetry_otlp::new_exporter()
+            .tonic()
+            .build_metrics_exporter(
+                Box::new(opentelemetry_sdk::metrics::reader::DefaultAggregationSelector::new()),
+                Box::new(opentelemetry_sdk::metrics::reader::DefaultTemporalitySelector::new()),
+            )?;
+
+        let periodic_reader = opentelemetry_sdk::metrics::PeriodicReader::builder(
+            meter_exporter,
+            opentelemetry_sdk::runtime::Tokio,
+        )
+        .with_interval(std::time::Duration::from_secs(5))
+        .build();
+
+        let stdout_reader = opentelemetry_sdk::metrics::PeriodicReader::builder(
+            opentelemetry_stdout::MetricsExporter::default(),
+            opentelemetry_sdk::runtime::Tokio,
+        )
+        .with_interval(std::time::Duration::from_secs(5))
+        .build();
+
+        let meter_provider = opentelemetry_sdk::metrics::MeterProvider::builder()
+            .with_resource(resource.clone())
+            .with_reader(periodic_reader)
+            .with_reader(stdout_reader)
+            .build();
+
+        opentelemetry::global::set_meter_provider(meter_provider.clone());
 
         let tracing_filter = tracing_subscriber::filter::EnvFilter::builder()
-            .with_default_directive(default_tracing_level.into())
+            .with_default_directive("endb=DEBUG".parse()?)
             .with_env_var("ENDB_TRACING_LEVEL")
             .from_env_lossy();
 
         let tracing_level = tracing_filter
             .max_level_hint()
-            .unwrap_or(default_tracing_level);
-
+            .unwrap_or(tracing_subscriber::filter::LevelFilter::DEBUG);
         let exporter = opentelemetry_otlp::new_exporter().tonic();
         let tracer = opentelemetry_otlp::new_pipeline()
             .tracing()
-            .with_trace_config(opentelemetry_sdk::trace::config().with_resource(
-                opentelemetry_sdk::Resource::new(vec![opentelemetry::KeyValue::new(
-                    "service.name",
-                    "endb",
-                )]),
-            ))
+            .with_trace_config(opentelemetry_sdk::trace::config().with_resource(resource))
             .with_exporter(exporter)
             .install_batch(opentelemetry_sdk::runtime::Tokio)?;
 
@@ -558,6 +584,9 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
                     .with_tracer(tracer)
                     .with_filter(tracing_filter),
             )
+            .with(tracing_opentelemetry::MetricsLayer::new(
+                meter_provider.clone(),
+            ))
             .init();
 
         Ok(tracing_level.max(fmt_level))
@@ -570,6 +599,7 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
 
 pub fn shutdown_logger() {
     opentelemetry::global::shutdown_tracer_provider();
+    opentelemetry::global::shutdown_meter_provider();
 }
 
 #[cfg(test)]
