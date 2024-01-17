@@ -442,7 +442,7 @@
 
 (test constraints
   (let* ((db (make-db))
-         (endb/lib:*log-level* (endb/lib:resolve-log-level :error)))
+         (endb/lib:*log-level* (endb/lib:resolve-log-level :off)))
 
     (let ((write-db (begin-write-tx db)))
 
@@ -1999,7 +1999,7 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))))
 
 (test directory-db
-  (let* ((endb/lib:*log-level* (endb/lib:resolve-log-level :error))
+  (let* ((endb/lib:*log-level* (endb/lib:resolve-log-level :off))
          (target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-dir (merge-pathnames "endb_data_directory/" target-dir)))
     (unwind-protect
@@ -2049,7 +2049,7 @@ SELECT s FROM x WHERE ind=0")
         (uiop:delete-directory-tree test-dir :validate t)))))
 
 (test directory-db-tx-log-version
-  (let* ((endb/lib:*log-level* (endb/lib:resolve-log-level :error))
+  (let* ((endb/lib:*log-level* (endb/lib:resolve-log-level :off))
          (target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-dir (merge-pathnames "endb_data_tx_log_version/" target-dir)))
     (unwind-protect

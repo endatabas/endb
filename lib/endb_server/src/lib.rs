@@ -500,15 +500,14 @@ pub fn parse_command_line_to_json(on_success: impl Fn(&str)) {
 pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
     use tracing_subscriber::layer::SubscriberExt;
     use tracing_subscriber::util::SubscriberInitExt;
+    use tracing_subscriber::Layer;
 
-    let default_level = tracing_subscriber::filter::LevelFilter::INFO;
+    let default_fmt_level = tracing_subscriber::filter::LevelFilter::INFO;
 
-    let filter = tracing_subscriber::filter::EnvFilter::builder()
-        .with_default_directive(default_level.into())
+    let fmt_filter = tracing_subscriber::filter::EnvFilter::builder()
+        .with_default_directive(default_fmt_level.into())
         .with_env_var("ENDB_LOG_LEVEL")
         .from_env_lossy();
-
-    let level = filter.max_level_hint().unwrap_or(default_level);
 
     let ansi = std::env::var("ENDB_LOG_ANSI")
         .map(|x| x == "1")
@@ -517,17 +516,31 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
         .map(|x| x == "1")
         .unwrap_or(true);
 
+    let fmt_level = fmt_filter.max_level_hint().unwrap_or(default_fmt_level);
+
     let fmt_layer = tracing_subscriber::fmt::layer()
         .with_thread_ids(thread_ids)
-        .with_ansi(ansi);
+        .with_ansi(ansi)
+        .with_filter(fmt_filter);
 
-    let registry = tracing_subscriber::registry().with(filter).with(fmt_layer);
+    let registry = tracing_subscriber::registry().with(fmt_layer);
 
     let otel = std::env::var("ENDB_LOG_OTEL")
         .map(|x| x == "1")
         .unwrap_or(false);
 
     if otel {
+        let default_tracing_level = tracing_subscriber::filter::LevelFilter::DEBUG;
+
+        let tracing_filter = tracing_subscriber::filter::EnvFilter::builder()
+            .with_default_directive(default_tracing_level.into())
+            .with_env_var("ENDB_TRACING_LEVEL")
+            .from_env_lossy();
+
+        let tracing_level = tracing_filter
+            .max_level_hint()
+            .unwrap_or(default_tracing_level);
+
         let exporter = opentelemetry_otlp::new_exporter().http();
         let tracer = opentelemetry_otlp::new_pipeline()
             .tracing()
@@ -541,13 +554,19 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
             .install_batch(opentelemetry_sdk::runtime::AsyncStd)?;
 
         registry
-            .with(tracing_opentelemetry::layer().with_tracer(tracer))
+            .with(
+                tracing_opentelemetry::layer()
+                    .with_tracer(tracer)
+                    .with_filter(tracing_filter),
+            )
             .init();
+
+        Ok(tracing_level.max(fmt_level))
     } else {
         registry.init();
-    }
 
-    Ok(level)
+        Ok(fmt_level)
+    }
 }
 
 pub fn shutdown_logger() {

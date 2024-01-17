@@ -259,16 +259,14 @@
              (setf (gethash (bt:current-thread) +active-queries+) active-query)
              (endb/lib:log-debug "query start:~%~A" sql)
              (handler-case
-                 #+sbcl (if (endb/lib:log-level-active-p :debug)
-                            (sb-ext:call-with-timing
-                             (lambda (&rest args)
-                               (endb/lib:log-debug "query end:~%~A"
-                                                   (with-output-to-string (out)
-                                                     (let ((*trace-output* out))
-                                                       (apply #'sb-impl::print-time args)))))
-                             (lambda ()
-                               (%execute-sql db sql parameters manyp)))
-                            (%execute-sql db sql parameters manyp))
+                 #+sbcl (sb-ext:call-with-timing
+                          (lambda (&rest args)
+                            (endb/lib:log-debug "query end:~%~A"
+                                                (with-output-to-string (out)
+                                                  (let ((*trace-output* out))
+                                                    (apply #'sb-impl::print-time args)))))
+                          (lambda ()
+                            (%execute-sql db sql parameters manyp)))
                  #-sbcl (%execute-sql db sql parameters manyp)
                  #+sbcl (sb-pcl::effective-method-condition (e)
                           (let ((fn (sb-pcl::generic-function-name

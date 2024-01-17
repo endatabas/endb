@@ -414,7 +414,7 @@
                     (endb/storage/buffer-pool:buffer-pool-evict buffer-pool (%batch-key table-name arrow-file))))
                 (endb/lib:log-info "compacted ~A" batch-key)))))))))
 
-(defun start-background-compaction (dbms db-commit-fn object-put-fn &key (target-size (* 4 1024 1024)) (timeout 5))
+(defun start-background-compaction (dbms db-commit-fn object-put-fn &key (target-size (* 4 1024 1024)) (timeout 1))
   (let ((compaction-queue (endb/queue:make-queue)))
     (setf (dbms-compaction-queue dbms)
           compaction-queue
