@@ -15,8 +15,8 @@ crate-type = ["rlib"]
 ariadne.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+lazy_static.workspace = true
 regex = "1.7"
-lazy_static = "1.4.0"
 endb_proc_macro = { path = "../endb_proc_macro/" }
 
 [dev-dependencies]

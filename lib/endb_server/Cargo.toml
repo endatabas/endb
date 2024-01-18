@@ -18,8 +18,9 @@ tracing-log = "0.2"
 tracing-opentelemetry = { version = "0.22", features = ["metrics"] }
 opentelemetry = "0.21"
 opentelemetry_sdk = { version = "0.21", features = ["rt-tokio"] }
-opentelemetry-stdout = { version = "0.2.0", features = ["trace", "metrics"] }
 opentelemetry-otlp = { version = "0.14", features = ["metrics"] }
+opentelemetry-prometheus = "0.14"
+prometheus = { version = "0.13", features = ["process"] }
 clap = { version = "4", features = ["derive", "env"] }
 bytes = "1"
 hyper = { version = "1", features = ["full"] }
@@ -38,6 +39,7 @@ mime = "0.3.17"
 base64.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+lazy_static.workspace = true
 
 [dev-dependencies]
 insta.workspace = true

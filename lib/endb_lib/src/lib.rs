@@ -277,13 +277,16 @@ pub extern "C" fn endb_trace_span(
 pub extern "C" fn endb_metric_monotonic_counter(name: *const c_char, value: usize) {
     let name = unsafe { CStr::from_ptr(name).to_str().unwrap() };
     match name {
-        "wal_bytes_read" => tracing::trace!(monotonic_counter.wal_bytes_read = value),
-        "wal_bytes_written" => tracing::trace!(monotonic_counter.wal_bytes_written = value),
-        "object_store_bytes_read" => {
-            tracing::trace!(monotonic_counter.object_store_bytes_read = value)
+        "queries_total" => tracing::trace!(counter.queries_total = value),
+        "wal_read_bytes_total" => tracing::trace!(monotonic_counter.wal_read_bytes_total = value),
+        "wal_written_bytes_total" => {
+            tracing::trace!(monotonic_counter.wal_written_bytes_total = value)
         }
-        "object_store_bytes_written" => {
-            tracing::trace!(monotonic_counter.object_store_bytes_written = value)
+        "object_store_read_bytes_total" => {
+            tracing::trace!(monotonic_counter.object_store_read_bytes_total = value)
+        }
+        "object_store_written_bytes_total" => {
+            tracing::trace!(monotonic_counter.object_store_written_bytes_total = value)
         }
         _ => todo!("unknown monotonic counter: {}", name),
     };
@@ -295,10 +298,10 @@ pub extern "C" fn endb_metric_counter(name: *const c_char, value: isize) {
     let name = unsafe { CStr::from_ptr(name).to_str().unwrap() };
     match name {
         "active_queries" => tracing::trace!(counter.active_queries = value),
-        "buffer_pool_byte_size" => {
-            tracing::trace!(counter.buffer_pool_byte_size = value)
+        "buffer_pool_usage_bytes" => {
+            tracing::trace!(counter.buffer_pool_usage_bytes = value)
         }
-        "dynamic_space_usage" => tracing::trace!(counter.dynamic_space_usage = value),
+        "dynamic_space_usage_bytes" => tracing::trace!(counter.dynamic_space_usage_bytes = value),
         _ => todo!("unknown counter: {}", name),
     };
 }
@@ -308,9 +311,13 @@ pub extern "C" fn endb_metric_counter(name: *const c_char, value: isize) {
 pub extern "C" fn endb_metric_histogram(name: *const c_char, value: f64) {
     let name = unsafe { CStr::from_ptr(name).to_str().unwrap() };
     match name {
-        "query_real_time_ms" => tracing::trace!(histogram.query_real_time_ms = value),
-        "query_gc_run_time_ms" => tracing::trace!(histogram.query_gc_run_time_ms = value),
-        "query_bytes_consed" => tracing::trace!(histogram.query_bytes_consed = value),
+        "query_real_time_duration_seconds" => {
+            tracing::trace!(histogram.query_real_time_duration_seconds = value)
+        }
+        "query_gc_run_time_duration_seconds" => {
+            tracing::trace!(histogram.query_gc_run_time_duration_seconds = value)
+        }
+        "query_consed_bytes" => tracing::trace!(histogram.query_consed_bytes = value),
         _ => todo!("unknown histogram: {}", name),
     };
 }

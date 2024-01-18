@@ -1,7 +1,7 @@
 use base64::Engine;
 use clap::Parser;
 use futures::sink::SinkExt;
-use http_body_util::{BodyExt, Empty, StreamBody};
+use http_body_util::{BodyExt, Empty, Full, StreamBody};
 use hyper::body::Frame;
 use hyper::{Method, Request, Response, StatusCode};
 use serde::{Deserialize, Serialize};
@@ -238,17 +238,22 @@ where
                 .and_then(|x| x.parse::<mime::Mime>().ok())
                 .unwrap_or(mime::STAR_STAR);
 
-            let media_type = match accept.essence_str() {
-                "*/*" | "application/*" | "application/json" => "application/json",
-                "application/ld+json" => "application/ld+json",
-                "application/x-ndjson" => "application/x-ndjson",
-                "application/vnd.apache.arrow.file" => "application/vnd.apache.arrow.file",
-                "application/vnd.apache.arrow.stream" => "application/vnd.apache.arrow.stream",
-                "text/*" | "text/csv" => "text/csv",
-                _ => {
-                    return Ok(Response::builder()
-                        .status(StatusCode::NOT_ACCEPTABLE)
-                        .body(Empty::new().boxed())?);
+            let media_type = if req.uri().path() == "/metrics" {
+                match accept.essence_str() {
+                    "*/*" | "text/plain" if req.uri().path() == "/metrics" => {
+                        prometheus::TEXT_FORMAT
+                    }
+                    _ => return empty_response(StatusCode::NOT_ACCEPTABLE),
+                }
+            } else {
+                match accept.essence_str() {
+                    "*/*" | "application/*" | "application/json" => "application/json",
+                    "application/ld+json" => "application/ld+json",
+                    "application/x-ndjson" => "application/x-ndjson",
+                    "application/vnd.apache.arrow.file" => "application/vnd.apache.arrow.file",
+                    "application/vnd.apache.arrow.stream" => "application/vnd.apache.arrow.stream",
+                    "text/*" | "text/csv" => "text/csv",
+                    _ => return empty_response(StatusCode::NOT_ACCEPTABLE),
                 }
             };
 
@@ -378,6 +383,19 @@ where
                 (_, "/sql", _) => Ok(Response::builder()
                     .status(StatusCode::METHOD_NOT_ALLOWED)
                     .header(hyper::header::ALLOW, "GET, POST")
+                    .body(Empty::new().boxed())?),
+                (&Method::GET, "/metrics", _) => {
+                    let encoder = prometheus::TextEncoder::new();
+                    let metrics =
+                        encoder.encode_to_string(&prometheus::default_registry().gather())?;
+                    Ok(Response::builder()
+                        .status(StatusCode::OK)
+                        .header(hyper::header::CONTENT_TYPE, media_type)
+                        .body(Full::from(bytes::Bytes::from(metrics)).boxed())?)
+                }
+                (_, "/metrics", _) => Ok(Response::builder()
+                    .status(StatusCode::METHOD_NOT_ALLOWED)
+                    .header(hyper::header::ALLOW, "GET")
                     .body(Empty::new().boxed())?),
                 _ => empty_response(StatusCode::NOT_FOUND),
             }
@@ -528,12 +546,16 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
         .map(|x| x == "1")
         .unwrap_or(false);
 
-    if otel {
-        let resource = opentelemetry_sdk::Resource::new(vec![opentelemetry::KeyValue::new(
-            "service.name",
-            "endb",
-        )]);
+    let resource = opentelemetry_sdk::Resource::new(vec![opentelemetry::KeyValue::new(
+        "service.name",
+        "endb",
+    )]);
 
+    let prometheus_exporter = opentelemetry_prometheus::exporter()
+        .with_registry(prometheus::default_registry().clone())
+        .build()?;
+
+    if otel {
         let meter_exporter = opentelemetry_otlp::new_exporter()
             .tonic()
             .build_metrics_exporter(
@@ -548,17 +570,10 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
         .with_interval(std::time::Duration::from_secs(5))
         .build();
 
-        let stdout_reader = opentelemetry_sdk::metrics::PeriodicReader::builder(
-            opentelemetry_stdout::MetricsExporter::default(),
-            opentelemetry_sdk::runtime::Tokio,
-        )
-        .with_interval(std::time::Duration::from_secs(5))
-        .build();
-
         let meter_provider = opentelemetry_sdk::metrics::MeterProvider::builder()
             .with_resource(resource.clone())
             .with_reader(periodic_reader)
-            .with_reader(stdout_reader)
+            .with_reader(prometheus_exporter)
             .build();
 
         opentelemetry::global::set_meter_provider(meter_provider.clone());
@@ -591,7 +606,18 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
 
         Ok(tracing_level.max(fmt_level))
     } else {
-        registry.init();
+        let meter_provider = opentelemetry_sdk::metrics::MeterProvider::builder()
+            .with_resource(resource.clone())
+            .with_reader(prometheus_exporter)
+            .build();
+
+        opentelemetry::global::set_meter_provider(meter_provider.clone());
+
+        registry
+            .with(tracing_opentelemetry::MetricsLayer::new(
+                meter_provider.clone(),
+            ))
+            .init();
 
         Ok(fmt_level)
     }
@@ -1081,6 +1107,69 @@ mod tests {
         , @r###"
         Response {
             status: 404,
+            version: HTTP/1.1,
+            headers: {},
+            body: Full {
+                data: None,
+            },
+        }
+        "###);
+    }
+
+    #[tokio::test]
+    async fn metrics() {
+        assert_debug_snapshot!(
+            service(None, unreachable())
+            .call(head("http://localhost:3803/metrics"))
+            .await.map(read_body).unwrap().await
+        , @r###"
+        Response {
+            status: 405,
+            version: HTTP/1.1,
+            headers: {
+                "allow": "GET",
+            },
+            body: Full {
+                data: None,
+            },
+        }
+        "###);
+
+        assert_debug_snapshot!(
+            service(None, unreachable())
+            .call(get("http://localhost:3803/metrics", "*/*"))
+                .await.map(read_body).unwrap().await.into_parts().0
+                , @r###"
+        Parts {
+            status: 200,
+            version: HTTP/1.1,
+            headers: {
+                "content-type": "text/plain; version=0.0.4",
+            },
+        }
+        "###);
+
+        assert_debug_snapshot!(
+            service(None, unreachable())
+                .call(get("http://localhost:3803/metrics", prometheus::TEXT_FORMAT))
+            .await.map(read_body).unwrap().await.into_parts().0
+        , @r###"
+        Parts {
+            status: 200,
+            version: HTTP/1.1,
+            headers: {
+                "content-type": "text/plain; version=0.0.4",
+            },
+        }
+        "###);
+
+        assert_debug_snapshot!(
+            service(None, unreachable())
+            .call(get("http://localhost:3803/metrics", "application/json"))
+            .await.map(read_body).unwrap().await
+        , @r###"
+        Response {
+            status: 406,
             version: HTTP/1.1,
             headers: {},
             body: Full {

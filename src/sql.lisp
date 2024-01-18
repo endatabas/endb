@@ -262,9 +262,9 @@
              (handler-case
                  #+sbcl (sb-ext:call-with-timing
                           (lambda (&rest args)
-                            (endb/lib:metric-histogram "query_real_time_ms" (getf args :real-time-ms))
-                            (endb/lib:metric-histogram "query_gc_run_time_ms" (getf args :gc-run-time-ms))
-                            (endb/lib:metric-histogram "query_bytes_consed" (getf args :bytes-consed))
+                            (endb/lib:metric-histogram "query_real_time_duration_seconds" (/ (getf args :real-time-ms) 1000.0d0))
+                            (endb/lib:metric-histogram "query_gc_run_time_duration_seconds" (/ (getf args :gc-run-time-ms) 1000.0d0))
+                            (endb/lib:metric-histogram "query_consed_bytes" (getf args :bytes-consed))
                             (endb/lib:log-debug "query end:~%~A"
                                                 (with-output-to-string (out)
                                                   (let ((*trace-output* out))
@@ -288,6 +288,7 @@
                                                                           (endb/sql/expr:syn-cast arg :varchar)))))
                                 (error e))))))
         (remhash (bt:current-thread) +active-queries+)
+        (endb/lib:metric-monotonic-counter "queries_total" 1)
         (endb/lib:metric-counter "active_queries" -1)))))
 
 (defvar *interrupt-query-memory-usage-threshold* 0.6)
@@ -298,7 +299,7 @@
                    (endb/lib:with-trace-span "gc"
                      (let* ((usage (sb-kernel:dynamic-usage))
                             (usage-ratio (coerce (/ usage (sb-ext:dynamic-space-size)) 'double-float)))
-                       (endb/lib:metric-counter "dynamic_space_usage" (- usage previous-usage))
+                       (endb/lib:metric-counter "dynamic_space_usage_bytes" (- usage previous-usage))
                        (setf previous-usage usage)
                        (endb/lib:log-debug "dynamic space usage: ~,2f%" (* 100 usage-ratio))
                        (endb/lib:log-debug "active queries: ~A" (hash-table-count +active-queries+))

@@ -55,7 +55,7 @@
                                  :mtime (local-time:timestamp-to-unix (or mtime (local-time:now))))))
       (flex:with-input-from-sequence (in buffer)
         (archive:write-entry-to-archive archive entry :stream in)
-        (endb/lib:metric-monotonic-counter "wal_bytes_written" (length buffer))))))
+        (endb/lib:metric-monotonic-counter "wal_written_bytes_total" (length buffer))))))
 
 (defun %extract-entry (archive entry)
   (flex:with-output-to-sequence (out)
@@ -73,7 +73,7 @@
                (if (and skip-if (funcall skip-if (archive:name entry)))
                    (archive:discard-entry archive entry)
                    (let ((buffer (%extract-entry archive entry)))
-                     (endb/lib:metric-monotonic-counter "wal_bytes_read" (length buffer))
+                     (endb/lib:metric-monotonic-counter "wal_read_bytes_total" (length buffer))
                      buffer)))
              (when entry
                (archive:name entry))

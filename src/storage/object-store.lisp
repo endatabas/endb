@@ -98,7 +98,7 @@
    (let ((path (merge-pathnames path (uiop:ensure-directory-pathname (directory-object-store-path os)))))
      (when (probe-file path)
        (let ((buffer (alexandria:read-file-into-byte-vector path)))
-         (endb/lib:metric-monotonic-counter "object_store_bytes_read" (length buffer))
+         (endb/lib:metric-monotonic-counter "object_store_read_bytes_total" (length buffer))
          buffer)))))
 
 (defmethod object-store-put ((os directory-object-store) path (buffer vector))
@@ -113,7 +113,7 @@
      (let ((bytes-written (with-open-file (out write-path :direction :output :element-type '(unsigned-byte 8) :if-exists :overwrite :if-does-not-exist :create)
                             (alexandria:copy-stream in out :element-type '(unsigned-byte 8)))))
        (rename-file write-path (uiop:enough-pathname path (truename os-path)))
-       (endb/lib:metric-monotonic-counter "object_store_bytes_written" bytes-written)))))
+       (endb/lib:metric-monotonic-counter "object_store_written_bytes_total" bytes-written)))))
 
 (defmethod object-store-delete ((os directory-object-store) path)
   (endb/lib:with-trace-kvs-span "object_store_delete" (fset:map ("path" path))
