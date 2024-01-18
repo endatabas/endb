@@ -642,6 +642,7 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
             .with(
                 tracing_opentelemetry::layer()
                     .with_tracer(tracer)
+                    .with_location(false)
                     .with_filter(tracing_filter),
             )
             .with(tracing_opentelemetry::MetricsLayer::new(
