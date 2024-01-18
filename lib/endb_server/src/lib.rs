@@ -598,6 +598,7 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
     let prometheus_exporter = opentelemetry_prometheus::exporter()
         .with_registry(prometheus::default_registry().clone())
         .with_namespace("endb")
+        .without_scope_info()
         .build()?;
 
     if otel {
