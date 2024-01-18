@@ -458,6 +458,7 @@ pub fn start_server(
             async {
                 let listener = tokio::net::TcpListener::bind(addr).await?;
                 tracing::info!(target: "endb/lib/server", "listening on port {}", args.http_port);
+                tracing::trace!(counter.build_info = 1, version = ENDB_FULL_VERSION);
                 loop {
                     let (stream, remote_addr) = listener.accept().await?;
                     let io = hyper_util::rt::tokio::TokioIo::new(stream);
@@ -569,6 +570,7 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
 
     let prometheus_exporter = opentelemetry_prometheus::exporter()
         .with_registry(prometheus::default_registry().clone())
+        .with_namespace("endb")
         .build()?;
 
     if otel {
