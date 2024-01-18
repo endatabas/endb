@@ -1,6 +1,6 @@
 (defpackage :endb/lib/server
   (:use :cl)
-  (:export #:start-server #:sql-abort-query-error #:parse-command-line #:get-endb-version #:start-tokio)
+  (:export #:start-server #:sql-abort-query-server-error #:parse-command-line #:get-endb-version #:start-tokio)
   (:import-from :alexandria)
   (:import-from :cffi)
   (:import-from :endb/json)
@@ -52,7 +52,7 @@
 
 (defvar *start-server-on-query*)
 
-(define-condition sql-abort-query-error (error) ())
+(define-condition sql-abort-query-server-error (error) ())
 
 (defvar *start-server-on-query-on-abort*)
 
@@ -84,7 +84,7 @@
                                              :pointer (cffi:callback start-server-on-query-abort)
                                              :void)
                (when abortp
-                 (error 'sql-abort-query-error))))
+                 (error 'sql-abort-query-server-error))))
            (lambda (body)
              (let* ((abortp)
                     (*start-server-on-query-on-abort* (lambda ()
@@ -102,7 +102,7 @@
                                                :pointer (cffi:callback start-server-on-query-abort)
                                                :void))
                (when abortp
-                 (error 'sql-abort-query-error))))))
+                 (error 'sql-abort-query-server-error))))))
 
 (defvar *start-server-on-error*)
 
@@ -156,7 +156,7 @@
                                                :pointer (cffi:callback start-server-on-websocket-message-on-abort)
                                                :void))
                (when abortp
-                 (error 'sql-abort-query-error))))))
+                 (error 'sql-abort-query-server-error))))))
 
 (defun start-server (dbms on-query &optional on-ws-message)
   (endb/lib:init-lib)

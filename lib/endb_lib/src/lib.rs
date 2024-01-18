@@ -216,6 +216,9 @@ pub extern "C" fn endb_trace_span(
         "compaction" => {
             tracing::error_span!("compaction", compaction_table = tracing::field::Empty,)
         }
+        "constraints" => {
+            tracing::error_span!("constraints")
+        }
         "gc" => tracing::error_span!("gc"),
         "index" => tracing::error_span!("index", index_id = tracing::field::Empty,),
         "log_replay" => tracing::error_span!("log_replay"),
@@ -277,16 +280,32 @@ pub extern "C" fn endb_trace_span(
 pub extern "C" fn endb_metric_monotonic_counter(name: *const c_char, value: usize) {
     let name = unsafe { CStr::from_ptr(name).to_str().unwrap() };
     match name {
-        "queries_total" => tracing::trace!(counter.queries_total = value),
-        "wal_read_bytes_total" => tracing::trace!(monotonic_counter.wal_read_bytes_total = value),
-        "wal_written_bytes_total" => {
-            tracing::trace!(monotonic_counter.wal_written_bytes_total = value)
+        "json_rpc_requests_total" => tracing::trace!(counter.json_rpc_requests_total = value),
+        "json_rpc_internal_errors_total" => {
+            tracing::trace!(counter.json_rpc_internal_errors_total = value)
         }
         "object_store_read_bytes_total" => {
             tracing::trace!(monotonic_counter.object_store_read_bytes_total = value)
         }
         "object_store_written_bytes_total" => {
             tracing::trace!(monotonic_counter.object_store_written_bytes_total = value)
+        }
+        "queries_total" => tracing::trace!(counter.queries_total = value),
+        "transactions_conflicted_total" => {
+            tracing::trace!(counter.transactions_conflicted_total = value)
+        }
+        "transactions_committed_total" => {
+            tracing::trace!(counter.transactions_committed_total = value)
+        }
+        "transactions_prepared_total" => {
+            tracing::trace!(counter.transactions_prepared_total = value)
+        }
+        "transactions_retried_total" => {
+            tracing::trace!(counter.transactions_retried_total = value)
+        }
+        "wal_read_bytes_total" => tracing::trace!(monotonic_counter.wal_read_bytes_total = value),
+        "wal_written_bytes_total" => {
+            tracing::trace!(monotonic_counter.wal_written_bytes_total = value)
         }
         _ => todo!("unknown monotonic counter: {}", name),
     };
@@ -297,7 +316,10 @@ pub extern "C" fn endb_metric_monotonic_counter(name: *const c_char, value: usiz
 pub extern "C" fn endb_metric_counter(name: *const c_char, value: isize) {
     let name = unsafe { CStr::from_ptr(name).to_str().unwrap() };
     match name {
-        "active_queries" => tracing::trace!(counter.active_queries = value),
+        "queries_active" => tracing::trace!(counter.active_queries = value),
+        "interactive_transactions_active" => {
+            tracing::trace!(counter.active_interactive_transactions = value)
+        }
         "buffer_pool_usage_bytes" => {
             tracing::trace!(counter.buffer_pool_usage_bytes = value)
         }

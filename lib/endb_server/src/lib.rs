@@ -440,6 +440,7 @@ pub fn start_server(
     on_ws_close: impl Fn(&str) + Sync + Send + 'static,
     on_ws_message: impl Fn(&str, &mut HttpWebsocketStream, &[u8]) + Sync + Send + 'static,
 ) -> Result<(), Error> {
+    use tower_http::trace::OnResponse;
     use tracing::Instrument;
 
     let args = CommandLineArguments::parse();
@@ -483,8 +484,23 @@ pub fn start_server(
                                     tower_http::trace::DefaultMakeSpan::new().include_headers(true),
                                 )
                                 .on_response(
-                                    tower_http::trace::DefaultOnResponse::new()
-                                        .include_headers(true),
+                                    |response: &Response<_>,
+                                     latency: std::time::Duration,
+                                     span: &tracing::Span| {
+                                        let status = response.status().as_u16();
+                                        tracing::trace!(
+                                            histogram.http_request_duration_seconds =
+                                                latency.as_secs_f64(),
+                                            code = status,
+                                        );
+                                        tracing::trace!(
+                                            monotonic_counter.http_requests_total = 1,
+                                            code = status,
+                                        );
+                                        tower_http::trace::DefaultOnResponse::new()
+                                            .include_headers(true)
+                                            .on_response(response, latency, span);
+                                    },
                                 ),
                         )
                         .layer(tower_http::request_id::PropagateRequestIdLayer::x_request_id())

@@ -73,12 +73,15 @@
     write-db))
 
 (defun %execute-constraints (db)
-  (fset:do-map (k v (endb/sql/db:constraint-definitions db))
-    (when (equalp '(#(nil)) (handler-case
-                                (execute-sql db v)
-                              (endb/sql/expr:sql-runtime-error (e)
-                                (endb/lib:log-warn "constraint ~A raised an error, ignoring: ~A" k e))))
-      (error 'endb/sql/expr:sql-runtime-error :message (format nil "Constraint failed: ~A" k)))))
+  (let ((constraints (endb/sql/db:constraint-definitions db)))
+    (unless (fset:empty? constraints)
+      (endb/lib:with-trace-span "constraints"
+        (fset:do-map (k v constraints)
+          (when (equalp '(#(nil)) (handler-case
+                                      (execute-sql db v)
+                                    (endb/sql/expr:sql-runtime-error (e)
+                                      (endb/lib:log-warn "constraint ~A raised an error, ignoring: ~A" k e))))
+            (error 'endb/sql/expr:sql-runtime-error :message (format nil "Constraint failed: ~A" k))))))))
 
 (defun commit-write-tx (current-db write-db &key (fsyncp t))
   (let* ((current-md (endb/sql/db:db-meta-data current-db))
@@ -112,6 +115,7 @@
               (endb/storage:store-write-tx store tx-id new-md md-diff arrow-buffers-map :fsyncp fsyncp :mtime current-local-time)
               (let ((new-db (endb/sql/db:copy-db current-db)))
                 (setf (endb/sql/db:db-meta-data new-db) new-md)
+                (endb/lib:metric-monotonic-counter "transactions_committed_total" 1)
                 new-db)))))))
 
 (defun %resolve-parameters (ast)
@@ -251,7 +255,7 @@
                   (fset:with kvs "query_interactive_tx_id" (endb/sql/db:db-interactive-tx-id db))
                   kvs)))
     (endb/lib:with-trace-kvs-span "query" kvs
-      (endb/lib:metric-counter "active_queries" 1)
+      (endb/lib:metric-counter "queries_active" 1)
       (unwind-protect
            (let ((active-query (make-active-query :id query-id
                                                   :sql sql
@@ -289,7 +293,7 @@
                                 (error e))))))
         (remhash (bt:current-thread) +active-queries+)
         (endb/lib:metric-monotonic-counter "queries_total" 1)
-        (endb/lib:metric-counter "active_queries" -1)))))
+        (endb/lib:metric-counter "queries_active" -1)))))
 
 (defvar *interrupt-query-memory-usage-threshold* 0.6)
 
@@ -302,7 +306,7 @@
                        (endb/lib:metric-counter "dynamic_space_usage_bytes" (- usage previous-usage))
                        (setf previous-usage usage)
                        (endb/lib:log-debug "dynamic space usage: ~,2f%" (* 100 usage-ratio))
-                       (endb/lib:log-debug "active queries: ~A" (hash-table-count +active-queries+))
+                       (endb/lib:log-debug "queries active: ~A" (hash-table-count +active-queries+))
                        (when (> usage-ratio *interrupt-query-memory-usage-threshold*)
                          (let ((oldest-active-query (cdr (first (sort (alexandria:hash-table-alist +active-queries+)
                                                                       #'<

@@ -204,7 +204,7 @@
                            (lambda (status-code content-type)
                              (incf calls)
                              (if (= 1 calls)
-                                 (error 'endb/lib/server:sql-abort-query-error)
+                                 (error 'endb/lib/server:sql-abort-query-server-error)
                                  (%on-response-init status-code content-type)))
                            #'%on-response-send))))))
 
