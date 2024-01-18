@@ -431,6 +431,50 @@ pub fn start_tokio(on_init: impl Fn() + Sync + Send + 'static) -> Result<(), Err
     Ok(())
 }
 
+#[derive(Clone, Default)]
+struct PrometheusTracing {
+    method_and_path: Arc<std::sync::OnceLock<(String, String)>>,
+}
+
+impl<B> tower_http::trace::OnRequest<B> for PrometheusTracing {
+    fn on_request(&mut self, request: &Request<B>, _: &tracing::Span) {
+        if request.uri().path() != "/metrics" {
+            let _ = self.method_and_path.set((
+                request.method().as_str().to_lowercase(),
+                request.uri().path().to_string(),
+            ));
+        }
+    }
+}
+
+impl<B> tower_http::trace::OnResponse<B> for PrometheusTracing {
+    fn on_response(
+        self,
+        response: &Response<B>,
+        latency: std::time::Duration,
+        span: &tracing::Span,
+    ) {
+        if let Some((method, path)) = self.method_and_path.get() {
+            let code = response.status().as_u16();
+            tracing::trace!(
+                histogram.http_request_duration_seconds = latency.as_secs_f64(),
+                code,
+                method,
+                path,
+            );
+            tracing::trace!(
+                monotonic_counter.http_requests_total = 1,
+                code,
+                method,
+                path,
+            );
+        }
+        tower_http::trace::DefaultOnResponse::new()
+            .include_headers(true)
+            .on_response(response, latency, span);
+    }
+}
+
 pub fn start_server(
     on_query: impl Fn(HttpResponse, &mut HttpSender, OneShotSender, &str, &str, &str, &str, &str)
         + Sync
@@ -440,7 +484,6 @@ pub fn start_server(
     on_ws_close: impl Fn(&str) + Sync + Send + 'static,
     on_ws_message: impl Fn(&str, &mut HttpWebsocketStream, &[u8]) + Sync + Send + 'static,
 ) -> Result<(), Error> {
-    use tower_http::trace::OnResponse;
     use tracing::Instrument;
 
     let args = CommandLineArguments::parse();
@@ -470,6 +513,7 @@ pub fn start_server(
                         on_ws_message: on_ws_message.clone(),
                         remote_addr,
                     };
+                    let prometheus_tracing = PrometheusTracing::default();
                     let svc = tower::ServiceBuilder::new()
                         .layer(
                             tower_http::sensitive_headers::SetSensitiveHeadersLayer::new(
@@ -484,25 +528,8 @@ pub fn start_server(
                                 .make_span_with(
                                     tower_http::trace::DefaultMakeSpan::new().include_headers(true),
                                 )
-                                .on_response(
-                                    |response: &Response<_>,
-                                     latency: std::time::Duration,
-                                     span: &tracing::Span| {
-                                        let status = response.status().as_u16();
-                                        tracing::trace!(
-                                            histogram.http_request_duration_seconds =
-                                                latency.as_secs_f64(),
-                                            code = status,
-                                        );
-                                        tracing::trace!(
-                                            monotonic_counter.http_requests_total = 1,
-                                            code = status,
-                                        );
-                                        tower_http::trace::DefaultOnResponse::new()
-                                            .include_headers(true)
-                                            .on_response(response, latency, span);
-                                    },
-                                ),
+                                .on_request(prometheus_tracing.clone())
+                                .on_response(prometheus_tracing),
                         )
                         .layer(tower_http::request_id::PropagateRequestIdLayer::x_request_id())
                         .layer(tower_http::compression::CompressionLayer::new())

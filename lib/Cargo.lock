@@ -804,7 +804,6 @@ dependencies = [
  "hyper-tungstenite",
  "hyper-util",
  "insta",
- "lazy_static",
  "mime",
  "multer",
  "opentelemetry",
