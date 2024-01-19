@@ -597,10 +597,10 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
         .map(|x| x == "1")
         .unwrap_or(false);
 
-    let resource = opentelemetry_sdk::Resource::new(vec![opentelemetry::KeyValue::new(
-        "service.name",
-        "endb",
-    )]);
+    let resource = opentelemetry_sdk::Resource::new(vec![
+        opentelemetry::KeyValue::new("service.name", "endb"),
+        opentelemetry::KeyValue::new("service.version", ENDB_FULL_VERSION),
+    ]);
 
     let prometheus_exporter = opentelemetry_prometheus::exporter()
         .with_registry(prometheus::default_registry().clone())
