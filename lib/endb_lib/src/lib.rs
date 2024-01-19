@@ -289,7 +289,7 @@ pub extern "C" fn endb_metric_monotonic_counter(name: *const c_char, value: usiz
         "object_store_written_bytes_total" => {
             tracing::trace!(monotonic_counter.object_store_written_bytes_total = value)
         }
-        "queries_total" => tracing::trace!(counter.queries_total = value),
+        "queries_total" => tracing::trace!(monotonic_counter.queries_total = value),
         "transactions_conflicted_total" => {
             tracing::trace!(monotonic_counter.transactions_conflicted_total = value)
         }

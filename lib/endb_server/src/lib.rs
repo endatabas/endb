@@ -606,6 +606,8 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
         .with_registry(prometheus::default_registry().clone())
         .with_namespace("endb")
         .without_scope_info()
+        .without_units()
+        .without_counter_suffixes()
         .build()?;
 
     let seconds_histogram = opentelemetry_sdk::metrics::Aggregation::ExplicitBucketHistogram {
