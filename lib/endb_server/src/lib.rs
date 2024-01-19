@@ -447,7 +447,7 @@ impl<B> tower_http::trace::OnRequest<B> for PrometheusTracing {
     fn on_request(&mut self, request: &Request<B>, _: &tracing::Span) {
         if request.uri().path() != "/metrics" {
             let _ = self.method_and_path.set((
-                request.method().as_str().to_lowercase(),
+                request.method().to_string(),
                 request.uri().path().to_string(),
             ));
         }
