@@ -109,7 +109,7 @@ async fn sql_response(
         let (tx, rx) = futures::channel::oneshot::channel();
         let mut response = empty_response(StatusCode::INTERNAL_SERVER_ERROR)?;
 
-        let child_span = tracing::debug_span!("sql_http").or_current();
+        let child_span = tracing::debug_span!("sql", protocol = "http").or_current();
 
         tokio::task::spawn_blocking(move || {
             let _entered = child_span.entered();
@@ -148,19 +148,25 @@ async fn serve_websocket(
     let remote_addr_string = remote_addr.to_string();
 
     on_ws_init(remote_addr_string.as_str());
+    tracing::trace!(counter.websocket_connections_active = 1);
 
     while let Some(message) = ws_stream.next().await {
         let message = message?;
         if message.is_text() || message.is_binary() {
+            let start_time = std::time::Instant::now();
             on_ws_message(
                 remote_addr_string.as_str(),
                 &mut ws_stream,
                 &message.into_data(),
             );
+            let latency = start_time.elapsed();
+            tracing::trace!(histogram.websocket_message_duration_seconds = latency.as_secs_f64());
+            tracing::trace!(monotonic_counter.websocket_messages_total = 1);
         }
     }
 
     on_ws_close(remote_addr_string.as_str());
+    tracing::trace!(counter.websocket_connections_active = -1);
 
     Ok(())
 }
@@ -212,7 +218,8 @@ where
             if hyper_tungstenite::is_upgrade_request(&req) {
                 return if req.uri().path() == "/sql" {
                     let (response, websocket) = hyper_tungstenite::upgrade(&mut req, None)?;
-                    let child_span = tracing::debug_span!("sql_ws").or_current();
+                    let child_span =
+                        tracing::debug_span!("sql", protocol = "websocket").or_current();
                     tokio::spawn(
                         serve_websocket(
                             websocket,

@@ -280,9 +280,8 @@ pub extern "C" fn endb_trace_span(
 pub extern "C" fn endb_metric_monotonic_counter(name: *const c_char, value: usize) {
     let name = unsafe { CStr::from_ptr(name).to_str().unwrap() };
     match name {
-        "json_rpc_requests_total" => tracing::trace!(counter.json_rpc_requests_total = value),
-        "json_rpc_internal_errors_total" => {
-            tracing::trace!(counter.json_rpc_internal_errors_total = value)
+        "websocket_message_internal_errors_total" => {
+            tracing::trace!(monotonic_counter.websocket_message_internal_errors_total = value)
         }
         "object_store_read_bytes_total" => {
             tracing::trace!(monotonic_counter.object_store_read_bytes_total = value)
@@ -292,16 +291,16 @@ pub extern "C" fn endb_metric_monotonic_counter(name: *const c_char, value: usiz
         }
         "queries_total" => tracing::trace!(counter.queries_total = value),
         "transactions_conflicted_total" => {
-            tracing::trace!(counter.transactions_conflicted_total = value)
+            tracing::trace!(monotonic_counter.transactions_conflicted_total = value)
         }
         "transactions_committed_total" => {
-            tracing::trace!(counter.transactions_committed_total = value)
+            tracing::trace!(monotonic_counter.transactions_committed_total = value)
         }
         "transactions_prepared_total" => {
-            tracing::trace!(counter.transactions_prepared_total = value)
+            tracing::trace!(monotonic_counter.transactions_prepared_total = value)
         }
         "transactions_retried_total" => {
-            tracing::trace!(counter.transactions_retried_total = value)
+            tracing::trace!(monotonic_counter.transactions_retried_total = value)
         }
         "wal_read_bytes_total" => tracing::trace!(monotonic_counter.wal_read_bytes_total = value),
         "wal_written_bytes_total" => {
@@ -316,9 +315,9 @@ pub extern "C" fn endb_metric_monotonic_counter(name: *const c_char, value: usiz
 pub extern "C" fn endb_metric_counter(name: *const c_char, value: isize) {
     let name = unsafe { CStr::from_ptr(name).to_str().unwrap() };
     match name {
-        "queries_active" => tracing::trace!(counter.active_queries = value),
+        "queries_active" => tracing::trace!(counter.queries_active = value),
         "interactive_transactions_active" => {
-            tracing::trace!(counter.active_interactive_transactions = value)
+            tracing::trace!(counter.interactive_transactions_active = value)
         }
         "buffer_pool_usage_bytes" => {
             tracing::trace!(counter.buffer_pool_usage_bytes = value)

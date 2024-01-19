@@ -221,7 +221,7 @@
                  (error (lambda (e)
                           (endb/lib:log-error (endb/lib:format-backtrace (trivial-backtrace:print-backtrace e :output nil)))
                           (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ (format nil "~A" e)))
-                          (endb/lib:metric-monotonic-counter "json_rpc_internal_errors_total" 1)
+                          (endb/lib:metric-monotonic-counter "websocket_message_internal_errors_total" 1)
                           (return-from endb-on-ws-message))))
     (unwind-protect
          (let ((json-rpc-message (endb/json:json-parse message)))
@@ -334,5 +334,4 @@
                              (endb/lib:metric-counter "interactive_transactions_active" -1))
                            (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ "Request aborted by server" json-rpc-id))))
                      (cl-ppcre:ppcre-syntax-error (e)
-                       (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ (format nil "~A" e) json-rpc-id))))))))
-      (endb/lib:metric-monotonic-counter "json_rpc_requests_total" 1))))
+                       (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ (format nil "~A" e) json-rpc-id)))))))))))
