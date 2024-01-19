@@ -601,6 +601,46 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
         .without_scope_info()
         .build()?;
 
+    let seconds_histogram = opentelemetry_sdk::metrics::Aggregation::ExplicitBucketHistogram {
+        boundaries: vec![
+            0.0, 0.005, 0.01, 0.025, 0.05, 0.075, 0.1, 0.25, 0.5, 0.75, 1.0, 2.5, 5.0, 7.5, 10.0,
+        ],
+        record_min_max: true,
+    };
+
+    let bytes_histogram = opentelemetry_sdk::metrics::Aggregation::ExplicitBucketHistogram {
+        boundaries: vec![
+            0.0,
+            1048576.0,
+            2097152.0,
+            4194304.0,
+            8388608.0,
+            16777216.0,
+            33554432.0,
+            67108864.0,
+            134217728.0,
+            268435456.0,
+            536870912.0,
+            1073741824.0,
+            2147483648.0,
+            4294967296.0,
+            8589934592.0,
+        ],
+        record_min_max: true,
+    };
+
+    let meter_provider_builder = opentelemetry_sdk::metrics::MeterProvider::builder()
+        .with_resource(resource.clone())
+        .with_reader(prometheus_exporter)
+        .with_view(opentelemetry_sdk::metrics::new_view(
+            opentelemetry_sdk::metrics::Instrument::new().name("*_duration_seconds"),
+            opentelemetry_sdk::metrics::Stream::new().aggregation(seconds_histogram.clone()),
+        )?)
+        .with_view(opentelemetry_sdk::metrics::new_view(
+            opentelemetry_sdk::metrics::Instrument::new().name("query_consed_bytes"),
+            opentelemetry_sdk::metrics::Stream::new().aggregation(bytes_histogram),
+        )?);
+
     if otel {
         let meter_exporter = opentelemetry_otlp::new_exporter()
             .tonic()
@@ -616,11 +656,7 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
         .with_interval(std::time::Duration::from_secs(5))
         .build();
 
-        let meter_provider = opentelemetry_sdk::metrics::MeterProvider::builder()
-            .with_resource(resource.clone())
-            .with_reader(periodic_reader)
-            .with_reader(prometheus_exporter)
-            .build();
+        let meter_provider = meter_provider_builder.with_reader(periodic_reader).build();
 
         opentelemetry::global::set_meter_provider(meter_provider.clone());
 
@@ -653,10 +689,7 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
 
         Ok(tracing_level.max(fmt_level))
     } else {
-        let meter_provider = opentelemetry_sdk::metrics::MeterProvider::builder()
-            .with_resource(resource.clone())
-            .with_reader(prometheus_exporter)
-            .build();
+        let meter_provider = meter_provider_builder.build();
 
         opentelemetry::global::set_meter_provider(meter_provider.clone());
 
