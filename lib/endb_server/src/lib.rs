@@ -598,10 +598,10 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
         .from_env_lossy();
 
     let ansi = std::env::var("ENDB_LOG_ANSI")
-        .map(|x| x == "1")
+        .map(|x| x == "1" || x.eq_ignore_ascii_case("true"))
         .unwrap_or(true);
     let thread_ids = std::env::var("ENDB_LOG_THREAD_IDS")
-        .map(|x| x == "1")
+        .map(|x| x == "1" || x.eq_ignore_ascii_case("true"))
         .unwrap_or(true);
 
     let fmt_level = fmt_filter
@@ -616,7 +616,7 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
     let registry = tracing_subscriber::registry().with(fmt_layer);
 
     let otel = std::env::var("ENDB_TRACING_OTEL")
-        .map(|x| x == "1")
+        .map(|x| x == "1" || x.eq_ignore_ascii_case("true"))
         .unwrap_or(false);
 
     let resource = opentelemetry_sdk::Resource::new(vec![
