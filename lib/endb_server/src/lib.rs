@@ -171,6 +171,51 @@ async fn serve_websocket(
     Ok(())
 }
 
+fn accepted_mime_types<B>(req: &Request<B>) -> Vec<mime::Mime> {
+    req.headers()
+        .get(hyper::header::ACCEPT)
+        .and_then(|x| x.to_str().ok())
+        .map(|x| {
+            let mut xs = x
+                .split(',')
+                .flat_map(|x| x.trim().parse::<mime::Mime>())
+                .collect::<Vec<_>>();
+            xs.sort_by(|x, y| {
+                x.get_param("q")
+                    .and_then(|x| x.as_str().parse::<f64>().ok())
+                    .unwrap_or(1.0)
+                    .total_cmp(
+                        &y.get_param("q")
+                            .and_then(|y| y.as_str().parse::<f64>().ok())
+                            .unwrap_or(1.0),
+                    )
+                    .reverse()
+            });
+            xs
+        })
+        .unwrap_or(vec![mime::STAR_STAR])
+}
+
+fn content_negotiate<B>(req: &Request<B>) -> Option<&'static str> {
+    let accepted = accepted_mime_types(req);
+    match req.uri().path() {
+        "/metrics" => accepted.iter().find_map(|x| match x.essence_str() {
+            "*/*" | "text/plain" if req.uri().path() == "/metrics" => Some(prometheus::TEXT_FORMAT),
+            _ => None,
+        }),
+        "/sql" => accepted.iter().find_map(|x| match x.essence_str() {
+            "*/*" | "application/*" | "application/json" => Some("application/json"),
+            "application/ld+json" => Some("application/ld+json"),
+            "application/x-ndjson" => Some("application/x-ndjson"),
+            "application/vnd.apache.arrow.file" => Some("application/vnd.apache.arrow.file"),
+            "application/vnd.apache.arrow.stream" => Some("application/vnd.apache.arrow.stream"),
+            "text/*" | "text/csv" => Some("text/csv"),
+            _ => None,
+        }),
+        _ => Some("*/*"),
+    }
+}
+
 impl<B> tower::Service<Request<B>> for EndbService
 where
     B: hyper::body::Body + Send + Sync + 'static,
@@ -237,31 +282,8 @@ where
                 };
             }
 
-            let accept = req
-                .headers()
-                .get(hyper::header::ACCEPT)
-                .and_then(|x| x.to_str().ok())
-                .and_then(|x| x.split(',').next())
-                .and_then(|x| x.parse::<mime::Mime>().ok())
-                .unwrap_or(mime::STAR_STAR);
-
-            let media_type = if req.uri().path() == "/metrics" {
-                match accept.essence_str() {
-                    "*/*" | "text/plain" if req.uri().path() == "/metrics" => {
-                        prometheus::TEXT_FORMAT
-                    }
-                    _ => return empty_response(StatusCode::NOT_ACCEPTABLE),
-                }
-            } else {
-                match accept.essence_str() {
-                    "*/*" | "application/*" | "application/json" => "application/json",
-                    "application/ld+json" => "application/ld+json",
-                    "application/x-ndjson" => "application/x-ndjson",
-                    "application/vnd.apache.arrow.file" => "application/vnd.apache.arrow.file",
-                    "application/vnd.apache.arrow.stream" => "application/vnd.apache.arrow.stream",
-                    "text/*" | "text/csv" => "text/csv",
-                    _ => return empty_response(StatusCode::NOT_ACCEPTABLE),
-                }
+            let Some(media_type) = content_negotiate(&req) else {
+                return empty_response(StatusCode::NOT_ACCEPTABLE);
             };
 
             let content_type = req
@@ -932,6 +954,50 @@ mod tests {
             headers: {},
             body: Full {
                 data: None,
+            },
+        }
+        "###);
+
+        assert_debug_snapshot!(
+            service(None, ok("\"column1\"\r\n1~\r\n"))
+            .call(get("http://localhost:3803/sql?q=SELECT%201", "text/csv; charset=utf-8"))
+            .await.map(read_body).unwrap().await
+        , @r###"
+        Response {
+            status: 200,
+            version: HTTP/1.1,
+            headers: {
+                "x-q": "SELECT 1",
+                "x-p": "[]",
+                "x-m": "false",
+                "content-type": "text/csv",
+            },
+            body: Full {
+                data: Some(
+                    b"\"column1\"\r\n1~\r\n",
+                ),
+            },
+        }
+        "###);
+
+        assert_debug_snapshot!(
+            service(None, ok("\"column1\"\r\n1~\r\n"))
+            .call(get("http://localhost:3803/sql?q=SELECT%201", "application/json; q=0.9, text/csv"))
+            .await.map(read_body).unwrap().await
+        , @r###"
+        Response {
+            status: 200,
+            version: HTTP/1.1,
+            headers: {
+                "x-q": "SELECT 1",
+                "x-p": "[]",
+                "x-m": "false",
+                "content-type": "text/csv",
+            },
+            body: Full {
+                data: Some(
+                    b"\"column1\"\r\n1~\r\n",
+                ),
             },
         }
         "###);
