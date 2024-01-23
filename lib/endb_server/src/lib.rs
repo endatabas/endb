@@ -210,6 +210,7 @@ fn content_negotiate<B>(req: &Request<B>) -> Option<&'static str> {
             "application/vnd.apache.arrow.file" => Some("application/vnd.apache.arrow.file"),
             "application/vnd.apache.arrow.stream" => Some("application/vnd.apache.arrow.stream"),
             "text/*" | "text/csv" => Some("text/csv"),
+            "multipart/mixed" => Some("multipart/mixed"),
             _ => None,
         }),
         _ => Some("*/*"),
@@ -409,9 +410,13 @@ where
                     }
                 }
                 (&Method::POST, "/sql", _) => empty_response(StatusCode::UNSUPPORTED_MEDIA_TYPE),
+                (&Method::OPTIONS, "/sql", _) => Ok(Response::builder()
+                    .status(StatusCode::NO_CONTENT)
+                    .header(hyper::header::ALLOW, "OPTIONS, GET, POST")
+                    .body(Empty::new().boxed())?),
                 (_, "/sql", _) => Ok(Response::builder()
                     .status(StatusCode::METHOD_NOT_ALLOWED)
-                    .header(hyper::header::ALLOW, "GET, POST")
+                    .header(hyper::header::ALLOW, "OPTIONS, GET, POST")
                     .body(Empty::new().boxed())?),
                 (&Method::GET, "/metrics", _) => {
                     let encoder = prometheus::TextEncoder::new();
@@ -422,9 +427,13 @@ where
                         .header(hyper::header::CONTENT_TYPE, media_type)
                         .body(Full::from(bytes::Bytes::from(metrics)).boxed())?)
                 }
+                (&Method::OPTIONS, "/metrics", _) => Ok(Response::builder()
+                    .status(StatusCode::NO_CONTENT)
+                    .header(hyper::header::ALLOW, "OPTIONS, GET")
+                    .body(Empty::new().boxed())?),
                 (_, "/metrics", _) => Ok(Response::builder()
                     .status(StatusCode::METHOD_NOT_ALLOWED)
-                    .header(hyper::header::ALLOW, "GET")
+                    .header(hyper::header::ALLOW, "OPTIONS, GET")
                     .body(Empty::new().boxed())?),
                 _ => empty_response(StatusCode::NOT_FOUND),
             }
@@ -821,6 +830,10 @@ mod tests {
 
     fn head(uri: &str) -> Request<crate::BoxBody> {
         Request::head(uri).body(Empty::new().boxed()).unwrap()
+    }
+
+    fn options(uri: &str) -> Request<crate::BoxBody> {
+        Request::options(uri).body(Empty::new().boxed()).unwrap()
     }
 
     fn add_header<T>(
@@ -1247,7 +1260,7 @@ mod tests {
             status: 405,
             version: HTTP/1.1,
             headers: {
-                "allow": "GET, POST",
+                "allow": "OPTIONS, GET, POST",
             },
             body: Full {
                 data: None,
@@ -1272,6 +1285,43 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn method_options() {
+        assert_debug_snapshot!(
+            service(None, unreachable())
+            .call(options("http://localhost:3803/sql"))
+            .await.map(read_body).unwrap().await
+        , @r###"
+        Response {
+            status: 204,
+            version: HTTP/1.1,
+            headers: {
+                "allow": "OPTIONS, GET, POST",
+            },
+            body: Full {
+                data: None,
+            },
+        }
+        "###);
+
+        assert_debug_snapshot!(
+            service(None, unreachable())
+            .call(options("http://localhost:3803/metrics"))
+            .await.map(read_body).unwrap().await
+        , @r###"
+        Response {
+            status: 204,
+            version: HTTP/1.1,
+            headers: {
+                "allow": "OPTIONS, GET",
+            },
+            body: Full {
+                data: None,
+            },
+        }
+        "###);
+    }
+
+    #[tokio::test]
     async fn metrics() {
         assert_debug_snapshot!(
             service(None, unreachable())
@@ -1282,7 +1332,7 @@ mod tests {
             status: 405,
             version: HTTP/1.1,
             headers: {
-                "allow": "GET",
+                "allow": "OPTIONS, GET",
             },
             body: Full {
                 data: None,

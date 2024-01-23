@@ -151,16 +151,17 @@
                       (if (= 1 (length asts))
                           (endb/sql/compiler:compile-sql ctx (first asts) expected-parameters)
                           (values
-                           (lambda (db parameters)
+                           (lambda (db parameters &optional (on-statement (lambda (result result-code)
+                                                                            (values result result-code))))
                              (handler-case
                                  (loop with end-idx = (length asts)
                                        for ast in asts
                                        for idx from 1
                                        for sql-fn = (endb/sql/compiler:compile-sql ctx ast expected-parameters)
                                        if (= end-idx idx)
-                                         do (return (funcall sql-fn db parameters))
+                                         do (return (funcall sql-fn db parameters on-statement))
                                        else
-                                         do (funcall sql-fn db parameters))
+                                         do (funcall sql-fn db parameters on-statement))
                                (endb/sql/db:sql-tx-error ()
                                  (error 'endb/sql/expr:sql-runtime-error :message "Explicit transactions not supported in multiple statements"))))
                            nil)))
@@ -177,7 +178,7 @@
                m
                :initial-value (make-array 0 :fill-pointer 0)))
 
-(defun %execute-sql (db sql parameters manyp)
+(defun %execute-sql (db sql parameters manyp on-statement)
   (when (and manyp (not (or (fset:seq? parameters)
                             (typep parameters 'endb/arrow:arrow-binary))))
     (error 'endb/sql/expr:sql-runtime-error :message "Many parameters must be an array"))
@@ -198,11 +199,12 @@
                             (every (lambda (x)
                                      (and (fset:seq? x) (= (length ps) (fset:size x))))
                                    all-parameters)))
-         (endb/sql/db:dml-insert db
-                                 (symbol-name table-name)
-                                 (loop for ps in all-parameters
-                                       collect (fset:convert 'vector ps))
-                                 :column-names (mapcar #'symbol-name column-names)))
+         (multiple-value-call on-statement
+           (endb/sql/db:dml-insert db
+                                   (symbol-name table-name)
+                                   (loop for ps in all-parameters
+                                         collect (fset:convert 'vector ps))
+                                   :column-names (mapcar #'symbol-name column-names))))
         ((trivia:guard (list :insert table-name (list :objects (list (list* :object (list* ps) _))))
                        (and manyp
                             (= 1 (fset:size (fset:convert 'fset:set (mapcar #'fset:domain all-parameters))))
@@ -213,18 +215,20 @@
                                                                    ((list :shorthand-property (list :parameter p))
                                                                     (symbol-name p))))
                                                                ps)))))
-         (endb/sql/db:dml-insert-objects db
-                                         (symbol-name table-name)
-                                         all-parameters))
+         (multiple-value-call on-statement
+           (endb/sql/db:dml-insert-objects db
+                                           (symbol-name table-name)
+                                           all-parameters)))
         ((trivia:guard (list :insert table-name (list* :objects (list (list :parameter)) _))
                        (and manyp
                             (every (lambda (x)
                                      (and (fset:seq? x) (= 1 (fset:size x))))
                                    all-parameters)))
-         (endb/sql/db:dml-insert-objects db
-                                         (symbol-name table-name)
-                                         (loop for ps in all-parameters
-                                               collect (fset:first ps))))
+         (multiple-value-call on-statement
+           (endb/sql/db:dml-insert-objects db
+                                           (symbol-name table-name)
+                                           (loop for ps in all-parameters
+                                                 collect (fset:first ps)))))
         (_ (loop with all-parameters = (loop for parameters in all-parameters
                                              collect (etypecase parameters
                                                        (fset:map parameters)
@@ -236,7 +240,7 @@
                  with final-result-code = nil
                  for parameters in all-parameters
                  do (multiple-value-bind (result result-code)
-                        (funcall sql-fn db parameters)
+                        (funcall sql-fn db parameters on-statement)
                       (setf final-result result)
                       (if (numberp result-code)
                           (setf final-result-code (+ result-code (or final-result-code 0)))
@@ -247,7 +251,8 @@
 
 (defstruct active-query id sql start-time thread)
 
-(defun execute-sql (db sql &optional (parameters (fset:empty-seq)) manyp)
+(defun execute-sql (db sql &optional (parameters (fset:empty-seq)) manyp (on-statement (lambda (result &optional result-code)
+                                                                                         (values result result-code))))
   (let* ((query-id (endb/lib:uuid-v4))
          (kvs (fset:map ("query_id" query-id)
                         ("query_base_tx_id" (endb/sql/db:db-base-tx-id db))))
@@ -274,8 +279,8 @@
                                                   (let ((*trace-output* out))
                                                     (apply #'sb-impl::print-time args)))))
                           (lambda ()
-                            (%execute-sql db sql parameters manyp)))
-                 #-sbcl (%execute-sql db sql parameters manyp)
+                            (%execute-sql db sql parameters manyp on-statement)))
+                 #-sbcl (%execute-sql db sql parameters manyp on-statement)
                  #+sbcl (sb-pcl::effective-method-condition (e)
                           (let ((fn (sb-pcl::generic-function-name
                                      (sb-pcl::effective-method-condition-generic-function e))))

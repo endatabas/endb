@@ -2151,7 +2151,7 @@
 
 (defun compile-sql (ctx ast &optional parameters)
   (endb/lib:log-trace "~A" ast)
-  (alexandria:with-gensyms (db-sym index-sym param-sym)
+  (alexandria:with-gensyms (db-sym index-sym param-sym on-statement-sym)
     (let* ((ctx (fset:map-union ctx (fset:map (:db-sym db-sym)
                                               (:index-sym index-sym)
                                               (:param-sym param-sym)))))
@@ -2161,7 +2161,7 @@
         (let* ((src (if projection
                         `(values ,src ',projection)
                         src))
-               (src `(lambda (,db-sym &optional ,param-sym)
+               (src `(lambda (,db-sym &optional ,param-sym ,on-statement-sym)
                        (declare (optimize (speed 3) (safety 0) (debug 0) (compilation-speed 3)))
                        (declare (ignorable ,db-sym ,param-sym))
                        (unless (fset:subset? (fset:convert 'fset:set ',parameters)
@@ -2171,7 +2171,7 @@
                                                                                   (or (fset:convert 'list (fset:domain ,param-sym)) "()"))))
                        (let ((,index-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
                          (declare (ignorable ,index-sym))
-                         ,src)))
+                         (multiple-value-call ,on-statement-sym ,src))))
                (cachep (not (%interpretp ast))))
           (values
            #+sbcl (let ((sb-ext:*evaluator-mode* (if (%interpretp ast)

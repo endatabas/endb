@@ -30,9 +30,10 @@
                                                       (car (last *current-response*)) body))))
   nil)
 
-(defun %do-query (dbms request-method content-type sql parameters manyp &optional (on-response-init #'%on-response-init) (on-response-send #'%on-response-send))
+(defun %do-query (dbms request-method content-type sql parameters manyp
+                  &optional (on-response-init #'%on-response-init) (on-response-send #'%on-response-send) (make-boundary #'endb/lib:uuid-v4))
   (let ((*current-response*))
-    (endb-query dbms request-method content-type sql parameters manyp on-response-init on-response-send)
+    (endb-query dbms request-method content-type sql parameters manyp on-response-init on-response-send make-boundary)
     *current-response*))
 
 (defun %do-websocket (dbms connection message)
@@ -85,6 +86,18 @@
                      '(:content-type "application/x-ndjson")
                      (format nil "{\"a\":1,\"b\":2}~%"))
                (%do-query dbms "GET" "application/x-ndjson" "SELECT * FROM foo" "[]" "false")))))
+
+
+(test multipart-mixed-response
+  (let* ((dbms (endb/sql/db:make-dbms :db (endb/sql:make-db))))
+
+    (is (equal (list +http-ok+
+                     '(:content-type "multipart/mixed; boundary=12345")
+                     (format nil "--12345~AContent-Type: application/ld+json~A~A{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":1}]}~%~A--12345~AContent-Type: application/ld+json~A~A{\"@context\":{\"xsd\":\"http://www.w3.org/2001/XMLSchema#\",\"@vocab\":\"http://endb.io/\"},\"@graph\":[{\"column1\":2}]}~%~A--12345--" endb/http::+crlf+ endb/http::+crlf+ endb/http::+crlf+ endb/http::+crlf+ endb/http::+crlf+ endb/http::+crlf+ endb/http::+crlf+ endb/http::+crlf+))
+               (%do-query dbms "GET" "multipart/mixed" "SELECT 1; SELECT 2;"
+                          "[]" "false"
+                          #'%on-response-init #'%on-response-send (lambda ()
+                                                                    "12345"))))))
 
 (test arrow-reponse
   (let* ((dbms (endb/sql/db:make-dbms :db (endb/sql:make-db))))
