@@ -22,12 +22,28 @@ pub const ENDB_FULL_VERSION: &str = env!("ENDB_FULL_VERSION");
 pub struct CommandLineArguments {
     #[arg(short, long, default_value = "endb_data", env = "ENDB_DATA_DIRECTORY")]
     data_directory: String,
-    #[arg(short = 'p', long, default_value = "3803", env = "ENDB_HTTP_PORT")]
-    http_port: u16,
+    #[arg(short = 'p', long, default_value = "3803", env = "ENDB_PORT")]
+    port: u16,
+    #[arg(long, default_value = "http", value_parser = ["http", "https"], env = "ENDB_PROTOCOL")]
+    protocol: String,
     #[arg(long, env = "ENDB_USERNAME")]
     username: Option<String>,
     #[arg(long, env = "ENDB_PASSWORD")]
     password: Option<String>,
+    #[arg(
+        long,
+        env = "ENDB_CERT_FILE",
+        required_if_eq("protocol", "https"),
+        requires = "key_file"
+    )]
+    cert_file: Option<String>,
+    #[arg(
+        long,
+        env = "ENDB_KEY_FILE",
+        required_if_eq("protocol", "https"),
+        requires = "cert_file"
+    )]
+    key_file: Option<String>,
 }
 
 pub type HttpResponse = Response<BoxBody>;
@@ -531,18 +547,33 @@ pub fn start_server(
     let on_ws_init = Arc::new(on_ws_init);
     let on_ws_close = Arc::new(on_ws_close);
     let on_ws_message = Arc::new(on_ws_message);
-    let addr: std::net::SocketAddr = ([0, 0, 0, 0], args.http_port).into();
+    let addr: std::net::SocketAddr = ([0, 0, 0, 0], args.port).into();
+
+    let tls_acceptor = if "https" == args.protocol {
+        let mut reader = std::io::BufReader::new(std::fs::File::open(args.cert_file.unwrap())?);
+        let cert_chain = rustls_pemfile::certs(&mut reader).flatten().collect();
+        let mut reader = std::io::BufReader::new(std::fs::File::open(args.key_file.unwrap())?);
+        let key_der = rustls_pemfile::private_key(&mut reader)?
+            .ok_or(std::io::Error::other("no private key"))?;
+        let mut tls_config = tokio_rustls::rustls::ServerConfig::builder()
+            .with_no_client_auth()
+            .with_single_cert(cert_chain, key_der)?;
+        tls_config.alpn_protocols =
+            vec![b"h2".to_vec(), b"http/1.1".to_vec(), b"http/1.0".to_vec()];
+        Some(tokio_rustls::TlsAcceptor::from(Arc::new(tls_config)))
+    } else {
+        None
+    };
 
     let child_span = tracing::error_span!("server").or_current();
     tokio::task::block_in_place(|| {
         tokio::runtime::Handle::current().block_on(
             async {
                 let listener = tokio::net::TcpListener::bind(addr).await?;
-                tracing::info!(target: "endb/lib/server", "listening on port {}", args.http_port);
+                tracing::info!(target: "endb/lib/server", "listening on {}://{}", args.protocol, addr);
                 tracing::trace!(counter.build_info = 1, version = ENDB_FULL_VERSION);
                 loop {
                     let (stream, remote_addr) = listener.accept().await?;
-                    let io = hyper_util::rt::tokio::TokioIo::new(stream);
                     let svc = EndbService {
                         basic_auth: basic_auth.clone(),
                         on_query: on_query.clone(),
@@ -573,16 +604,26 @@ pub fn start_server(
                         .layer(tower_http::compression::CompressionLayer::new())
                         .service(svc);
                     let svc = hyper_util::service::TowerToHyperService::new(svc);
+                    let mut builder = hyper_util::server::conn::auto::Builder::new(
+                        hyper_util::rt::TokioExecutor::new(),
+                    );
+                    builder
+                        .http1()
+                        .title_case_headers(true)
+                        .keep_alive(true)
+                        .timer(hyper_util::rt::tokio::TokioTimer::new());
+                    let tls_acceptor = tls_acceptor.clone();
                     tokio::task::spawn(async move {
-                        let mut builder = hyper_util::server::conn::auto::Builder::new(
-                            hyper_util::rt::TokioExecutor::new(),
-                        );
-                        builder
-                            .http1()
-                            .title_case_headers(true)
-                            .keep_alive(true)
-                            .timer(hyper_util::rt::tokio::TokioTimer::new());
-                        builder.serve_connection_with_upgrades(io, svc).await
+                        if let Some(ref tls_acceptor) = tls_acceptor {
+                            let tls_stream = tls_acceptor.accept(stream).await;
+                            match tls_stream {
+                                Ok(tls_stream) => builder.serve_connection_with_upgrades(hyper_util::rt::tokio::TokioIo::new(tls_stream), svc).await,
+                                Err(err) => Err(err.into())
+                            }
+                        } else {
+                            builder.serve_connection_with_upgrades(hyper_util::rt::tokio::TokioIo::new(stream), svc).await
+
+                        }
                     });
                 }
             }
