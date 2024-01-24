@@ -15,6 +15,8 @@ from datetime import date, datetime, time
 import json
 import urllib.parse
 import urllib.request
+import email
+import email.policy
 
 class AbstractEndb:
     def _from_json_ld(self, obj):
@@ -81,6 +83,10 @@ class Endb(AbstractEndb):
                 else:
                      with pyarrow.ipc.open_file(response.read()) as reader:
                          return [reader.get_batch(n) for n in range(reader.num_record_batches)]
+            elif accept == 'multipart/mixed':
+                body = 'Content-Type: ' + response.headers['Content-Type'] + '\r\n\r\n' + response.read().decode()
+                msg = email.message_from_string(body, policy=email.policy.HTTP)
+                return [json.loads(part.get_content(), object_hook=self._from_json_ld) for part in msg.iter_parts()]
             else:
                 return json.loads(response.read(), object_hook=self._from_json_ld)
 
