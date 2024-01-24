@@ -16,14 +16,9 @@ pub fn read_arrow_array_stream_from_ipc_buffer(
             (schema, reader.collect::<Vec<_>>().into_iter())
         }
     };
-    let mut stream = arrow::ffi_stream::FFI_ArrowArrayStream::empty();
-    unsafe {
-        arrow::ffi_stream::export_reader_into_raw(
-            Box::new(arrow::record_batch::RecordBatchIterator::new(iter, schema)),
-            &mut stream as *mut arrow::ffi_stream::FFI_ArrowArrayStream,
-        )
-    };
-    Ok(stream)
+    Ok(arrow::ffi_stream::FFI_ArrowArrayStream::new(Box::new(
+        arrow::record_batch::RecordBatchIterator::new(iter, schema),
+    )))
 }
 
 pub fn write_arrow_array_stream_to_ipc_buffer(
