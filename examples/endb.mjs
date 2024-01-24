@@ -55,14 +55,30 @@ class Endb {
         this.password = password;
     }
 
-    async sql(q, p = [], m = false, accept) {
+    async sql(strings, ...values) {
+        let q, p = [], m = false, accept = this.accept;
+        if (typeof strings === 'string') {
+            q = strings;
+            p = values[0] ?? p;
+            m = values[1] ?? m;
+            accept = values[2] ?? accept;
+        } else {
+            q = '';
+            for (let i = 0; i < strings.length; i++) {
+                q += strings[i];
+                if (i < values.length) {
+                    q += '?';
+                }
+            }
+            p = values;
+        }
+
         const body = new FormData();
 
         body.append('q', q);
         body.append('p', JSON.stringify(toJSONLD(p)));
         body.append('m', JSON.stringify(m));
 
-        accept = accept || this.accept;
         const headers = {'Accept': accept};
 
         if (this.username && this.password) {
@@ -106,7 +122,23 @@ class EndbWebSocket {
         }
     }
 
-    async sql(q, p = [], m = false) {
+    async sql(strings, ...values) {
+        let q, p = [], m = false;
+        if (typeof strings === 'string') {
+            q = strings;
+            p = values[0] ?? p;
+            m = values[1] ?? m;
+        } else {
+            q = '';
+            for (let i = 0; i < strings.length; i++) {
+                q += strings[i];
+                if (i < values.length) {
+                    q += '?';
+                }
+            }
+            p = values;
+        }
+
         if (this.conn === null) {
             if (this.username && this.password) {
                 this.conn = new this.ws(this.url, encodeURIComponent('Basic ' + btoa(this.username + ":" + this.password)));
