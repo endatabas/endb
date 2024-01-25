@@ -22,26 +22,41 @@ pub const ENDB_FULL_VERSION: &str = env!("ENDB_FULL_VERSION");
 pub struct CommandLineArguments {
     #[arg(short, long, default_value = "endb_data", env = "ENDB_DATA_DIRECTORY")]
     data_directory: String,
-    #[arg(short = 'p', long, default_value = "3803", env = "ENDB_PORT")]
-    port: u16,
-    #[arg(long, default_value = "http", value_parser = ["http", "https"], env = "ENDB_PROTOCOL")]
-    protocol: String,
-    #[arg(long, env = "ENDB_USERNAME")]
+    #[arg(long, env = "ENDB_USERNAME", help_heading = "Authentication")]
     username: Option<String>,
-    #[arg(long, env = "ENDB_PASSWORD")]
+    #[arg(long, env = "ENDB_PASSWORD", help_heading = "Authentication")]
     password: Option<String>,
+    #[arg(
+        short = 'p',
+        long,
+        default_value = "3803",
+        env = "ENDB_PORT",
+        help_heading = "Network"
+    )]
+    port: u16,
+    #[arg(
+        long,
+        default_value = "0.0.0.0",
+        env = "ENDB_BIND_ADDRESS",
+        help_heading = "Network"
+    )]
+    bind_address: String,
+    #[arg(long, default_value = "http", value_parser = ["http", "https"], env = "ENDB_PROTOCOL", help_heading = "Network")]
+    protocol: String,
     #[arg(
         long,
         env = "ENDB_CERT_FILE",
         required_if_eq("protocol", "https"),
-        requires = "key_file"
+        requires = "key_file",
+        help_heading = "Network"
     )]
     cert_file: Option<String>,
     #[arg(
         long,
         env = "ENDB_KEY_FILE",
         required_if_eq("protocol", "https"),
-        requires = "cert_file"
+        requires = "cert_file",
+        help_heading = "Network"
     )]
     key_file: Option<String>,
 }
@@ -547,7 +562,8 @@ pub fn start_server(
     let on_ws_init = Arc::new(on_ws_init);
     let on_ws_close = Arc::new(on_ws_close);
     let on_ws_message = Arc::new(on_ws_message);
-    let addr: std::net::SocketAddr = ([0, 0, 0, 0], args.port).into();
+
+    let addr = format!("{}:{}", args.bind_address, args.port);
 
     let tls_acceptor = if "https" == args.protocol {
         let mut reader = std::io::BufReader::new(std::fs::File::open(args.cert_file.unwrap())?);
@@ -569,7 +585,7 @@ pub fn start_server(
     tokio::task::block_in_place(|| {
         tokio::runtime::Handle::current().block_on(
             async {
-                let listener = tokio::net::TcpListener::bind(addr).await?;
+                let listener = tokio::net::TcpListener::bind(addr.clone()).await?;
                 tracing::info!(target: "endb/lib/server", "listening on {}://{}", args.protocol, addr);
                 tracing::trace!(counter.build_info = 1, version = ENDB_FULL_VERSION);
                 loop {
