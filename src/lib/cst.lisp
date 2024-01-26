@@ -189,7 +189,7 @@
              (trivia:ematch xs
                ((list* (cons :IMMEDIATELY _) (cons :PRECEDES _) x xs)
                 (binary-equal-op-tree (list :immediately_precedes acc (walk x)) xs))
-               ((list* (cons :IMMEDIATELY _) (list :SUCCEEDS _) x xs)
+               ((list* (cons :IMMEDIATELY _) (cons :SUCCEEDS _) x xs)
                 (binary-equal-op-tree (list :immediately_succeeds acc (walk x)) xs))
                ((list* (cons :BETWEEN _) x (cons :AND _) y xs)
                 (binary-equal-op-tree (list :between acc (walk x) (walk y)) xs))

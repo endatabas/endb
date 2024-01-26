@@ -1095,9 +1095,14 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT EXTRACT(YEAR FROM 2001-01-01)")
-      (is (equalp (list (vector 2001)) result))
+        (execute-sql db "SELECT 2001-05-01 IMMEDIATELY SUCCEEDS [2001-04-01T00:00:00Z, 2001-05-01]")
+      (is (equalp (list (vector t)) result))
       (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+                         (execute-sql db "SELECT EXTRACT(YEAR FROM 2001-01-01)")
+                         (is (equalp (list (vector 2001)) result))
+                         (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT EXTRACT(MONTH FROM 2001-01-01)")
