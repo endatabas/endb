@@ -15,10 +15,10 @@ use std::sync::Arc;
 type Error = Box<dyn std::error::Error + Send + Sync>;
 type BoxBody = http_body_util::combinators::BoxBody<bytes::Bytes, Infallible>;
 
-pub const ENDB_FULL_VERSION: &str = env!("ENDB_FULL_VERSION");
+pub const ENDB_GIT_DESCRIBE: &str = env!("ENDB_GIT_DESCRIBE");
 
 #[derive(Serialize, Deserialize, Debug, Parser)]
-#[command(name = "endb", author, version = ENDB_FULL_VERSION, about, long_about = None)]
+#[command(name = "endb", author, version = ENDB_GIT_DESCRIBE, about, long_about = None)]
 pub struct CommandLineArguments {
     #[arg(short, long, default_value = "endb_data", env = "ENDB_DATA_DIRECTORY")]
     data_directory: String,
@@ -587,7 +587,7 @@ pub fn start_server(
             async {
                 let listener = tokio::net::TcpListener::bind(addr.clone()).await?;
                 tracing::info!(target: "endb/lib/server", "listening on {}://{}", args.protocol, addr);
-                tracing::trace!(counter.build_info = 1, version = ENDB_FULL_VERSION);
+                tracing::trace!(counter.build_info = 1, version = ENDB_GIT_DESCRIBE);
                 loop {
                     let (stream, remote_addr) = listener.accept().await?;
                     let svc = EndbService {
@@ -687,7 +687,7 @@ pub fn init_logger() -> Result<tracing_subscriber::filter::LevelFilter, Error> {
 
     let resource = opentelemetry_sdk::Resource::new(vec![
         opentelemetry::KeyValue::new("service.name", "endb"),
-        opentelemetry::KeyValue::new("service.version", ENDB_FULL_VERSION),
+        opentelemetry::KeyValue::new("service.version", ENDB_GIT_DESCRIBE),
     ]);
 
     let prometheus_exporter = opentelemetry_prometheus::exporter()

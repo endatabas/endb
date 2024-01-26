@@ -527,7 +527,7 @@ type endb_version_on_success_callback = extern "C" fn(*const c_char);
 
 #[no_mangle]
 pub extern "C" fn endb_version(on_success: endb_version_on_success_callback) {
-    string_callback(endb_server::ENDB_FULL_VERSION, on_success);
+    string_callback(endb_server::ENDB_GIT_DESCRIBE, on_success);
 }
 
 type endb_base64_encode_on_success_callback = extern "C" fn(*const c_char);

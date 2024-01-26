@@ -23,7 +23,6 @@ RUN cargo test; cargo build --release
 FROM docker.io/fukamachi/sbcl:latest-$SBCL_OS AS sbcl-build-env
 
 ARG SBCL_OS
-ARG ENDB_GIT_DESCRIBE
 
 RUN if [ "$SBCL_OS" = "alpine" ]; then \
       apk add --no-cache gcc musl-dev; \

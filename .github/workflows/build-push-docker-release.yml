@@ -1,12 +1,12 @@
-name: Build and Push Docker
+name: Build and Push Docker Release
 on:
-  schedule:
-    # 03:40 UTC, to avoid high loads at the day and hour boundary
-    - cron:  '40 3 * * *'
+  push:
+    tags:
+      - '*'
 
 jobs:
   push_to_registry:
-    name: Push Docker image to Docker Hub
+    name: Push Docker tagged image to Docker Hub
     runs-on: ubuntu-latest
 
     concurrency:
@@ -30,11 +30,11 @@ jobs:
         id: setup
         run: |
           {
-            echo "ENDB_GIT_DESCRIBE=$(git describe --always --dirty)"
+            echo "ENDB_GIT_DESCRIBE=$(git describe --always --dirty --tags)"
             echo "RUST_OS=bullseye"
             echo "SBCL_OS=debian"
             echo "ENDB_OS=debian"
-            echo "DOCKER_TAG=endatabas/endb:latest"
+            echo "DOCKER_TAG=endatabas/endb:latest,endatabas/endb:$(git describe --always --dirty --tags | sed s/^v//)"
           } >> "$GITHUB_OUTPUT"
 
       - name: Print Setup
@@ -59,7 +59,7 @@ jobs:
           context: .
           # https://docs.docker.com/build/ci/github-actions/multi-platform/
           # https://dev.to/cloudx/multi-arch-docker-images-the-easy-way-with-github-actions-4k54
-          platforms: linux/amd64 # ,linux/arm64
+          platforms: linux/amd64,linux/arm64
           file: ./Dockerfile
           build-args: |
             ENDB_GIT_DESCRIBE=${{ steps.setup.outputs.ENDB_GIT_DESCRIBE }}

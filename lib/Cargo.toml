@@ -3,7 +3,6 @@ members = ["endb_arrow", "endb_lib", "endb_cst", "endb_proc_macro", "endb_server
 resolver = "2"
 
 [workspace.package]
-version = "0.1.0"
 edition = "2021"
 authors = [
     "Håkan Råberg <hakan.raberg@gmail.com>",

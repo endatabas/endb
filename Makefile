@@ -228,7 +228,7 @@ tpcc:  target/endb target/tpcc_$(TPCC_SF)_data_load target/tpcc_$(TPCC_SF).confi
 
 docker:
 	$(DOCKER) build --pull$(DOCKER_PULL_ALWAYS) \
-		--build-arg ENDB_GIT_DESCRIBE=$(shell git describe --always --dirty) \
+		--build-arg ENDB_GIT_DESCRIBE=$(shell git describe --always --dirty --tags) \
 		--build-arg RUST_OS=$(DOCKER_RUST_OS) --build-arg SBCL_OS=$(DOCKER_SBCL_OS) --build-arg ENDB_OS=$(DOCKER_ENDB_OS) \
 		$(DOCKER_TAGS) .
 

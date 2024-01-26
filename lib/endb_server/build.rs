@@ -4,17 +4,14 @@ fn main() {
     } else {
         String::from_utf8(
             std::process::Command::new("git")
-                .args(["describe", "--always", "--dirty"])
+                .args(["describe", "--always", "--dirty", "--tags"])
                 .output()
                 .unwrap()
                 .stdout,
         )
+        .map(|x| x.trim().to_string())
         .unwrap()
     };
 
-    println!(
-        "cargo:rustc-env=ENDB_FULL_VERSION={} {}",
-        env!("CARGO_PKG_VERSION"),
-        git_describe
-    );
+    println!("cargo:rustc-env=ENDB_GIT_DESCRIBE={}", git_describe);
 }

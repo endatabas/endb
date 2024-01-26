@@ -1,9 +1,12 @@
-name: CI
-on: push
+name: Build and Push Docker Nightly
+on:
+  schedule:
+    # 03:40 UTC, to avoid high loads at the day and hour boundary
+    - cron:  '40 3 * * *'
 
 jobs:
-  test:
-    name: Run tests and build Docker image
+  push_to_registry:
+    name: Push Docker image to Docker Hub
     runs-on: ubuntu-latest
 
     concurrency:
@@ -17,6 +20,12 @@ jobs:
           ref: 'main'
           submodules: recursive
 
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
       - name: Setup
         id: setup
         run: |
@@ -25,7 +34,7 @@ jobs:
             echo "RUST_OS=bullseye"
             echo "SBCL_OS=debian"
             echo "ENDB_OS=debian"
-            echo "DOCKER_TAG=endatabas/endb:ci"
+            echo "DOCKER_TAG=endatabas/endb:nightly"
           } >> "$GITHUB_OUTPUT"
 
       - name: Print Setup
@@ -42,11 +51,11 @@ jobs:
             echo "| DOCKER_TAG        | ${{ steps.setup.outputs.DOCKER_TAG }}        |"
           } >> $GITHUB_STEP_SUMMARY
 
-      - name: Build Docker
+      - name: Build and Push Docker
         uses: docker/build-push-action@v5
         with:
           pull: true # equivalent to --pull, not --pull-always / --pull=always
-          push: false
+          push: true
           context: .
           # https://docs.docker.com/build/ci/github-actions/multi-platform/
           # https://dev.to/cloudx/multi-arch-docker-images-the-easy-way-with-github-actions-4k54
@@ -57,5 +66,5 @@ jobs:
             RUST_OS=${{ steps.setup.outputs.RUST_OS }}
             SBCL_OS=${{ steps.setup.outputs.SBCL_OS }}
             ENDB_OS=${{ steps.setup.outputs.ENDB_OS }}
-          tags: ${{ steps.setup.outputs.DOCKER_TAG }} # not required, but maintains
-                                                      # symmetry with build-push-docker-release.yml
+          tags: ${{ steps.setup.outputs.DOCKER_TAG }} # this is circuitous, but consistent.
+                                                      # not currently building all 3 tags, as we only push one.

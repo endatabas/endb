@@ -743,14 +743,14 @@ dependencies = [
 
 [[package]]
 name = "endb_arrow"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "arrow",
 ]
 
 [[package]]
 name = "endb_cst"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "ariadne",
  "endb_proc_macro",
@@ -763,7 +763,7 @@ dependencies = [
 
 [[package]]
 name = "endb_lib"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "arrow",
  "base64",
@@ -783,7 +783,7 @@ dependencies = [
 
 [[package]]
 name = "endb_proc_macro"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -792,7 +792,7 @@ dependencies = [
 
 [[package]]
 name = "endb_server"
-version = "0.1.0"
+version = "0.0.0"
 dependencies = [
  "base64",
  "bytes",
