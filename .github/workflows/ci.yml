@@ -17,12 +17,6 @@ jobs:
           ref: 'main'
           submodules: recursive
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Setup
         id: setup
         run: |
@@ -56,7 +50,7 @@ jobs:
           context: .
           # https://docs.docker.com/build/ci/github-actions/multi-platform/
           # https://dev.to/cloudx/multi-arch-docker-images-the-easy-way-with-github-actions-4k54
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           file: ./Dockerfile
           build-args: |
             ENDB_GIT_DESCRIBE=${{ steps.setup.outputs.ENDB_GIT_DESCRIBE }}
