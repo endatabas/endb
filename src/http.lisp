@@ -101,7 +101,7 @@
                      (declare (ignore e))
                      (return-from endb-query)))
                  (error (lambda (e)
-                          (endb/lib:log-error (endb/lib:format-backtrace (trivial-backtrace:print-backtrace e :output nil)))
+                          (endb/lib:log-error "~A" (endb/lib:format-backtrace (trivial-backtrace:print-backtrace e :output nil)))
                           (funcall on-response-init +http-internal-server-error+ "text/plain")
                           (return-from endb-query
                             (funcall on-response-send (format nil "~A~%" e))))))
@@ -233,7 +233,7 @@
                      (funcall on-ws-send (%json-rpc-error +json-rpc-parse-error+ "Parse error"))
                      (return-from endb-on-ws-message)))
                  (error (lambda (e)
-                          (endb/lib:log-error (endb/lib:format-backtrace (trivial-backtrace:print-backtrace e :output nil)))
+                          (endb/lib:log-error "~A" (endb/lib:format-backtrace (trivial-backtrace:print-backtrace e :output nil)))
                           (funcall on-ws-send (%json-rpc-error +json-rpc-internal-error+ (format nil "~A" e)))
                           (endb/lib:metric-monotonic-counter "websocket_message_internal_errors_total" 1)
                           (return-from endb-on-ws-message))))

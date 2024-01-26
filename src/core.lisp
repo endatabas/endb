@@ -33,7 +33,7 @@
                                                         (return-from %endb-main 130)))
                  (error (lambda (e)
                           (endb/lib:log-error "~A" e)
-                          (endb/lib:log-debug (endb/lib:format-backtrace (trivial-backtrace:print-backtrace e :output nil)))
+                          (endb/lib:log-debug "~A" (endb/lib:format-backtrace (trivial-backtrace:print-backtrace e :output nil)))
                           (return-from %endb-main 1))))
     (unwind-protect
         (endb/lib/server:start-tokio
