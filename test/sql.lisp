@@ -1605,6 +1605,11 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
+        (execute-sql db "SELECT  {foo: {}} <@ {foo: {bar: 'baz'}}")
+      (is (equalp '(#(t)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
         (execute-sql db "SELECT ['foo', 'bar'] MATCH 'bar'")
       (is (equalp '(#(t)) result))
       (is (equal '("column1") columns)))

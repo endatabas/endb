@@ -223,6 +223,8 @@
                 (binary-equal-op-tree (list :quantified-subquery op acc (walk x) :type quantified-op :start start :end (find-end-delimiter :|)| x)) xs))
                ((list* (cons :@> _) x xs)
                 (binary-equal-op-tree (list :match acc (walk x)) xs))
+               ((list* (cons :<@ _) x xs)
+                (binary-equal-op-tree (list :match (walk x) acc) xs))
                ((list* (cons (and op (type keyword)) _) x xs)
                 (binary-equal-op-tree (list op acc (walk x)) xs))
                (() acc)))

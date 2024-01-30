@@ -134,7 +134,7 @@ peg! {
         rel_expr (
         ( ( "==" / "=" / "!=" / "<>" ) ( ( quantified_operator subquery ) / rel_expr ) )
             /  ( ( OVERLAPS / EQUALS / CONTAINS / IMMEDIATELY? PRECEDES / IMMEDIATELY? SUCCEEDS ) rel_expr )
-            / NOT? ( LIKE ^( rel_expr ( ESCAPE rel_expr )? ) / ( GLOB / REGEXP / MATCH / "@>" ) ^rel_expr )
+            / NOT? ( LIKE ^( rel_expr ( ESCAPE rel_expr )? ) / ( GLOB / REGEXP / MATCH / "@>" / "<@" ) ^rel_expr )
             / IS ^( NOT? distinct_from? ( UNKNOWN / rel_expr ) )
             / NOT NULL
             / NOT? BETWEEN ^( rel_expr AND rel_expr )
