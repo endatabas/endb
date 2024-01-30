@@ -489,20 +489,24 @@
            (deleted-md (fset:convert
                         'fset:seq
                         (let ((row-id 0))
-                          (loop for arrow-file in arrow-files
-                                for arrow-file-md = (fset:lookup table-md arrow-file)
-                                append (loop with deleted-md = (or (fset:lookup arrow-file-md "deleted") (fset:empty-map))
-                                             for batch-row in (base-table-arrow-batches db table-name arrow-file)
-                                             for batch-idx from 0
-                                             for batch-idx-string = (prin1-to-string batch-idx)
-                                             for batch-deleted = (or (fset:lookup deleted-md batch-idx-string) (fset:empty-seq))
-                                             append (let ((batch-deleted
-                                                            (fset:image
-                                                             (lambda (delete-entry)
-                                                               (fset:with delete-entry "row_id" (+ row-id (fset:lookup delete-entry "row_id"))))
-                                                             batch-deleted)))
-                                                      (incf row-id (endb/arrow:arrow-length batch-row))
-                                                      (fset:convert 'list batch-deleted)))))))
+                          (sort
+                           (loop for arrow-file in arrow-files
+                                 for arrow-file-md = (fset:lookup table-md arrow-file)
+                                 append (loop with deleted-md = (or (fset:lookup arrow-file-md "deleted") (fset:empty-map))
+                                              for batch-row in (base-table-arrow-batches db table-name arrow-file)
+                                              for batch-idx from 0
+                                              for batch-idx-string = (prin1-to-string batch-idx)
+                                              for batch-deleted = (or (fset:lookup deleted-md batch-idx-string) (fset:empty-seq))
+                                              append (let ((batch-deleted
+                                                             (fset:image
+                                                              (lambda (delete-entry)
+                                                                (fset:with delete-entry "row_id" (+ row-id (fset:lookup delete-entry "row_id"))))
+                                                              batch-deleted)))
+                                                       (incf row-id (endb/arrow:arrow-length batch-row))
+                                                       (fset:convert 'list batch-deleted))))
+                           #'<
+                           :key (lambda (delete-entry)
+                                  (endb/arrow:arrow-timestamp-micros-us (fset:lookup delete-entry "system_time_end")))))))
            (erased-md (fset:convert
                        'fset:seq
                        (let ((row-id 0))
