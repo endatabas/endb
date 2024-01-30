@@ -13,6 +13,7 @@
 /* global BigInt */
 
 function fromJSONLD(x) {
+    if (x === null) return x;
     if (Object.hasOwn(x, '@type') && Object.hasOwn(x, '@value')) {
         const t = x['@type'];
         if (t === 'xsd:date' || t === 'xsd:dateTime') {
