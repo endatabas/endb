@@ -265,16 +265,16 @@ where
         let on_ws_message = self.on_ws_message.clone();
         let remote_addr = self.remote_addr;
 
-        let auth_header = if hyper_tungstenite::is_upgrade_request(&req) {
-            hyper::header::SEC_WEBSOCKET_PROTOCOL
+        let auth_header_value = if hyper_tungstenite::is_upgrade_request(&req) {
+            req.headers()
+                .get(hyper::header::AUTHORIZATION)
+                .or(req.headers().get(hyper::header::SEC_WEBSOCKET_PROTOCOL))
         } else {
-            hyper::header::AUTHORIZATION
+            req.headers().get(hyper::header::AUTHORIZATION)
         };
         let unauthorized = self.basic_auth.is_some()
             && self.basic_auth.as_deref()
-                != req
-                    .headers()
-                    .get(auth_header)
+                != auth_header_value
                     .and_then(|x| x.to_str().ok())
                     .and_then(|x| percent_encoding::percent_decode_str(x).decode_utf8().ok())
                     .as_deref();
@@ -1496,13 +1496,39 @@ mod tests {
         "###);
 
         assert_debug_snapshot!(
-            service(basic_auth, unreachable())
+            service(basic_auth.clone(), unreachable())
                 .call(add_header(add_header(add_header(add_header(add_header(get("ws://localhost:3803/sql", "*/*"),
                                             hyper::header::UPGRADE, "websocket"),
                                                        hyper::header::CONNECTION, "Upgrade"),
                                             hyper::header::SEC_WEBSOCKET_VERSION, "13"),
                                             hyper::header::SEC_WEBSOCKET_KEY, "x3JJHMbDL1EzLkh9GBhXDw=="),
                                  hyper::header::SEC_WEBSOCKET_PROTOCOL, "Basic%20Zm9vOmZvbw%3D%3D" ))
+            .await.map(read_body).unwrap().await
+        , @r###"
+        Response {
+            status: 101,
+            version: HTTP/1.1,
+            headers: {
+                "connection": "upgrade",
+                "upgrade": "websocket",
+                "sec-websocket-accept": "HSmrc0sMlYUkAGmm5OPpG2HaGWk=",
+            },
+            body: Full {
+                data: Some(
+                    b"switching to websocket protocol",
+                ),
+            },
+        }
+        "###);
+
+        assert_debug_snapshot!(
+            service(basic_auth, unreachable())
+                .call(add_header(add_header(add_header(add_header(add_header(get("ws://localhost:3803/sql", "*/*"),
+                                            hyper::header::UPGRADE, "websocket"),
+                                                       hyper::header::CONNECTION, "Upgrade"),
+                                            hyper::header::SEC_WEBSOCKET_VERSION, "13"),
+                                            hyper::header::SEC_WEBSOCKET_KEY, "x3JJHMbDL1EzLkh9GBhXDw=="),
+                                 hyper::header::AUTHORIZATION, "Basic%20Zm9vOmZvbw%3D%3D" ))
             .await.map(read_body).unwrap().await
         , @r###"
         Response {
