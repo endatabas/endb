@@ -91,9 +91,9 @@ class Endb {
         const response = await fetch(this.url, {method: 'POST', headers: headers, body: body});
 
         if (response.ok) {
-            if (accept === 'text/csv') {
+            if (accept === 'text/csv' || accept === 'multipart/mixed') {
                 return await response.text();
-            } else if (accept === 'application/vnd.apache.arrow.file') {
+            } else if (accept === 'application/vnd.apache.arrow.file' || accept === 'application/vnd.apache.arrow.stream') {
                 return response.body;
             } else {
                 return JSON.parse(await response.text(), (k, v) => fromJSONLD(v));

@@ -47,7 +47,13 @@ class EndbConsole(cmd.Cmd):
             print('off')
 
     def complete_accept(self, text, line, begidx, endidx):
-        return [x for x in ['application/json', 'application/ld+json', 'text/csv', 'application/vnd.apache.arrow.file', 'multipart/mixed'] if x.startswith(text)]
+        return [x for x in ['application/json',
+                            'application/ld+json',
+                            'text/csv',
+                            'application/vnd.apache.arrow.file',
+                            'application/vnd.apache.arrow.stream',
+                            'multipart/mixed']
+                if x.startswith(text)]
 
     def do_accept(self, arg):
         'Sets or shows the accepted mime type.'
@@ -99,7 +105,7 @@ class EndbConsole(cmd.Cmd):
             result = endb.Endb(self.url, self.accept, self.username, self.password).sql(sql)
             if self.accept == 'text/csv':
                 print(result.strip())
-            elif self.accept == 'application/vnd.apache.arrow.file':
+            elif self.accept in ['application/vnd.apache.arrow.file', 'application/vnd.apache.arrow.stream']:
                 print(result)
             else:
                 pprint.pprint(result)

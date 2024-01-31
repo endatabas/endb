@@ -83,6 +83,12 @@ class Endb(AbstractEndb):
                 else:
                      with pyarrow.ipc.open_file(response.read()) as reader:
                          return [reader.get_batch(n) for n in range(reader.num_record_batches)]
+            elif accept == 'application/vnd.apache.arrow.stream':
+                if pyarrow is None:
+                    return response.read()
+                else:
+                     with pyarrow.ipc.open_stream(response.read()) as reader:
+                         return [b for b in reader]
             elif accept == 'multipart/mixed':
                 body = 'Content-Type: ' + response.headers['Content-Type'] + '\r\n\r\n' + response.read().decode()
                 msg = email.message_from_string(body, policy=email.policy.HTTP)
