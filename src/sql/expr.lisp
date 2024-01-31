@@ -24,7 +24,7 @@
            #:sql-inner_product #:sql-<#> #:sql-l2_distance #:sql-<-> #:sql-cosine_distance #:sql-<=>
            #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-timestamp #:sql-duration #:sql-like #:sql-substr #:sql-substring #:sql-strftime
            #:sql-typeof #:sql-unixepoch #:sql-julianday #:sql-path_remove #:sql-path_insert #:sql-path_replace #:sql-path_set #:sql-path_extract
-           #:sql-contains #:sql-overlaps #:sql-precedes #:sql-succedes #:sql-immediately_precedes #:sql-immediately_succedes
+           #:sql-period #:sql-contains #:sql-overlaps #:sql-precedes #:sql-succedes #:sql-immediately_precedes #:sql-immediately_succedes
            #:sql-unnest #:sql-generate_series
 
            #:build-like-regex #:build-glob-regex
@@ -1565,6 +1565,9 @@
         collect (vector idx)))
 
 ;; Period predicates
+
+(defun sql-period (x y)
+  (fset:map ("start" x) ("end" y)))
 
 (defmethod %period-field ((x fset:map) field)
   (syn-access-finish x field nil))

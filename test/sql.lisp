@@ -1095,7 +1095,7 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT 2001-05-01 IMMEDIATELY SUCCEEDS [2001-04-01T00:00:00Z, 2001-05-01]")
+        (execute-sql db "SELECT 2001-05-01 IMMEDIATELY SUCCEEDS PERIOD(2001-04-01T00:00:00Z, 2001-05-01)")
       (is (equalp (list (vector t)) result))
       (is (equal '("column1") columns)))
 
