@@ -2700,6 +2700,99 @@ SELECT s FROM x WHERE ind=0")
       (is (equalp '(#(2)) result))
       (is (equal '("foo bar") columns)))
 
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM (VALUES ([0,0,0]), ([1,2,3]), ([1,1,1]), (NULL), ([1,2,4])) AS t(val) WHERE val NOT NULL ORDER BY t.val <-> [3,3,3]")
+      (is (equalp `(#(,(fset:seq 1 2 3))
+                     #(,(fset:seq 1 2 4))
+                     #(,(fset:seq 1 1 1))
+                     #(,(fset:seq 0 0 0)))
+                  result))
+      (is (equal '("val") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT l2_distance([0,0], [3,4])")
+      (is (equalp '(#(5)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT l2_distance([0,0], [0,1])")
+      (is (equalp '(#(1)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT l2_distance(NULL, [0,1])")
+      (is (equalp '(#(:null)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT * FROM (VALUES ([0,0,0]), ([1,2,3]), ([1,1,1]), (NULL), ([1,2,4])) AS t(val) WHERE val IS NOT NULL ORDER BY t.val <#> [3,3,3]")
+      (is (equalp `(#(,(fset:seq 1 2 4))
+                     #(,(fset:seq 1 2 3))
+                     #(,(fset:seq 1 1 1))
+                     #(,(fset:seq 0 0 0)))
+                  result))
+      (is (equal '("val") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT inner_product([1,2], [3,4])")
+      (is (equalp '(#(11)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT val FROM (VALUES ([0,0,0]), ([1,2,3]), ([1,1,1]), ([1,2,4])) AS t(val) WHERE t.val <=> [3,3,3] NOT NULL ORDER BY t.val <=> [3,3,3]")
+      (is (equalp `(#(,(fset:seq 1 1 1))
+                     #(,(fset:seq 1 2 3))
+                     #(,(fset:seq 1 2 4)))
+                  result))
+      (is (equal '("val") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT cosine_distance([1,2], [2,4])")
+      (is (equalp '(#(0)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT cosine_distance([1,2], [0,0])")
+      (is (equalp '(#(:null)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT cosine_distance([1,1], [1,1])")
+      (is (equalp '(#(0)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT cosine_distance([1,0], [0,2])")
+      (is (equalp '(#(1)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT cosine_distance([1,1], [-1,-1])")
+      (is (equalp '(#(2)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT cosine_distance([1,1], [1.1,1.1])")
+      (is (equalp '(#(0)) result))
+      (is (equal '("column1") columns)))
+
+    (multiple-value-bind (result columns)
+        (execute-sql db "SELECT cosine_distance([1,1], [-1.1,-1.1])")
+      (is (equalp '(#(2)) result))
+      (is (equal '("column1") columns)))
+
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Vectors need same dimensions: 2 is not 1"
+      (execute-sql db "SELECT l2_distance([1,2], [3])"))
+
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Vectors need same dimensions: 2 is not 1"
+      (execute-sql db "SELECT inner_product([1,2], [3])"))
+
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Vectors need same dimensions: 2 is not 1"
+      (execute-sql db "SELECT cosine_distance([1,2], [3])"))
+
     (signals-with-msg endb/sql/expr:sql-runtime-error
         "Invalid number of arguments: 1 to: GENERATE_SERIES min: 2 max: 3"
       (execute-sql db "SELECT * FROM generate_series(1) AS foo"))

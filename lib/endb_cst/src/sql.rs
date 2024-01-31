@@ -126,7 +126,7 @@ peg! {
     <access_expr> <- atom property_access*;
     <unary_expr> <- ("+" / "-" / "~" )* access_expr;
     <concat_expr> <- unary_expr ( "||" unary_expr )*;
-    <mul_expr> <- concat_expr ( ( "*" / "/" / "%" ) concat_expr )*;
+    <mul_expr> <- concat_expr ( ( "*" / "/" / "%" / "<->" / "<#>" / "<=>" ) concat_expr )*;
     <add_expr> <- mul_expr ( ( "+" / "-" ) mul_expr )*;
     <bit_expr> <- add_expr ( ( "<<" / ">>" / "&" / "|" ) add_expr )*;
     <rel_expr> <- bit_expr ( ( "<=" / "<" / ">=" / ">" ) ( ( quantified_operator subquery ) / bit_expr ) )*;

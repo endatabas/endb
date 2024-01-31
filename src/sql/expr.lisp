@@ -21,6 +21,7 @@
            #:sql-round #:sql-sin #:sql-cos #:sql-tan #:sql-sinh #:sql-cosh #:sql-tanh #:sql-asin #:sqn-acos #:sql-atan #:sql-asinh #:sqn-acosh #:sql-atanh #:sql-atan2
            #:sql-floor #:sql-ceiling #:sql-ceil #:sql-patch #:sql-match
            #:sql-sign #:sql-sqrt #:sql-exp #:sql-power #:sql-pow #:sql-log #:sql-log2 #:sql-log10 #:sql-ln #:sql-degrees #:sql-radians #:sql-pi
+           #:sql-inner_product #:sql-<#> #:sql-l2_distance #:sql-<-> #:sql-cosine_distance #:sql-<=>
            #:sql-nullif #:sql-abs #:sql-date #:sql-time #:sql-datetime #:sql-timestamp #:sql-duration #:sql-like #:sql-substr #:sql-substring #:sql-strftime
            #:sql-typeof #:sql-unixepoch #:sql-julianday #:sql-path_remove #:sql-path_insert #:sql-path_replace #:sql-path_set #:sql-path_extract
            #:sql-contains #:sql-overlaps #:sql-precedes #:sql-succedes #:sql-immediately_precedes #:sql-immediately_succedes
@@ -980,6 +981,75 @@
   (if (zerop x)
       :null
       (%handle-complex "LN" (log (coerce x 'double-float)))))
+
+(defmethod sql-l2_distance ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-l2_distance (x (y (eql :null)))
+  :null)
+
+(defmethod sql-l2_distance ((x fset:seq) (y fset:seq))
+  (unless (= (fset:size x) (fset:size y))
+    (error 'endb/sql/expr:sql-runtime-error
+           :message (format nil "Vectors need same dimensions: ~A is not ~A" (fset:size x) (fset:size y))))
+  (let ((distance 0.0d0))
+    (dotimes (idx (fset:size x))
+      (let ((diff (sql-- (fset:lookup x idx) (fset:lookup y idx))))
+        (setf distance (sql-+ distance (sql-* diff diff)))))
+    (sql-sqrt distance)))
+
+(defun sql-<-> (x y)
+  (sql-l2_distance x y))
+
+(defmethod sql-inner_product ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-inner_product (x (y (eql :null)))
+  :null)
+
+(defmethod sql-inner_product ((x fset:seq) (y fset:seq))
+  (unless (= (fset:size x) (fset:size y))
+    (error 'endb/sql/expr:sql-runtime-error
+           :message (format nil "Vectors need same dimensions: ~A is not ~A" (fset:size x) (fset:size y))))
+  (let ((distance 0.0d0))
+    (dotimes (idx (fset:size x))
+      (setf distance (sql-+ distance (sql-* (fset:lookup x idx) (fset:lookup y idx)))))
+    distance))
+
+(defun sql-<#> (x y)
+  (sql-* (sql-inner_product x y) -1.0d0))
+
+(defmethod sql-cosine_distance ((x (eql :null)) y)
+  :null)
+
+(defmethod sql-cosine_distance (x (y (eql :null)))
+  :null)
+
+(defmethod sql-cosine_distance ((x fset:seq) (y fset:seq))
+  (unless (= (fset:size x) (fset:size y))
+    (error 'endb/sql/expr:sql-runtime-error
+           :message (format nil "Vectors need same dimensions: ~A is not ~A" (fset:size x) (fset:size y))))
+  (let ((distance 0.0d0)
+        (norm-a 0.0d0)
+        (norm-b 0.0d0))
+    (dotimes (idx (fset:size x))
+      (let ((a (fset:lookup x idx))
+            (b (fset:lookup y idx)))
+        (setf distance (sql-+ distance (sql-* a b)))
+        (setf norm-a (sql-+ norm-a (sql-* a a)))
+        (setf norm-b (sql-+ norm-b (sql-* b b)))))
+    (let ((similarity (sql-/ distance (sql-sqrt (sql-* norm-a norm-b)))))
+      (sql-- 1.0d0
+             (cond
+               ((eq :null similarity) :null)
+               ((eq t (sql-> similarity 1.0d0))
+                1.0d0)
+               ((eq t (sql-< similarity -1.0d0))
+                -1.0d0)
+               (t similarity))))))
+
+(defun sql-<=> (x y)
+  (sql-cosine_distance x y))
 
 (defmethod sql-date ((x (eql :null)))
   :null)
