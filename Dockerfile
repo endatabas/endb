@@ -1,4 +1,4 @@
-ARG RUST_OS=bullseye
+ARG RUST_OS=latest
 ARG SBCL_OS=debian
 ARG ENDB_OS=debian
 ARG ENDB_GIT_DESCRIBE="<unknown revision>"
