@@ -83,6 +83,8 @@
                                       (endb/lib:log-warn "constraint ~A raised an error, ignoring: ~A" k e))))
             (error 'endb/sql/expr:sql-runtime-error :message (format nil "Constraint failed: ~A" k))))))))
 
+(defvar *max-inserted-bytes-per-table* (* 64 1024 1024))
+
 (defun commit-write-tx (current-db write-db &key (fsyncp t))
   (let* ((current-md (endb/sql/db:db-meta-data current-db))
          (tx-md (endb/sql/db:db-meta-data write-db))
@@ -100,14 +102,21 @@
             (maphash
              (lambda (k v)
                (let ((buffer (endb/lib/arrow:write-arrow-arrays-to-ipc-buffer v)))
-                 (destructuring-bind (table batch-file)
+                 (destructuring-bind (table-name batch-file)
                      (uiop:split-string k :max 2 :separator "/")
-                   (let* ((table-md (fset:lookup md-diff table))
+                   (let* ((table-md (fset:lookup md-diff table-name))
+                          (buffers-byte-size (loop for batch in v
+                                                   sum (loop for b in (endb/arrow:arrow-all-buffers batch)
+                                                             sum (endb/lib:vector-byte-size b))))
                           (batch-md (fset:map-union (fset:lookup table-md batch-file)
                                                     (fset:map ("sha1" (string-downcase (endb/lib:sha1 buffer)))
-                                                              ("buffers_byte_size" (loop for b in (endb/arrow:arrow-all-buffers (first v))
-                                                                                         sum (endb/lib:vector-byte-size b)))))))
-                     (setf md-diff (fset:with md-diff table (fset:with table-md batch-file batch-md)))))
+                                                              ("buffers_byte_size" buffers-byte-size)))))
+                     (when (> buffers-byte-size *max-inserted-bytes-per-table*)
+                       (error 'endb/sql/expr:sql-runtime-error
+                              :message  (format nil
+                                                "Cannot insert into table: ~A byte size too large for a single transaction: ~A maximum is: ~A"
+                                                table-name buffers-byte-size *max-inserted-bytes-per-table*)))
+                     (setf md-diff (fset:with md-diff table-name (fset:with table-md batch-file batch-md)))))
                  (setf (gethash k arrow-buffers-map) buffer)))
              (endb/storage/buffer-pool:writeable-buffer-pool-pool bp))
             (let ((new-md (endb/json:json-merge-patch current-md md-diff))

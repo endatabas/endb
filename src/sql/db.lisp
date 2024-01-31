@@ -543,8 +543,6 @@
                                                             #\U00A1
                                                             #\UFFFF)))
 
-(defvar *max-inserted-rows-per-table* (* 32 1024))
-
 (defun dml-insert (db table-name values &key column-names)
   (with-slots (buffer-pool meta-data current-timestamp) db
     (let* ((created-p (base-table-created-p db table-name))
@@ -621,12 +619,6 @@
 
             (setf (gethash kw-table-name batch-children) table-array)
             (endb/storage/buffer-pool:buffer-pool-put buffer-pool batch-key (list batch))
-
-            (when (> (endb/arrow:arrow-length table-array) *max-inserted-rows-per-table*)
-              (error 'endb/sql/expr:sql-runtime-error
-                     :message (format nil
-                                      "Cannot insert into table: ~A too many rows in a single transaction: ~A"
-                                      table-name *max-inserted-rows-per-table*)))
 
             (let ((batch-md (fset:map-union (or batch-md (fset:empty-map))
                                             (fset:map
