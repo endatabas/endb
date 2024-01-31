@@ -39,7 +39,7 @@ jobs:
         run: |
           {
             echo "ENDB_GIT_DESCRIBE=$(git describe --always --dirty --tags)"
-            echo "RUST_OS=bullseye"
+            echo "RUST_OS=latest"
             echo "SBCL_OS=debian"
             echo "ENDB_OS=debian"
             echo "DOCKER_TAG=endatabas/endb:latest,endatabas/endb:$(git describe --always --dirty --tags | sed s/^v//)"

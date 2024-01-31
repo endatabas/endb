@@ -15,7 +15,7 @@ CFLAGS = -g -Wall
 CARGO = cargo
 
 DOCKER = docker
-DOCKER_RUST_OS = bullseye
+DOCKER_RUST_OS = latest
 DOCKER_SBCL_OS = debian
 DOCKER_ENDB_OS = debian
 DOCKER_TAGS = -t endatabas/endb:$(DOCKER_ENDB_OS) -t endatabas/endb:latest-$(DOCKER_ENDB_OS) -t endatabas/endb:latest
