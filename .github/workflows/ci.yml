@@ -4,14 +4,10 @@ on: push
 jobs:
   test:
     name: Run tests and build Docker image
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-14]
-
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
 
     concurrency:
-      group: ci-${{ matrix.os}}-${{ github.ref }}
+      group: ci-${{ github.ref }}
       cancel-in-progress: true
 
     steps:
@@ -20,9 +16,6 @@ jobs:
         with:
           ref: 'main'
           submodules: recursive
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Setup
         id: setup
