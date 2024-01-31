@@ -4,10 +4,14 @@ on: push
 jobs:
   test:
     name: Run tests and build Docker image
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-14]
+
+    runs-on: ${{ matrix.os }}
 
     concurrency:
-      group: ci-${{ github.ref }}
+      group: ci-${{ matrix.os}}-${{ github.ref }}
       cancel-in-progress: true
 
     steps:
@@ -50,7 +54,7 @@ jobs:
           context: .
           # https://docs.docker.com/build/ci/github-actions/multi-platform/
           # https://dev.to/cloudx/multi-arch-docker-images-the-easy-way-with-github-actions-4k54
-          platforms: linux/amd64
+          # platforms: linux/amd64
           file: ./Dockerfile
           build-args: |
             ENDB_GIT_DESCRIBE=${{ steps.setup.outputs.ENDB_GIT_DESCRIBE }}
