@@ -1,0 +1,8 @@
+{
+    "name": "@endatabas/endb",
+    "description": "Endatabas JavaScript Client",
+    "license": "MIT",
+    "homepage": "https://github.com/endatabas/endb",
+    "exports": "./endb.mjs",
+    "version": "0.1.0-alpha.3"
+}

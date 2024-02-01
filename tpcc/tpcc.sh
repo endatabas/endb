@@ -16,7 +16,7 @@
 
 cd "$(dirname "$0")"
 
-ENDB_DRIVER_DIR=$(realpath ../examples/)
+ENDB_DRIVER_DIR=$(realpath ../clients/python/)
 PYTPCC_PROJECT_DIR=.venv/src/py-tpcc
 
 if [ ! -d .venv ]; then
