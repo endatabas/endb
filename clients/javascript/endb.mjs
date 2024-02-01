@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 // MIT License
 
 // Copyright (c) 2023-2024 Håkan Råberg and Steven Deobald
@@ -209,7 +207,3 @@ class EndbWebSocket {
 }
 
 export { Endb, EndbWebSocket };
-
-if (typeof process !== 'undefined' && import.meta.url === `file://${process.argv[1]}`) {
-    console.log(await new Endb().sql(process.argv[2]));
-}

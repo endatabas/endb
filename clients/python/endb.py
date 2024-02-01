@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # MIT License
 
 # Copyright (c) 2023-2024 Håkan Råberg and Steven Deobald
@@ -145,8 +143,3 @@ try:
 
 except ModuleNotFoundError:
     pass
-
-if __name__ == '__main__':
-    import sys
-    if len(sys.argv) > 1:
-        print(Endb().sql(sys.argv[1]))
