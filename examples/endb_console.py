@@ -122,7 +122,7 @@ class EndbConsole(cmd.Cmd):
         if start_time and self.timer:
             print('Elapsed: %f ms' % (time.time() - start_time))
 
-if __name__ == '__main__':
+def main():
     import argparse
     import sys
     import pathlib
@@ -160,3 +160,6 @@ if __name__ == '__main__':
                 print()
     except KeyboardInterrupt:
         print()
+
+if __name__ == '__main__':
+    main()
