@@ -4,5 +4,6 @@
     "license": "MIT",
     "homepage": "https://github.com/endatabas/endb",
     "exports": "./endb.mjs",
+    "scripts": {},
     "version": "0.0.0"
 }
