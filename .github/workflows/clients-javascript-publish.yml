@@ -9,6 +9,10 @@ jobs:
     name: Publish package to NPM
     runs-on: ubuntu-latest
 
+    defaults:
+      run:
+        working-directory: ./clients/javascript
+
     permissions:
       contents: read
       id-token: write
