@@ -146,6 +146,8 @@ class EndbWebSocket {
             } else {
                 this.conn = new this.ws(this.url);
             }
+            this.conn.binaryType = 'arraybuffer';
+
             this.conn.onerror = (event) => {
                 console.log(event);
             };
@@ -162,8 +164,9 @@ class EndbWebSocket {
                 }
             };
 
-            this.conn.onmessage = async (event) => {
-                const message = JSON.parse(await event.data.text(), (k, v) => fromJSONLD(v));
+            this.conn.onmessage = (event) => {
+                var buffer = new TextDecoder().decode(event.data);
+                const message = JSON.parse(buffer, (k, v) => fromJSONLD(v));
                 if (message['id'] === null) {
                     console.log(message);
                 } else {
