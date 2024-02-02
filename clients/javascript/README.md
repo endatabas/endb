@@ -48,19 +48,30 @@ console.log(ws_result);
 
 If you want to try out Endb from the browser without Node.js
 or bundling, you can consume it directly.
-This approach is only really useful for quick experimentation
-in the browser's JavaScript console.
+
+Note that this approach is only really useful for quick
+experimentation in the browser's JavaScript console, not
+production usage.
+Without a proxy, it's most likely that only `EndbWebSocket`
+will work without CORS errors, as the `Endb` class relies on HTTP.
 
 ```javascript
-# endb_sample.mjs
+// endb_sample.mjs
 import { Endb, EndbWebSocket } from 'path/to/node_modules/@endatabas/endb/endb.mjs';
 window.Endb = Endb;
 window.EndbWebSocket = EndbWebSocket;
 ```
 
 ```html
+<!-- endb_sample.html -->
 <html>
   <head><script type="module" src="endb_sample.mjs"></script></head>
   <body><h1>Endb Sample</h1></body>
 </html>
+```
+
+```javascript
+// in the endb_sample.html JavaScript console:
+var ews = new window.EndbWebSocket();
+ews.sql(`select * from ${table}`, {table: 'users'});
 ```
