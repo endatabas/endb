@@ -6,5 +6,4 @@ endb_data
 __pycache__
 slt/tpch/1/*_tbl.test.gz
 .venv
-package-lock.json
 
