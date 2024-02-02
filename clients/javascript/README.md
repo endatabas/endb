@@ -1,71 +1,41 @@
-# Endatabas JavaScript Client
+# @endatabas/endb
+
+The official JavaScript client library for
+[Endatabas](https://www.endatabas.com/).
 
 ## Requirements
 
-* Node.js 14+ (if using node)
-* A JavaScript version which supports the Nullish Coalescing Operator (`??`)
+* Node.js 14.5.0+ or other JavaScript engine with
+  [strong ES2020 support](https://compat-table.github.io/compat-table/es2016plus/)
 
 ## Install
 
-`package.json`:
-
-```json
-{
-  "dependencies": {
-    "@endatabas/endb": ">=0.1.0"
-  }
-}
-```
-
-`npm install`:
-
 ```sh
 npm install @endatabas/endb
+npm install ws
 ```
+
+`@endatabas/endb` has zero dependencies. If you need WebSocket support
+under node, you will need to install a WebSocket library manually, as above.
+If you are using `@endatabas/endb` in the browser (after bundling),
+this is not required.
 
 Please note that there is another (unscoped) packaged named `endb`.
 It is not related to the Endatabas project.
 
 ## Usage
 
-Once you have an `endb` module available, you can instantitate
-`Endb` and `EndbWebSocket` classes, which have `sql` methods
-on them.
-See below for various options to import the `endb` module.
-
 ```javascript
-var e = new endb.Endb();
-# var e = new endb.EndbWebSocket();
-e.sql("insert into users {name: 'Thupil'};");
-e.sql("select * from users;").then(result => { console.log(result) });
-```
+import WebSocket from 'ws';
+import { Endb, EndbWebSocket } from '@endatabas/endb';
 
-## Import - NPM package
+var e = new Endb();
+await e.sql("insert into users {name: 'Thupil'};");
+var result = await e.sql("select * from users;");
+console.log(result);
 
-From a file:
-
-```javascript
-import endb from '@endatabas/endb';
-```
-
-From a node.js REPL:
-
-```
-let endb;
-import("@endatabas/endb").then(module => { endb = module });
-```
-
-## Import - local file
-
-Inside a JavaScript file:
-
-```javascript
-import endb from './endb.mjs';
-```
-
-From a node.js REPL:
-
-```javascript
-let endb;
-import("./endb.mjs").then(module => { endb = module });
+var ews = new EndbWebSocket({ws: WebSocket});
+await ews.sql("insert into users {name: 'Lydia'};");
+var ws_result = await ews.sql("select * from users;");
+console.log(ws_result);
 ```
