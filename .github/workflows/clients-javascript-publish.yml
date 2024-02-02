@@ -15,13 +15,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Assert tag === package.json version
-        id: match-tag-to-package-version
-        uses: geritol/match-tag-to-package-version@0.2.0
-        with:
-          TAG_PREFIX: v
+      - name: Set package.json version
+        run: npm version --no-git-tag-version $(git describe --always --dirty --tags)
 
       - name: Publish
         uses: actions/setup-node@v3
