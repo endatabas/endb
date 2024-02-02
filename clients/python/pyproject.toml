@@ -16,6 +16,7 @@ classifiers = [
 
 [project.urls]
 Homepage = "https://github.com/endatabas/endb"
+Repository = "https://github.com/endatabas/endb.git"
 
 [project.scripts]
 "endb_console" = "endb_console:main"
