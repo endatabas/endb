@@ -18,7 +18,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set package.json version
-        run: npm version --no-git-tag-version $(git describe --always --dirty --tags)
+        run: npm version --no-git-tag-version $(git describe --always --dirty --tags --abbrev=0)
 
       - name: Publish
         uses: actions/setup-node@v3
