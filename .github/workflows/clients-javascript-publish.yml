@@ -21,14 +21,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set package.json version
-        run: npm version --no-git-tag-version $(git describe --always --dirty --tags --abbrev=0)
-
       - name: Publish
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
+      - run: npm version --no-git-tag-version $(git describe --always --dirty --tags --abbrev=0)
       - run: npm install -g npm
       - run: npm ci
       - run: npm publish --provenance --access public
