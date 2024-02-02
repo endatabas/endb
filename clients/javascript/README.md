@@ -5,6 +5,27 @@
 * Node.js 14+ (if using node)
 * A JavaScript version which supports the Nullish Coalescing Operator (`??`)
 
+## Install
+
+`package.json`:
+
+```json
+{
+  "dependencies": {
+    "@endatabas/endb": ">=0.1.0"
+  }
+}
+```
+
+`npm install`:
+
+```sh
+npm install @endatabas/endb
+```
+
+Please note that there is another (unscoped) packaged named `endb`.
+It is not related to the Endatabas project.
+
 ## Usage
 
 Once you have an `endb` module available, you can instantitate
