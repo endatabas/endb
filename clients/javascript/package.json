@@ -3,6 +3,11 @@
     "description": "Endatabas JavaScript Client",
     "license": "MIT",
     "homepage": "https://github.com/endatabas/endb",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/endatabas/endb.git",
+        "directory": "clients/javascript"
+    },
     "exports": "./endb.mjs",
     "scripts": {},
     "version": "0.0.0"
