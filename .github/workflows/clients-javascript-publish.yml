@@ -18,15 +18,19 @@ jobs:
       id-token: write
 
     steps:
-      - name: Checkout
+      - name: Check out the repo
         uses: actions/checkout@v4
+        with:
+          ref: 'main'
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Publish
         uses: actions/setup-node@v4
         with:
           node-version: '20.x'
           registry-url: 'https://registry.npmjs.org'
-      - run: npm version --no-git-tag-version $(git describe --always --dirty --tags --abbrev=0)
+      - run: npm version --no-git-tag-version $(git describe --always --dirty --tags)
       - run: npm install -g npm
       - run: npm ci
       - run: npm publish --provenance --access public
