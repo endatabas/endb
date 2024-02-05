@@ -23,7 +23,7 @@ support is optional.
 ## Console Usage
 
 ```sh
-endb_console
+endb_console [--url URL] [-u USERNAME] [-p PASSWORD]
 ```
 
 ## Python Client Library Usage
