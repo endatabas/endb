@@ -1,12 +1,44 @@
 # Endatabas Client and Console
 
+The official Python client library and console for
+[Endatabas](https://www.endatabas.com).
+
 ## Installation
 
 ```sh
 pip install endb
+pip install websockets
 ```
 
-Endatabas is supported on Python 3.10 and above.
+`endb` is supported on Python 3.10 and above.
+[WebSocket](https://docs.endatabas.com/reference/websocket_api)
+support is optional.
+
+## Documentation
+
+* [Python client library](https://docs.endatabas.com/reference/clients)
+* [Console](https://docs.endatabas.com/reference/clients)
+* [Endb SQL Reference](https://docs.endatabas.com/sql/)
+
+## Usage
+
+```python
+from endb import Endb
+e = Endb()
+e.sql("INSERT INTO users {name: 'Yuvi'}")
+e.sql("SELECT * FROM users;")
+```
+
+When the `websockets` dependency is installed, it is possible to
+return asynchronous results to the Python interactive shell
+directly if you start it with `python3 -m asyncio`:
+
+```python
+from endb import EndbWebSocket
+ews = EndbWebSocket()
+result = await ews.sql("SELECT * FROM users;")
+print(result)
+```
 
 ## Copyright and License
 

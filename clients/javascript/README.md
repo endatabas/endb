@@ -23,9 +23,10 @@ this is not required.
 Please note that there is another (unscoped) packaged named `endb`.
 It is not related to the Endatabas project.
 
-## Resources
+## Documentation
 
-* [Documentation](https://docs.endatabas.com/reference/clients#javascript)
+* [JavaScript client library](https://docs.endatabas.com/reference/clients#javascript)
+* [Endb SQL Reference](https://docs.endatabas.com/sql/)
 
 ## Usage
 

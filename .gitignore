@@ -6,4 +6,6 @@ endb_data
 __pycache__
 slt/tpch/1/*_tbl.test.gz
 .venv
-
+.python-version
+clients/python/build/
+clients/python/endb.egg-info/
