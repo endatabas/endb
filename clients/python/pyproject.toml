@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "endb"
 dynamic = ["version"]
 authors = [
-  {email = "hello@endatabas.com"}
+  {name = "Endatabas", email = "hello@endatabas.com"}
 ]
 description = "Endatabas Python Client"
 readme = "README.md"
@@ -20,7 +20,7 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/endatabas/endb"
+Homepage = "https://www.endatabas.com/"
 Repository = "https://github.com/endatabas/endb.git"
 Documentation = "https://docs.endatabas.com/reference/clients"
 
