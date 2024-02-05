@@ -5,8 +5,13 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "endb"
 dynamic = ["version"]
+authors = [
+  {email = "hello@endatabas.com"}
+]
 description = "Endatabas Python Client"
+readme = "README.md"
 requires-python = ">=3.10"
+keywords = ["endatabas", "endb", "immutable", "sql", "database"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -17,6 +22,7 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/endatabas/endb"
 Repository = "https://github.com/endatabas/endb.git"
+Documentation = "https://docs.endatabas.com/reference/clients"
 
 [project.scripts]
 "endb_console" = "endb_console:main"
