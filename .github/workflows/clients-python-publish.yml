@@ -4,6 +4,10 @@ on:
     tags:
       - '*'
 
+defaults:
+  run:
+    working-directory: ./clients/python
+
 jobs:
   build:
     name: Build distribution
