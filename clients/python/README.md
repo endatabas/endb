@@ -1,6 +1,6 @@
-# Endatabas Client and Console
+# Endatabas Console and Python Client
 
-The official Python client library and console for
+The official console and Python client library for
 [Endatabas](https://www.endatabas.com).
 
 ## Installation
@@ -16,11 +16,17 @@ support is optional.
 
 ## Documentation
 
-* [Python client library](https://docs.endatabas.com/reference/clients)
-* [Console](https://docs.endatabas.com/reference/clients)
+* [Endb Console](https://docs.endatabas.com/reference/console)
+* [Python client library](https://docs.endatabas.com/reference/clients#python)
 * [Endb SQL Reference](https://docs.endatabas.com/sql/)
 
-## Usage
+## Console Usage
+
+```sh
+endb_console
+```
+
+## Python Client Library Usage
 
 ```python
 from endb import Endb
