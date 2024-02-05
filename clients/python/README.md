@@ -40,6 +40,13 @@ result = await ews.sql("SELECT * FROM users;")
 print(result)
 ```
 
+## Development
+
+```sh
+pip install setuptools wheel twine
+make
+```
+
 ## Copyright and License
 
 This subdirectory of the main Git repository and the contents of

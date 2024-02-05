@@ -9,3 +9,4 @@ slt/tpch/1/*_tbl.test.gz
 .python-version
 clients/python/build/
 clients/python/endb.egg-info/
+clients/python/dist/
