@@ -4,7 +4,7 @@ declare class Endb {
         username?: string;
         password?: string;
     });
-    sql(q: string, p?: any[] | object, m?: boolean): Promise<any[]>;
+    sql(q: string, p?: any[] | object, m?: boolean, accept?: string): Promise<any[]>;
     sql(strings: TemplateStringsArray, ...values: any[]): Promise<any[]>;
 }
 declare class EndbWebSocket {
