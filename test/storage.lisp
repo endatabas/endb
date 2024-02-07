@@ -68,6 +68,7 @@
         (is (equal '("foo.txt") (object-store-list wal :prefix "foo")))
         (is (equal '("foo.txt") (object-store-list wal :start-after "bar.txt")))))))
 
+#-ecl
 (test tar-wal-reopen-and-append
   (let* ((target-dir (asdf:system-relative-pathname :endb-test "target/"))
          (test-log (merge-pathnames "example.log" target-dir)))
@@ -179,7 +180,7 @@
            (actual (buffer-pool-get bp "foo.arrow")))
 
       (is (equalp batches (loop for x in actual
-                                collect (coerce x 'list))))
+                                collect (endb/arrow:to-sequence x))))
       (is (eq actual (buffer-pool-get bp "foo.arrow")))
 
       (is (null (buffer-pool-get bp "bar.arrow"))))))
@@ -200,6 +201,6 @@
     (is (null (buffer-pool-get bp "foo.arrow")))
 
     (is (equalp batches (loop for x in (buffer-pool-get wbp "foo.arrow")
-                              collect (coerce x 'list))))
+                              collect (endb/arrow:to-sequence x))))
 
     (is (null (buffer-pool-get wbp "bar.arrow")))))

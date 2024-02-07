@@ -143,10 +143,12 @@ pub extern "C" fn endb_render_json_error_report(
 type endb_init_logger_on_success_callback = extern "C" fn(*const c_char);
 
 #[no_mangle]
+#[allow(unused_variables)]
 pub extern "C" fn endb_init_logger(
     on_success: endb_init_logger_on_success_callback,
     on_error: endb_on_error_callback,
 ) {
+    #[cfg(feature = "server")]
     match endb_server::init_logger() {
         Ok(level) => string_callback(level.to_string(), on_success),
         Err(err) => string_callback(err.to_string(), on_error),
@@ -185,8 +187,10 @@ pub extern "C" fn endb_log_trace(target: *const c_char, message: *const c_char) 
     do_log(log::Level::Trace, target, message);
 }
 
+#[cfg(feature = "server")]
 type endb_start_tokio_on_init = extern "C" fn();
 
+#[cfg(feature = "server")]
 #[no_mangle]
 #[allow(clippy::redundant_closure)]
 pub extern "C" fn endb_start_tokio(
@@ -343,14 +347,19 @@ pub extern "C" fn endb_metric_histogram(name: *const c_char, value: f64) {
     };
 }
 
+#[cfg(feature = "server")]
 pub struct endb_server_http_response(endb_server::HttpResponse);
 
+#[cfg(feature = "server")]
 pub struct endb_server_http_sender(endb_server::HttpSender);
 
+#[cfg(feature = "server")]
 pub struct endb_server_one_shot_sender(endb_server::OneShotSender);
 
+#[cfg(feature = "server")]
 type endb_start_server_on_query_on_abort_callback = extern "C" fn();
 
+#[cfg(feature = "server")]
 type endb_start_server_on_query_on_response_init_callback = extern "C" fn(
     *mut endb_server_http_response,
     *mut endb_server_one_shot_sender,
@@ -359,6 +368,7 @@ type endb_start_server_on_query_on_response_init_callback = extern "C" fn(
     endb_start_server_on_query_on_abort_callback,
 );
 
+#[cfg(feature = "server")]
 type endb_start_server_on_query_on_response_send_callback = extern "C" fn(
     *mut endb_server_http_sender,
     *const u8,
@@ -366,6 +376,7 @@ type endb_start_server_on_query_on_response_send_callback = extern "C" fn(
     endb_start_server_on_query_on_abort_callback,
 );
 
+#[cfg(feature = "server")]
 type endb_start_server_on_query_callback = extern "C" fn(
     *mut endb_server_http_response,
     *mut endb_server_http_sender,
@@ -379,14 +390,19 @@ type endb_start_server_on_query_callback = extern "C" fn(
     endb_start_server_on_query_on_response_send_callback,
 );
 
+#[cfg(feature = "server")]
 pub struct endb_server_http_websocket_stream(endb_server::HttpWebsocketStream);
 
+#[cfg(feature = "server")]
 type endb_start_server_on_websocket_init_callback = extern "C" fn(*const c_char);
 
+#[cfg(feature = "server")]
 type endb_start_server_on_websocket_close_callback = extern "C" fn(*const c_char);
 
+#[cfg(feature = "server")]
 type endb_start_server_on_websocket_message_on_abort_callback = extern "C" fn();
 
+#[cfg(feature = "server")]
 type endb_start_server_on_websocket_message_on_response_send_callback = extern "C" fn(
     *mut endb_server_http_websocket_stream,
     *const u8,
@@ -394,6 +410,7 @@ type endb_start_server_on_websocket_message_on_response_send_callback = extern "
     endb_start_server_on_websocket_message_on_abort_callback,
 );
 
+#[cfg(feature = "server")]
 type endb_start_server_on_websocket_message_callback = extern "C" fn(
     *const c_char,
     *mut endb_server_http_websocket_stream,
@@ -402,6 +419,7 @@ type endb_start_server_on_websocket_message_callback = extern "C" fn(
     endb_start_server_on_websocket_message_on_response_send_callback,
 );
 
+#[cfg(feature = "server")]
 #[no_mangle]
 pub extern "C" fn endb_start_server(
     on_query: endb_start_server_on_query_callback,
@@ -511,11 +529,14 @@ pub extern "C" fn endb_set_panic_hook(on_panic: endb_on_error_callback) {
 
 #[no_mangle]
 pub extern "C" fn endb_shutdown_logger() {
+    #[cfg(feature = "server")]
     endb_server::shutdown_logger();
 }
 
+#[cfg(feature = "server")]
 type endb_parse_command_line_to_json_on_success_callback = extern "C" fn(*const c_char);
 
+#[cfg(feature = "server")]
 #[no_mangle]
 pub extern "C" fn endb_parse_command_line_to_json(
     on_success: endb_parse_command_line_to_json_on_success_callback,
@@ -523,8 +544,10 @@ pub extern "C" fn endb_parse_command_line_to_json(
     endb_server::parse_command_line_to_json(|config_json| string_callback(config_json, on_success));
 }
 
+#[cfg(feature = "server")]
 type endb_version_on_success_callback = extern "C" fn(*const c_char);
 
+#[cfg(feature = "server")]
 #[no_mangle]
 pub extern "C" fn endb_version(on_success: endb_version_on_success_callback) {
     string_callback(endb_server::ENDB_GIT_DESCRIBE, on_success);

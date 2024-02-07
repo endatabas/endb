@@ -185,7 +185,7 @@
                  (vector-push-extend v acc)
                  acc)
                m
-               :initial-value (make-array 0 :fill-pointer 0)))
+               :initial-value (make-array 0 :fill-pointer 0 :adjustable t)))
 
 (defun %execute-sql (db sql parameters manyp on-statement)
   (when (and manyp (not (or (fset:seq? parameters)
@@ -196,7 +196,7 @@
     (let* ((all-parameters (cond
                              ((typep parameters 'endb/arrow:arrow-binary)
                               (loop for batch in (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer parameters)
-                                    append (coerce batch 'list)))
+                                    append (endb/arrow:to-sequence batch)))
                              (manyp (fset:convert 'list parameters) )
                              (t (list parameters)))))
       (trivia:match ast

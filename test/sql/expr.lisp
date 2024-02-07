@@ -101,6 +101,7 @@
                         '(1 0 :null)
                         :initial-value (make-agg :group_concat :distinct :distinct)))))
 
+#-ecl
 (test equality-and-hashing
   (is (equalp-case-sensitive (endb/arrow:parse-arrow-date-millis "2001-01-01")
                              (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00")))
@@ -129,18 +130,18 @@
   (is (not (= (equalp-case-sensitive-hash-fn (fset:seq (endb/arrow:parse-arrow-date-millis "2001-01-01")))
               (equalp-case-sensitive-hash-fn (fset:seq (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00"))))))
 
-  (let ((ht (make-hash-table :test +hash-table-test+)))
+  (let ((ht (make-sql-hash-table)))
     (setf (gethash (endb/arrow:parse-arrow-date-millis "2001-01-01") ht) t)
     (is (gethash (endb/arrow:parse-arrow-date-millis "2001-01-01") ht))
     (is (gethash (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00") ht)))
 
-  (let ((ht (make-hash-table :test +hash-table-test+)))
+  (let ((ht (make-sql-hash-table)))
     (setf (gethash (vector (endb/arrow:parse-arrow-date-millis "2001-01-01")) ht) t)
     (is (gethash (vector (endb/arrow:parse-arrow-date-millis "2001-01-01")) ht))
     (is (not (gethash (vector (endb/arrow:parse-arrow-date-millis "2001-01-02")) ht)))
     (is (gethash (vector (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00")) ht)))
 
-  (let ((ht (make-hash-table :test +hash-table-test+)))
+  (let ((ht (make-sql-hash-table)))
     (setf (gethash (vector (endb/arrow:parse-arrow-date-millis "2001-01-01") 2) ht) t)
     (is (gethash (vector (endb/arrow:parse-arrow-date-millis "2001-01-01") 2) ht))
     (is (not (gethash (vector (endb/arrow:parse-arrow-date-millis "2001-01-01") 3) ht)))
@@ -148,7 +149,7 @@
     (is (gethash (vector (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00") 2.0d0) ht))
     (is (gethash (vector (endb/arrow:parse-arrow-date-millis "2001-01-01") 2.0d0) ht)))
 
-  (let ((ht (make-hash-table :test +hash-table-test+)))
+  (let ((ht (make-sql-hash-table)))
     (setf (gethash (fset:seq (endb/arrow:parse-arrow-date-millis "2001-01-01")) ht) t)
     (is (gethash (fset:seq (endb/arrow:parse-arrow-date-millis "2001-01-01")) ht))
     (is (not (gethash (fset:seq (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00")) ht))))
@@ -162,12 +163,12 @@
   (is (= (equalp-case-sensitive-hash-fn 2) (equalp-case-sensitive-hash-fn 2.0d0)))
   (is (= (equalp-case-sensitive-hash-fn (fset:seq 2)) (equalp-case-sensitive-hash-fn (fset:seq 2.0d0))))
 
-  (let ((ht (make-hash-table :test +hash-table-test+)))
+  (let ((ht (make-sql-hash-table)))
     (setf (gethash 2 ht) t)
     (is (gethash 2 ht))
     (is (gethash 2.0d0 ht)))
 
-  (let ((ht (make-hash-table :test +hash-table-test+)))
+  (let ((ht (make-sql-hash-table)))
     (setf (gethash (fset:seq 2) ht) t)
     (is (gethash (fset:seq 2) ht))
     (is (not (gethash (fset:seq 2.0d0) ht))))
@@ -177,12 +178,12 @@
   (is (= (equalp-case-sensitive-hash-fn "foo") (equalp-case-sensitive-hash-fn "foo")))
   (is (= (equalp-case-sensitive-hash-fn "foo") (equalp-case-sensitive-hash-fn "FOO")))
 
-  (let ((ht (make-hash-table :test +hash-table-test+)))
+  (let ((ht (make-sql-hash-table)))
     (setf (gethash "foo" ht) t)
     (is (gethash "foo" ht))
     (is (not (gethash "FOO" ht))))
 
-  (let ((ht (make-hash-table :test +hash-table-test+)))
+  (let ((ht (make-sql-hash-table)))
     (setf (gethash (fset:seq "foo") ht) t)
     (is (gethash (fset:seq "foo") ht))
     (is (not (gethash (fset:seq "FOO") ht))))
@@ -193,7 +194,7 @@
     (is (not (equalp-case-sensitive x y)))
     (is (equalp-case-sensitive (fset:seq x) (fset:seq x)))
 
-    (let ((ht (make-hash-table :test +hash-table-test+)))
+    (let ((ht (make-sql-hash-table)))
       (setf (gethash x ht) t)
       (is (gethash x ht))
       (is (not (gethash y ht)))))
@@ -201,13 +202,13 @@
   (is (eq t (equalp-case-sensitive :null :null)))
   (is (equalp-case-sensitive (fset:seq :null) (fset:seq :null)))
 
-  (let ((ht (make-hash-table :test +hash-table-test+)))
+  (let ((ht (make-sql-hash-table)))
     (setf (gethash :null ht) t)
     (is (gethash :null ht)))
 
   (is (not (equalp-case-sensitive-no-nulls :null :null)))
   (is (equalp-case-sensitive-no-nulls (fset:seq :null) (fset:seq :null)))
 
-  (let ((ht (make-hash-table :test +hash-table-test-no-nulls+)))
+  (let ((ht (make-sql-no-nulls-hash-table)))
     (setf (gethash :null ht) t)
     (is (not (gethash :null ht)))))

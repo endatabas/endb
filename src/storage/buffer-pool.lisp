@@ -110,6 +110,6 @@
     (maphash (lambda (k v)
                (setf (gethash k new-pool)
                      (loop for buffer in v
-                           collect (endb/arrow:to-arrow (coerce buffer 'list)))))
+                           collect (endb/arrow:to-arrow (endb/arrow:to-sequence buffer)))))
              new-pool)
     bp))

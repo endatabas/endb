@@ -29,13 +29,13 @@
 
     (is (equalp (list array)
                 (loop for x in (read-arrow-arrays-from-ipc-buffer expected)
-                      collect (coerce x 'list))))
+                      collect (endb/arrow:to-sequence x))))
 
     (is (equalp (list array)
                 (loop for x in (read-arrow-arrays-from-ipc-buffer
                                 (write-arrow-arrays-to-ipc-buffer
                                  (list (endb/arrow:to-arrow array))))
-                      collect (coerce x 'list))))
+                      collect (endb/arrow:to-sequence x))))
 
     (dolist (array `((1 :null 2 4 8)
                      (1 2 3 4 8)
@@ -59,7 +59,7 @@
                                   (write-arrow-arrays-to-ipc-buffer
                                    (list (endb/arrow:to-arrow (loop for x in array
                                                                     collect (fset:map ("" x)))))))
-                        collect (loop for y in (coerce x 'list)
+                        collect (loop for y in (endb/arrow:to-sequence x)
                                       collect (fset:lookup y ""))))))
 
     (let ((arrays '((1 :null 2 4 8)
@@ -70,7 +70,7 @@
                                    (loop for array in arrays
                                          collect (endb/arrow:to-arrow (loop for x in array
                                                                             collect (fset:map ("" x)))))))
-                        collect (loop for y in (coerce x 'list)
+                        collect (loop for y in (endb/arrow:to-sequence x)
                                       collect (fset:lookup y ""))))))))
 
 (test arrow-ffi-ipc-files
@@ -83,7 +83,7 @@
          (progn
            (write-arrow-arrays-to-ipc-file test-file (mapcar #'endb/arrow:to-arrow arrays))
            (is (equalp arrays (loop for x in (read-arrow-arrays-from-ipc-file test-file)
-                                    collect (coerce x 'list)))))
+                                    collect (endb/arrow:to-sequence x)))))
       (when (probe-file test-file)
         (delete-file test-file)))))
 
@@ -94,4 +94,4 @@
                                        (write-arrow-arrays-to-ipc-buffer
                                         (mapcar #'endb/arrow:to-arrow arrays)
                                         :ipc-stream-p t))
-                             collect (coerce x 'list))))))
+                             collect (endb/arrow:to-sequence x))))))

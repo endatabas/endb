@@ -53,7 +53,7 @@
 (defstruct dbms
   db
   (connections (make-hash-table :synchronized t :test 'equal))
-  (savepoints (make-hash-table :synchronized t :weakness #+sbcl nil #-sbcl :value :test endb/sql/expr:+hash-table-test+))
+  (savepoints (make-hash-table :synchronized t :weakness #+sbcl nil #-sbcl :value :test 'equalp))
   (write-lock (bt:make-lock))
   compaction-thread
   compaction-queue)
@@ -203,7 +203,7 @@
                  (vector-push-extend v acc)
                  acc)
                m
-               :initial-value (make-array 0 :fill-pointer 0)))
+               :initial-value (make-array 0 :fill-pointer 0 :adjustable t)))
 
 (defun base-table-size (db table-name)
   (let ((table-md (base-table-meta db table-name)))

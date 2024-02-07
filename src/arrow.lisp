@@ -6,7 +6,7 @@
            #:arrow-timestamp-micros-to-local-time #:arrow-time-micros-to-local-time #:arrow-date-millis-to-local-time #:arrow-interval-month-day-nanos-to-periods-duration
            #:local-time-to-arrow-timestamp-micros #:local-time-to-arrow-date-millis #:local-time-to-arrow-time-micros #:periods-duration-to-arrow-interval-month-day-nanos
            #:arrow-timestamp-micros-to-arrow-date-millis #:arrow-date-millis-to-arrow-timestamp-micros
-           #:to-arrow #:to-arrow-row-format #:make-arrow-array-for #:arrow-class-for-format
+           #:to-arrow #:to-sequence #:to-arrow-row-format #:make-arrow-array-for #:arrow-class-for-format
            #:arrow-push #:arrow-valid-p #:arrow-get #:arrow-value #:arrow-row-format #:arrow-all-buffers
            #:arrow-length #:arrow-null-count #:arrow-data-type #:arrow-lisp-type
            #:arrow-children #:arrow-buffers
@@ -290,7 +290,7 @@
 (defgeneric arrow-children (array))
 (defgeneric arrow-buffers (array))
 
-(defclass arrow-array (sequence standard-object) ())
+(defclass arrow-array (standard-object) ())
 
 (defmethod print-object ((obj arrow-array) stream)
   (print-unreadable-object (obj stream :type t)
@@ -300,48 +300,6 @@
       (when (< n (1- (arrow-length obj)))
         (format stream ", ")))
     (format stream ")")))
-
-(defmethod sequence:elt ((array arrow-array) (n fixnum))
-  (arrow-get array n))
-
-(defmethod sequence:length ((array arrow-array))
-  (arrow-length array))
-
-(defmethod (setf sequence:elt) (x (array arrow-array) (n fixnum))
-  (if (= n (arrow-length array))
-      (progn
-        (arrow-push array x)
-        x)
-      (call-next-method)))
-
-(defmethod sequence:make-sequence-like ((array arrow-array) length &key (initial-element nil initial-element-p) (initial-contents nil initial-contents-p))
-  (let ((new-array (make-instance (type-of array))))
-    (cond
-      (initial-element-p
-       (dotimes (n length)
-         (arrow-push new-array initial-element)))
-      (initial-contents-p
-       (dolist (x (subseq initial-contents 0 (min length (length initial-contents))))
-         (arrow-push new-array x)))
-      (t
-       (dotimes (n (min length (arrow-length array)))
-         (arrow-push new-array (arrow-get array n)))))
-    (loop while (< (arrow-length new-array) length)
-          do (arrow-push new-array :null))
-    new-array))
-
-(defmethod sequence:adjust-sequence ((array arrow-array) length &key (initial-element nil initial-element-p) (initial-contents nil initial-contents-p))
-  (apply #'sequence:make-sequence-like array length
-         (append (when initial-element-p
-                   (list :initial-element initial-element))
-                 (when initial-contents-p
-                   (list :initial-contents initial-contents)))))
-
-(defmethod sequence:subseq ((array arrow-array) start &optional end)
-  (loop with new-array = (make-instance (type-of array))
-        for n from start below (or end (arrow-length array))
-        do (arrow-push new-array (arrow-get array n))
-        finally (return new-array)))
 
 (defun %array-class-for (x)
   (etypecase x
@@ -398,6 +356,10 @@
      (arrow-push acc x))
    xs :initial-value (make-instance 'null-array)))
 
+(defun to-sequence (array)
+  (loop for idx below (arrow-length array)
+        collect (arrow-get array idx)))
+
 (defun to-arrow-row-format (x)
   (let ((array (make-arrow-array-for x)))
     (arrow-push array x)
@@ -415,9 +377,11 @@
         new-array
         (let* ((type-ids (make-array len :element-type 'int8
                                          :fill-pointer len
-                                         :initial-element 0))
+                                         :initial-element 0
+                                         :adjustable t))
                (offsets (make-array len :element-type 'int32
-                                        :fill-pointer len))
+                                        :fill-pointer len
+                                        :adjustable t))
                (children (list (cons nil array) (cons nil new-array))))
           (vector-push-extend 1 type-ids)
           (dotimes (n len)
@@ -511,7 +475,7 @@
   (with-slots (validity) array
     (let ((len (arrow-length array)))
       (unless validity
-        (setf validity (make-array len :element-type 'bit :fill-pointer len :initial-element 1))))))
+        (setf validity (make-array len :element-type 'bit :fill-pointer len :initial-element 1 :adjustable t))))))
 
 (defun %push-invalid (array)
   (with-slots (validity) array
@@ -530,25 +494,16 @@
   (with-slots (values element-type) array
     (setf values (make-array length :element-type element-type
                                     :fill-pointer (unless lengthp
-                                                    length)))))
-
-(defmethod (setf sequence:elt) (x (array primitive-array) (n fixnum))
-  (with-slots (values validity) array
-    (if (eq :null x)
-        (let ((len (arrow-length array)))
-          (unless validity
-            (setf validity (make-array len :element-type 'bit :fill-pointer len :initial-element 1)))
-          (setf (aref validity n) 0))
-        (progn
-          (setf (aref values n) x)
-          (when validity
-            (setf (aref validity n) 1))))
-    x))
+                                                    length)
+                                    :adjustable t))))
 
 (defmethod arrow-push ((array primitive-array) (x (eql :null)))
-  (with-slots (values) array
+  (with-slots (values element-type) array
     (%push-invalid array)
-    (adjust-array values (1+ (length values)) :fill-pointer (1+ (fill-pointer values)))
+    (adjust-array values (1+ (length values)) :fill-pointer (1+ (fill-pointer values))
+                                              :initial-element (if (eq 'float64 element-type)
+                                                                   0.0d0
+                                                                   0))
     array))
 
 (defmethod arrow-length ((array primitive-array))
@@ -680,7 +635,10 @@
   (let* ((row (make-array 9 :element-type 'uint8)))
     (when (arrow-valid-p array n)
       (let* ((x (arrow-value array n))
-             (x (float-features:double-float-bits x))
+             (x #+ecl (ffi:c-inline (x) (:double) :uint64-t
+                                    "{ union { double f; uint64_t u; } fu = { .f = #0 }; @(return) = fu.u; }"
+                                    :side-effects nil)
+                #-ecl (float-features:double-float-bits x))
              (x (if (logbitp 63 x)
                     (logxor x (1- (ash 1 63)))
                     x)))
@@ -707,10 +665,6 @@
 (defclass boolean-array (primitive-array)
   ((values :type (vector bit))
    (element-type :initform 'bit)))
-
-(defmethod (setf sequence:elt) (x (array boolean-array) (n fixnum))
-  (call-next-method (if x 1 0) array n)
-  x)
 
 (defmethod arrow-push ((array boolean-array) x)
   (with-slots (values) array
@@ -751,12 +705,13 @@
     (let ((length (* element-size length)))
       (setf values (make-array length :element-type 'uint8
                                       :fill-pointer (unless lengthp
-                                                      length))))))
+                                                      length)
+                                      :adjustable t)))))
 
 (defmethod arrow-push ((array fixed-width-binary-array) (x (eql :null)))
   (with-slots (values element-size) array
     (%push-invalid array)
-    (adjust-array values (+ element-size (length values)) :fill-pointer (+ element-size (fill-pointer values)))
+    (adjust-array values (+ element-size (length values)) :fill-pointer (+ element-size (fill-pointer values)) :initial-element 0)
     array))
 
 (defmethod arrow-push ((array fixed-width-binary-array) (x vector))
@@ -773,7 +728,7 @@
   (with-slots (values element-size) array
     (let* ((start (* element-size n))
            (storage #+sbcl (sb-ext:array-storage-vector values)
-                    #-sbcl vlaues))
+                    #-sbcl values))
       (make-array element-size :element-type 'uint8 :displaced-to storage :displaced-index-offset start))))
 
 (defmethod arrow-row-format ((array fixed-width-binary-array) (n fixnum))
@@ -865,9 +820,10 @@
   (with-slots (offsets data) array
     (setf offsets (make-array (1+ length) :element-type 'int32
                                           :fill-pointer (unless lengthp
-                                                          (1+ length))))
+                                                          (1+ length))
+                                          :adjustable t))
     (setf data (unless lengthp
-                 (make-array 0 :element-type 'uint8 :fill-pointer 0)))))
+                 (make-array 0 :element-type 'uint8 :fill-pointer 0 :adjustable t)))))
 
 (defmethod arrow-push ((array binary-array) (x vector))
   (with-slots (offsets data) array
@@ -907,7 +863,7 @@
      (make-array 1 :element-type 'uint8 :initial-element 0))
     ((zerop (length x))
      (make-array 1 :element-type 'uint8 :initial-element 1))
-    (t (let ((row (make-array 0 :element-type 'uint8 :fill-pointer 0))
+    (t (let ((row (make-array 0 :element-type 'uint8 :fill-pointer 0 :adjustable t))
              (len (length x))
              (large-block-start-idx (* number-of-small-blocks small-block-size)))
          (labels ((write-blocks (start end block-size)
@@ -983,7 +939,8 @@
   (with-slots (offsets values) array
     (setf offsets (make-array (1+ length) :element-type 'int32
                                           :fill-pointer (unless lengthp
-                                                          (1+ length))))
+                                                          (1+ length))
+                                          :adjustable t))
     (if children
         (progn
           (assert (= 1 (length children)))
@@ -1217,16 +1174,19 @@
     (unless type-ids
       (setf type-ids (make-array length :element-type 'int8
                                         :fill-pointer (unless lengthp
-                                                        length))))
+                                                        length)
+                                        :adjustable t)))
     (unless offsets
       (setf offsets (make-array length :element-type 'int32
                                        :fill-pointer (unless lengthp
-                                                       length))))
+                                                       length)
+                                       :adjustable t)))
     (let ((children (mapcar #'cdr children)))
       (setf (slot-value array 'children)
             (make-array (length children) :fill-pointer (unless lengthp
                                                           (length children))
-                                          :initial-contents children)))))
+                                          :initial-contents children
+                                          :adjustable t)))))
 
 (defmethod arrow-valid-p ((array dense-union-array) (n fixnum))
   (with-slots (type-ids offsets children) array

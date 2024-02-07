@@ -37,7 +37,9 @@
            #:make-agg #:agg-accumulate #:agg-finish
 
            #:sql-runtime-error #:*sqlite-mode* #:+unix-epoch-time+ #:+end-of-time+
-           #:+hash-table-test+ #:+hash-table-test-no-nulls+ #:equalp-case-sensitive #:equalp-case-sensitive-no-nulls #:equalp-case-sensitive-hash-fn
+           #:make-sql-hash-table #:make-sql-no-nulls-hash-table
+
+           #:equalp-case-sensitive #:equalp-case-sensitive-no-nulls #:equalp-case-sensitive-hash-fn
            #:+impure-functions+ #:+table-functions+))
 (in-package :endb/sql/expr)
 
@@ -68,18 +70,28 @@
      (endb/arrow:arrow-date-millis
       (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros x))
      (row-type
-      (map 'vector (lambda (x)
-                     (if (typep x 'endb/arrow:arrow-date-millis)
-                         (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros x)
-                         x))
+      (map #+sbcl 'vector #-sbcl 'list
+           (lambda (x)
+             (if (typep x 'endb/arrow:arrow-date-millis)
+                 (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros x)
+                 x))
            x))
      (t x))))
 
 #+sbcl (sb-impl::define-hash-table-test equalp-case-sensitive equalp-case-sensitive-hash-fn)
-(defparameter +hash-table-test+ #+sbcl 'endb/sql/expr:equalp-case-sensitive #-sbcl 'equalp)
-
 #+sbcl (sb-impl::define-hash-table-test equalp-case-sensitive-no-nulls equalp-case-sensitive-hash-fn)
-(defparameter +hash-table-test-no-nulls+ #+sbcl 'endb/sql/expr:equalp-case-sensitive-no-nulls #-sbcl 'equalp)
+
+(defun make-sql-hash-table ()
+  #+sbcl (make-hash-table :test 'endb/sql/expr:equalp-case-sensitive)
+  #+ecl (make-hash-table :test #'endb/sql/expr:equalp-case-sensitive
+                         :hash-function #'equalp-case-sensitive-hash-fn)
+  #-(or sbcl ecl) (make-hash-table :test 'equalp))
+
+(defun make-sql-no-nulls-hash-table ()
+  #+sbcl (make-hash-table :test 'endb/sql/expr:equalp-case-sensitive-no-nulls)
+  #+ecl (make-hash-table :test #'endb/sql/expr:equalp-case-sensitive-no-nulls
+                         :hash-function #'equalp-case-sensitive-hash-fn)
+  #-(or sbcl ecl) (make-hash-table :test 'equalp))
 
 (defparameter +unix-epoch-time+ (endb/arrow:parse-arrow-timestamp-micros "1970-01-01"))
 (defparameter +end-of-time+ (endb/arrow:parse-arrow-timestamp-micros "9999-01-01"))
@@ -1570,14 +1582,14 @@
   (fset:map ("start" x) ("end" y)))
 
 (defmethod %period-field ((x fset:map) field)
-  (syn-access-finish x field nil))
+  (syn-access-finish x (string-downcase (symbol-name field)) nil))
 
-(defmethod %period-field ((x fset:seq) (field (eql "start")))
+(defmethod %period-field ((x fset:seq) (field (eql :start)))
   (if (= 2 (fset:size x))
       (fset:lookup x 0)
       :null))
 
-(defmethod %period-field ((x fset:seq) (field (eql "end")))
+(defmethod %period-field ((x fset:seq) (field (eql :end)))
   (if (= 2 (fset:size x))
       (fset:lookup x 1)
       :null))
@@ -1592,32 +1604,32 @@
   :null)
 
 (defun sql-contains (x y)
-  (sql-and (sql-<= (%period-field x "start")
-                   (%period-field y "start"))
-           (sql->= (%period-field x "end")
-                   (%period-field y "end"))))
+  (sql-and (sql-<= (%period-field x :start)
+                   (%period-field y :start))
+           (sql->= (%period-field x :end)
+                   (%period-field y :end))))
 
 (defun sql-overlaps (x y)
-  (sql-and (sql-< (%period-field x "start")
-                  (%period-field y "end"))
-           (sql-> (%period-field x "end")
-                  (%period-field y "start"))))
+  (sql-and (sql-< (%period-field x :start)
+                  (%period-field y :end))
+           (sql-> (%period-field x :end)
+                  (%period-field y :start))))
 
 (defun sql-precedes (x y)
-  (sql-<= (%period-field x "end")
-          (%period-field y "start")))
+  (sql-<= (%period-field x :end)
+          (%period-field y :start)))
 
 (defun sql-succeeds (x y)
-  (sql->= (%period-field x "start")
-          (%period-field y "end")))
+  (sql->= (%period-field x :start)
+          (%period-field y :end)))
 
 (defun sql-immediately_precedes (x y)
-  (sql-= (%period-field x "end")
-         (%period-field y "start")))
+  (sql-= (%period-field x :end)
+         (%period-field y :start)))
 
 (defun sql-immediately_succeeds (x y)
-  (sql-= (%period-field x "start")
-         (%period-field y "end")))
+  (sql-= (%period-field x :start)
+         (%period-field y :end)))
 
 ;; Syntax
 
@@ -1962,7 +1974,7 @@
                  (vector-push-extend v acc)
                  acc)
                m
-               :initial-value (make-array 0 :fill-pointer 0)))
+               :initial-value (make-array 0 :fill-pointer 0 :adjustable t)))
 
 (defmethod syn-access ((x fset:map) (y (eql :*)) (recursivep (eql nil)))
   (make-path-seq :acc (%fset-values x)))
@@ -2007,7 +2019,7 @@
 
 (defun ra-distinct (rows &optional (distinct :distinct))
   (if (eq :distinct distinct)
-      (let ((seen (make-hash-table :test +hash-table-test+)))
+      (let ((seen (make-sql-hash-table)))
         (loop for row in rows
               unless (gethash row seen)
                 collect (progn
@@ -2033,7 +2045,7 @@
         :null)))
 
 (defun ra-in-query-index (rows)
-  (loop with index-table = (make-hash-table :test +hash-table-test+)
+  (loop with index-table = (make-sql-hash-table)
         for row in rows
         for in = (aref row 0)
         do (setf (gethash in index-table)
@@ -2061,7 +2073,7 @@
   (append lhs rhs))
 
 (defun ra-except (lhs rhs)
-  (let ((seen (make-hash-table :test +hash-table-test+)))
+  (let ((seen (make-sql-hash-table)))
     (dolist (row rhs)
       (setf (gethash row seen) t))
     (loop for row in lhs
@@ -2071,7 +2083,7 @@
                       row))))
 
 (defun ra-intersect (lhs rhs)
-  (let ((seen (make-hash-table :test +hash-table-test+)))
+  (let ((seen (make-sql-hash-table)))
     (dolist (row lhs)
       (setf (gethash row seen) t))
     (loop for row in rhs
@@ -2207,12 +2219,12 @@
                   hash-index
                   k
                   (lambda ()
-                    (let ((index (make-hash-table :test +hash-table-test-no-nulls+)))
+                    (let ((index (make-sql-no-nulls-hash-table)))
                       (endb/lib:log-trace "hash indexing ~A rows" (endb/arrow:arrow-length batch))
                       (dotimes (idx (endb/arrow:arrow-length batch))
                         (let* ((v (endb/arrow:arrow-struct-column-value batch idx column-kw))
                                (idxs (or (gethash v index)
-                                         (setf (gethash v index) (make-array 0 :fill-pointer 0 :element-type 'fixnum)))))
+                                         (setf (gethash v index) (make-array 0 :fill-pointer 0 :element-type 'fixnum :adjustable t)))))
                           (vector-push-extend idx idxs)))
                       index))))))
             nil)))))
@@ -2386,7 +2398,7 @@
   (with-slots (acc seen distinct) agg
     (when (and (eq :distinct distinct) args)
       (error 'sql-runtime-error :message "GROUP_CONCAT with argument doesn't support DISTINCT"))
-    (if (member x seen :test +hash-table-test+)
+    (if (member x seen :test #'equalp-case-sensitive)
         agg
         (let ((separator (syn-cast (or (first args) ",") :varchar)))
           (when distinct
@@ -2421,7 +2433,7 @@
                                         (ra-order-by acc order-by)
                                         (reverse acc))))))
 
-(defstruct agg-object_agg (acc (make-hash-table :test +hash-table-test+)))
+(defstruct agg-object_agg (acc (make-sql-hash-table)))
 
 (defmethod make-agg ((type (eql :object_agg)) &key distinct)
   (declare (ignore distinct))

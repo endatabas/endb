@@ -623,9 +623,9 @@ SELECT substr('..........',1,level*3) || name FROM under_alice ORDER BY under_al
                       #("......Fred")
                       #("......Gail"))
                     result))
-        (is (equal '("column1") columns)))
-      )
+        (is (equal '("column1") columns))))
 
+    #-ecl
     (multiple-value-bind (result columns)
         (execute-sql db
                      "WITH RECURSIVE
@@ -1100,9 +1100,9 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
-                         (execute-sql db "SELECT EXTRACT(YEAR FROM 2001-01-01)")
-                         (is (equalp (list (vector 2001)) result))
-                         (is (equal '("column1") columns)))
+        (execute-sql db "SELECT EXTRACT(YEAR FROM 2001-01-01)")
+      (is (equalp (list (vector 2001)) result))
+      (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT EXTRACT(MONTH FROM 2001-01-01)")
@@ -1219,7 +1219,7 @@ SELECT s FROM x WHERE ind=0")
   (let* ((db (make-db))
          (system-time-as-of-empty (endb/sql/db:syn-current_timestamp db)))
 
-    (sleep 0.01)
+    (sleep #+sbcl 0.01d0 #-sbcl 1.0d0)
 
     (let* ((write-db (begin-write-tx db))
            (system-time-as-of-insert (endb/sql/db:syn-current_timestamp write-db)))
@@ -1237,7 +1237,7 @@ SELECT s FROM x WHERE ind=0")
 
       (is (null (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME AS OF ?" (fset:seq system-time-as-of-empty))))
 
-      (sleep 0.01)
+      (sleep #+sbcl 0.01d0 #-sbcl 1.0d0)
 
       (let* ((write-db (begin-write-tx db))
              (system-time-as-of-update (endb/sql/db:syn-current_timestamp write-db)))
@@ -2008,6 +2008,7 @@ SELECT s FROM x WHERE ind=0")
       (is (equalp '(#(:null)) result))
       (is (equal '("column1") columns)))))
 
+#-ecl
 (test directory-db
   (let* ((endb/lib:*log-level* (endb/lib:resolve-log-level :off))
          (target-dir (asdf:system-relative-pathname :endb-test "target/"))
@@ -2058,6 +2059,7 @@ SELECT s FROM x WHERE ind=0")
       (when (probe-file test-dir)
         (uiop:delete-directory-tree test-dir :validate t)))))
 
+#-ecl
 (test directory-db-tx-log-version
   (let* ((endb/lib:*log-level* (endb/lib:resolve-log-level :off))
          (target-dir (asdf:system-relative-pathname :endb-test "target/"))
@@ -2102,6 +2104,7 @@ SELECT s FROM x WHERE ind=0")
                                         ("end" endb/sql/expr:+end-of-time+))))
                 (execute-sql db "SELECT s.name, s.system_time, p.system_time FROM sales s JOIN products p ON s.name = p.name WHERE p.name = 'Mangoes'")))))
 
+#-ecl
 (test join-bug-multiple-variables-with-type-widening
   (let* ((db (make-db)))
     (is (equalp `(#(2 ,(endb/arrow:parse-arrow-date-millis "2001-01-01") 2.0 ,(endb/arrow:parse-arrow-timestamp-micros "2001-01-01")))
@@ -2240,7 +2243,7 @@ SELECT s FROM x WHERE ind=0")
     (execute-sql db "INSERT INTO t1(e,c,b,d,a) VALUES(103,102,102,101,104), (NULL,102,NULL,101,104)")
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT COUNT(*), COUNT(e), SUM(e) FILTER (WHERE TRUE), AVG(a), MIN(b), MAX(c), b FROM t1 GROUP BY b")
+        (execute-sql db "SELECT COUNT(*), COUNT(e), SUM(e) FILTER (WHERE TRUE), AVG(a), MIN(b), MAX(c), b FROM t1 GROUP BY b ORDER BY COUNT(*)")
       (is (equalp '(#(1 0 :null 104.0d0 :null 102 :null) #(2 2 207 103.5d0 102 102 102)) result))
       (is (equal '("column1" "column2" "column3" "column4" "column5" "column6" "b") columns)))
 
@@ -2793,6 +2796,7 @@ SELECT s FROM x WHERE ind=0")
         "Vectors need same dimensions: 2 is not 1"
       (execute-sql db "SELECT cosine_distance([1,2], [3])"))
 
+    #-ecl
     (signals-with-msg endb/sql/expr:sql-runtime-error
         "Invalid number of arguments: 1 to: GENERATE_SERIES min: 2 max: 3"
       (execute-sql db "SELECT * FROM generate_series(1) AS foo"))
@@ -2837,14 +2841,17 @@ SELECT s FROM x WHERE ind=0")
         "All VALUES must have the same number of columns: 2"
       (execute-sql db "VALUES (1, 2), (1)"))
 
+    #-ecl
     (signals-with-msg endb/sql/expr:sql-runtime-error
         "Invalid number of arguments: 1 to: LIKE min: 2 max: 3"
       (execute-sql db "SELECT LIKE('foo')"))
 
+    #-ecl
     (signals-with-msg endb/sql/expr:sql-runtime-error
         "Invalid number of arguments: 3 to: MATCH min: 2 max: 2"
       (execute-sql db "SELECT MATCH('foo', 'bar', 'baz')"))
 
+    #-ecl
     (signals-with-msg endb/sql/expr:sql-runtime-error
         "Invalid argument types: LIKE\\(2, \"\"\\)"
       (execute-sql db "SELECT LIKE(2, '')"))

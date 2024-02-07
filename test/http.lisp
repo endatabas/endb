@@ -108,7 +108,7 @@
       (multiple-value-bind (arrays schema)
           (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer (make-array (length body) :element-type '(unsigned-byte 8) :initial-contents body))
         (is (equalp `((,(fset:map ("a" 2) ("b" 1)))) (loop for x in arrays
-                                                           collect (coerce x 'list))))
+                                                           collect (endb/arrow:to-sequence x))))
         (is (equalp (endb/lib/arrow:make-arrow-schema
                      :format "+s"
                      :children (list (endb/lib/arrow:make-arrow-schema
@@ -126,7 +126,7 @@
       (multiple-value-bind (arrays schema)
           (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer (make-array (length body) :element-type '(unsigned-byte 8) :initial-contents body))
         (is (equalp `((,(fset:map ("a" 2) ("b" 1)))) (loop for x in arrays
-                                                           collect (coerce x 'list))))
+                                                           collect (endb/arrow:to-sequence x))))
         (is (equalp (endb/lib/arrow:make-arrow-schema
                      :format "+s"
                      :children (list (endb/lib/arrow:make-arrow-schema
@@ -144,7 +144,7 @@
       (multiple-value-bind (arrays schema)
           (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer (make-array (length body) :element-type '(unsigned-byte 8) :initial-contents body))
         (is (equalp `((,(fset:map ("a" 1)))) (loop for x in arrays
-                                                   collect (coerce x 'list))))
+                                                   collect (endb/arrow:to-sequence x))))
         (is (equalp (endb/lib/arrow:make-arrow-schema
                      :format "+s"
                      :children (list (endb/lib/arrow:make-arrow-schema
@@ -179,6 +179,7 @@
     (is (equal (list +http-bad-request+ () "")
                (%do-query dbms "GET" "application/json" "DELETE FROM foo" "[]" "false")))
 
+    #-ecl
     (is (equal (list +http-bad-request+ '(:content-type "text/plain") (format nil "Invalid argument types: SIN(\"foo\")~%"))
                (%do-query dbms "GET" "application/json" "SELECT SIN(\"foo\")" "[]" "false")))
 

@@ -290,17 +290,17 @@
                  (%parameter-lookup-p y param-sym))))
     (trivia:match (where-clause-src clause)
       ((trivia:guard
-         (list (or 'endb/sql/expr:sql-=
-                   'endb/sql/expr:sql-is)
-               x y)
-         (and (member x vars) (free-var-or-constant-p y)))
+        (list (or 'endb/sql/expr:sql-=
+                  'endb/sql/expr:sql-is)
+              x y)
+        (and (member x vars) (free-var-or-constant-p y)))
        (values (get x :column) y))
 
       ((trivia:guard
-         (list (or 'endb/sql/expr:sql-=
-                   'endb/sql/expr:sql-is)
-               y x)
-         (and (member x vars) (free-var-or-constant-p y)))
+        (list (or 'endb/sql/expr:sql-=
+                  'endb/sql/expr:sql-is)
+              y x)
+        (and (member x vars) (free-var-or-constant-p y)))
        (values (get x :column) y)))))
 
 (defun %where-clause-stats-src (clause vars stats-md-sym param-sym)
@@ -665,7 +665,8 @@
                       (push `(,sip-hashes-sym (when (< (hash-table-count ,sip-table-sym) +sip-hashes-limit+)
                                                 (let ((,sip-hashes-sym (make-array 0
                                                                                    :element-type '(unsigned-byte 64)
-                                                                                   :fill-pointer 0)))
+                                                                                   :fill-pointer 0
+                                                                                   :adjustable t)))
                                                   (alexandria:maphash-keys
                                                    (lambda (,lambda-sym)
                                                      (dolist (,lambda-sym (endb/sql/expr:ra-bloom-hashes ,lambda-sym))
@@ -691,7 +692,7 @@
                                                  `(aref ,row-sym ,(position (first sip-in-vars) source-vars))
                                                  `(vector ,@(loop for v in sip-in-vars
                                                                   collect `(aref ,row-sym ,(position v source-vars)))))))
-                        (push `(,sip-table-sym (let ((,sip-table-sym (make-hash-table :test endb/sql/expr:+hash-table-test-no-nulls+)))
+                        (push `(,sip-table-sym (let ((,sip-table-sym (endb/sql/expr:make-sql-no-nulls-hash-table)))
                                                  (alexandria:maphash-values
                                                   (lambda (,lambda-sym)
                                                     (dolist (,row-sym ,lambda-sym)
@@ -717,7 +718,7 @@
                           ,index-sym
                           ,index-key-form
                           (lambda ()
-                            (let* ((,index-table-sym (make-hash-table :test endb/sql/expr:+hash-table-test-no-nulls+))
+                            (let* ((,index-table-sym (endb/sql/expr:make-sql-no-nulls-hash-table))
                                    ,@sip-init-src)
                               ,(%table-scan->cl ctx
                                                 vars
@@ -866,7 +867,7 @@
                                                collect `(when (eq t ,(aggregate-where-src v))
                                                           (endb/sql/expr:agg-accumulate ,(aggregate-var v) ,@(aggregate-src v)))))))
            (empty-group-key-form (make-array (length group-by-projection) :initial-element :null))
-           (group-by-src `(let ((,group-acc-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
+           (group-by-src `(let ((,group-acc-sym (endb/sql/expr:make-sql-hash-table)))
                             ,(%from->cl ctx from-tables where-clauses group-by-selected-src correlated-vars)
                             ,(unless group-by
                                `(when (zerop (hash-table-count ,group-acc-sym))
@@ -1070,14 +1071,16 @@
         collect (%anonymous-column-name idx)))
 
 (defun %maybe-constant-list (asts)
-  (if (every #'constantp asts)
-      `',asts
-      `(list ,@asts)))
+  #+sbcl (if (every #'constantp asts)
+             `',asts
+             `(list ,@asts))
+  #-sbcl `(list ,@asts))
 
 (defun %maybe-constant-vector (asts)
-  (if (every #'constantp asts)
-      `#(,@asts)
-      `(vector ,@asts)))
+  #+sbcl (if (every #'constantp asts)
+             `#(,@asts)
+             `(vector ,@asts))
+  #-sbcl `(vector ,@asts))
 
 (defmethod sql->cl (ctx (type (eql :values)) &rest args)
   (destructuring-bind (values-list &key order-by limit offset start end)
@@ -1425,7 +1428,7 @@
                                               (unless (= (length ,object-sym)
                                                          (length (delete-duplicates
                                                                   ,object-sym
-                                                                  :test endb/sql/expr:+hash-table-test+
+                                                                  :test #'endb/sql/expr:equalp-case-sensitive
                                                                   :key (lambda (,object-sym)
                                                                          (loop for ,key-sym in ',on-conflict
                                                                                collect (endb/sql/expr:syn-access-finish ,object-sym ,key-sym nil))))))
@@ -1666,7 +1669,7 @@
   (destructuring-bind (args)
       args
     (alexandria:with-gensyms (acc-sym spread-sym)
-      `(let ((,acc-sym (make-array 0 :fill-pointer 0)))
+      `(let ((,acc-sym (make-array 0 :fill-pointer 0 :adjustable t)))
          ,@(loop for ast in args
                  collect (if (and (listp ast)
                                   (eq :spread-property (first ast)))
@@ -2169,7 +2172,7 @@
                          (error 'endb/sql/expr:sql-runtime-error :message (format nil "Required parameters: ~A does not match given: ~A"
                                                                                   (fset:convert 'list (fset:convert 'fset:set ',parameters))
                                                                                   (or (fset:convert 'list (fset:domain ,param-sym)) "()"))))
-                       (let ((,index-sym (make-hash-table :test endb/sql/expr:+hash-table-test+)))
+                       (let ((,index-sym (endb/sql/expr:make-sql-hash-table)))
                          (declare (ignorable ,index-sym))
                          (multiple-value-call ,on-statement-sym ,src))))
                (cachep (not (%interpretp ast))))

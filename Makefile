@@ -1,5 +1,5 @@
 SBCL_DYNAMIC_SPACE_SIZE ?= 8192
-LISP ?= sbcl --noinform --dynamic-space-size $(SBCL_DYNAMIC_SPACE_SIZE) --no-userinit --no-sysinit --load _build/setup.lisp
+LISP ?= sbcl --noinform --dynamic-space-size $(SBCL_DYNAMIC_SPACE_SIZE) --no-userinit --no-sysinit --non-interactive --load _build/setup.lisp
 
 SOURCES = $(shell find src -iname \*.lisp)
 FASL_FILES = $(shell find . -iname \*.fasl)
@@ -64,23 +64,21 @@ endb_data:
 
 target/endb: Makefile *.asd $(SOURCES) target/libendb$(SHARED_LIB_EXT)
 	mkdir -p target
-	$(LISP) --non-interactive \
-		--eval '(asdf:load-system :endb)' \
+	$(LISP) --eval '(asdf:load-system :endb)' \
 		--eval '(asdf:make :endb)'
 
-repl:
-	rlwrap $(LISP) --eval '(asdf:load-system :endb)' --eval '(in-package :endb/core)'
-
 run:
-	$(LISP) --non-interactive --eval '(asdf:load-system :endb)' --eval '(endb/core:main)'
+	$(LISP) --eval '(asdf:load-system :endb)' --eval '(endb/core:main)'
 
 run-binary: target/endb
 	@rlwrap ./$<
 
 test: lib-test target/libendb$(SHARED_LIB_EXT)
-	$(LISP) --non-interactive \
-		--eval '(asdf:load-system :endb-test)' \
+	$(LISP) --eval '(asdf:load-system :endb-test)' \
 		--eval '(uiop:quit (if (fiveam:run-all-tests) 0 1))'
+
+test-ecl: LISP = ecl -norc --load _build/setup.lisp
+test-ecl: test
 
 check: test slt-test-expr slt-test-sql-acid slt-test-tpch
 
@@ -120,8 +118,7 @@ target/libsqllogictest$(SHARED_LIB_EXT): Makefile target/sqllogictest_src
 	cd target/sqllogictest_src && $(CC) $(CFLAGS) -o $(CURDIR)/$@ $(SLT_SOURCES)
 
 target/slt: Makefile *.asd $(SOURCES) slt/*.lisp target/libsqllogictest$(SHARED_LIB_EXT) target/libendb$(SHARED_LIB_EXT)
-	$(LISP) --non-interactive \
-		--eval '(asdf:load-system :endb-slt)' \
+	$(LISP) --eval '(asdf:load-system :endb-slt)' \
 		--eval '(asdf:make :endb-slt)'
 
 slt-test: target/slt
@@ -261,6 +258,6 @@ clean:
 	(cd lib; $(CARGO) clean)
 	rm -rf target $(FASL_FILES)
 
-.PHONY: repl run run-binary test check lib-check lib-lint lib-update lib-test lib-microbench update-submodules \
+.PHONY: run run-binary test test-ecl check lib-check lib-lint lib-update lib-test lib-microbench update-submodules \
 	slt-test slt-test-select slt-test-random slt-test-index slt-test-evidence slt-test-all slt-test-tpch slt-test-expr slt-test-ci \
 	slt-test-sql-acid sql-acid-test tpcc docker docker-alpine run-docker push-docker clean

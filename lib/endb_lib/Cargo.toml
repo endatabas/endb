@@ -11,11 +11,15 @@ rust-version.workspace = true
 name = "endb"
 crate-type = ["cdylib"]
 
+[features]
+default = ["server"]
+server = ["dep:endb_server"]
+
 [dependencies]
 libc = "0.2.0"
 endb_arrow = { path = "../endb_arrow/" }
 endb_cst = { path = "../endb_cst/" }
-endb_server = { path = "../endb_server/" }
+endb_server = { path = "../endb_server/", optional = true }
 base64.workspace = true
 arrow.workspace = true
 log.workspace = true

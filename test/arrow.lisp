@@ -18,7 +18,7 @@
                (slot-value array 'endb/arrow::validity)))
     (is (equalp #(1 0 2 4 8)
                 (slot-value array 'endb/arrow::values)))
-    (is (equal expected (coerce array 'list)))
+    (is (equal expected (endb/arrow:to-sequence array)))
     (is (null (arrow-children array)))
     (is (= 2 (length (arrow-buffers array)))))
 
@@ -30,7 +30,7 @@
     (is (null (slot-value array 'endb/arrow::validity)))
     (is (equalp #(1 2 3 4 8)
                 (slot-value array 'endb/arrow::values)))
-    (is (equal expected (coerce array 'list)))
+    (is (equal expected (endb/arrow:to-sequence array)))
     (is (null (arrow-children array)))
     (is (= 2 (length (arrow-buffers array))))))
 
@@ -44,12 +44,12 @@
                (slot-value array 'endb/arrow::validity)))
     (is (equalp #(0 3 3 7 7)
                 (slot-value array 'endb/arrow::offsets)))
-    (is (equalp expected (coerce array 'list)))
+    (is (equalp expected (endb/arrow:to-sequence array)))
     (is (= 1 (length (arrow-children array))))
     (is (= 2 (length (arrow-buffers array))))
     (let ((values (slot-value array 'endb/arrow::values)))
       (is (typep values 'endb/arrow::int64-array))
-      (is (equal '(12 -7 25 0 -127 127 50) (coerce values 'list)))))
+      (is (equal '(12 -7 25 0 -127 127 50) (endb/arrow:to-sequence values)))))
 
   (let* ((expected (list (fset:seq (fset:seq 1 2) (fset:seq 3 4)) (fset:seq (fset:seq 5 6 7) :null (fset:seq 8)) (fset:seq (fset:seq 9 10))))
          (array (to-arrow expected)))
@@ -58,7 +58,7 @@
     (is (zerop (arrow-null-count array)))
     (is (equalp #(0 2 5 6)
                 (slot-value array 'endb/arrow::offsets)))
-    (is (equalp expected (coerce array 'list)))
+    (is (equalp expected (endb/arrow:to-sequence array)))
     (is (= 1 (length (arrow-children array))))
     (is (= 2 (length (arrow-buffers array))))
 
@@ -74,7 +74,7 @@
         (is (typep values 'endb/arrow::int64-array))
         (is (= 10 (arrow-length values)))
         (is (zerop (arrow-null-count values)))
-        (is (equal '(1 2 3 4 5 6 7 8 9 10) (coerce values 'list)))))))
+        (is (equal '(1 2 3 4 5 6 7 8 9 10) (endb/arrow:to-sequence values)))))))
 
 (test struct-layout
   (let* ((expected (list (fset:map ("name" "joe") ("id" 1))
@@ -87,7 +87,7 @@
     (is (= 1 (arrow-null-count array)))
     (is (equal #*1101
                (slot-value array 'endb/arrow::validity)))
-    (is (equalp expected (coerce array 'list)))
+    (is (equalp expected (endb/arrow:to-sequence array)))
     (is (= 2 (length (arrow-children array))))
     (is (= 1 (length (arrow-buffers array))))
 
@@ -119,7 +119,7 @@
     (is (typep array 'endb/arrow::dense-union-array))
     (is (= 4 (arrow-length array)))
     (is (= 1 (arrow-null-count array)))
-    (is (equal expected (coerce array 'list)))
+    (is (equal expected (endb/arrow:to-sequence array)))
     (is (equalp #(0 0 0 1) (slot-value array 'endb/arrow::type-ids)))
     (is (equalp #(0 1 2 0) (slot-value array 'endb/arrow::offsets)))
     (is (= 2 (length (arrow-children array))))
@@ -134,13 +134,13 @@
       (is (= 1 (arrow-null-count f)))
       (is (equal #*101
                  (slot-value f 'endb/arrow::validity)))
-      (is (equal '(1.2d0 :null 3.4d0) (coerce f 'list)))
+      (is (equal '(1.2d0 :null 3.4d0) (endb/arrow:to-sequence f)))
 
       (is (typep i 'endb/arrow::int64-array))
       (is (= 1 (arrow-length i)))
       (is (zerop (arrow-null-count i)))
       (is (null (slot-value i 'endb/arrow::validity)))
-      (is (equal '(5) (coerce i 'list))))))
+      (is (equal '(5) (endb/arrow:to-sequence i))))))
 
 (test empty-structs
   (let* ((expected (list (fset:map ("x" 1) ("y" "foo"))
@@ -151,7 +151,7 @@
     (is (= 3 (arrow-length array)))
     (is (zerop (arrow-null-count array)))
     (is (= 3 (length (slot-value array 'endb/arrow::children))))
-    (is (equalp expected (coerce array 'list)))
+    (is (equalp expected (endb/arrow:to-sequence array)))
     (is (= 3 (length (arrow-children array))))
     (is (= 2 (length (arrow-buffers array)))))
 
@@ -161,7 +161,7 @@
     (is (= 2 (arrow-length array)))
     (is (zerop (arrow-null-count array)))
     (is (= 2 (length (slot-value array 'endb/arrow::children))))
-    (is (equalp expected (coerce array 'list)))
+    (is (equalp expected (endb/arrow:to-sequence array)))
     (is (= 2 (length (arrow-children array))))
     (is (= 2 (length (arrow-buffers array)))))
 
@@ -171,7 +171,7 @@
     (is (= 2 (arrow-length array)))
     (is (zerop (arrow-null-count array)))
     (is (null (slot-value array 'endb/arrow::validity)))
-    (is (equalp expected (coerce array 'list)))
+    (is (equalp expected (endb/arrow:to-sequence array)))
     (is (= 1 (length (arrow-children array))))
     (is (= 2 (length (arrow-buffers array)))))
 
@@ -182,7 +182,7 @@
     (is (= 1 (arrow-null-count array)))
     (is (equal #*01
                (slot-value array 'endb/arrow::validity)))
-    (is (equalp expected (coerce array 'list)))
+    (is (equalp expected (endb/arrow:to-sequence array)))
     (is (= 1 (length (arrow-children array))))
     (is (= 2 (length (arrow-buffers array))))))
 
@@ -194,7 +194,7 @@
     (is (= 1 (arrow-null-count array)))
     (is (equal #*110
                (slot-value array 'endb/arrow::validity)))
-    (is (equal expected (coerce array 'list)))
+    (is (equal expected (endb/arrow:to-sequence array)))
     (is (zerop (length (arrow-children array))))
     (is (= 2 (length (arrow-buffers array)))))
 
@@ -205,7 +205,7 @@
     (is (= 1 (arrow-null-count array)))
     (is (equal #*101
                (slot-value array 'endb/arrow::validity)))
-    (is (equal expected (coerce array 'list)))
+    (is (equal expected (endb/arrow:to-sequence array)))
     (is (zerop (length (arrow-children array))))
     (is (= 2 (length (arrow-buffers array)))))
 
@@ -215,7 +215,7 @@
     (is (= 1 (arrow-length array)))
     (is (zerop (arrow-null-count array)))
     (is (null (slot-value array 'endb/arrow::validity)))
-    (is (equal expected (coerce array 'list)))
+    (is (equal expected (endb/arrow:to-sequence array)))
     (is (zerop (length (arrow-children array))))
     (is (= 2 (length (arrow-buffers array))))))
 
@@ -238,26 +238,10 @@
     (is (not (typep string 'endb/arrow::arrow-struct)))
     (is (stringp string))))
 
-(test extensible-sequence
-  (let ((array (to-arrow '(1 2 3))))
-    (is (= 3 (length array)))
-    (is (= 3 (elt array 2)))
-    (is (equal '(1 2 3)
-               (loop for x being the element in array
-                     collect x)))
-    (is (equal '(1 2) (coerce (subseq array 0 2) 'list)))
-    (is (equal '(3) (coerce (subseq array 2) 'list)))
-    (is (equal '(1 2 3) (coerce (copy-seq array) 'list)))
-    (is (equal '(2 3 4) (map 'list #'1+ array)))
-    (setf (elt array 1) 4)
-    (setf (elt array 2) :null)
-    (is (equal '(1 4 :null) (coerce array 'list)))
-    (is (equal '(4 :null) (coerce (remove 1 array) 'list)))))
-
 (test in128-overflow
   (let ((array (to-arrow '(9223372036854775807 9223372036854775808))))
     (is (typep array 'endb/arrow::dense-union-array))
-    (is (equal '(9223372036854775807 9223372036854775808) (coerce array 'list)))
+    (is (equal '(9223372036854775807 9223372036854775808) (endb/arrow:to-sequence array)))
     (let* ((children (slot-value array 'endb/arrow::children))
            (i (elt children 0))
            (d (elt children 1)))
@@ -266,7 +250,7 @@
 
   (let ((array (to-arrow '(170141183460469231731687303715884105728 -170141183460469231731687303715884105729))))
     (is (typep array 'endb/arrow::float64-array))
-    (is (equal '(1.7014118346046923d38 -1.7014118346046923d38) (coerce array 'list))))
+    (is (equal '(1.7014118346046923d38 -1.7014118346046923d38) (endb/arrow:to-sequence array))))
 
   (let* ((expected '(170141183460469231731687303715884105727 -170141183460469231731687303715884105728 -1 -9223372036854775808 :null 0 2))
          (array (to-arrow expected))
@@ -276,7 +260,7 @@
     (is (typep d 'endb/arrow::decimal-array))
     (is (typep i 'endb/arrow::int64-array))
     (is (= 16 (slot-value d 'endb/arrow::element-size)))
-    (is (equal expected (coerce array 'list))))
+    (is (equal expected (endb/arrow:to-sequence array))))
 
   (let* ((array (to-arrow '(170141183460469231731687303715884105727))))
     (is (equalp #(255 255 255 255 255 255 255 255 255 255 255 255 255 255 255 127)
@@ -293,13 +277,13 @@
                          (endb/arrow:parse-arrow-interval-month-day-nanos "P3Y6M")
                          (endb/arrow:parse-arrow-interval-month-day-nanos "PT12H30M5S")))
          (array (to-arrow expected)))
-    (is (equalp expected (coerce array 'list))))
+    (is (equalp expected (endb/arrow:to-sequence array))))
 
   (let* ((array (to-arrow (list (endb/arrow:parse-arrow-interval-month-day-nanos "P5M3DT0.000000006S")))))
     (is (equalp #(5 0 0 0 3 0 0 0 6 0 0 0 0 0 0 0)
                 (slot-value array 'endb/arrow::values)))
     (is (equalp (list (endb/arrow::make-arrow-interval-month-day-nanos :month 5 :day 3 :ns 6))
-                (coerce array 'list)))))
+                (endb/arrow:to-sequence array)))))
 
 ;; https://arrow.apache.org/blog/2022/11/07/multi-column-sorts-in-arrow-rust-part-2/
 
