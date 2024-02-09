@@ -1,6 +1,6 @@
 (defpackage :endb/lib/server
   (:use :cl)
-  (:export #:start-server #:sql-abort-query-server-error #:parse-command-line #:get-endb-version #:start-tokio)
+  (:export #:start-server #:sql-abort-query-server-error #:parse-command-line #:start-tokio)
   (:import-from :alexandria)
   (:import-from :cffi)
   (:import-from :endb/json)
@@ -9,6 +9,7 @@
   (:import-from :trivial-utf-8))
 (in-package :endb/lib/server)
 
+#-wasm32
 (cffi:defcfun "endb_start_server" :void
   (on-query :pointer)
   (on-error :pointer)
@@ -16,6 +17,7 @@
   (on-ws-close :pointer)
   (on-ws-message :pointer))
 
+#-wasm32
 (cffi:defcfun "endb_parse_command_line_to_json" :void
   (on-success :pointer))
 
@@ -31,23 +33,6 @@
          (*parse-command-line-on-success* (lambda (config-json)
                                             (setf result (endb/json:json-parse config-json)))))
     (endb-parse-command-line-to-json (cffi:callback parse-command-line-to-json-on-success))
-    result))
-
-(cffi:defcfun "endb_version" :void
-  (on-success :pointer))
-
-(defvar *endb-version-on-success*)
-
-(cffi:defcallback endb-version-on-success :void
-    ((version :string))
-  (funcall *endb-version-on-success* version))
-
-(defun get-endb-version ()
-  (endb/lib:init-lib)
-  (let* ((result)
-         (*endb-version-on-success* (lambda (version)
-                                      (setf result version))))
-    (endb-version (cffi:callback endb-version-on-success))
     result))
 
 (defvar *start-server-on-query*)
@@ -98,7 +83,7 @@
                  (cffi:foreign-funcall-pointer on-response-send ()
                                                :pointer sender
                                                :pointer body-ptr
-                                               :size (length body)
+                                               #-wasm32 :size #+wasm32 :uint32 (length body)
                                                :pointer (cffi:callback start-server-on-query-abort)
                                                :void))
                (when abortp
@@ -134,7 +119,7 @@
     ((remote-addr :string)
      (ws-stream :pointer)
      (message-ptr :pointer)
-     (message-size :size)
+     (message-size #-wasm32 :size #+wasm32 :uint32)
      (on-ws-send :pointer))
   (funcall *start-server-on-websocket-message*
            remote-addr
@@ -152,7 +137,7 @@
                  (cffi:foreign-funcall-pointer on-ws-send ()
                                                :pointer ws-stream
                                                :pointer body-ptr
-                                               :size (length body)
+                                               #-wasm32 :size #+wasm32 :uint32 (length body)
                                                :pointer (cffi:callback start-server-on-websocket-message-on-abort)
                                                :void))
                (when abortp
@@ -196,6 +181,7 @@
     ((err :string))
   (funcall *start-tokio-on-error* err))
 
+#-wasm32
 (cffi:defcfun "endb_start_tokio" :void
   (f :pointer)
   (on-error :pointer))

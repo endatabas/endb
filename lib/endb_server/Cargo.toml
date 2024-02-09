@@ -12,7 +12,7 @@ crate-type = ["rlib"]
 
 [dependencies]
 tracing.workspace = true
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-subscriber.workspace = true
 tracing-log = "0.2"
 tracing-opentelemetry = { version = "0.22", features = ["metrics"] }
 opentelemetry = "0.21"

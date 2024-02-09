@@ -1,6 +1,6 @@
 (defpackage :endb-test/http
   (:use :cl :fiveam :endb/http)
-  (:import-from :bordeaux-threads)
+  #-wasm32 (:import-from :bordeaux-threads)
   (:import-from :fset)
   (:import-from :endb/arrow)
   (:import-from :endb/json)
@@ -222,6 +222,7 @@
                                  (%on-response-init status-code content-type)))
                            #'%on-response-send))))))
 
+#+thread-support
 (test retry-on-conflict
   (let* ((dbms (endb/sql/db:make-dbms :db (endb/sql:make-db)))
          (write-db (endb/sql:begin-write-tx (endb/sql/db:dbms-db dbms)))

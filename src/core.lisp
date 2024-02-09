@@ -1,7 +1,7 @@
 (defpackage :endb/core
   (:use :cl)
   (:export #:main)
-  (:import-from :bordeaux-threads)
+  #-wasm32 (:import-from :bordeaux-threads)
   (:import-from :fset)
   (:import-from :endb/sql/db)
   (:import-from :endb/http)
@@ -14,17 +14,18 @@
 
 (defun %endb-init (config)
   (endb/lib:with-trace-span "startup"
-    (endb/lib:log-info "version ~A" (endb/lib/server:get-endb-version))
+    (endb/lib:log-info "version ~A" (endb/lib:get-endb-version))
     (endb/sql:install-interrupt-query-handler)
     (endb/sql:make-dbms :directory (fset:lookup config "data_directory"))))
 
 (defun %endb-close-dbms (dbms)
   (endb/lib:with-trace-span "shutdown"
     (endb/lib:log-info "shutting down")
-    (if (bt:acquire-lock (endb/sql/db:dbms-write-lock dbms) nil)
+    (if #+thread-support (bt:acquire-lock (endb/sql/db:dbms-write-lock dbms) nil)
+        #-thread-support t
         (unwind-protect
              (endb/sql:dbms-close dbms)
-          (bt:release-lock (endb/sql/db:dbms-write-lock dbms)))
+          #+thread-support (bt:release-lock (endb/sql/db:dbms-write-lock dbms)))
         (endb/lib:log-warn "could not close the database cleanly"))))
 
 (defun %endb-main ()

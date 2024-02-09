@@ -7,6 +7,8 @@ use base64::Engine;
 
 use std::panic;
 
+pub const ENDB_GIT_DESCRIBE: &str = env!("ENDB_GIT_DESCRIBE");
+
 fn string_callback<T: Into<Vec<u8>>>(s: T, cb: extern "C" fn(*const c_char)) {
     let c_string = CString::new(s).unwrap();
     cb(c_string.as_ptr());
@@ -142,17 +144,30 @@ pub extern "C" fn endb_render_json_error_report(
 
 type endb_init_logger_on_success_callback = extern "C" fn(*const c_char);
 
+#[cfg(feature = "server")]
 #[no_mangle]
-#[allow(unused_variables)]
 pub extern "C" fn endb_init_logger(
     on_success: endb_init_logger_on_success_callback,
     on_error: endb_on_error_callback,
 ) {
-    #[cfg(feature = "server")]
     match endb_server::init_logger() {
         Ok(level) => string_callback(level.to_string(), on_success),
         Err(err) => string_callback(err.to_string(), on_error),
     }
+}
+
+#[cfg(not(feature = "server"))]
+#[no_mangle]
+pub extern "C" fn endb_init_logger(
+    on_success: endb_init_logger_on_success_callback,
+    _on_error: endb_on_error_callback,
+) {
+    let level = tracing::Level::INFO;
+    tracing_subscriber::fmt()
+        .with_ansi(false)
+        .with_max_level(level)
+        .init();
+    string_callback(level.to_string(), on_success);
 }
 
 fn do_log(level: log::Level, target: *const c_char, message: *const c_char) {
@@ -544,13 +559,11 @@ pub extern "C" fn endb_parse_command_line_to_json(
     endb_server::parse_command_line_to_json(|config_json| string_callback(config_json, on_success));
 }
 
-#[cfg(feature = "server")]
 type endb_version_on_success_callback = extern "C" fn(*const c_char);
 
-#[cfg(feature = "server")]
 #[no_mangle]
 pub extern "C" fn endb_version(on_success: endb_version_on_success_callback) {
-    string_callback(endb_server::ENDB_GIT_DESCRIBE, on_success);
+    string_callback(ENDB_GIT_DESCRIBE, on_success);
 }
 
 type endb_base64_encode_on_success_callback = extern "C" fn(*const c_char);

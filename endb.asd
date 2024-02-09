@@ -8,7 +8,7 @@
   :depends-on ("endb/core"
                "alexandria"
                "archive"
-               "bordeaux-threads"
+               #-wasm32 "bordeaux-threads"
                "cffi"
                "cl-ppcre"
                "com.inuoe.jzon"

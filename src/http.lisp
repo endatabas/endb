@@ -3,7 +3,7 @@
   (:export #:endb-query #:endb-on-ws-message
            #:+http-ok+ #:+http-created+ #:+http-no-content+ #:+http-bad-request+ #:+http-conflict+ #:+http-internal-server-error+ #:+http-service-unavailable+
            #:+json-rpc-parse-error+ #:+json-rpc-invalid-request+ #:+json-rpc-method-not-found+ #:+json-rpc-invalid-params+ #:+json-rpc-internal-error+)
-  (:import-from :bordeaux-threads)
+  #-wasm32 (:import-from :bordeaux-threads)
   (:import-from :cl-ppcre)
   (:import-from :com.inuoe.jzon)
   (:import-from :fset)
@@ -157,8 +157,9 @@
                          ((equal "POST" request-method)
                           (if (endb/sql/db:db-savepoint write-db)
                               (send-response +http-ok+ result result-code)
-                              (bt:with-lock-held ((endb/sql/db:dbms-write-lock dbms))
-                                (endb/lib:metric-monotonic-counter "transactions_prepared_total" 1)
+                              (#+thread-support bt:with-lock-held #+thread-support ((endb/sql/db:dbms-write-lock dbms))
+                               #-thread-support progn
+                               (endb/lib:metric-monotonic-counter "transactions_prepared_total" 1)
                                 (if (eq original-md (endb/sql/db:db-meta-data (endb/sql/db:dbms-db dbms)))
                                     (let* ((new-db (endb/sql:commit-write-tx (endb/sql/db:dbms-db dbms) write-db)))
                                       (setf (endb/sql/db:dbms-db dbms) new-db)
@@ -273,8 +274,9 @@
                                                     (endb/sql/db:db-meta-data write-db)))
                                    (content-type "application/ld+json"))
                               (labels ((commit-tx (result result-code)
-                                         (bt:with-lock-held ((endb/sql/db:dbms-write-lock dbms))
-                                           (endb/lib:metric-monotonic-counter "transactions_prepared_total" 1)
+                                         (#+thread-support bt:with-lock-held #+thread-support ((endb/sql/db:dbms-write-lock dbms))
+                                          #-thread-support progn
+                                          (endb/lib:metric-monotonic-counter "transactions_prepared_total" 1)
                                            (cond
                                              ((eq original-md (endb/sql/db:db-meta-data (endb/sql/db:dbms-db dbms)))
                                               (let* ((new-db (endb/sql:commit-write-tx (endb/sql/db:dbms-db dbms) write-db)))

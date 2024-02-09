@@ -2,13 +2,14 @@
   (:use :cl)
   (:export #:make-queue #:queue-pop #:queue-push #:queue-close #:make-queue-consumer-worker #:make-queue-timer-worker)
   (:import-from :endb/lib)
-  (:import-from :bordeaux-threads)
+  #-wasm32 (:import-from :bordeaux-threads)
   (:import-from :trivial-backtrace))
 (in-package :endb/queue)
 
-(defstruct queue (lock (bt:make-lock)) (cv (bt:make-condition-variable)) data)
+(defstruct queue (lock #+thread-support (bt:make-lock)) (cv #+thread-support (bt:make-condition-variable)) data)
 
 (defun queue-pop (queue &key timeout)
+  #+thread-support
   (with-slots (lock cv data) queue
     (bt:with-lock-held (lock)
       (loop until data
@@ -20,6 +21,7 @@
           x)))))
 
 (defun queue-push (queue x)
+  #+thread-support
   (with-slots (lock cv data) queue
     (bt:with-lock-held (lock)
       (unless (eq 'close (car (last data)))
@@ -32,6 +34,7 @@
 
 (defun make-queue-consumer-worker (job-queue)
   (lambda ()
+    #+thread-support
     (loop for job = (endb/queue:queue-pop job-queue)
           if (null job)
             do (return-from nil)
@@ -45,6 +48,7 @@
 
 (defun make-queue-timer-worker (close-queue job interval)
   (lambda ()
+    #+thread-support
     (loop
       (multiple-value-bind (event timeoutp)
           (endb/queue:queue-pop close-queue :timeout interval)

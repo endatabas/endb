@@ -1,7 +1,7 @@
 (defpackage :endb/sql/db
   (:use :cl)
   (:import-from :alexandria)
-  (:import-from :bordeaux-threads)
+  #-wasm32 (:import-from :bordeaux-threads)
   (:import-from :cl-ppcre)
   (:import-from :endb/arrow)
   (:import-from :endb/bloom)
@@ -54,7 +54,7 @@
   db
   (connections (make-hash-table :synchronized t :test 'equal))
   (savepoints (make-hash-table :synchronized t :weakness #+sbcl nil #-sbcl :value :test 'equalp))
-  (write-lock (bt:make-lock))
+  (write-lock #+thread-support (bt:make-lock))
   compaction-thread
   compaction-queue)
 
@@ -415,6 +415,7 @@
                 (endb/lib:log-info "compacted ~A" batch-key)))))))))
 
 (defun start-background-compaction (dbms db-commit-fn object-put-fn &key (target-size (* 4 1024 1024)) (timeout 1))
+  #+thread-support
   (let ((compaction-queue (endb/queue:make-queue)))
     (setf (dbms-compaction-queue dbms)
           compaction-queue
@@ -427,6 +428,7 @@
                           :name "endb compaction"))))
 
 (defun start-background-indexer (db)
+  #+thread-support
   (let ((indexer-queue (endb/queue:make-queue)))
     (setf (db-indexer-queue db)
           indexer-queue

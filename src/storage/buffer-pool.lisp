@@ -3,7 +3,7 @@
   (:export #:make-buffer-pool #:buffer-pool-get #:buffer-pool-put #:buffer-pool-evict #:buffer-pool-close
            #:make-writeable-buffer-pool #:writeable-buffer-pool-pool #:deep-copy-writeable-buffer-pool)
   (:import-from :alexandria)
-  (:import-from :bordeaux-threads)
+  #-wasm32 (:import-from :bordeaux-threads)
   (:import-from :endb/lib)
   (:import-from :endb/lib/arrow))
 (in-package :endb/storage/buffer-pool)
@@ -16,7 +16,7 @@
 (defstruct buffer-pool
   get-object-fn
   (pool (make-hash-table :synchronized t :test 'equal))
-  (evict-lock (bt:make-lock))
+  (evict-lock #+thread-support (bt:make-lock))
   (max-size (* 512 1024 1024))
   (current-size 0)
   (evict-ratio 0.8d0))
@@ -25,18 +25,19 @@
 
 (defun %evict-buffer-pool (bp)
   (with-slots (pool max-size evict-lock evict-ratio current-size) bp
-    (bt:with-lock-held (evict-lock)
-      (let ((target-size (* evict-ratio max-size)))
-        (endb/lib:log-trace "evicting buffer pool, target size: ~A current size: ~A" target-size current-size)
-        (loop until (<= current-size target-size)
-              do (maphash (lambda (k v)
-                            (when (<= current-size target-size)
-                              (return-from %evict-buffer-pool))
-                            (when (<= evict-ratio (random 1.0d0))
-                              (decf current-size (buffer-pool-entry-size v))
-                              (endb/lib:metric-counter "buffer_pool_usage_bytes" (- (buffer-pool-entry-size v)))
-                              (remhash k pool)))
-                          pool))))))
+    (#+thread-support bt:with-lock-held #+thread-support (evict-lock)
+     #-thread-support progn
+     (let ((target-size (* evict-ratio max-size)))
+       (endb/lib:log-trace "evicting buffer pool, target size: ~A current size: ~A" target-size current-size)
+       (loop until (<= current-size target-size)
+             do (maphash (lambda (k v)
+                           (when (<= current-size target-size)
+                             (return-from %evict-buffer-pool))
+                           (when (<= evict-ratio (random 1.0d0))
+                             (decf current-size (buffer-pool-entry-size v))
+                             (endb/lib:metric-counter "buffer_pool_usage_bytes" (- (buffer-pool-entry-size v)))
+                             (remhash k pool)))
+                         pool))))))
 
 (defmethod buffer-pool-get ((bp buffer-pool) path &key sha1 read-through-p)
   (with-slots (get-object-fn pool max-size current-size evict-lock) bp
@@ -56,8 +57,9 @@
                                    (%evict-buffer-pool bp)))
                                (let ((entry (make-buffer-pool-entry :arrays (endb/lib/arrow:read-arrow-arrays-from-ipc-buffer buffer)
                                                                     :size (length buffer))))
-                                 (bt:with-lock-held (evict-lock)
-                                   (incf current-size (buffer-pool-entry-size entry))
+                                 (#+thread-support bt:with-lock-held #+thread-support (evict-lock)
+                                  #-thread-support progn
+                                  (incf current-size (buffer-pool-entry-size entry))
                                    (endb/lib:metric-counter "buffer_pool_usage_bytes" (buffer-pool-entry-size entry))
                                    (setf (gethash path pool) entry))))))))))
       (when entry
@@ -68,13 +70,14 @@
 
 (defmethod buffer-pool-evict ((bp buffer-pool) path)
   (with-slots (pool current-size evict-lock) bp
-    (bt:with-lock-held (evict-lock)
-      (let ((entry (gethash path pool)))
-        (when entry
-          (decf current-size (buffer-pool-entry-size entry))
-          (endb/lib:metric-counter "buffer_pool_usage_bytes" (- (buffer-pool-entry-size entry)))
-          (remhash path pool))
-        bp))))
+    (#+thread-support bt:with-lock-held #+thread-support (evict-lock)
+     #-thread-support progn
+     (let ((entry (gethash path pool)))
+       (when entry
+         (decf current-size (buffer-pool-entry-size entry))
+         (endb/lib:metric-counter "buffer_pool_usage_bytes" (- (buffer-pool-entry-size entry)))
+         (remhash path pool))
+       bp))))
 
 (defmethod buffer-pool-close ((bp buffer-pool))
   (clrhash (buffer-pool-pool bp)))

@@ -126,6 +126,9 @@ void endb_render_json_error_report(const char *report_json,
 void endb_init_logger(endb_init_logger_on_success_callback on_success,
                       endb_on_error_callback on_error);
 
+void endb_init_logger(endb_init_logger_on_success_callback on_success,
+                      endb_on_error_callback _on_error);
+
 void endb_log_error(const char *target, const char *message);
 
 void endb_log_warn(const char *target, const char *message);

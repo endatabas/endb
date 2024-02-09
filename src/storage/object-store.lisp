@@ -8,7 +8,7 @@
   (:import-from :endb/lib)
   (:import-from :flexi-streams)
   (:import-from :uiop)
-  (:import-from :bordeaux-threads))
+  #-wasm32 (:import-from :bordeaux-threads))
 (in-package :endb/storage/object-store)
 
 (defgeneric object-store-get (os path))
@@ -17,7 +17,7 @@
 (defgeneric object-store-list (os &key prefix start-after))
 (defgeneric object-store-close (os))
 
-(defvar *tar-object-store-lock* (bt:make-lock))
+(defvar *tar-object-store-lock* #+thread-support (bt:make-lock))
 
 (defun open-tar-object-store (&key (stream (flex:make-in-memory-input-stream (make-array 0 :element-type '(unsigned-byte 8)))))
   (let ((archive (archive:open-archive 'archive:tar-archive stream)))
@@ -51,18 +51,19 @@
     (archive:read-entry-from-archive archive)))
 
 (defmethod object-store-get ((archive archive:tar-archive) path)
-  (bt:with-lock-held (*tar-object-store-lock*)
-    (let* ((stream (archive::archive-stream archive))
-           (pos (file-position stream)))
-      (file-position stream 0)
-      (unwind-protect
-           (loop for entry = (%wal-read-entry-safe archive)
-                 while entry
-                 if (equal path (archive:name entry))
-                   do (return (%extract-entry archive entry))
-                 else
-                   do (archive:discard-entry archive entry))
-        (file-position stream pos)))))
+  (#+thread-support bt:with-lock-held #+thread-support (*tar-object-store-lock*)
+   #-thread-support progn
+   (let* ((stream (archive::archive-stream archive))
+          (pos (file-position stream)))
+     (file-position stream 0)
+     (unwind-protect
+          (loop for entry = (%wal-read-entry-safe archive)
+                while entry
+                if (equal path (archive:name entry))
+                  do (return (%extract-entry archive entry))
+                else
+                  do (archive:discard-entry archive entry))
+       (file-position stream pos)))))
 
 (defmethod object-store-put ((archive archive:tar-archive) path buffer))
 
@@ -74,19 +75,20 @@
           collect f))
 
 (defmethod object-store-list ((archive archive:tar-archive) &key (prefix "") (start-after ""))
-  (bt:with-lock-held (*tar-object-store-lock*)
-    (let* ((stream (archive::archive-stream archive))
-           (pos (file-position stream)))
-      (file-position stream 0)
-      (unwind-protect
-           (%object-store-list-filter
-            (loop for entry = (%wal-read-entry-safe archive)
-                  while entry
-                  do (archive:discard-entry archive entry)
-                  collect (archive:name entry))
-            prefix
-            start-after)
-        (file-position stream pos)))))
+  (#+thread-support bt:with-lock-held #+thread-support (*tar-object-store-lock*)
+   #-thread-support progn
+   (let* ((stream (archive::archive-stream archive))
+          (pos (file-position stream)))
+     (file-position stream 0)
+     (unwind-protect
+          (%object-store-list-filter
+           (loop for entry = (%wal-read-entry-safe archive)
+                 while entry
+                 do (archive:discard-entry archive entry)
+                 collect (archive:name entry))
+           prefix
+           start-after)
+       (file-position stream pos)))))
 
 (defmethod object-store-close ((archive archive:tar-archive))
   (archive:close-archive archive))

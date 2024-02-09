@@ -1,0 +1,97 @@
+ARG ENDB_GIT_DESCRIBE
+
+FROM docker.io/debian:latest AS ecl32
+
+ARG ECL_VERSION=23.9.9
+
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential gcc-multilib m4 ca-certificates git
+
+WORKDIR /root/
+RUN git clone --depth 1 --branch $ECL_VERSION https://gitlab.com/embeddable-common-lisp/ecl.git
+
+WORKDIR /root/ecl
+
+RUN ./configure ABI=32 CFLAGS="-m32 -g -O2" LDFLAGS="-m32 -g -O2" --prefix=`pwd`/ecl32 --disable-threads
+RUN make -j4 && make install && rm -rf build/
+
+
+
+FROM docker.io/emscripten/emsdk:latest AS ecl-emscripten
+
+RUN apt-get update && apt-get install -y --no-install-recommends gcc-multilib
+
+COPY --from=ecl32 /root/ /root/
+WORKDIR /root/ecl
+
+ENV ECL_TO_RUN=/root/ecl/ecl32/bin/ecl
+
+RUN emconfigure ./configure \
+            --host=wasm32-unknown-emscripten \
+            --build=x86_64-pc-linux-gnu \
+            --with-cross-config=`pwd`/src/util/wasm32-unknown-emscripten.cross_config \
+            --prefix=`pwd`/ecl-emscripten \
+            --disable-shared \
+            --with-tcp=no \
+            --with-cmp=no
+
+RUN emmake make && emmake make install
+RUN cp build/bin/ecl.js build/bin/ecl.wasm ecl-emscripten/bin && rm -rf build/
+
+
+
+FROM docker.io/emscripten/emsdk:latest AS endb-rust-wasm
+
+ARG ENDB_GIT_DESCRIBE
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+
+ENV PATH="$PATH:/root/.cargo/bin"
+RUN rustup target add wasm32-unknown-emscripten
+
+COPY ./lib /root/endb
+WORKDIR /root/endb/endb_lib
+
+ENV ENDB_GIT_DESCRIBE=$ENDB_GIT_DESCRIBE
+
+RUN sed -i s/cdylib/staticlib/ Cargo.toml
+RUN cargo build --no-default-features --target wasm32-unknown-emscripten --profile release
+
+
+
+FROM docker.io/emscripten/emsdk:latest
+
+RUN apt-get update && apt-get install -y --no-install-recommends gcc-multilib
+
+COPY --from=ecl-emscripten /root/ /root/
+COPY --from=ecl-emscripten /root/ecl/ecl-emscripten/lib/ecl-23.9.9/ /root/endb/root/ecl/ecl-emscripten/lib/ecl-23.9.9/
+
+COPY --from=endb-rust-wasm /root/endb/endb_lib/endb.h /root/ecl/ecl-emscripten/include/endb.h
+COPY --from=endb-rust-wasm /root/endb/target/wasm32-unknown-emscripten/release/libendb.a /root/ecl/ecl-emscripten/lib/libendb.a
+
+COPY ./_build/ /root/endb/_build/
+COPY ./src/ /root/endb/src/
+COPY ./endb.asd /root/endb/
+COPY ./wasm/ /root/endb/wasm/
+
+WORKDIR /root/endb
+
+RUN sed -i s/\"bordeaux-threads\"\ // ./_build/cl-fad/cl-fad.asd; \
+    sed -i s/\(:file\ \"temporary-files\"\ :depends-on\ \(\"fad\"\)\)// ./_build/cl-fad/cl-fad.asd
+
+ENV ENDB_COMPILE_VERBOSE=1
+RUN /root/ecl/ecl32/bin/ecl --norc --load ./_build/setup.lisp --load ./wasm/build.lisp
+
+RUN emcc -O0 -Demscripten \
+    -o endb.html wasm/endb.c libendb_lisp.a \
+    -I/root/ecl/ecl-emscripten/include \
+    -L/root/ecl/ecl-emscripten/lib \
+    -lm -lecl -leclgc -leclgmp -lendb \
+    -sSTACK_SIZE=1048576 \
+    -sALLOW_MEMORY_GROWTH \
+    -sEXPORTED_FUNCTIONS=_main,_endb_eval \
+    -sEXPORTED_RUNTIME_METHODS=ccall,cwrap \
+    --preload-file root
+
+EXPOSE 8888
+
+ENTRYPOINT ["python3", "-m", "http.server", "8888"]

@@ -2,7 +2,7 @@
   (:use :cl)
   (:export #:*interrupt-query-memory-usage-threshold* #:install-interrupt-query-handler
            #:make-db #:make-directory-db #:db-close #:make-dbms #:dbms-close #:begin-write-tx #:commit-write-tx #:execute-sql #:interpret-sql-literal)
-  (:import-from :bordeaux-threads)
+  #-wasm32 (:import-from :bordeaux-threads)
   (:import-from :cl-ppcre)
   (:import-from :endb/arrow)
   (:import-from :endb/json)
@@ -38,7 +38,7 @@
 (defun db-close (db)
   (endb/queue:queue-close (endb/sql/db:db-indexer-queue db))
   (when (endb/sql/db:db-indexer-thread db)
-    (bt:join-thread (endb/sql/db:db-indexer-thread db)))
+    #+thread-support (bt:join-thread (endb/sql/db:db-indexer-thread db)))
   (endb/storage:store-close (endb/sql/db:db-store db))
   (endb/storage/buffer-pool:buffer-pool-close (endb/sql/db:db-buffer-pool db)))
 
@@ -47,6 +47,7 @@
                                              (make-directory-db :directory directory)
                                              (make-db)))))
     (when directory
+      #+thread-support
       (endb/sql/db:start-background-compaction
        dbms
        (lambda (tx-fn)
@@ -56,13 +57,13 @@
              (setf (endb/sql/db:dbms-db dbms) (commit-write-tx (endb/sql/db:dbms-db dbms) write-db)))))
        (lambda (path buffer)
          (endb/storage:store-put-object (endb/sql/db:db-store (endb/sql/db:dbms-db dbms)) path buffer))))
-    (endb/sql/db:start-background-indexer (endb/sql/db:dbms-db dbms))
+    #+thread-support (endb/sql/db:start-background-indexer (endb/sql/db:dbms-db dbms))
     dbms))
 
 (defun dbms-close (dbms)
   (endb/queue:queue-close (endb/sql/db:dbms-compaction-queue dbms))
   (when (endb/sql/db:dbms-compaction-thread dbms)
-    (bt:join-thread (endb/sql/db:dbms-compaction-thread dbms)))
+    #+thread-support (bt:join-thread (endb/sql/db:dbms-compaction-thread dbms)))
   (db-close (endb/sql/db:dbms-db dbms)))
 
 (defun begin-write-tx (db)
@@ -274,8 +275,8 @@
            (let ((active-query (make-active-query :id query-id
                                                   :sql sql
                                                   :start-time (get-internal-real-time)
-                                                  :thread (bt:current-thread))))
-             (setf (gethash (bt:current-thread) +active-queries+) active-query)
+                                                  :thread #+thread-support (bt:current-thread) #-thread-support nil)))
+             #+thread-support (setf (gethash (bt:current-thread) +active-queries+) active-query)
              (endb/lib:log-debug "query start:~%~A" sql)
              (handler-case
                  #+sbcl (sb-ext:call-with-timing
@@ -305,7 +306,7 @@
                                                                           (prin1-to-string arg)
                                                                           (endb/sql/expr:syn-cast arg :varchar)))))
                                 (error e))))))
-        (remhash (bt:current-thread) +active-queries+)
+        #+thread-support (remhash (bt:current-thread) +active-queries+)
         (endb/lib:metric-monotonic-counter "queries_total" 1)
         (endb/lib:metric-counter "queries_active" -1)))))
 

@@ -3,10 +3,10 @@
   (:export #:init-lib #:*panic-hook* #:format-backtrace #:shutdown-logger #:init-logger
            #:log-error #:log-warn #:log-info #:log-debug #:log-trace #:resolve-log-level #:log-level-active-p #:*log-level*
            #:trace-span #:with-trace-span #:with-trace-kvs-span #:metric-monotonic-counter #:metric-counter #:metric-histogram
-           #:sha1 #:uuid-v4 #:uuid-str #:base64-decode #:base64-encode #:xxh64
+           #:get-endb-version #:sha1 #:uuid-v4 #:uuid-str #:base64-decode #:base64-encode #:xxh64
            #:vector-byte-size #:buffer-to-vector)
   (:import-from :cffi)
-  (:import-from :asdf)
+  #-wasm32 (:import-from :asdf)
   (:import-from :com.inuoe.jzon)
   (:import-from :uiop))
 (in-package :endb/lib)
@@ -104,11 +104,11 @@
 
 (cffi:defcfun "endb_metric_monotonic_counter" :void
   (name :string)
-  (value :size))
+  (value #-wasm32 :size #+wasm32 :uint32))
 
 (cffi:defcfun "endb_metric_counter" :void
   (name :string)
-  (value :ssize))
+  (value #-wasm32 :ssize #+wasm32 :int32))
 
 (cffi:defcfun "endb_metric_histogram" :void
   (name :string)
@@ -193,9 +193,26 @@
       (error err))
     (setf *log-level* (resolve-log-level (intern (string-upcase result) :keyword)))))
 
+(cffi:defcfun "endb_version" :void
+  (on-success :pointer))
+
+(defvar *endb-version-on-success*)
+
+(cffi:defcallback endb-version-on-success :void
+    ((version :string))
+  (funcall *endb-version-on-success* version))
+
+(defun get-endb-version ()
+  (endb/lib:init-lib)
+  (let* ((result)
+         (*endb-version-on-success* (lambda (version)
+                                      (setf result version))))
+    (endb-version (cffi:callback endb-version-on-success))
+    result))
+
 (cffi:defcfun "endb_base64_encode" :void
   (buffer-ptr :pointer)
-  (buffers-size :size)
+  (buffers-size #-wasm32 :size #+wasm32 :uint32)
   (on-success :pointer))
 
 (defvar *endb-base64-encode-on-success*)
@@ -223,7 +240,7 @@
 
 (cffi:defcallback endb-base64-decode-on-success :void
     ((buffer-ptr :pointer)
-     (buffer-size :size))
+     (buffer-size #-wasm32 :size #+wasm32 :uint32))
   (funcall *endb-base64-decode-on-success* buffer-ptr buffer-size))
 
 (defvar *endb-base64-decode-on-error*)
@@ -245,7 +262,7 @@
 
 (cffi:defcfun "endb_sha1" :void
   (buffer-ptr :pointer)
-  (buffers-size :size)
+  (buffers-size #-wasm32 :size #+wasm32 :uint32)
   (on-success :pointer))
 
 (defvar *endb-sha1-on-success*)
@@ -283,7 +300,7 @@
 
 (cffi:defcfun "endb_uuid_str" :void
   (buffer-ptr :pointer)
-  (buffers-size :size)
+  (buffers-size #-wasm32 :size #+wasm32 :uint32)
   (on-success :pointer)
   (on-error :pointer))
 
@@ -312,10 +329,10 @@
       (endb-uuid-str buffer-ptr (length buffer) (cffi:callback endb-uuid-str-on-success) (cffi:callback endb-uuid-str-on-error)))
     result))
 
-(cffi:defcfun "endb_xxh64" :size
+(cffi:defcfun "endb_xxh64" :uint64
   (buffer-ptr :pointer)
-  (buffers-size :size)
-  (seed :size))
+  (buffers-size #-wasm32 :size #+wasm32 :uint32)
+  (seed :uint64))
 
 (defun xxh64 (buffer &key (seed 0))
   (endb/lib:init-lib)
@@ -326,7 +343,7 @@
 (cffi:defcfun "endb_memcpy" :pointer
   (dest :pointer)
   (src :pointer)
-  (n :size))
+  (n #-wasm32 :size #+wasm32 :uint32))
 
 (defun vector-byte-size (b &optional (buffer-size (length b)))
   (etypecase b
@@ -338,6 +355,7 @@
     ((vector double-float) (* 8 buffer-size))))
 
 (defun buffer-to-vector (buffer-ptr buffer-size &optional out)
+  (endb/lib:init-lib)
   (let ((out (or out (make-array buffer-size :element-type '(unsigned-byte 8)))))
     (assert (<= buffer-size (vector-byte-size out)))
     (cffi:with-pointer-to-vector-data (out-ptr #+sbcl (sb-ext:array-storage-vector out)
@@ -347,10 +365,12 @@
 
 (defun init-lib (&key (init-logger-p t))
   (unless *initialized*
-    (pushnew (or (uiop:pathname-directory-pathname (uiop:argv0))
-                 (asdf:system-relative-pathname :endb "target/"))
-             cffi:*foreign-library-directories*)
-    (cffi:use-foreign-library libendb)
+    #-wasm32
+    (progn
+      (pushnew (or (uiop:pathname-directory-pathname (uiop:argv0))
+                   (asdf:system-relative-pathname :endb "target/"))
+               cffi:*foreign-library-directories*)
+      (cffi:use-foreign-library libendb))
 
     (endb-set-panic-hook (cffi:callback on-panic-hook))
     (when init-logger-p

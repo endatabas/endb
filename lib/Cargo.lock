@@ -777,6 +777,7 @@ dependencies = [
  "serde_json",
  "sha1_smol",
  "tracing",
+ "tracing-subscriber",
  "uuid",
  "xxhash-rust",
 ]

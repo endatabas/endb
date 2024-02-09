@@ -118,7 +118,7 @@
 (cffi:defcfun "endb_arrow_array_stream_producer" :void
   (stream (:pointer (:struct ArrowArrayStream)))
   (buffer-ptr :pointer)
-  (buffer-size :size)
+  (buffer-size #-wasm32 :size #+wasm32 :uint32)
   (on-error :pointer))
 
 (defvar *arrow-array-stream-consumer-on-init-stream*
@@ -137,7 +137,7 @@
 
 (cffi:defcallback arrow-array-stream-consumer-on-success :void
     ((buffer-ptr :pointer)
-     (buffer-size :size))
+     (buffer-size #-wasm32 :size #+wasm32 :uint32))
   (funcall *arrow-array-stream-consumer-on-success* buffer-ptr buffer-size))
 
 (defvar *arrow-array-stream-consumer-on-error*)
