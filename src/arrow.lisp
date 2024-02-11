@@ -500,10 +500,10 @@
 (defmethod arrow-push ((array primitive-array) (x (eql :null)))
   (with-slots (values element-type) array
     (%push-invalid array)
-    (adjust-array values (1+ (length values)) :fill-pointer (1+ (fill-pointer values))
-                                              :initial-element (if (eq 'float64 element-type)
-                                                                   0.0d0
-                                                                   0))
+    (vector-push-extend (if (eq 'float64 element-type)
+                            0.0d0
+                            0)
+                        values)
     array))
 
 (defmethod arrow-length ((array primitive-array))
@@ -534,7 +534,7 @@
   (aref (slot-value array 'values) n))
 
 (defmethod arrow-row-format ((array int32-array) (n fixnum))
-  (let* ((row (make-array 5 :element-type 'uint8))
+  (let* ((row (make-array 5 :element-type 'uint8 :initial-element 0))
          (x (arrow-value array n))
          (x (logxor (ash 1 31) x)))
     (when (arrow-valid-p array n)
@@ -577,7 +577,7 @@
     row))
 
 (defmethod arrow-row-format ((array int64-array) (n fixnum))
-  (let* ((row (make-array 9 :element-type 'uint8)))
+  (let* ((row (make-array 9 :element-type 'uint8 :initial-element 0)))
     (when (arrow-valid-p array n)
       (%int64-row-encode row (aref (slot-value array 'values) n)))
     row))
@@ -632,7 +632,7 @@
    (element-type :initform 'float64)))
 
 (defmethod arrow-row-format ((array float64-array) (n fixnum))
-  (let* ((row (make-array 9 :element-type 'uint8)))
+  (let* ((row (make-array 9 :element-type 'uint8 :initial-element 0)))
     (when (arrow-valid-p array n)
       (let* ((x (arrow-value array n))
              (x #+ecl (ffi:c-inline (x) (:double) :uint64-t
@@ -682,7 +682,7 @@
   (= 1 (aref (slot-value array 'values) n)))
 
 (defmethod arrow-row-format ((array boolean-array) (n fixnum))
-  (let ((row (make-array 2 :element-type 'uint8)))
+  (let ((row (make-array 2 :element-type 'uint8 :initial-element 0)))
     (when (arrow-valid-p array n)
       (setf (aref row 0) 1)
       (setf (aref row 1) (aref (slot-value array 'values) n)))
@@ -734,7 +734,7 @@
 (defmethod arrow-row-format ((array fixed-width-binary-array) (n fixnum))
   (with-slots (values element-size) array
     (let* ((start (* element-size n))
-           (row (make-array (1+ element-size) :element-type 'uint8)))
+           (row (make-array (1+ element-size) :element-type 'uint8 :initial-element 0)))
       (when (arrow-valid-p array n)
         (setf (aref row 0) 1)
         (dotimes (idx element-size)
