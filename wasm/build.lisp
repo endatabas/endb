@@ -27,11 +27,12 @@
                        (loop for c in (asdf/component:sub-components c)
                              when (typep c 'asdf:cl-source-file)
                                collect (namestring (asdf:component-pathname c))))))))
-  (let ((lisp-files (set-difference (delete-duplicates (walk "endb") :test 'equal :from-end t)
-                                    '("/root/endb/_build/fset/Code/testing.lisp"
-                                      "/root/endb/_build/misc-extensions/src/tests.lisp"
-                                      "/root/endb/_build/misc-extensions/src/context-tests.lisp")
-                                    :test 'equal)))
+  (let ((lisp-files (cons "/root/ecl/contrib/asdf/asdf.lisp"
+                          (set-difference (delete-duplicates (walk "endb") :test 'equal :from-end t)
+                                          '("/root/endb/_build/fset/Code/testing.lisp"
+                                            "/root/endb/_build/misc-extensions/src/tests.lisp"
+                                            "/root/endb/_build/misc-extensions/src/context-tests.lisp")
+                                          :test 'equal))))
     (format t "~%cross compiling ~A files:~%" (length lisp-files))
     (loop for c in lisp-files
           do (compile-file c :system-p t))
