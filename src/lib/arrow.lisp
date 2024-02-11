@@ -17,30 +17,26 @@
   (format :pointer)
   (name :pointer)
   (metadata :pointer)
-  (flags arrow-flags)
+  (flags arrow-flags #+wasm32 :offset #+wasm32 16)
   (n_children :int64)
   (children (:pointer (:pointer (:struct ArrowSchema))))
   (dictionary (:pointer (:struct ArrowSchema)))
   (release :pointer)
   (private_data :pointer))
 
-(defvar *arrow-schema-release*
-  (lambda (c-schema)
-    (cffi:with-foreign-slots ((format name n_children children release) c-schema (:struct ArrowSchema))
-      (unless (cffi:null-pointer-p release)
-        (cffi:foreign-free format)
-        (cffi:foreign-free name)
-        (unless (cffi:null-pointer-p children)
-          (dotimes (n n_children)
-            (let ((child-ptr (cffi:mem-aref children :pointer n)))
-              (funcall *arrow-schema-release* child-ptr)
-              (cffi:foreign-free child-ptr)))
-          (cffi:foreign-free children))
-        (setf release (cffi:null-pointer))))))
-
 (cffi:defcallback arrow-schema-release :void
     ((schema (:pointer (:struct ArrowSchema))))
-  (funcall *arrow-schema-release* schema))
+  (cffi:with-foreign-slots ((format name n_children children release) schema (:struct ArrowSchema))
+    (unless (cffi:null-pointer-p release)
+      (cffi:foreign-free format)
+      (cffi:foreign-free name)
+      (unless (cffi:null-pointer-p children)
+        (dotimes (n n_children)
+          (let ((child-ptr (cffi:mem-aref children :pointer n)))
+            (cffi:foreign-funcall-pointer release () :pointer child-ptr :void)
+            (cffi:foreign-free child-ptr)))
+        (cffi:foreign-free children))
+      (setf release (cffi:null-pointer)))))
 
 (cffi:defcstruct ArrowArray
   (length :int64)
@@ -54,23 +50,19 @@
   (release :pointer)
   (private_data :pointer))
 
-(defvar *arrow-array-release*
-  (lambda (c-array)
-    (cffi:with-foreign-slots ((buffers n_children children release) c-array (:struct ArrowArray))
-      (unless (cffi:null-pointer-p release)
-        (unless (cffi:null-pointer-p buffers)
-          (cffi:foreign-free buffers))
-        (unless (cffi:null-pointer-p children)
-          (dotimes (n n_children)
-            (let ((child-ptr (cffi:mem-aref children :pointer n)))
-              (funcall *arrow-array-release* child-ptr)
-              (cffi:foreign-free child-ptr)))
-          (cffi:foreign-free children))
-        (setf release (cffi:null-pointer))))))
-
 (cffi:defcallback arrow-array-release :void
     ((array (:pointer (:struct ArrowArray))))
-  (funcall *arrow-array-release* array))
+  (cffi:with-foreign-slots ((buffers n_children children release) array (:struct ArrowArray))
+    (unless (cffi:null-pointer-p release)
+      (unless (cffi:null-pointer-p buffers)
+        (cffi:foreign-free buffers))
+      (unless (cffi:null-pointer-p children)
+        (dotimes (n n_children)
+          (let ((child-ptr (cffi:mem-aref children :pointer n)))
+            (cffi:foreign-funcall-pointer release () :pointer child-ptr :void)
+            (cffi:foreign-free child-ptr)))
+        (cffi:foreign-free children))
+      (setf release (cffi:null-pointer)))))
 
 (cffi:defcstruct ArrowArrayStream
   (get_schema :pointer)
@@ -99,15 +91,11 @@
     ((stream (:pointer (:struct ArrowArrayStream))))
   (funcall *arrow-array-stream-get-last-error* stream))
 
-(defvar *arrow-array-stream-release*
-  (lambda (c-stream)
-    (cffi:with-foreign-slots ((release) c-stream (:struct ArrowArrayStream))
-      (unless (cffi:null-pointer-p release)
-        (setf release (cffi:null-pointer))))))
-
 (cffi:defcallback arrow-array-stream-release :void
     ((stream (:pointer (:struct ArrowArrayStream))))
-  (funcall *arrow-array-stream-release* stream))
+  (cffi:with-foreign-slots ((release) stream (:struct ArrowArrayStream))
+    (unless (cffi:null-pointer-p release)
+      (setf release (cffi:null-pointer)))))
 
 (defvar *arrow-array-stream-producer-on-error*)
 
@@ -121,17 +109,15 @@
   (buffer-size #-wasm32 :size #+wasm32 :uint32)
   (on-error :pointer))
 
-(defvar *arrow-array-stream-consumer-on-init-stream*
-  (lambda (c-stream)
-    (cffi:with-foreign-slots ((get_schema get_next get_last_error release) c-stream (:struct ArrowArrayStream))
-      (setf get_schema (cffi:callback arrow-array-stream-get-schema))
-      (setf get_next (cffi:callback arrow-array-stream-get-next))
-      (setf get_last_error (cffi:callback arrow-array-stream-get-last-error))
-      (setf release (cffi:callback arrow-array-stream-release)))))
+(defvar *arrow-array-stream-consumer-on-init-stream*)
 
 (cffi:defcallback arrow-array-stream-consumer-on-init-stream :void
     ((stream (:pointer (:struct ArrowArrayStream))))
-  (funcall *arrow-array-stream-consumer-on-init-stream* stream))
+  (cffi:with-foreign-slots ((get_schema get_next get_last_error release) stream (:struct ArrowArrayStream))
+    (setf get_schema (cffi:callback arrow-array-stream-get-schema))
+    (setf get_next (cffi:callback arrow-array-stream-get-next))
+    (setf get_last_error (cffi:callback arrow-array-stream-get-last-error))
+    (setf release (cffi:callback arrow-array-stream-release))))
 
 (defvar *arrow-array-stream-consumer-on-success*)
 
@@ -260,6 +246,7 @@
          (#+sbcl sb-sys:with-pinned-objects
           #+sbcl ((mapcan #'endb/arrow:arrow-all-buffers arrays))
           #-sbcl progn
+          #+ecl (ffi:c-inline () () :void "GC_disable()" :one-liner t)
           (let* ((*arrow-array-stream-get-schema* (lambda (c-stream c-schema)
                                                     (declare (ignore c-stream))
                                                     (handler-case
@@ -270,8 +257,7 @@
                                                         (unless (cffi:null-pointer-p last-error)
                                                           (cffi:foreign-free last-error))
                                                         (setf last-error (cffi:foreign-string-alloc (princ-to-string e)))
-                                                        1))
-                                                    0))
+                                                        1))))
                  (*arrow-array-stream-get-next* (lambda (c-stream c-array)
                                                   (declare (ignore c-stream))
                                                   (if arrays
@@ -304,7 +290,8 @@
               (error err))
             result))
       (unless (cffi:null-pointer-p last-error)
-        (cffi:foreign-free last-error)))))
+        (cffi:foreign-free last-error))
+      #+ecl (ffi:c-inline () () :void "GC_enable()" :one-liner t))))
 
 (defun write-arrow-arrays-to-ipc-file (file arrays &key ipc-stream-p)
   (alexandria:write-byte-vector-into-file

@@ -19,7 +19,7 @@ type endb_on_error_callback = extern "C" fn(*const c_char);
 #[no_mangle]
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
 pub extern "C" fn endb_arrow_array_stream_producer(
-    stream: &mut arrow::ffi_stream::FFI_ArrowArrayStream,
+    stream: *mut arrow::ffi_stream::FFI_ArrowArrayStream,
     buffer_ptr: *const u8,
     buffer_size: usize,
     on_error: endb_on_error_callback,
@@ -36,7 +36,7 @@ pub extern "C" fn endb_arrow_array_stream_producer(
 }
 
 type endb_arrow_array_stream_consumer_on_init_stream_callback =
-    extern "C" fn(&mut arrow::ffi_stream::FFI_ArrowArrayStream);
+    extern "C" fn(*mut arrow::ffi_stream::FFI_ArrowArrayStream);
 
 type endb_arrow_array_stream_consumer_on_success_callback = extern "C" fn(*const u8, usize);
 
