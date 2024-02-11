@@ -48,7 +48,18 @@ function toJSONLD(x) {
     }
 }
 
+/**
+ * Endatabas client for the HTTP API
+ */
 class Endb {
+    /**
+     * Create an Endb object (Endatabas client for the HTTP API)
+     * @param {string} [url=http://localhost:3803/sql] - HTTP URL to the Endatabas /sql API
+     * @param {Object} [opt] - HTTP options
+     * @param {string} [opt.accept=application/ld+json] - Accept Header content type
+     * @param {string} [opt.username] - username for HTTP Basic Auth
+     * @param {string} [opt.password] - password for HTTP Basic Auth
+     */
     constructor(url = 'http://localhost:3803/sql', {accept = 'application/ld+json', username, password} = {}) {
         this.url = url;
         this.accept = accept;
@@ -56,6 +67,29 @@ class Endb {
         this.password = password;
     }
 
+    /**
+     * Execute a SQL statement over HTTP
+     * @param {string} q - SQL query as string or Template Literal
+     * @param {Array} [p] - Positional parameters, named parameters, or an array of either
+     * @param {boolean} [m] - many parameters flag
+     * @param {string} [accept] - Accept Header content type
+     * @returns {Promise<Array>} - Array of documents
+     * @example
+     * // Simple query
+     * sql("SELECT * FROM users;");
+     * // Positional parameters
+     * sql("INSERT INTO users (date, name) VALUES (?, ?);", [new Date(), 'Aaron']);
+     * // Named parameters
+     * sql("INSERT INTO users {date: :d, name: :n};", {d: new Date(), n: 'Aaron'});
+     * // Many positional parameters (batches)
+     * sql("INSERT INTO users (name) VALUES (?);", [['Aaron'], ['Kurt'], ['Cindy']], true);
+     * // Many named parameters (batches)
+     * sql("INSERT INTO users {name: :n};", [{n: 'Judy'}, {n: 'Addis'}], true);
+     * // All parameters (many parameters and accept header)
+     * sql("INSERT INTO users (name) VALUES (?);", [['Aaron'], ['Kurt'], ['Cindy']], true, 'text/csv');
+     * // Named parameters via Template Literals
+     * sql(`INSERT INTO users (name) VALUES (${u});`, [{u: 'Michael'}]);
+     */
     async sql(strings, ...values) {
         let q, p = [], m = false, accept = this.accept;
         if (typeof strings === 'string') {
@@ -102,7 +136,18 @@ class Endb {
     }
 }
 
+/**
+ * Endatabas client for the WebSocket API
+ */
 class EndbWebSocket {
+    /**
+     * Create an EndbWebSocket object (Endatabas client for the WebSocket API)
+     * @param {string} [url=ws://localhost:3803/sql] - WebSocket URL to the Endatabas /sql API
+     * @param {Object} [opt] - WebSocket options
+     * @param {string} [opt.ws] - WebSocket implementation
+     * @param {string} [opt.username] - username for Basic Auth
+     * @param {string} [opt.password] - password for Basic Auth
+     */
     constructor(url = 'ws://localhost:3803/sql', {ws, username, password} = {}) {
         this.ws = ws;
         if (typeof ws === 'undefined' && typeof WebSocket !== 'undefined') {
@@ -123,6 +168,29 @@ class EndbWebSocket {
         }
     }
 
+    /**
+     * Execute a SQL statement over a WebSocket with LD-JSON
+     * @param {string} q - SQL query as string or Template Literal
+     * @param {Array} [p] - Positional parameters, named parameters, or an array of either
+     * @param {boolean} [m] - many parameters flag
+     * @param {string} [accept] - Accept Header content type
+     * @returns {Promise<Array>} - Array of documents
+     * @example
+     * // Simple query
+     * sql("SELECT * FROM users;");
+     * // Positional parameters
+     * sql("INSERT INTO users (date, name) VALUES (?, ?);", [new Date(), 'Aaron']);
+     * // Named parameters
+     * sql("INSERT INTO users {date: :d, name: :n};", {d: new Date(), n: 'Aaron'});
+     * // Many positional parameters (batches)
+     * sql("INSERT INTO users (name) VALUES (?);", [['Aaron'], ['Kurt'], ['Cindy']], true);
+     * // Many named parameters (batches)
+     * sql("INSERT INTO users {name: :n};", [{n: 'Judy'}, {n: 'Addis'}], true);
+     * // All parameters (many parameters and accept header)
+     * sql("INSERT INTO users (name) VALUES (?);", [['Aaron'], ['Kurt'], ['Cindy']], true, 'text/csv');
+     * // Named parameters via Template Literals
+     * sql(`INSERT INTO users (name) VALUES (${u});`, [{u: 'Michael'}]);
+     */
     async sql(strings, ...values) {
         let q, p = [], m = false;
         if (typeof strings === 'string') {
