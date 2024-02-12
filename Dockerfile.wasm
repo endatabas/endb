@@ -66,7 +66,7 @@ COPY --from=ecl-emscripten /root/ /root/
 COPY --from=ecl-emscripten /root/ecl/ecl-emscripten/lib/ecl-23.9.9/ /root/endb/root/ecl/ecl-emscripten/lib/ecl-23.9.9/
 
 COPY --from=endb-rust-wasm /root/endb/endb_lib/endb.h /root/ecl/ecl-emscripten/include/endb.h
-COPY --from=endb-rust-wasm /root/endb/target/wasm32-unknown-emscripten/release/libendb.a /root/ecl/ecl-emscripten/lib/libendb.a
+COPY --from=endb-rust-wasm /root/endb/target/wasm32-unknown-emscripten/release/libendb.a /root/endb/target/libendb.a
 
 COPY ./_build/ /root/endb/_build/
 COPY ./src/ /root/endb/src/
@@ -84,10 +84,10 @@ RUN /root/ecl/ecl32/bin/ecl --norc --load ./_build/setup.lisp --load ./wasm/buil
 RUN mkdir -p target; cp wasm/endb_console.* target; mv libendb_lisp.a target
 
 RUN emcc -O3 -Demscripten \
-    -o target/endb.js wasm/endb.c target/libendb_lisp.a \
+    -o target/endb.js wasm/endb.c target/libendb_lisp.a target/libendb.a \
     -I/root/ecl/ecl-emscripten/include \
     -L/root/ecl/ecl-emscripten/lib \
-    -lm -lecl -leclgc -leclgmp -lendb \
+    -lm -lecl -leclgc -leclgmp \
     -sSTACK_SIZE=1048576 \
     -sALLOW_MEMORY_GROWTH \
     -sEXPORTED_FUNCTIONS=_main,_endb_eval \

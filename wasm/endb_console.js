@@ -17,11 +17,14 @@ var Module = {
 
         if (text === "") {
             spinnerElement.style.display = 'none';
+
             Module.endb_eval = Module.cwrap("endb_eval", "string", ["string"]);
+
             Module.endb_eval("(endb/lib:log-info \"version ~A\" (endb/lib:get-endb-version))");
             Module.endb_eval("(defvar *db* (endb/sql:begin-write-tx (endb/sql:make-db)))");
-            Module.print("powered by https://emscripten.org/ running on https://ecl.common-lisp.dev/")
+            Module.print("running on https://ecl.common-lisp.dev/ powered by https://emscripten.org/")
             Module.print("print :help for help.\n");
+
             Module.sql = (sql) => {
                 var json = Module.endb_eval(`
 (endb/json:json-stringify
@@ -39,9 +42,9 @@ var Module = {
                         result = [[resultCode]];
                         resultCode = ["result"];
                     }
-                    Module.print(resultCode.join("\t\t"));
+                    Module.print(resultCode.map((col) => JSON.stringify(col)).join("\t\t"));
                     result.forEach((row) => {
-                        Module.print(row.join("\t\t"));
+                        Module.print(row.map((col) => JSON.stringify(col)).join("\t\t"));
                     });
                 }
             }
