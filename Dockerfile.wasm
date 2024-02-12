@@ -81,8 +81,10 @@ RUN sed -i s/\"bordeaux-threads\"\ // ./_build/cl-fad/cl-fad.asd; \
 ENV ENDB_COMPILE_VERBOSE=1
 RUN /root/ecl/ecl32/bin/ecl --norc --load ./_build/setup.lisp --load ./wasm/build.lisp
 
-RUN emcc -O0 -Demscripten \
-    -o endb.html wasm/endb.c libendb_lisp.a \
+RUN mkdir -p target; cp wasm/endb_console.* target; mv libendb_lisp.a target
+
+RUN emcc -O3 -Demscripten \
+    -o target/endb.js wasm/endb.c target/libendb_lisp.a \
     -I/root/ecl/ecl-emscripten/include \
     -L/root/ecl/ecl-emscripten/lib \
     -lm -lecl -leclgc -leclgmp -lendb \
@@ -94,4 +96,5 @@ RUN emcc -O0 -Demscripten \
 
 EXPOSE 8888
 
+WORKDIR /root/endb/target
 ENTRYPOINT ["python3", "-m", "http.server", "8888"]

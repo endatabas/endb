@@ -1,0 +1,78 @@
+/* Logo: share-tech-mono-regular - latin */
+:root {
+    color-scheme: light dark;
+    --active-brightness: 0.85;
+    --border-radius: 5px;
+    --hover-brightness: 1.2;
+    --line-height: 1.5;
+    --width-content: 1080px;
+    --endb-yellow: #B0A974;
+    --endb-green: #32382E;
+}
+
+body {
+    font-family: arial;
+    background-color: black;
+    color: white;
+    margin: 0;
+    line-height: var(--line-height);
+}
+
+.spinner {
+    margin-top: 30px;
+    margin-left: 20px;
+    height: 30px;
+    width: 30px;
+
+    -webkit-animation: rotation .8s linear infinite;
+    -moz-animation: rotation .8s linear infinite;
+    -o-animation: rotation .8s linear infinite;
+    animation: rotation 0.8s linear infinite;
+
+    border-left: 5px solid var(--endb-green);
+    border-right: 5px solid var(--endb-green);
+    border-bottom: 5px solid var(--endb-green);
+    border-top: 5px solid  var(--endb-yellow);
+
+    border-radius: 100%;
+}
+
+@-webkit-keyframes rotation {
+    from {-webkit-transform: rotate(0deg);}
+    to {-webkit-transform: rotate(360deg);}
+}
+@-moz-keyframes rotation {
+    from {-moz-transform: rotate(0deg);}
+    to {-moz-transform: rotate(360deg);}
+}
+@-o-keyframes rotation {
+    from {-o-transform: rotate(0deg);}
+    to {-o-transform: rotate(360deg);}
+}
+@keyframes rotation {
+    from {transform: rotate(0deg);}
+    to {transform: rotate(360deg);}
+}
+
+#status {
+    margin-top: 30px;
+    margin-left: 20px;
+    font-weight: bold;
+    color: rgb(120, 120, 120);
+    display: none;
+}
+
+#output, #input {
+    width: 100%;
+    margin: 0 auto;
+    border: 0px;
+    padding-left: 0px;
+    padding-right: 0px;
+    background-color: black;
+    color: white;
+    display: block;
+    font-family: 'Lucida Console', Monaco, monospace;
+    font-size: 1.75rem;
+    text-shadow: 0px 2px 4px cornflowerblue;
+    outline: none;
+}
