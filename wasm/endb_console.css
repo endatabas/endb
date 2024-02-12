@@ -15,7 +15,6 @@ body {
     background-color: black;
     color: white;
     margin: 0;
-    line-height: var(--line-height);
 }
 
 .spinner {
@@ -54,7 +53,7 @@ body {
     to {transform: rotate(360deg);}
 }
 
-#status {
+.status {
     margin-top: 30px;
     margin-left: 20px;
     font-weight: bold;
@@ -62,7 +61,7 @@ body {
     display: none;
 }
 
-#output, #input {
+.console {
     width: 100%;
     margin: 0 auto;
     border: 0px;
@@ -71,8 +70,26 @@ body {
     background-color: black;
     color: white;
     display: block;
+    white-space: pre;
     font-family: 'Lucida Console', Monaco, monospace;
-    font-size: 1.75rem;
+    font-size: 2rem;
     text-shadow: 0px 2px 4px cornflowerblue;
     outline: none;
+}
+
+.console table {
+    border-collapse: collapse;
+}
+
+.console a {
+    text-decoration: none;
+    color: inherit;
+}
+
+.console th {
+    border-bottom: 2px solid white;
+    min-width: 8em;
+    font-weight: normal;
+    padding-left: 1em;
+    padding-right: 1em;
 }
