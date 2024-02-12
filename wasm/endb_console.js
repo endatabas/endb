@@ -37,13 +37,14 @@ var Module = {
 
             Module.sql = (sql) => {
                 var json = Module.endb_eval(`
-(endb/json:json-stringify
-  (handler-case
-      (multiple-value-bind (result result-code)
-          (endb/sql:execute-sql *db* (endb/json:json-parse ${JSON.stringify(JSON.stringify(sql))}))
-        (fset:map ("result" result) ("resultCode" result-code)))
-    (error (e)
-      (fset:map ("error" (format nil "~A" e))))))`);
+(let ((endb/json:*json-ld-scalars* nil))
+  (endb/json:json-stringify
+    (handler-case
+        (multiple-value-bind (result result-code)
+            (endb/sql:execute-sql *db* (endb/json:json-parse ${JSON.stringify(JSON.stringify(sql))}))
+          (fset:map ("result" result) ("resultCode" result-code)))
+      (error (e)
+        (fset:map ("error" (format nil "~A" e)))))))`);
                 var {result, resultCode, error} = JSON.parse(JSON.parse(json));
                 if (error) {
                     Module.print(error);
