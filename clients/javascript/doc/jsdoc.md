@@ -17,12 +17,12 @@ Endatabas client for the HTTP API
 **Kind**: global class  
 
 * [Endb](#Endb)
-    * [new Endb([url], [opt])](#new_Endb_new)
-    * [.sql(q, [p], [m], [accept])](#Endb+sql) ⇒ <code>Promise.&lt;Array&gt;</code>
+    * [`new Endb([url], [opt])`](#new_Endb_new)
+    * [`.sql(q, [p], [m], [accept])`](#Endb+sql) ⇒ <code>Promise.&lt;Array&gt;</code>
 
 <a name="new_Endb_new"></a>
 
-##### new Endb([url], [opt])
+##### `new Endb([url], [opt])`
 Create an Endb object (Endatabas client for the HTTP API)
 
 
@@ -36,7 +36,7 @@ Create an Endb object (Endatabas client for the HTTP API)
 
 <a name="Endb+sql"></a>
 
-##### endb.sql(q, [p], [m], [accept]) ⇒ <code>Promise.&lt;Array&gt;</code>
+##### `endb.sql(q, [p], [m], [accept])` ⇒ <code>Promise.&lt;Array&gt;</code>
 Execute a SQL statement over HTTP
 
 **Kind**: instance method of [<code>Endb</code>](#Endb)  
@@ -74,12 +74,12 @@ Endatabas client for the WebSocket API
 **Kind**: global class  
 
 * [EndbWebSocket](#EndbWebSocket)
-    * [new EndbWebSocket([url], [opt])](#new_EndbWebSocket_new)
-    * [.sql(q, [p], [m], [accept])](#EndbWebSocket+sql) ⇒ <code>Promise.&lt;Array&gt;</code>
+    * [`new EndbWebSocket([url], [opt])`](#new_EndbWebSocket_new)
+    * [`.sql(q, [p], [m], [accept])`](#EndbWebSocket+sql) ⇒ <code>Promise.&lt;Array&gt;</code>
 
 <a name="new_EndbWebSocket_new"></a>
 
-##### new EndbWebSocket([url], [opt])
+##### `new EndbWebSocket([url], [opt])`
 Create an EndbWebSocket object (Endatabas client for the WebSocket API)
 
 
@@ -93,7 +93,7 @@ Create an EndbWebSocket object (Endatabas client for the WebSocket API)
 
 <a name="EndbWebSocket+sql"></a>
 
-##### endbWebSocket.sql(q, [p], [m], [accept]) ⇒ <code>Promise.&lt;Array&gt;</code>
+##### `endbWebSocket.sql(q, [p], [m], [accept])` ⇒ <code>Promise.&lt;Array&gt;</code>
 Execute a SQL statement over a WebSocket with LD-JSON
 
 **Kind**: instance method of [<code>EndbWebSocket</code>](#EndbWebSocket)  

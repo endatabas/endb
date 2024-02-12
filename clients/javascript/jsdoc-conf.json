@@ -1,8 +1,10 @@
 {
     "source": {
+	"include": [ "endb.mjs" ],
         "includePattern": ".+\\.(mjs)$"
     },
     "opts": {
-        "destination": "./docs/"
+        "destination": "./doc/"
     }
 }
+
