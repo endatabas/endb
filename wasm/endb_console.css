@@ -93,3 +93,7 @@ body {
     padding-left: 1em;
     padding-right: 1em;
 }
+
+textarea.console {
+  resize: none;
+}
