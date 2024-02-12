@@ -77,6 +77,22 @@ var ews = new window.EndbWebSocket();
 ews.sql(`select * from ${table}`, {table: 'users'});
 ```
 
+## Generating Documentation
+
+This is only required if you are updating
+[docs.endatabas.com](https://docs.endatabas.com):
+
+```sh
+# install jsdoc2md
+npm install -g jsdoc
+npm install -g jsdoc-to-markdown
+
+# clone 'endb-book' (docs.endatabas.com)
+cd .. && git clone git@github.com:endatabas/endb-book.git && cd endb
+# create the docs (copies to 'endb-book')
+make doc
+```
+
 ## Copyright and License
 
 This subdirectory of the main Git repository and the contents of
