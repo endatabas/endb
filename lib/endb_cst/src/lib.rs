@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::ops::Range;
 
-use ariadne::{sources, Color, Label, Report, ReportKind};
+use ariadne::{sources, Color, Config, Label, Report, ReportKind};
 
 pub mod sql;
 
@@ -117,15 +117,10 @@ pub fn events_to_errors<'a>(events: &'a [Event<'a>]) -> Vec<ParseError<'a>> {
     let mut max_error_pos = 0;
     for e in events {
         match e {
-            Event::Open {
-                hide: false,
-                label,
-                pos,
-                ..
-            } => {
+            Event::Open { label, pos, .. } => {
                 context.push((*label, *pos));
             }
-            Event::Close { hide: false, .. } => {
+            Event::Close { .. } => {
                 context.pop().expect("unbalanced tree");
             }
             Event::Error {
@@ -217,7 +212,6 @@ pub fn parse_errors_to_string<'a>(
                         .or_default()
                         .append(&mut errs.to_vec());
                 }
-
                 _ => {
                     acc.entry(context.to_vec())
                         .or_default()
@@ -335,17 +329,15 @@ pub fn parse_errors_to_string<'a>(
         }
 
         if let Some(label) = context.iter().last() {
+            let pos = errs[0]
+                .context
+                .iter()
+                .find(|(e_label, _)| e_label == label)
+                .map(|(_, pos)| *pos)
+                .unwrap_or(0) as usize;
             let msg = Some(format!(" in {}", label));
             labels.push(ParseReportLabel {
-                span: (
-                    filename.to_string(),
-                    (errs[0]
-                        .context
-                        .iter()
-                        .find(|(e_label, _)| e_label == label)
-                        .map(|(_, pos)| *pos)
-                        .unwrap_or(0) as usize)..range.start,
-                ),
+                span: (filename.to_string(), pos..range.start),
                 color: Some(ParseReportColor::Blue),
                 msg,
                 ..ParseReportLabel::default()
@@ -415,7 +407,8 @@ fn parse_report_to_string(report: &ParseReport) -> Result<String, Box<dyn Error>
         ParseReportKind::Warning => ReportKind::Warning,
         ParseReportKind::Advice => ReportKind::Advice,
     };
-    let mut builder = Report::build(report_kind, filename.clone(), *pos);
+    let mut builder = Report::build(report_kind, filename.clone(), *pos)
+        .with_config(Config::default().with_compact(true));
 
     if let Some(code) = &report.code {
         builder = builder.with_code(code);
