@@ -10,7 +10,7 @@ var Module = {
             var div = document.createElement("div");
             div.innerText = text;
             outputElement.appendChild(div);
-            footerElement.scrollIntoView();
+            footerElement.scrollIntoView({block: "nearest"});
         }
     },
     setStatus: (text) => {
