@@ -15,6 +15,7 @@
 (defun %endb-init (config)
   (endb/lib:with-trace-span "startup"
     (endb/lib:log-info "version ~A" (endb/lib:get-endb-version))
+    (endb/lib:log-info "data directory ~A" (fset:lookup config "data_directory"))
     (endb/sql:install-interrupt-query-handler)
     (endb/sql:make-dbms :directory (fset:lookup config "data_directory"))))
 

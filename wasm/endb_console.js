@@ -26,6 +26,7 @@ var Module = {
             Module.common_lisp_eval = Module.cwrap("common_lisp_eval", "string", ["string"]);
 
             Module.common_lisp_eval("(endb/lib:log-info \"version ~A\" (endb/lib:get-endb-version))");
+            Module.common_lisp_eval("(endb/lib:log-info \"data directory :memory:\")");
             Module.common_lisp_eval("(defvar *db* (endb/sql:begin-write-tx (endb/sql:make-db)))");
 
             console.log("running on https://ecl.common-lisp.dev/ powered by https://emscripten.org/")
