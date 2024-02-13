@@ -27,7 +27,7 @@ var Module = {
 
             Module.common_lisp_eval("(endb/lib:log-info \"version ~A\" (endb/lib:get-endb-version))");
             Module.common_lisp_eval("(endb/lib:log-info \"data directory :memory:\")");
-            Module.common_lisp_eval("(defvar *db* (endb/sql:begin-write-tx (endb/sql:make-db)))");
+            Module.common_lisp_eval("(defvar *db* (endb/sql:make-db))");
 
             console.log("running on https://ecl.common-lisp.dev/ powered by https://emscripten.org/")
             var div = document.createElement("div");
@@ -41,9 +41,11 @@ var Module = {
 (let ((endb/json:*json-ld-scalars* nil))
   (endb/json:json-stringify
     (handler-case
-        (multiple-value-bind (result result-code)
-            (endb/sql:execute-sql *db* (endb/json:json-parse ${JSON.stringify(JSON.stringify(sql))}))
-          (fset:map ("result" result) ("resultCode" result-code)))
+        (let ((write-db (endb/sql:begin-write-tx *db*)))
+          (multiple-value-bind (result result-code)
+              (endb/sql:execute-sql write-db (endb/json:json-parse ${JSON.stringify(JSON.stringify(sql))}))
+            (setf *db* (endb/sql:commit-write-tx *db* write-db))
+            (fset:map ("result" result) ("resultCode" result-code))))
       (error (e)
         (fset:map ("error" (format nil "~A" e)))))))`);
                 var {result, resultCode, error} = JSON.parse(JSON.parse(json));
