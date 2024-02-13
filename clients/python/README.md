@@ -7,7 +7,8 @@ The official console and Python client library for
 
 ```sh
 pip install endb
-pip install websockets
+pip install websockets  # optional WebSocket support
+pip install pyarrow     # optional Apache Arrow support
 ```
 
 `endb` is supported on Python 3.10 and above.

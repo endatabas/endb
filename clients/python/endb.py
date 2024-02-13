@@ -17,6 +17,16 @@ import email
 import email.policy
 
 class AbstractEndb:
+    """
+    Abstract class providing LD-JSON de/serialization
+
+    Methods
+    -------
+    _from_json_ld(obj)
+        Deserializes LD-JSON types into Python types
+    _to_json_ld(obj)
+        Serializes Python types into LD-JSON types, where possible
+    """
     def _from_json_ld(self, obj):
         match obj.get('@type', None):
             case 'xsd:dateTime':
@@ -52,7 +62,38 @@ except ModuleNotFoundError:
     pyarrow = None
 
 class Endb(AbstractEndb):
+    """
+    An Endatabas client for the HTTP API
+
+    Attributes
+    ----------
+    url : str
+        HTTP URL of an Endatabas instance
+    accept : str
+        Accept header content type
+    username : str
+        Username for HTTP Basic Auth
+    password : str
+        Password for HTTP Basic Auth
+
+    Methods
+    -------
+    sql(q, p=[], m=False, accept=None)
+        Executes a SQL statement
+    """
     def __init__(self, url='http://localhost:3803/sql', accept='application/ld+json', username=None, password=None):
+        """
+        Parameters
+        ----------
+        url : str, default='http://localhost:3803/sql'
+            HTTP URL of an Endatabas instance
+        accept : str, default='application/ld+json'
+            Accept header content type
+        username : str, default=None
+            Username for HTTP Basic Auth
+        password : str, default=None
+            Password for HTTP Basic Auth
+        """
         super().__init__()
         self.url = url
         self.accept = accept
@@ -60,6 +101,27 @@ class Endb(AbstractEndb):
         self.password = password
 
     def sql(self, q, p=[], m=False, accept=None):
+        """Executes a SQL statement
+
+        The SQL statement is sent to `Endb.url` over HTTP.
+
+        Parameters
+        ----------
+        q : str
+            SQL statement or query to execute
+        p : array_like, default=[]
+            Positional or named SQL parameters (or an array of either, if using many parameters)
+        m : bool, default=False
+            Many parameters flag
+        accept : str, optional
+            Accept header content type (defaults to `Endb.accept`)
+
+        Raises
+        ------
+        TypeError
+            Internal error if attempting to translate an unknown type
+            to LD-JSON.
+        """
         if accept is None:
             accept = self.accept
         headers = {'Accept': accept}
@@ -99,7 +161,38 @@ try:
     import websockets
 
     class EndbWebSocket(AbstractEndb):
+        """
+        An Endatabas client for the HTTP API
+
+        Attributes
+        ----------
+        url : str
+            HTTP URL of an Endatabas instance
+        username : str
+            Username for HTTP Basic Auth
+        password : str
+            Password for HTTP Basic Auth
+        id : int
+            Internal identifier for the most recent request sent
+        ws : websockets.client.WebSocketClientProtocol
+            Internal WebSocket implementation created upon connection
+
+        Methods
+        -------
+        sql(q, p=[], m=False, accept=None)
+            Executes a SQL statement asynchronously
+        """
         def __init__(self, url='ws://localhost:3803/sql', username=None, password=None):
+            """
+            Parameters
+            ----------
+            url : str, default='ws://localhost:3803/sql'
+                HTTP URL of an Endatabas instance
+            username : str, default=None
+                Username for HTTP Basic Auth
+            password : str, default=None
+                Password for HTTP Basic Auth
+            """
             super().__init__()
             self.url = url
             self.username = username
@@ -118,6 +211,28 @@ try:
                 await self.ws.close()
 
         async def sql(self, q, p=[], m=False, accept=None):
+            """Executes a SQL statement
+
+            The SQL statement is sent to `Endb.url` over WebSockets.
+
+            Parameters
+            ----------
+            q : str
+                SQL statement or query to execute
+            p : array_like, default=[]
+                Positional or named SQL parameters (or an array of either, if using many parameters)
+            m : bool, default=False
+                Many parameters flag
+            accept : str, optional
+                Ignored. WebSocket communication is always in LD-JSON.
+
+            Raises
+            ------
+            AssertionError
+                If 'id' of request and response do not match.
+            RuntimeError
+                If response from server contains an error.
+            """
             if self.ws is None:
                 if self.username is not None and self.password is not None:
                     auth_base64 = base64.b64encode(bytes('%s:%s' % (self.username, self.password), 'ascii'))

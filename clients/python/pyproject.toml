@@ -30,6 +30,7 @@ Documentation = "https://docs.endatabas.com/reference/clients"
 
 [project.optional-dependencies]
 websockets = ["websockets>=12"]
+pyarrow = ["pyarrow>=15"]
 
 [tool.setuptools]
 py-modules = ["endb", "endb_console"]

@@ -10,6 +10,12 @@
 
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+"""Endatabas Console
+
+This script provides a prompt (->) at which the user can enter raw SQL
+commands to send to Endatabas.
+"""
+
 import cmd
 import endb
 import pprint
@@ -18,6 +24,24 @@ import re
 import time
 
 class EndbConsole(cmd.Cmd):
+    """
+    An Endatabas console for processing SQL statements, files, or prompts.
+
+    Attributes
+    ----------
+    url : str
+        HTTP URL of an Endatabas instance
+    accept : str, optional
+        accept header content type (defaults to 'application/ld+json')
+    username : str, optional
+        username for HTTP Basic Auth (defaults to None)
+    password : str, optional
+        password for HTTP Basic Auth (defaults to None)
+    prompt : str, optional
+        initial prompt (defaults to '->')
+    nested_prompt : str, optional
+        prompt for multi-line SQL statements (defaults to '..')
+    """
     def __init__(self, url, accept='application/ld+json', username=None, password=None, prompt='-> ', nested_prompt='.. '):
         super().__init__()
         self.url = url
@@ -127,7 +151,7 @@ def main():
     import sys
     import pathlib
 
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('sql', nargs='*', help='SQL statement or file')
     parser.add_argument('--url', default='http://localhost:3803/sql')
     parser.add_argument('-u', '--username')
