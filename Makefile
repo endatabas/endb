@@ -254,10 +254,15 @@ else
 	$(DOCKER) push endatabas/endb:latest
 endif
 
+docker-wasm:
+	$(DOCKER) build --pull$(DOCKER_PULL_ALWAYS) \
+		--build-arg ENDB_GIT_DESCRIBE=$(shell git describe --always --dirty --tags) \
+		-t endatabas/endb-wasm:latest . --file Dockerfile.wasm
+
 clean:
 	(cd lib; $(CARGO) clean)
 	rm -rf target $(FASL_FILES)
 
 .PHONY: run run-binary test test-ecl check lib-check lib-lint lib-update lib-test lib-microbench update-submodules \
 	slt-test slt-test-select slt-test-random slt-test-index slt-test-evidence slt-test-all slt-test-tpch slt-test-expr slt-test-ci \
-	slt-test-sql-acid sql-acid-test tpcc docker docker-alpine run-docker push-docker clean
+	slt-test-sql-acid sql-acid-test tpcc docker docker-alpine run-docker push-docker docker-wasm clean
