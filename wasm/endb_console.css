@@ -3,6 +3,10 @@
     --endb-green: #32382E;
 }
 
+html {
+    scrollbar-width: none;
+}
+
 body {
     font-family: arial;
     background-color: black;
