@@ -1,6 +1,5 @@
 {
     "source": {
-	"include": [ "endb.mjs" ],
         "includePattern": ".+\\.(mjs)$"
     },
     "opts": {
