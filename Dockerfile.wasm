@@ -90,8 +90,9 @@ RUN emcc -O3 -Demscripten \
     -lm -lecl -leclgc -leclgmp \
     -sSTACK_SIZE=1048576 \
     -sALLOW_MEMORY_GROWTH \
-    -sEXPORTED_FUNCTIONS=_main,_endb_eval \
+    -sEXPORTED_FUNCTIONS=_main,_common_lisp_eval \
     -sEXPORTED_RUNTIME_METHODS=ccall,cwrap \
+    -sMALLOC=emmalloc \
     --preload-file root
 
 EXPOSE 8888

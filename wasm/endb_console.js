@@ -23,10 +23,10 @@ var Module = {
         if (text === "") {
             spinnerElement.style.display = 'none';
 
-            Module.endb_eval = Module.cwrap("endb_eval", "string", ["string"]);
+            Module.common_lisp_eval = Module.cwrap("common_lisp_eval", "string", ["string"]);
 
-            Module.endb_eval("(endb/lib:log-info \"version ~A\" (endb/lib:get-endb-version))");
-            Module.endb_eval("(defvar *db* (endb/sql:begin-write-tx (endb/sql:make-db)))");
+            Module.common_lisp_eval("(endb/lib:log-info \"version ~A\" (endb/lib:get-endb-version))");
+            Module.common_lisp_eval("(defvar *db* (endb/sql:begin-write-tx (endb/sql:make-db)))");
 
             console.log("running on https://ecl.common-lisp.dev/ powered by https://emscripten.org/")
             var div = document.createElement("div");
@@ -36,7 +36,7 @@ var Module = {
             Module.print("print :help for help.\n\n");
 
             Module.sql = (sql) => {
-                var json = Module.endb_eval(`
+                var json = Module.common_lisp_eval(`
 (let ((endb/json:*json-ld-scalars* nil))
   (endb/json:json-stringify
     (handler-case
@@ -53,16 +53,19 @@ var Module = {
                         result = [[resultCode]];
                         resultCode = ["result"];
                     }
-                    console.log(resultCode.map((col) => JSON.stringify(col)).join("\t\t"));
 
-                    var head = "<thead><tr>" + resultCode.map((col) => "<th>" + col + "</th>").join("") + "</tr></thead>";
-                    var body = "<tbody>" + result.map((row) => {
+                    console.log(resultCode.join("\t\t"));
+                    result.forEach((row) => {
                         console.log(row.map((col) => JSON.stringify(col)).join("\t\t"));
+                    });
+
+                    var thead = "<thead><tr>" + resultCode.map((col) => "<th>" + col + "</th>").join("") + "</tr></thead>";
+                    var tbody = "<tbody>" + result.map((row) => {
                         return "<tr>" + row.map((col) => "<td>" + JSON.stringify(col) + "</td>").join("") + "</tr>";
                     }).join("") + "</tbody>";
 
                     var table = document.createElement("table");
-                    table.innerHTML = head + body;
+                    table.innerHTML = thead + tbody;
                     outputElement.appendChild(table);
                 }
                 Module.print("\n");
