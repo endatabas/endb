@@ -70,7 +70,7 @@ class Endb {
     /**
      * Execute a SQL statement over HTTP
      * @param {string} q - SQL query as string or Template Literal
-     * @param {Array} [p] - Positional parameters, named parameters, or an array of either
+     * @param {Array|Object} [p] - Positional parameters, named parameters, or an array of either
      * @param {boolean} [m] - many parameters flag
      * @param {string} [accept] - Accept Header content type
      * @returns {Promise<Array>} - Array of documents
@@ -171,7 +171,7 @@ class EndbWebSocket {
     /**
      * Execute a SQL statement over a WebSocket with LD-JSON
      * @param {string} q - SQL query as string or Template Literal
-     * @param {Array} [p] - Positional parameters, named parameters, or an array of either
+     * @param {Array|Object} [p] - Positional parameters, named parameters, or an array of either
      * @param {boolean} [m] - many parameters flag
      * @param {string} [accept] - Accept Header content type
      * @returns {Promise<Array>} - Array of documents
