@@ -17,16 +17,6 @@ import email
 import email.policy
 
 class AbstractEndb:
-    """
-    Abstract class providing LD-JSON de/serialization
-
-    Methods
-    -------
-    _from_json_ld(obj)
-        Deserializes LD-JSON types into Python types
-    _to_json_ld(obj)
-        Serializes Python types into LD-JSON types, where possible
-    """
     def _from_json_ld(self, obj):
         match obj.get('@type', None):
             case 'xsd:dateTime':
@@ -75,11 +65,6 @@ class Endb(AbstractEndb):
         Username for HTTP Basic Auth
     password : str
         Password for HTTP Basic Auth
-
-    Methods
-    -------
-    sql(q, p=[], m=False, accept=None)
-        Executes a SQL statement
     """
     def __init__(self, url='http://localhost:3803/sql', accept='application/ld+json', username=None, password=None):
         """
@@ -172,15 +157,6 @@ try:
             Username for HTTP Basic Auth
         password : str
             Password for HTTP Basic Auth
-        id : int
-            Internal identifier for the most recent request sent
-        ws : websockets.client.WebSocketClientProtocol
-            Internal WebSocket implementation created upon connection
-
-        Methods
-        -------
-        sql(q, p=[], m=False, accept=None)
-            Executes a SQL statement asynchronously
         """
         def __init__(self, url='ws://localhost:3803/sql', username=None, password=None):
             """
@@ -207,6 +183,7 @@ try:
             await self.close()
 
         async def close(self):
+            """Closes the WebSocket connection"""
             if self.ws is not None:
                 await self.ws.close()
 
