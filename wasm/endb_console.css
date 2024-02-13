@@ -1,11 +1,4 @@
-/* Logo: share-tech-mono-regular - latin */
 :root {
-    color-scheme: light dark;
-    --active-brightness: 0.85;
-    --border-radius: 5px;
-    --hover-brightness: 1.2;
-    --line-height: 1.5;
-    --width-content: 1080px;
     --endb-yellow: #B0A974;
     --endb-green: #32382E;
 }
@@ -65,8 +58,7 @@ body {
     width: 100%;
     margin: 0 auto;
     border: 0px;
-    padding-left: 0px;
-    padding-right: 0px;
+    padding: 0;
     background-color: black;
     color: white;
     display: block;
