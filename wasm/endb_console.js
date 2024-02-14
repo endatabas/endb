@@ -106,12 +106,17 @@ var Module = {
             }
 
             inputElement.addEventListener("keydown", (e) => {
-                if (e.keyCode == 13 && inputElement.value.trim() === ":help") {
+                if (e.keyCode == 13 && inputElement.value.trim().startsWith(":")) {
                     var command = inputElement.value;
-                    Module.print(command);
                     addToHistory(command);
                     resetInput("");
-                    Module.print("key bindings:\nC-a\tbeginning of line\nC-e\tend of line\nC-RET\tevaluate\nM-p\tprevious history\n\M-n\tnext history\n\n");
+                    Module.print(command);
+                    var command = command.trim();
+                    if (command === ":help") {
+                        Module.print("key bindings:\nC-a\tbeginning of line\nC-e\tend of line\nC-RET\tevaluate\nM-p\tprevious history\n\M-n\tnext history\n\n");
+                    } else {
+                        Module.print(`unknown command ${command}\n\n`);
+                    }
                     e.preventDefault();
                 } else if (e.keyCode == 13 && (e.ctrlKey || inputElement.value.trim().endsWith(";"))) {
                     var sql = inputElement.value;
