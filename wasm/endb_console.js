@@ -81,6 +81,9 @@ var Module = {
                 footerElement.scrollIntoView({block: "nearest"});
             }
 
+            window.addEventListener("resize", (e) => {
+                resizeInput();
+            });
             inputElement.addEventListener("input", (e) => {
                 resizeInput();
             });
