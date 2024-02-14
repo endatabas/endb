@@ -15,10 +15,11 @@ body {
 }
 
 .spinner {
-    margin-top: 30px;
-    margin-left: 20px;
-    height: 30px;
-    width: 30px;
+    margin-top: 1em;
+    margin-left: 1em;
+    height: 2em;
+    width: 2em;
+    position: absolute;
 
     -webkit-animation: rotation .8s linear infinite;
     -moz-animation: rotation .8s linear infinite;
@@ -68,7 +69,7 @@ body {
     display: block;
     white-space: pre;
     font-family: 'Lucida Console', Monaco, monospace;
-    font-size: 1.5rem;
+    font-size: 2vw;
     text-shadow: 0px 2px 4px cornflowerblue;
     outline: none;
 }
