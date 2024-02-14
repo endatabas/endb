@@ -50,6 +50,5 @@ COPY --from=rust-build-env /root/endb/target/release/libendb.so /app
 COPY --from=sbcl-build-env /root/endb/target/endb /app
 
 EXPOSE 3803
-VOLUME /app/endb_data
 
 ENTRYPOINT ["./endb"]
