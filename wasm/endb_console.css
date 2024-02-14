@@ -96,3 +96,8 @@ body {
     resize: none;
     background-color: #111;
 }
+
+.console #input:focus::placeholder {
+    text-shadow: none;
+    color: transparent;
+}
