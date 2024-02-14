@@ -58,7 +58,7 @@ body {
     display: none;
 }
 
-.console {
+.console > * {
     width: 100%;
     margin: 0 auto;
     border: 0px;
@@ -90,6 +90,8 @@ body {
     padding-right: 1em;
 }
 
-textarea.console {
-  resize: none;
+.console #input {
+    display: none;
+    resize: none;
+    background-color: #111;
 }

@@ -1,9 +1,9 @@
 var Module = {
     print: (...text) => {
-        var outputElement = document.getElementById('output');
-        var inputElement = document.getElementById('input');
-        var footerElement = document.getElementById('footer');
-        text = text.join(' ');
+        var outputElement = document.getElementById("output");
+        var inputElement = document.getElementById("input");
+        var footerElement = document.getElementById("footer");
+        text = text.join(" ");
         console.log(text);
 
         if (outputElement) {
@@ -14,14 +14,15 @@ var Module = {
         }
     },
     setStatus: (text) => {
-        var statusElement = document.getElementById('status');
-        var spinnerElement = document.getElementById('spinner');
-        var inputElement = document.getElementById('input');
-        var outputElement = document.getElementById('output');
-        var footerElement = document.getElementById('footer');
+        var statusElement = document.getElementById("status");
+        var spinnerElement = document.getElementById("spinner");
+        var inputElement = document.getElementById("input");
+        var outputElement = document.getElementById("output");
+        var footerElement = document.getElementById("footer");
 
         if (text === "") {
-            spinnerElement.style.display = 'none';
+            spinnerElement.style.display = "none";
+            inputElement.style.display = "block";
 
             Module.common_lisp_eval = Module.cwrap("common_lisp_eval", "string", ["string"]);
 
@@ -31,7 +32,7 @@ var Module = {
 
             console.log("running on https://ecl.common-lisp.dev/ powered by https://emscripten.org/")
             var div = document.createElement("div");
-            div.innerHTML = "running on <a href=\"https://ecl.common-lisp.dev/\">https://ecl.common-lisp.dev/</a> powered by <a href=\"https://emscripten.org/\">https://emscripten.org/</a>";
+            div.innerHTML = "running on <a href=\"https://ecl.common-lisp.dev/\" target=\"_top\">https://ecl.common-lisp.dev/</a> powered by <a href=\"https://emscripten.org/\" target=\"_top\">https://emscripten.org/</a>";
             outputElement.appendChild(div);
 
             Module.print("print :help for help.\n\n");
@@ -75,9 +76,9 @@ var Module = {
             }
 
             function resizeInput() {
-                inputElement.style.height = '';
-                inputElement.style.height = inputElement.scrollHeight +'px'
-                footerElement.scrollIntoView();
+                inputElement.style.height = "";
+                inputElement.style.height = inputElement.scrollHeight +"px"
+                footerElement.scrollIntoView({block: "nearest"});
             }
 
             inputElement.addEventListener("input", (e) => {
@@ -145,12 +146,12 @@ var Module = {
     },
 };
 window.onerror = (event) => {
-    var statusElement = document.getElementById('status');
-    var spinnerElement = document.getElementById('spinner');
-    Module.setStatus('Exception thrown, see JavaScript console');
-    statusElement.style.display = 'block';
-    spinnerElement.style.display = 'none';
+    var statusElement = document.getElementById("status");
+    var spinnerElement = document.getElementById("spinner");
+    Module.setStatus("Exception thrown, see JavaScript console");
+    statusElement.style.display = "block";
+    spinnerElement.style.display = "none";
     Module.setStatus = (text) => {
-        if (text) console.error('[post-exception status] ' + text);
+        if (text) console.error("[post-exception status] " + text);
     };
 };
