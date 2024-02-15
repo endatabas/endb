@@ -1,59 +1,37 @@
-var Module = {
+/* eslint-env browser */
+
+let worker;
+const callbacks = {};
+
+let id = 0;
+function sendToWorker(method, params, cb) {
+    id++;
+    callbacks[id.toString()] = cb;
+    const message = {id: id.toString(), method, params};
+    worker.postMessage(message);
+}
+
+const spinnerElement = document.getElementById("spinner");
+const statusElement = document.getElementById("spinner");
+const inputElement = document.getElementById("input");
+const outputElement = document.getElementById("output");
+const footerElement = document.getElementById("footer");
+
+const EndbConsole = {
     print: (...text) => {
-        const outputElement = document.getElementById("output");
-        const footerElement = document.getElementById("footer");
         text = text.join(" ");
         console.log(text);
 
-        if (outputElement) {
-            const div = document.createElement("div");
-            div.innerText = text;
-            outputElement.appendChild(div);
-            footerElement.scrollIntoView({block: "nearest"});
-        }
-    },
-    canvas: {
-        addEventListener: () => {},
-        getBoundingClientRect: () => ({ bottom: 0, height: 0, left: 0, right: 0, top: 0, width: 0 }),
-    },
-    onCustomMessage: (e) => {
-        if (e.data.userData.id === "postRun") {
-            Module.postRun();
-        }
-    },
-    setStatus: (text) => {
-        const statusElement = document.getElementById("status");
-        statusElement.innerHTML = text;
+        const div = document.createElement("div");
+        div.innerText = text;
+        outputElement.appendChild(div);
+        footerElement.scrollIntoView({block: "nearest"});
     },
     postRun: () => {
-        const spinnerElement = document.getElementById("spinner");
-        const inputElement = document.getElementById("input");
-        const outputElement = document.getElementById("output");
-        const footerElement = document.getElementById("footer");
-
         spinnerElement.style.display = "none";
         inputElement.style.display = "block";
 
-        const callbacks = {};
-
-        Module.onCustomMessage = (e) => {
-            const id = e.data.userData.id;
-            const cb = callbacks[id];
-            delete callbacks[id];
-            if (cb) {
-                cb(e.data.userData);
-            }
-        };
-
-        let id = 0;
-        function send(method, params, cb) {
-            id++;
-            callbacks[id.toString()] = cb;
-            const message = {id: id.toString(), method, params};
-            window.postCustomMessage(message);
-        }
-
-        send("common_lisp_eval", [`
+        sendToWorker("common_lisp_eval", [`
 (progn
   (endb/lib:log-info "version ~A" (endb/lib:get-endb-version))
   (endb/lib:log-info "data directory :memory:")
@@ -64,11 +42,11 @@ var Module = {
                  div.innerHTML = "running on <a href=\"https://ecl.common-lisp.dev/\" target=\"_top\">https://ecl.common-lisp.dev/</a> powered by <a href=\"https://emscripten.org/\" target=\"_top\">https://emscripten.org/</a>";
                  outputElement.appendChild(div);
 
-                 Module.print("print :help for help.\n\n");
+                 EndbConsole.print("print :help for help.\n\n");
              });
 
         function executeSQL(sql) {
-            send("common_lisp_eval",[`
+            sendToWorker("common_lisp_eval",[`
 (let ((endb/json:*json-ld-scalars* nil))
   (endb/json:json-stringify
     (handler-case
@@ -79,10 +57,10 @@ var Module = {
             (fset:map ("result" result) ("resultCode" result-code))))
       (error (e)
         (fset:map ("error" (format nil "~A" e)))))))`],
-                 (e) => {
-                     let {result, resultCode, error} = JSON.parse(JSON.parse(e.result));
+                 (json) => {
+                     let {result, resultCode, error} = JSON.parse(JSON.parse(json));
                      if (error) {
-                         Module.print(error);
+                         EndbConsole.print(error);
                      } else {
                          if (!Array.isArray(resultCode)) {
                              result = [[resultCode]];
@@ -103,7 +81,7 @@ var Module = {
                          table.innerHTML = thead + tbody;
                          outputElement.appendChild(table);
                      }
-                     Module.print("\n");
+                     EndbConsole.print("\n");
                  });
         }
 
@@ -123,6 +101,11 @@ var Module = {
             resizeInput();
         });
 
+        function resetInput(text) {
+            inputElement.value = text;
+            resizeInput();
+        }
+
         let commandHistory = [];
         let commandHistoryIndex = -1;
 
@@ -133,29 +116,24 @@ var Module = {
             commandHistoryIndex = commandHistory.length;
         }
 
-        function resetInput(text) {
-            inputElement.value = text;
-            resizeInput();
-        }
-
         inputElement.addEventListener("keydown", (e) => {
             if (e.keyCode == 13 && inputElement.value.trim().startsWith(":")) {
                 let command = inputElement.value;
                 addToHistory(command);
                 resetInput("");
-                Module.print(command);
+                EndbConsole.print(command);
                 command = command.trim();
                 if (command === ":help") {
-                    Module.print("key bindings:\nC-a\tbeginning of line\nC-e\tend of line\nC-RET\tevaluate\nM-p\tprevious history\nM-n\tnext history\n\n");
+                    EndbConsole.print("key bindings:\nC-a\tbeginning of line\nC-e\tend of line\nC-RET\tevaluate\nM-p\tprevious history\nM-n\tnext history\n\n");
                 } else {
-                    Module.print(`unknown command ${command}\n\n`);
+                    EndbConsole.print(`unknown command ${command}\n\n`);
                 }
                 e.preventDefault();
             } else if (e.keyCode == 13 && (e.ctrlKey || inputElement.value.trim().endsWith(";"))) {
                 const sql = inputElement.value;
                 addToHistory(sql);
                 resetInput("");
-                Module.print(sql);
+                EndbConsole.print(sql);
                 executeSQL(sql);
                 e.preventDefault();
             } else if (e.ctrlKey) {
@@ -184,29 +162,31 @@ var Module = {
             }
         });
         setTimeout(() => inputElement.focus(), 0);
-    },
-};
+    }
+}
 
 window.addEventListener("error", () => {
-    const statusElement = document.getElementById("status");
-    const spinnerElement = document.getElementById("spinner");
-    Module.setStatus("Exception thrown, see JavaScript console");
+    statusElement.innerHTML = "Exception thrown, see JavaScript console";
     statusElement.style.display = "block";
     spinnerElement.style.display = "none";
-    Module.setStatus = (text) => {
-        if (text) {
-            console.error("[post-exception status]", text);
-        }
-    };
 });
 
-{
-    // Disable forwarding of key events to worker in
-    // https://github.com/emscripten-core/emscripten/blob/main/src/proxyClient.js
-    const realAddEventListener = document.addEventListener;
-    document.addEventListener = (event) => {
-        if (event === "visibilitychange") {
-            document.addEventListener = realAddEventListener;
+worker = new Worker("endb.js");
+worker.onmessage = (e) => {
+    const { id, method, params, result } = e.data;
+    if (method) {
+        const fn = EndbConsole[method];
+        if (fn) {
+            const result = fn.apply(null, params);
+            if (id) {
+                worker.postMessage({id, result});
+            }
+        }
+    } else if (id) {
+        const cb = callbacks[id];
+        delete callbacks[id];
+        if (cb) {
+            cb(result);
         }
     }
 }

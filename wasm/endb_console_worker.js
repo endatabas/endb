@@ -1,14 +1,18 @@
-/* global Module postCustomMessage */
+/* eslint-env worker */
+/* global Module */
 
-Module.onCustomMessage = (e) => {
-    const { id, method, params } = e.data.userData;
+onmessage = (e) => {
+    const { id, method, params } = e.data;
     if (method === "common_lisp_eval") {
         const result = Module.ccall("common_lisp_eval", "string", ["string"], params);
         if (id) {
-            postCustomMessage({ id, result });
+            postMessage({ id, result });
         }
     }
 };
+Module.print = (...text) => {
+    postMessage({method: "print", params: text})
+};
 Module.postRun = [() => {
-    postCustomMessage({id: "postRun"});
+    postMessage({method: "postRun", params: []});
 }];
