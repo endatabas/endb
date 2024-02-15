@@ -1,7 +1,8 @@
 # @endatabas/endb
 
-The official JavaScript client library for
+The official JavaScript and TypeScript client library for
 [Endatabas](https://www.endatabas.com/).
+Type declarations are provided for TypeScript.
 
 ## Requirements
 
