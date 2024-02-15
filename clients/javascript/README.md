@@ -74,7 +74,7 @@ window.EndbWebSocket = EndbWebSocket;
 ```javascript
 // in the endb_sample.html JavaScript console:
 var ews = new window.EndbWebSocket();
-ews.sql(`select * from ${table}`, {table: 'users'});
+ews.sql('select * from users');
 ```
 
 ## Copyright and License
