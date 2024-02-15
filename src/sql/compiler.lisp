@@ -1102,6 +1102,8 @@
               projection))))
 
 (defun %object-ast-keys (ctx object &key (require-literal-p t))
+  (when (eq :parameter (first object))
+    (error 'endb/sql/expr:sql-runtime-error :message "All OBJECTS must have literal keys"))
   (loop for (k v) in (second object)
         for x = (cond
                   ((and (symbolp k)

@@ -311,6 +311,10 @@
         "Column names needs to contain the on conflict columns"
       (execute-sql write-db "INSERT INTO t2(a) VALUES (1) ON CONFLICT (b) DO NOTHING"))
 
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "All OBJECTS must have literal keys"
+      (execute-sql write-db "INSERT INTO t2 ? ON CONFLICT (a) DO NOTHING" (fset:seq (fset:map ("b" 1)))))
+
     (multiple-value-bind (result result-code)
         (execute-sql write-db "UPDATE t2 SET c = 5 UNSET $.a WHERE b = 3")
       (is (null result))
@@ -832,6 +836,20 @@ SELECT s FROM x WHERE ind=0")
       (multiple-value-bind (result result-code)
           (execute-sql write-db "INSERT INTO foo OBJECTS ?" (fset:seq (fset:seq (fset:map ("x" 1) ("y" 3)))
                                                                       (fset:seq (fset:map ("x" 2) ("y" 4))))
+                       t)
+        (is (null result))
+        (is (= 2 result-code)))
+
+
+      (multiple-value-bind (result columns)
+          (execute-sql write-db "SELECT * FROM foo ORDER BY x")
+        (is (equalp '(#(1 3) #(2 4)) result))
+        (is (equal '("x" "y") columns))))
+
+    (let ((write-db (begin-write-tx db)))
+      (multiple-value-bind (result result-code)
+          (execute-sql write-db "INSERT INTO foo ?" (fset:seq (fset:seq (fset:map ("x" 1) ("y" 3)))
+                                                              (fset:seq (fset:map ("x" 2) ("y" 4))))
                        t)
         (is (null result))
         (is (= 2 result-code)))
@@ -1642,6 +1660,22 @@ SELECT s FROM x WHERE ind=0")
     (signals-with-msg endb/sql/expr:sql-runtime-error
         "All OBJECTS must have literal keys"
       (execute-sql db "OBJECTS {a: 1}, {[2 + 2]: 2}"))
+
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "All OBJECTS must have literal keys"
+      (execute-sql db "OBJECTS ?" (fset:seq (fset:map ("a" 1)))))
+
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "All OBJECTS must have literal keys"
+      (execute-sql db "OBJECTS ?" (fset:seq 1)))
+
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "All OBJECTS must have literal keys"
+      (execute-sql db "?" (fset:seq (fset:map ("a" 1)))))
+
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "All OBJECTS must have literal keys"
+      (execute-sql db "SELECT * FROM (?) AS foo" (fset:seq (fset:map ("a" 1)))))
 
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT x.* FROM (OBJECTS {a: 1}, {a: 3,  b: 2}) AS x ORDER BY a")
