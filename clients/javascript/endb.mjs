@@ -162,6 +162,9 @@ class EndbWebSocket {
         this.pendingMessages = [];
     }
 
+    /**
+     * Close the WebSocket connection
+     */
     close() {
         if (this.conn !== null) {
             this.conn.close();
@@ -173,7 +176,6 @@ class EndbWebSocket {
      * @param {string} q - SQL query as string or Template Literal
      * @param {Array|Object} [p] - Positional parameters, named parameters, or an array of either
      * @param {boolean} [m] - many parameters flag
-     * @param {string} [accept] - Accept Header content type
      * @returns {Promise<Array>} - Array of documents
      * @example
      * // Simple query
