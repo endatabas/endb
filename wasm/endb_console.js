@@ -12,6 +12,15 @@ var Module = {
             footerElement.scrollIntoView({block: "nearest"});
         }
     },
+    canvas: {
+        addEventListener: () => {},
+        getBoundingClientRect: () => ({ bottom: 0, height: 0, left: 0, right: 0, top: 0, width: 0 }),
+    },
+    onCustomMessage: (e) => {
+        if (e.data.userData.id === "postRun") {
+            Module.postRun();
+        }
+    },
     setStatus: (text) => {
         const statusElement = document.getElementById("status");
         statusElement.innerHTML = text;
@@ -25,21 +34,41 @@ var Module = {
         spinnerElement.style.display = "none";
         inputElement.style.display = "block";
 
-        Module.common_lisp_eval = Module.cwrap("common_lisp_eval", "string", ["string"]);
+        const callbacks = {};
 
-        Module.common_lisp_eval("(endb/lib:log-info \"version ~A\" (endb/lib:get-endb-version))");
-        Module.common_lisp_eval("(endb/lib:log-info \"data directory :memory:\")");
-        Module.common_lisp_eval("(defvar *db* (endb/sql:make-db))");
+        Module.onCustomMessage = (e) => {
+            const id = e.data.userData.id;
+            const cb = callbacks[id];
+            delete callbacks[id];
+            if (cb) {
+                cb(e.data.userData);
+            }
+        };
 
-        console.log("running on https://ecl.common-lisp.dev/ powered by https://emscripten.org/")
-        const div = document.createElement("div");
-        div.innerHTML = "running on <a href=\"https://ecl.common-lisp.dev/\" target=\"_top\">https://ecl.common-lisp.dev/</a> powered by <a href=\"https://emscripten.org/\" target=\"_top\">https://emscripten.org/</a>";
-        outputElement.appendChild(div);
+        let id = 0;
+        function send(method, params, cb) {
+            id++;
+            callbacks[id.toString()] = cb;
+            const message = {id: id.toString(), method, params};
+            window.postCustomMessage(message);
+        }
 
-        Module.print("print :help for help.\n\n");
+        send("common_lisp_eval", [`
+(progn
+  (endb/lib:log-info "version ~A" (endb/lib:get-endb-version))
+  (endb/lib:log-info "data directory :memory:")
+  (defvar *db* (endb/sql:make-db)))`],
+             () => {
+                 console.log("running on https://ecl.common-lisp.dev/ powered by https://emscripten.org/")
+                 const div = document.createElement("div");
+                 div.innerHTML = "running on <a href=\"https://ecl.common-lisp.dev/\" target=\"_top\">https://ecl.common-lisp.dev/</a> powered by <a href=\"https://emscripten.org/\" target=\"_top\">https://emscripten.org/</a>";
+                 outputElement.appendChild(div);
 
-        Module.sql = (sql) => {
-            const json = Module.common_lisp_eval(`
+                 Module.print("print :help for help.\n\n");
+             });
+
+        function executeSQL(sql) {
+            send("common_lisp_eval",[`
 (let ((endb/json:*json-ld-scalars* nil))
   (endb/json:json-stringify
     (handler-case
@@ -49,31 +78,33 @@ var Module = {
             (setf *db* (endb/sql:commit-write-tx *db* write-db))
             (fset:map ("result" result) ("resultCode" result-code))))
       (error (e)
-        (fset:map ("error" (format nil "~A" e)))))))`);
-            let {result, resultCode, error} = JSON.parse(JSON.parse(json));
-            if (error) {
-                Module.print(error);
-            } else {
-                if (!Array.isArray(resultCode)) {
-                    result = [[resultCode]];
-                    resultCode = ["result"];
-                }
+        (fset:map ("error" (format nil "~A" e)))))))`],
+                 (e) => {
+                     let {result, resultCode, error} = JSON.parse(JSON.parse(e.result));
+                     if (error) {
+                         Module.print(error);
+                     } else {
+                         if (!Array.isArray(resultCode)) {
+                             result = [[resultCode]];
+                             resultCode = ["result"];
+                         }
 
-                console.log(resultCode.join("\t\t"));
-                result.forEach((row) => {
-                    console.log(row.map((col) => JSON.stringify(col)).join("\t\t"));
-                });
+                         console.log(resultCode.join("\t\t"));
+                         result.forEach((row) => {
+                             console.log(row.map((col) => JSON.stringify(col)).join("\t\t"));
+                         });
 
-                const thead = "<thead><tr>" + resultCode.map((col) => "<th>" + col + "</th>").join("") + "</tr></thead>";
-                const tbody = "<tbody>" + result.map((row) => {
-                    return "<tr>" + row.map((col) => "<td>" + JSON.stringify(col) + "</td>").join("") + "</tr>";
-                }).join("") + "</tbody>";
+                         const thead = "<thead><tr>" + resultCode.map((col) => "<th>" + col + "</th>").join("") + "</tr></thead>";
+                         const tbody = "<tbody>" + result.map((row) => {
+                             return "<tr>" + row.map((col) => "<td>" + JSON.stringify(col) + "</td>").join("") + "</tr>";
+                         }).join("") + "</tbody>";
 
-                const table = document.createElement("table");
-                table.innerHTML = thead + tbody;
-                outputElement.appendChild(table);
-            }
-            Module.print("\n");
+                         const table = document.createElement("table");
+                         table.innerHTML = thead + tbody;
+                         outputElement.appendChild(table);
+                     }
+                     Module.print("\n");
+                 });
         }
 
         function resizeInput() {
@@ -125,7 +156,7 @@ var Module = {
                 addToHistory(sql);
                 resetInput("");
                 Module.print(sql);
-                Module.sql(sql);
+                executeSQL(sql);
                 e.preventDefault();
             } else if (e.ctrlKey) {
                 if (e.keyCode == 65) {
@@ -142,11 +173,13 @@ var Module = {
                         commandHistoryIndex++;
                         resetInput(commandHistory[commandHistoryIndex] ?? "");
                     }
+                    e.preventDefault();
                 } else if (e.keyCode == 80) {
                     if (commandHistoryIndex > 0) {
                         commandHistoryIndex--;
                         resetInput(commandHistory[commandHistoryIndex] ?? "");
                     }
+                    e.preventDefault();
                 }
             }
         });
@@ -161,6 +194,19 @@ window.addEventListener("error", () => {
     statusElement.style.display = "block";
     spinnerElement.style.display = "none";
     Module.setStatus = (text) => {
-        if (text) console.error("[post-exception status] " + text);
+        if (text) {
+            console.error("[post-exception status]", text);
+        }
     };
 });
+
+{
+    // Disable forwarding of key events to worker in
+    // https://github.com/emscripten-core/emscripten/blob/main/src/proxyClient.js
+    const realAddEventListener = document.addEventListener;
+    document.addEventListener = (event) => {
+        if (event === "visibilitychange") {
+            document.addEventListener = realAddEventListener;
+        }
+    }
+}

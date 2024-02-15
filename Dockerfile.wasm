@@ -91,8 +91,10 @@ RUN emcc -O3 -Demscripten \
     -sSTACK_SIZE=1048576 \
     -sALLOW_MEMORY_GROWTH \
     -sEXPORTED_FUNCTIONS=_main,_common_lisp_eval \
-    -sEXPORTED_RUNTIME_METHODS=ccall,cwrap \
+    -sEXPORTED_RUNTIME_METHODS=ccall \
     -sMALLOC=emmalloc \
+    --proxy-to-worker \
+    --pre-js wasm/endb_console_worker.js \
     --preload-file root
 
 EXPOSE 8888
