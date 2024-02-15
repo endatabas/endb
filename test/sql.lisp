@@ -629,7 +629,6 @@ SELECT substr('..........',1,level*3) || name FROM under_alice ORDER BY under_al
                     result))
         (is (equal '("column1") columns))))
 
-    #-ecl
     (multiple-value-bind (result columns)
         (execute-sql db
                      "WITH RECURSIVE
@@ -639,14 +638,14 @@ SELECT substr('..........',1,level*3) || name FROM under_alice ORDER BY under_al
         SELECT 0, x, y, 0.0, 0.0 FROM xaxis, yaxis
         UNION ALL
         SELECT iter+1, cx, cy, x*x-y*y + cx, 2.0*x*y + cy FROM m
-         WHERE (x*x + y*y) < 4.0 AND iter<28
+         WHERE (x*x + y*y) < 4.0 AND iter<28 ORDER BY cx, cy
       ),
       m2(iter, cx, cy) AS (
-        SELECT max(iter), cx, cy FROM m GROUP BY cx, cy
+        SELECT max(iter), cx, cy FROM m GROUP BY cx, cy ORDER BY cx, cy
       ),
       a(t) AS (
         SELECT group_concat( substr(' .+*#', 1+min(iter/7,4), 1), '')
-        FROM m2 GROUP BY cy
+        FROM m2 GROUP BY cy ORDER BY cy DESC
       )
     SELECT group_concat(rtrim(t),x'0a') FROM a")
       (is (equalp '(#(
@@ -1378,9 +1377,9 @@ SELECT s FROM x WHERE ind=0")
       (is (equal '("column1") columns)))
 
     (multiple-value-bind (result columns)
-        (execute-sql db "SELECT OBJECT_AGG(x.column1, x.column2) FROM (VALUES ('foo', 1), ('baz', 1), ('bar', 2)) AS x GROUP BY x.column2")
-      (is (equalp `(#(,(fset:map ("bar" 2)))
-                     #(,(fset:map ("baz" 1) ("foo" 1))))
+        (execute-sql db "SELECT OBJECT_AGG(x.column1, x.column2) FROM (VALUES ('foo', 1), ('baz', 1), ('bar', 2)) AS x GROUP BY x.column2 ORDER BY x.column2")
+      (is (equalp `(#(,(fset:map ("baz" 1) ("foo" 1)))
+                     #(,(fset:map ("bar" 2))))
                   result))
       (is (equal '("column1") columns)))
 
@@ -2138,7 +2137,6 @@ SELECT s FROM x WHERE ind=0")
                                         ("end" endb/sql/expr:+end-of-time+))))
                 (execute-sql db "SELECT s.name, s.system_time, p.system_time FROM sales s JOIN products p ON s.name = p.name WHERE p.name = 'Mangoes'")))))
 
-#-ecl
 (test join-bug-multiple-variables-with-type-widening
   (let* ((db (make-db)))
     (is (equalp `(#(2 ,(endb/arrow:parse-arrow-date-millis "2001-01-01") 2.0 ,(endb/arrow:parse-arrow-timestamp-micros "2001-01-01")))

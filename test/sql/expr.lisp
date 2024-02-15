@@ -120,32 +120,26 @@
   (is (not (sql-is (endb/arrow:parse-arrow-date-millis "2001-01-01")
                    (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00"))))
 
-  #-ecl
   (is (= (equalp-case-sensitive-hash-fn (endb/arrow:parse-arrow-date-millis "2001-01-01"))
          (equalp-case-sensitive-hash-fn (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00"))))
 
-  #-ecl
   (is (= (equalp-case-sensitive-hash-fn (vector (endb/arrow:parse-arrow-date-millis "2001-01-01")))
          (equalp-case-sensitive-hash-fn (vector (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00")))))
 
-  #-ecl
   (is (not (= (equalp-case-sensitive-hash-fn (fset:seq (endb/arrow:parse-arrow-date-millis "2001-01-01")))
               (equalp-case-sensitive-hash-fn (fset:seq (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00"))))))
 
-  #-ecl
   (let ((ht (make-sql-hash-table)))
     (setf (gethash (endb/arrow:parse-arrow-date-millis "2001-01-01") ht) t)
     (is (gethash (endb/arrow:parse-arrow-date-millis "2001-01-01") ht))
     (is (gethash (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00") ht)))
 
-  #-ecl
   (let ((ht (make-sql-hash-table)))
     (setf (gethash (vector (endb/arrow:parse-arrow-date-millis "2001-01-01")) ht) t)
     (is (gethash (vector (endb/arrow:parse-arrow-date-millis "2001-01-01")) ht))
     (is (not (gethash (vector (endb/arrow:parse-arrow-date-millis "2001-01-02")) ht)))
     (is (gethash (vector (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00")) ht)))
 
-  #-ecl
   (let ((ht (make-sql-hash-table)))
     (setf (gethash (vector (endb/arrow:parse-arrow-date-millis "2001-01-01") 2) ht) t)
     (is (gethash (vector (endb/arrow:parse-arrow-date-millis "2001-01-01") 2) ht))
@@ -154,7 +148,6 @@
     (is (gethash (vector (endb/arrow:parse-arrow-timestamp-micros "2001-01-01T00:00:00") 2.0d0) ht))
     (is (gethash (vector (endb/arrow:parse-arrow-date-millis "2001-01-01") 2.0d0) ht)))
 
-  #-ecl
   (let ((ht (make-sql-hash-table)))
     (setf (gethash (fset:seq (endb/arrow:parse-arrow-date-millis "2001-01-01")) ht) t)
     (is (gethash (fset:seq (endb/arrow:parse-arrow-date-millis "2001-01-01")) ht))
@@ -166,18 +159,14 @@
   (is (not (equal (ra-bloom-hashes (fset:seq 2)) (ra-bloom-hashes (fset:seq 2.0d0)))))
   (is (not (sql-is 2 2.0d0)))
 
-  #-ecl
   (is (= (equalp-case-sensitive-hash-fn 2) (equalp-case-sensitive-hash-fn 2.0d0)))
-  #-ecl
   (is (= (equalp-case-sensitive-hash-fn (fset:seq 2)) (equalp-case-sensitive-hash-fn (fset:seq 2.0d0))))
 
-  #-ecl
   (let ((ht (make-sql-hash-table)))
     (setf (gethash 2 ht) t)
     (is (gethash 2 ht))
     (is (gethash 2.0d0 ht)))
 
-  #-ecl
   (let ((ht (make-sql-hash-table)))
     (setf (gethash (fset:seq 2) ht) t)
     (is (gethash (fset:seq 2) ht))
@@ -186,7 +175,6 @@
   (is (equalp-case-sensitive "foo" "foo"))
   (is (not (equalp-case-sensitive "foo" "FOO")))
   (is (= (equalp-case-sensitive-hash-fn "foo") (equalp-case-sensitive-hash-fn "foo")))
-  #-ecl
   (is (= (equalp-case-sensitive-hash-fn "foo") (equalp-case-sensitive-hash-fn "FOO")))
 
   (let ((ht (make-sql-hash-table)))
@@ -194,7 +182,6 @@
     (is (gethash "foo" ht))
     (is (not (gethash "FOO" ht))))
 
-  #-ecl
   (let ((ht (make-sql-hash-table)))
     (setf (gethash (fset:seq "foo") ht) t)
     (is (gethash (fset:seq "foo") ht))
