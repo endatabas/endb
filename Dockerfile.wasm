@@ -31,6 +31,7 @@ RUN emconfigure ./configure \
             --with-cross-config=`pwd`/src/util/wasm32-unknown-emscripten.cross_config \
             --prefix=`pwd`/ecl-emscripten \
             --disable-shared \
+            --with-asdf=no \
             --with-tcp=no \
             --with-cmp=no
 
@@ -94,7 +95,7 @@ RUN emcc -O3 -Demscripten \
     -sEXPORTED_RUNTIME_METHODS=ccall \
     -sMALLOC=emmalloc \
     --pre-js wasm/endb_console_worker.js \
-    --preload-file root
+    --embed-file root
 
 EXPOSE 8888
 
