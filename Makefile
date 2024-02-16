@@ -204,23 +204,21 @@ sql-acid-test: target/endb
 		kill $$ENDB_PID
 
 TPCC_SF ?= 1
-TPCC_ARGS += --config=$(shell realpath target/tpcc_$(TPCC_SF).config) endb --stop-on-error --scalefactor $(TPCC_SF)
+TPCC_ARGS = --config=$(shell realpath target/tpcc_$(TPCC_SF).config) endb --stop-on-error --scalefactor $(TPCC_SF)
 
 target/tpcc_$(TPCC_SF).config:
 	./tpcc/tpcc.sh --print-config endb > $@
 
-target/tpcc_$(TPCC_SF)_data_load: TPCC_ARGS += -no-execute
 target/tpcc_$(TPCC_SF)_data_load: target/endb target/tpcc_$(TPCC_SF).config
 	ENDB_PID=$$(./$< -d $@ > target/tpcc_$(TPCC_SF)_load.log 2>&1 & echo $$!); \
-		./tpcc/tpcc.sh $(TPCC_ARGS); \
-		kill $$ENDB_PID
+		./tpcc/tpcc.sh $(TPCC_ARGS) --no-execute; \
+		kill $$ENDB_PID; sleep 3
 
-tpcc: TPCC_ARGS += --no-load
-tpcc:  target/endb target/tpcc_$(TPCC_SF)_data_load target/tpcc_$(TPCC_SF).config
+tpcc:  target/endb target/tpcc_$(TPCC_SF).config target/tpcc_$(TPCC_SF)_data_load
 	rm -rf target/tpcc_$(TPCC_SF)_data
 	cp -a target/tpcc_$(TPCC_SF)_data_load target/tpcc_$(TPCC_SF)_data
 	ENDB_PID=$$(./$< -d target/tpcc_$(TPCC_SF)_data > target/tpcc_$(TPCC_SF)_execute.log 2>&1 & echo $$!); sleep 3; \
-		./tpcc/tpcc.sh $(TPCC_ARGS); \
+		./tpcc/tpcc.sh $(TPCC_ARGS) --no-load; \
 		kill $$ENDB_PID
 
 docker:
