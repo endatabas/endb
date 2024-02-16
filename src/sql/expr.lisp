@@ -81,25 +81,28 @@
 
 #+ecl
 (defun equalp-case-sensitive-hash-fn (x)
-  (labels ((normalize (x &optional (nestedp nil))
-             (let ((x (typecase x
-                        (endb/arrow:arrow-date-millis
-                         (if nestedp
-                             x
-                             (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros x)))
-                        (string (string-downcase x))
-                        (integer (coerce x 'double-float))
-                        (fset:collection (if nestedp
-                                             x
-                                             (loop for x in (alexandria:flatten (fset:convert 'list x))
-                                                   collect (normalize x t))))
-                        (row-type (map 'list #'normalize x))
-                        (t x))))
-               (if (typep x 'structure-object)
-                   (string-downcase
-                    (with-output-to-string (out)
-                      (describe x out)))
-                   x))))
+  (labels ((flatten-struct (x)
+             (let ((c (class-of x)))
+               (loop for s in (clos:class-slots c)
+                     for k = (clos:slot-definition-name s)
+                     for v = (slot-value x k)
+                     when (eq :instance (clos:slot-definition-allocation s))
+                       append (list k (normalize v t)))))
+           (normalize (x &optional (nestedp nil))
+             (typecase x
+               (endb/arrow:arrow-date-millis
+                (flatten-struct
+                 (if nestedp
+                     x
+                     (endb/arrow:arrow-date-millis-to-arrow-timestamp-micros x))))
+               (fset:collection (loop for x in (alexandria:flatten (fset:convert 'list x))
+                                      collect (normalize x t)))
+               (structure-object (flatten-struct x))
+               (string (string-downcase x))
+               (integer (coerce x 'double-float))
+               (row-type (loop for x across x
+                               collect (normalize x nestedp)))
+               (t x))))
     (sxhash (normalize x))))
 
 #+sbcl (sb-impl::define-hash-table-test equalp-case-sensitive equalp-case-sensitive-hash-fn)
