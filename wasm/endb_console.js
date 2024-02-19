@@ -39,7 +39,7 @@ const EndbConsole = {
         inputElement.style.display = "block";
 
         await sendToWorker("common_lisp_eval", [`
-(progn
+(endb/lib:with-trace-span "startup"
   (endb/lib:log-info "version ~A" (endb/lib:get-endb-version))
   (endb/lib:log-info "data directory :memory:")
   (defvar *db* (endb/sql:make-db)))`]);
@@ -51,9 +51,17 @@ const EndbConsole = {
 
         EndbConsole.print("print :help for help.\n\n");
 
+        function escapeHTML(text) {
+            const textarea = document.createElement("textarea");
+            textarea.innerText = text;
+            return textarea.innerHTML;
+        }
+
         async function executeSQL(sql) {
             const json = await sendToWorker("common_lisp_eval", [`
-(let ((endb/json:*json-ld-scalars* nil))
+(let ((endb/json:*json-ld-scalars* nil)
+      (endb/lib/cst:*default-filename* "<console>")
+      (endb/lib/cst:*error-strip-ansi-escape-codes* nil))
   (endb/json:json-stringify
     (handler-case
         (let ((write-db (endb/sql:begin-write-tx *db*)))
@@ -65,7 +73,14 @@ const EndbConsole = {
         (fset:map ("error" (format nil "~A" e)))))))`]);
             let {result, resultCode, error} = JSON.parse(JSON.parse(json));
             if (error) {
-                EndbConsole.print(error);
+                const div = document.createElement("div");
+                error = escapeHTML(error);
+                error = error.replace(/\[(3\d(?:;\d+;\d+)?)m(.+?)\[0m/g, (match, p1, p2) => {
+                    return "<span class=\"ansi-" + p1.replaceAll(";", "-") + "\">" + p2 + "</span>";
+                });
+                div.innerHTML = error;
+                outputElement.appendChild(div);
+                console.log(div.innerText);
             } else {
                 if (!Array.isArray(resultCode)) {
                     result = [[resultCode]];
@@ -97,7 +112,7 @@ const EndbConsole = {
                         const tr = document.createElement("tr");
                         row.forEach((col) => {
                             const td = document.createElement("td");
-                            td.innerText = JSON.stringify(col);
+                            td.innerText = JSON.stringify(col, null, 2);
                             tr.appendChild(td);
                         });
                         tbody.appendChild(tr);

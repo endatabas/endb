@@ -1,6 +1,7 @@
 (defpackage :endb/lib/cst
   (:use :cl)
-  (:export  #:parse-sql-cst #:render-error-report #:cst->ast #:sql-parse-error #:*default-filename* #:parse-sql-ast #:sql-string-to-cl)
+  (:export  #:parse-sql-cst #:render-error-report #:cst->ast #:sql-parse-error #:*default-filename* #:parse-sql-ast #:sql-string-to-cl
+            #:*error-strip-ansi-escape-codes* #:*error-compact-vertical-space*)
   (:import-from :endb/lib)
   (:import-from :endb/json)
   (:import-from :alexandria)
@@ -46,13 +47,21 @@
                                         (#\u (code-char (parse-integer (subseq target-string (+ 2 match-start) (+ 6 match-start)) :radix 16))))))))
         s)))
 
-(defun strip-ansi-escape-codes (s)
-  (ppcre:regex-replace-all "\\[3\\d(?:;\\d+;\\d+)?m(.+?)\\[0m" s "\\1"))
+(defvar *error-strip-ansi-escape-codes* t)
+(defvar *error-compact-vertical-space* t)
+
+(defun %post-process-error-report (s)
+  (let ((s (if *error-compact-vertical-space*
+               (ppcre:regex-replace-all "(?m)^(:?\\[3\\d(?:;\\d+;\\d+)?m[ │]*\\[0m| )*\\n" s "")
+               s)))
+    (if *error-strip-ansi-escape-codes*
+      (ppcre:regex-replace-all "\\[3\\d(?:;\\d+;\\d+)?m(.+?)\\[0m" s "\\1")
+      s)))
 
 (define-condition sql-parse-error (error)
   ((message :initarg :message :reader sql-parse-error-message))
   (:report (lambda (condition stream)
-             (write (strip-ansi-escape-codes (sql-parse-error-message condition)) :stream stream))))
+             (write (%post-process-error-report (sql-parse-error-message condition)) :stream stream))))
 
 (defparameter +kw-cache+ (make-hash-table))
 (defparameter +literal-cache+ (make-hash-table))
@@ -157,7 +166,7 @@
                                    (cffi:callback render-json-error-report-on-error))
     (when err
       (error err))
-    (strip-ansi-escape-codes result)))
+    (%post-process-error-report result)))
 
 (defun cst->ast (cst)
   (labels ((strip-delimiters (delimiters xs)

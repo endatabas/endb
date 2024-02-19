@@ -407,8 +407,8 @@ fn parse_report_to_string(report: &ParseReport) -> Result<String, Box<dyn Error>
         ParseReportKind::Warning => ReportKind::Warning,
         ParseReportKind::Advice => ReportKind::Advice,
     };
-    let mut builder = Report::build(report_kind, filename.clone(), *pos)
-        .with_config(Config::default().with_compact(true));
+    let mut builder =
+        Report::build(report_kind, filename.clone(), *pos).with_config(Config::default());
 
     if let Some(code) = &report.code {
         builder = builder.with_code(code);

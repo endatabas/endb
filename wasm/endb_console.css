@@ -69,7 +69,7 @@ body {
     display: block;
     white-space: pre;
     font-family: 'Lucida Console', Monaco, monospace;
-    font-size: 2vw;
+    font-size: 1.5vw;
     text-shadow: 0px 2px 4px cornflowerblue;
     outline: none;
 }
@@ -100,4 +100,34 @@ body {
 .console #input:focus::placeholder {
     text-shadow: none;
     color: transparent;
+}
+
+.console .ansi-31 {
+    color: #800000;
+    text-shadow: none;
+}
+
+.console .ansi-34 {
+    color: #000080;
+    text-shadow: none;
+}
+
+.console .ansi-38-5-115 {
+    color: #87d7af;
+    text-shadow: none;
+}
+
+.console .ansi-38-5-240 {
+    color: #585858;
+    text-shadow: none;
+}
+
+.console .ansi-38-5-246 {
+    color: #949494;
+    text-shadow: none;
+}
+
+.console .ansi-38-5-249 {
+    color: #b2b2b2;
+    text-shadow: none;
 }
