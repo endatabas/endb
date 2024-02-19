@@ -45,8 +45,14 @@ const EndbConsole = {
   (defvar *db* (endb/sql:make-db)))`]);
 
         console.log("running on https://ecl.common-lisp.dev/ powered by https://emscripten.org/");
-        const div = document.createElement("div");
+        let div = document.createElement("div");
         div.innerHTML = "running on <a href=\"https://ecl.common-lisp.dev/\" target=\"_top\">https://ecl.common-lisp.dev/</a> powered by <a href=\"https://emscripten.org/\" target=\"_top\">https://emscripten.org/</a>";
+        outputElement.appendChild(div);
+        EndbConsole.print("\n");
+
+        console.log("tutorial at https://docs.endatabas.com/tutorial/sql_basics");
+        div = document.createElement("div");
+        div.innerHTML = "tutorial at <a href=\"https://docs.endatabas.com/tutorial/sql_basics\" target=\"_blank\">https://docs.endatabas.com/tutorial/sql_basics</a>";
         outputElement.appendChild(div);
 
         EndbConsole.print("print :help for help.\n\n");
@@ -68,7 +74,7 @@ const EndbConsole = {
           (multiple-value-bind (result result-code)
               (endb/sql:execute-sql write-db (endb/json:json-parse ${JSON.stringify(JSON.stringify(sql))}))
             (setf *db* (endb/sql:commit-write-tx *db* write-db))
-            (fset:map ("result" result) ("resultCode" result-code))))
+            (fset:map ("result" (or result (fset:empty-seq))) ("resultCode" result-code))))
       (error (e)
         (fset:map ("error" (format nil "~A" e)))))))`]);
             let {result, resultCode, error} = JSON.parse(JSON.parse(json));
