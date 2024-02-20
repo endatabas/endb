@@ -94,6 +94,10 @@ body {
     padding-right: 1em;
 }
 
+.console td.js-number {
+    text-align: right;
+}
+
 .console #input {
     display: none;
     resize: none;

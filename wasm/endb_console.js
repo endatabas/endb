@@ -1,4 +1,5 @@
 /* eslint-env browser */
+/* eslint no-control-regex: "off" */
 
 let worker;
 const sentMessages = {};
@@ -118,6 +119,7 @@ const EndbConsole = {
                         const tr = document.createElement("tr");
                         row.forEach((col) => {
                             const td = document.createElement("td");
+                            td.className = "js-" + typeof(col);
                             td.innerText = JSON.stringify(col, null, 2);
                             tr.appendChild(td);
                         });
