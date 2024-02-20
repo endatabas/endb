@@ -207,7 +207,7 @@ const EndbConsole = {
                 }
             }
         });
-        setTimeout(() => inputElement.focus(), 0);
+        inputElement.focus();
     }
 }
 
