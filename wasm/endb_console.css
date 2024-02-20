@@ -87,6 +87,10 @@ body {
     min-width: 8em;
     font-weight: normal;
     padding-left: 1em;
+    padding-right: 2em;
+}
+
+.console td {
     padding-right: 1em;
 }
 
