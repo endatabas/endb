@@ -98,16 +98,6 @@ body {
     text-align: right;
 }
 
-.console #input {
-    display: none;
-    resize: none;
-    background-color: #111;
-}
-
-.console #input:focus::placeholder {
-    color: transparent;
-}
-
 .console .ansi-31 {
     color: #800000;
 }
@@ -130,4 +120,16 @@ body {
 
 .console .ansi-38-5-249 {
     color: #b2b2b2;
+}
+
+.console #input {
+    display: none;
+    resize: none;
+    background-color: #111;
+}
+
+@media screen and (min-width:852px) {
+    .console #input:focus::placeholder {
+        color: transparent;
+    }
 }
