@@ -82,16 +82,16 @@ body {
     color: inherit;
 }
 
-.console th {
+.console thead tr {
     border-bottom: 2px solid white;
-    min-width: 8em;
-    font-weight: normal;
-    padding-left: 1em;
-    padding-right: 2em;
+}
+
+.console th {
+    padding: 0 1em;
 }
 
 .console td {
-    padding-right: 1em;
+    padding: 0 1em;
 }
 
 .console td.js-number {
