@@ -70,6 +70,7 @@ body {
     white-space: pre;
     font-family: 'Lucida Console', Monaco, monospace;
     font-size: 1.5vw;
+    text-indent: 1px; /* workaround for Safari iOS font-size rounding error */
     outline: none;
 }
 
