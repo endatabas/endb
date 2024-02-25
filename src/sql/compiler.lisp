@@ -1205,7 +1205,8 @@
                                       "Unknown table function" start (+ start (length (symbol-name fn)))))
         (let ((number-of-columns (ecase fn-sym
                                    (endb/sql/expr:sql-unnest (length args))
-                                   (endb/sql/expr:sql-generate_series 1))))
+                                   (endb/sql/expr:sql-generate_series 1)))
+              (ctx (fset:with ctx :inside-table-fn-p t)))
           (values `(endb/sql/expr:ra-table-function ,(ast->cl ctx table-function) :with-ordinality ,with-ordinality :number-of-columns ,number-of-columns)
                   (%values-projection (if with-ordinality
                                           (1+ number-of-columns)
@@ -1967,8 +1968,15 @@
             (%annotated-error-with-span (fset:lookup ctx :sql) (format nil "Unknown built-in function: ~A" fn)
                                         "Unknown built-in function" start (+ start (length (symbol-name fn))))
             (error 'endb/sql/expr:sql-runtime-error :message (format nil "Unknown built-in function: ~A" fn))))
-      (let ((args (loop for ast in args
-                        collect (ast->cl ctx ast))))
+      (when (and (member fn-sym endb/sql/expr:+table-functions+)
+                 (not (fset:lookup ctx :inside-table-fn-p)))
+        (if (and start end)
+            (%annotated-error-with-span (fset:lookup ctx :sql) (format nil "Cannot use table function outside FROM: ~A" fn)
+                                        "Cannot use table function outside FROM" start (+ start (length (symbol-name fn))))
+            (error 'endb/sql/expr:sql-runtime-error :message (format nil "Cannot use table function outside FROM: ~A" fn))))
+      (let* ((ctx (fset:less ctx :inside-table-fn-p))
+             (args (loop for ast in args
+                         collect (ast->cl ctx ast))))
         (if (and (not (member fn-sym endb/sql/expr:+impure-functions+))
                  (not (member fn-sym endb/sql/expr:+table-functions+))
                  (not (macro-function fn-sym))

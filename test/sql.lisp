@@ -201,6 +201,10 @@
         "Unknown built-in function: foo"
       (execute-sql db "SELECT foo(1) FROM t1"))
 
+    (signals-with-msg endb/sql/expr:sql-runtime-error
+        "Cannot use table function outside FROM: unnest"
+      (execute-sql db "SELECT unnest(1) FROM t1"))
+
     (multiple-value-bind (result columns)
         (execute-sql db "SELECT * FROM t1 ORDER BY b")
       (is (equalp '(#(101 104 :null) #(:null 105 nil)) result))
