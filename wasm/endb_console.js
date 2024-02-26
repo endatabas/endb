@@ -39,11 +39,7 @@ const EndbConsole = {
         spinnerElement.style.display = "none";
         inputElement.style.display = "block";
 
-        await sendToWorker("common_lisp_eval", [`
-(endb/lib:with-trace-span "startup"
-  (endb/lib:log-info "version ~A" (endb/lib:get-endb-version))
-  (endb/lib:log-info "data directory :memory:")
-  (defvar *db* (endb/sql:make-db)))`]);
+        await sendToWorker("common_lisp_eval", ["(defvar *dbms* (endb/core:endb-startup \":memory:\"))"]);
 
         console.log("running on https://ecl.common-lisp.dev/ powered by https://emscripten.org/");
         let div = document.createElement("div");
@@ -71,10 +67,10 @@ const EndbConsole = {
       (endb/lib/cst:*error-strip-ansi-escape-codes* nil))
   (endb/json:json-stringify
     (handler-case
-        (let ((write-db (endb/sql:begin-write-tx *db*)))
+        (let ((write-db (endb/sql:begin-write-tx (endb/sql/db:dbms-db *dbms*))))
           (multiple-value-bind (result result-code)
               (endb/sql:execute-sql write-db (endb/json:json-parse ${JSON.stringify(JSON.stringify(sql))}))
-            (setf *db* (endb/sql:commit-write-tx *db* write-db))
+            (setf (endb/sql/db:dbms-db *dbms*) (endb/sql:commit-write-tx (endb/sql/db:dbms-db *dbms*) write-db))
             (fset:map ("result" (or result (fset:empty-seq))) ("resultCode" result-code))))
       (error (e)
         (fset:map ("error" (format nil "~A" e)))))))`]);

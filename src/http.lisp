@@ -105,7 +105,8 @@
                           (funcall on-response-init +http-internal-server-error+ "text/plain")
                           (return-from endb-query
                             (funcall on-response-send (format nil "~A~%" e))))))
-    (let ((write-db (endb/sql:begin-write-tx (endb/sql/db:dbms-db dbms))))
+    (let ((endb/lib/cst:*default-filename* "<http>")
+          (write-db (endb/sql:begin-write-tx (endb/sql/db:dbms-db dbms))))
       (handler-case
           (let* ((original-md (endb/sql/db:db-meta-data write-db))
                  (original-parameters parameters)
@@ -239,7 +240,8 @@
                           (endb/lib:metric-monotonic-counter "websocket_message_internal_errors_total" 1)
                           (return-from endb-on-ws-message))))
     (unwind-protect
-         (let ((json-rpc-message (endb/json:json-parse message)))
+         (let ((endb/lib/cst:*default-filename* "<json-rpc>")
+               (json-rpc-message (endb/json:json-parse message)))
            (if (not (fset:map? json-rpc-message))
                (funcall on-ws-send (%json-rpc-error +json-rpc-invalid-request+ "Invalid Request"))
                (let* ((json-rpc-version (or (fset:lookup json-rpc-message "jsonrpc") :null))

@@ -1,6 +1,6 @@
 (defpackage :endb/core
   (:use :cl)
-  (:export #:main)
+  (:export #:main #:endb-startup #:endb-shutdown)
   #-wasm32 (:import-from :bordeaux-threads)
   (:import-from :fset)
   (:import-from :endb/sql/db)
@@ -12,14 +12,14 @@
   (:import-from :trivial-backtrace))
 (in-package :endb/core)
 
-(defun %endb-init (config)
+(defun endb-startup (data-directory)
   (endb/lib:with-trace-span "startup"
     (endb/lib:log-info "version ~A" (endb/lib:get-endb-version))
-    (endb/lib:log-info "data directory ~A" (fset:lookup config "data_directory"))
+    (endb/lib:log-info "data directory ~A" data-directory)
     (endb/sql:install-interrupt-query-handler)
-    (endb/sql:make-dbms :directory (fset:lookup config "data_directory"))))
+    (endb/sql:make-dbms :directory data-directory)))
 
-(defun %endb-close-dbms (dbms)
+(defun endb-shutdown (dbms)
   (endb/lib:with-trace-span "shutdown"
     (endb/lib:log-info "shutting down")
     (if #+thread-support (bt:acquire-lock (endb/sql/db:dbms-write-lock dbms) nil)
@@ -27,7 +27,8 @@
         (unwind-protect
              (endb/sql:dbms-close dbms)
           #+thread-support (bt:release-lock (endb/sql/db:dbms-write-lock dbms)))
-        (endb/lib:log-warn "could not close the database cleanly"))))
+        (endb/lib:log-warn "could not close the database cleanly")))
+  (endb/lib:shutdown-logger))
 
 (defun %endb-main ()
   (handler-bind ((#+sbcl sb-sys:interactive-interrupt
@@ -42,10 +43,10 @@
     (unwind-protect
          (endb/lib/server:start-tokio
           (lambda ()
-            (let ((dbms (%endb-init (endb/lib/server:parse-command-line))))
+            (let* ((data-directory (fset:lookup (endb/lib/server:parse-command-line) "data_directory"))
+                   (dbms (endb-startup data-directory)))
               (setf endb/lib:*panic-hook* (lambda ()
-                                            (%endb-close-dbms dbms)
-                                            (endb/lib:shutdown-logger)))
+                                            (endb-shutdown dbms)))
               (endb/lib/server:start-server dbms #'endb/http:endb-query #'endb/http:endb-on-ws-message))))
       (when endb/lib:*panic-hook*
         (funcall endb/lib:*panic-hook*)))))
