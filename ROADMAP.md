@@ -50,13 +50,15 @@
 * TPC-C
 * official clients
 * monitoring
+* vector functions / ops
+* Wasm Playground
+
+## 2024 Q2 / Q3 (tentative)
+
 * refine SQL dialect
     * better control of schema-on-read
     * consolidate path languages
     * etc.
-
-## 2024 Q2
-
 * cloud separation-of-storage-from-compute
 * multi-node kubernetes
     * serverless
