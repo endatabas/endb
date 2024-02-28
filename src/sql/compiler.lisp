@@ -553,6 +553,10 @@
                                  (,system-time-end-sym ,(ast->cl ctx (if (eq temporal-type :all)
                                                                          endb/sql/expr:+end-of-time+
                                                                          temporal-end))))))
+                       ,(when temporal-type-p
+                          `(endb/sql/expr:ra-check-system-time-type "start" ,system-time-start-sym))
+                       ,(when temporal-type-p
+                          `(endb/sql/expr:ra-check-system-time-type "end" ,system-time-end-sym))
                        (fset:do-map (,scan-arrow-file-sym ,arrow-file-md-sym ,table-md-sym)
                          (let ((,deleted-md-sym (fset:lookup ,arrow-file-md-sym "deleted"))
                                (,erased-md-sym (fset:lookup ,arrow-file-md-sym "erased"))

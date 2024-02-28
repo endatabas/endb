@@ -1316,7 +1316,15 @@ SELECT s FROM x WHERE ind=0")
 
         (signals-with-msg endb/sql/expr:sql-runtime-error
             "Cannot insert value into SYSTEM_TIME column"
-          (execute-sql write-db "INSERT INTO t1(a, b, system_time) VALUES(103, 104, {start: 2001-01-01, end: 2002-01-01})"))))))
+          (execute-sql write-db "INSERT INTO t1(a, b, system_time) VALUES(103, 104, {start: 2001-01-01, end: 2002-01-01})"))
+
+        (signals-with-msg endb/sql/expr:sql-runtime-error
+            "SYSTEM_TIME start must be a date or timestamp"
+          (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME AS OF ?" (fset:seq "foo")))
+
+        (signals-with-msg endb/sql/expr:sql-runtime-error
+            "SYSTEM_TIME end must be a date or timestamp"
+          (execute-sql db "SELECT * FROM t1 FOR SYSTEM_TIME BETWEEN ? AND ?" (fset:seq system-time-as-of-insert 2)))))))
 
 (test semi-structured
   (let* ((db (make-db)))

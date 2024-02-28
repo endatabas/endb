@@ -32,7 +32,7 @@
 
            #:ra-distinct #:ra-union-all #:ra-union #:ra-except #:ra-intersect #:ra-table-function
            #:ra-scalar-subquery #:ra-in  #:ra-in-query #:ra-in-query-index #:ra-exists #:ra-limit #:ra-order-by #:ra-compute-index-if-absent #:ra-visible-row-p
-           #:ra-bloom-hashes #:ra-hash-index #:ra-all-quantified-subquery #:ra-any-quantified-subquery
+           #:ra-bloom-hashes #:ra-hash-index #:ra-all-quantified-subquery #:ra-any-quantified-subquery #:ra-check-system-time-type
 
            #:make-agg #:agg-accumulate #:agg-finish
 
@@ -2255,6 +2255,10 @@
                           (vector-push-extend idx idxs)))
                       index))))))
             nil)))))
+
+(defun ra-check-system-time-type (field x)
+  (unless (typep x '(or endb/arrow:arrow-date-millis endb/arrow:arrow-timestamp-micros))
+    (error 'endb/sql/expr:sql-runtime-error :message (format nil "SYSTEM_TIME ~A must be a date or timestamp" field))))
 
 ;; Aggregates
 
