@@ -5,6 +5,8 @@
 [![Mastodon](https://img.shields.io/badge/-MASTODON-%232B90D9?style=for-the-badge&logo=mastodon&logoColor=white)](https://mastodon.social/@endatabas)
 [![YouTube](https://img.shields.io/badge/YouTube-%23FF0000.svg?style=for-the-badge&logo=YouTube&logoColor=white)](https://www.youtube.com/@endatabas)
 
+![NPM Version](https://img.shields.io/npm/v/@endatabas/endb)
+![PyPI Version](https://img.shields.io/pypi/v/endb)
 [![Build](https://github.com/endatabas/endb/actions/workflows/ci.yml/badge.svg)](https://github.com/endatabas/endb/actions/workflows/ci.yml)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 
@@ -14,7 +16,7 @@ For more information, please contact us at [hello@endatabas.com](mailto:hello@en
 
 ## Status
 
-Endatabas is **experimental software.**
+Endatabas is in Beta and is **experimental software.**
 Learn more by reading our [roadmap](ROADMAP.md).
 
 ## Installation
