@@ -2,7 +2,6 @@
 name = "endb_server"
 
 edition.workspace = true
-authors.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true

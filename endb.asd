@@ -1,5 +1,4 @@
 (defsystem "endb"
-  :author "Håkan Råberg <hakan.raberg@gmail.com>, Steven Deobald <steven@deobald.ca>"
   :license "AGPL-3.0-only"
   :description "Endatabas is a SQL document database with full history."
   :homepage "https://www.endatabas.com/"

@@ -1,5 +1,4 @@
 (defsystem "endb-slt"
-  :author "Håkan Råberg <hakan.raberg@gmail.com>, Steven Deobald <steven@deobald.ca>"
   :license "AGPL-3.0-only"
   :class :package-inferred-system
   :pathname "slt"
