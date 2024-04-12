@@ -27,6 +27,7 @@ Learn more by reading our [roadmap](ROADMAP.md).
 ## Documentation
 
 * [https://docs.endatabas.com/](https://docs.endatabas.com/) contains a tutorial, reference docs, and SQL language reference.
+* [ARCHITECTURE.md](ARCHITECTURE.md) contains a high-level overview of the implementation.
 
 ## Building
 
