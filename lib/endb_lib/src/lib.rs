@@ -363,12 +363,15 @@ pub extern "C" fn endb_metric_histogram(name: *const c_char, value: f64) {
 }
 
 #[cfg(feature = "server")]
+#[allow(dead_code)]
 pub struct endb_server_http_response(endb_server::HttpResponse);
 
 #[cfg(feature = "server")]
+#[allow(dead_code)]
 pub struct endb_server_http_sender(endb_server::HttpSender);
 
 #[cfg(feature = "server")]
+#[allow(dead_code)]
 pub struct endb_server_one_shot_sender(endb_server::OneShotSender);
 
 #[cfg(feature = "server")]
@@ -406,6 +409,7 @@ type endb_start_server_on_query_callback = extern "C" fn(
 );
 
 #[cfg(feature = "server")]
+#[allow(dead_code)]
 pub struct endb_server_http_websocket_stream(endb_server::HttpWebsocketStream);
 
 #[cfg(feature = "server")]

@@ -6,7 +6,7 @@ resolver = "2"
 edition = "2021"
 license = "AGPL-3.0-only"
 repository = "https://github.com/endatabas/endb"
-rust-version = "1.70.0"
+rust-version = "1.74.0"
 
 [workspace.dependencies]
 base64 = "0.21.5"
