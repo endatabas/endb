@@ -45,6 +45,8 @@ On MacOS:
 brew install sbcl
 ```
 
+_Note: SBCL 2.4.4 is currently the latest version that works due to an [issue](https://github.com/slburson/fset/pull/46) in fset._
+
 Initialise submodules:
 
 ```bash

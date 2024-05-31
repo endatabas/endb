@@ -1,4 +1,5 @@
 ARG RUST_OS=latest
+ARG SBCL_TAG=2.4.4
 ARG SBCL_OS=debian
 ARG ENDB_OS=debian
 ARG ENDB_GIT_DESCRIBE="<unknown revision>"
@@ -20,7 +21,7 @@ ENV ENDB_GIT_DESCRIBE=$ENDB_GIT_DESCRIBE
 
 RUN cargo test; cargo build --release
 
-FROM docker.io/fukamachi/sbcl:latest-$SBCL_OS AS sbcl-build-env
+FROM docker.io/fukamachi/sbcl:$SBCL_TAG-$SBCL_OS AS sbcl-build-env
 
 ARG SBCL_OS
 
