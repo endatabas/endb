@@ -1,8 +1,10 @@
 name: Build and Push Docker Nightly
 on:
-  schedule:
-    # 03:40 UTC, to avoid high loads at the day and hour boundary
-    - cron:  '40 3 * * *'
+  # nightly builds paused for now
+  push
+  # schedule:
+  #   # 03:40 UTC, to avoid high loads at the day and hour boundary
+  #   - cron:  '40 3 * * *'
 
 jobs:
   push_to_registry:
